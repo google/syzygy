@@ -85,8 +85,7 @@ void OnUploadProc(void* context,
 // reporter.
 class ChildProcess {
  public:
-  ChildProcess()
-      : client_process_id_(0), on_upload_invoked_(false) {
+  ChildProcess() : client_process_id_(0), on_upload_invoked_(false) {
     base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
     base::string16 client_process_id_string = base::ASCIIToUTF16(
         cmd_line->GetSwitchValueASCII(kClientProcessIdSwitch));
@@ -157,8 +156,9 @@ class ChildProcess {
   DISALLOW_COPY_AND_ASSIGN(ChildProcess);
 };
 
-// Uses two events to communicate with the client (parent) process. Expects to
-// receive a single invocation of SendDiagnosticReport.
+// Use an event to tell the client process that it is ready to serve requests.
+// Expects to receive a single invocation of SendReport followed by
+// the exit of the client process.
 // Verifies that kGlobalString is in the dump if and only if kExpectGlobalSwitch
 // is used.
 MULTIPROCESS_TEST_MAIN(WaitForClientInvocation) {
@@ -168,19 +168,19 @@ MULTIPROCESS_TEST_MAIN(WaitForClientInvocation) {
       base::string16 client_process_id_string =
           base::UintToString16(client_process_id());
 
-      // Create the events used for inter-process synchronization.
-      base::WaitableEvent exit_event(base::win::ScopedHandle(::CreateEvent(
-          NULL, FALSE, FALSE,
-          (kExitEventNamePrefix + client_process_id_string).c_str())));
+      base::Process client_process = base::Process::Open(client_process_id());
+      CHECK(client_process.IsValid());
+
+      // Tell the client process that we are active.
       base::WaitableEvent ready_event(base::win::ScopedHandle(::CreateEvent(
           NULL, FALSE, FALSE,
           (kReadyEventNamePrefix + client_process_id_string).c_str())));
-
-      // Tell the client process that we are active.
       ready_event.Signal();
 
-      // Wait until the client signals us to shut down.
-      exit_event.Wait();
+      // The client will exit when it has finished invoking
+      // SendReport.
+      int exit_code = 0;
+      CHECK(client_process.WaitForExit(&exit_code));
     }
 
     void OnComplete(
@@ -256,102 +256,103 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
   return 0;
 }
 
-// Initializes and shuts down the Kasko client, and provides a helper that
-// starts up, invokes, and tears down a reporter process.
-class TestClient {
- public:
-  TestClient()
-      : process_id_string_(base::UintToString16(base::GetCurrentProcId())),
-        ready_event_(base::win::ScopedHandle(::CreateEvent(
-            nullptr,
-            false,
-            false,
-            (kReadyEventNamePrefix + process_id_string_).c_str()))),
-        exit_event_(base::win::ScopedHandle(::CreateEvent(
-            nullptr,
-            false,
-            false,
-            (kExitEventNamePrefix + process_id_string_).c_str()))) {
-    // Initialize the Client process.
-    InitializeClient((kEndpointPrefix + process_id_string_).c_str());
-  }
+MemoryRange GetMemoryRange() {
+  MemoryRange memory_range = {reinterpret_cast<const void*>(kGlobalString),
+                              sizeof(kGlobalString)};
+  return memory_range;
+}
 
-  ~TestClient() { ShutdownClient(); }
+// Waits for the reporter process to signal readiness, invokes SendReport, then
+// exits.
+MULTIPROCESS_TEST_MAIN(ClientProcess) {
+  base::WaitableEvent ready_event(base::win::ScopedHandle(::CreateEvent(
+      nullptr, false, false,
+      (kReadyEventNamePrefix + base::UintToString16(base::GetCurrentProcId()))
+          .c_str())));
+  ready_event.Wait();
+  // Initialize the Client process.
+  InitializeClient(
+      (kEndpointPrefix + base::UintToString16(base::GetCurrentProcId()))
+          .c_str());
 
-  // Starts a reporter process, invokes SendDiagnosticReport, and then tears
-  // down the reporter process. If |request_memory_range| is true, inclusion of
-  // kGlobalString will be requested (and verified).
-  void DoInvokeSendReport(bool request_memory_range) {
-    // Start building the Reporter process command line.
-    base::CommandLine reporter_command_line =
-        base::GetMultiProcessTestChildBaseCommandLine();
-    reporter_command_line.AppendSwitchASCII(switches::kTestChildProcess,
-                                            "WaitForClientInvocation");
+  // Send up a crash report.
+  CONTEXT ctx = {};
+  ::RtlCaptureContext(&ctx);
+  EXCEPTION_RECORD exc_rec = {};
+  exc_rec.ExceptionAddress = reinterpret_cast<void*>(ctx.Eip);
+  exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
+  EXCEPTION_POINTERS exc_ptrs = {&exc_rec, &ctx};
 
-    // Pass the client process ID, used to share event and RPC endpoint names.
-    reporter_command_line.AppendSwitchASCII(
-        kClientProcessIdSwitch, base::UTF16ToASCII(process_id_string_));
+  CrashKey crash_keys[] = {{L"hello", L"world"}, {L"", L"bar"}};
 
-    if (request_memory_range)
-      reporter_command_line.AppendSwitch(kExpectGlobalSwitch);
+  std::vector<MemoryRange> memory_ranges;
+  // GetMemoryRange is extracted to prevent kGlobalString from unintentionally
+  // being on the stack and potentially being included for that reason.
+  if (base::CommandLine::ForCurrentProcess()->HasSwitch(kExpectGlobalSwitch))
+    memory_ranges.push_back(GetMemoryRange());
 
-    // Launch the Reporter process and wait until it is fully initialized.
-    base::Process reporter_process =
-        base::LaunchProcess(reporter_command_line, base::LaunchOptions());
-    ASSERT_TRUE(reporter_process.IsValid());
-    // Make sure that we terminate the reporter process, even if we ASSERT out
-    // of here.
-    base::ScopedClosureRunner terminate_reporter_process(
-        base::Bind(base::IgnoreResult(&base::Process::Terminate),
-                   base::Unretained(&reporter_process), 0, true));
+  SendReport(&exc_ptrs, SMALL_DUMP_TYPE, NULL, 0, crash_keys,
+             arraysize(crash_keys), memory_ranges.data(), memory_ranges.size());
 
-    ready_event_.Wait();
+  ShutdownClient();
+  return 0;
+}
 
-    // Send up a crash report.
-    CONTEXT ctx = {};
-    ::RtlCaptureContext(&ctx);
-    EXCEPTION_RECORD exc_rec = {};
-    exc_rec.ExceptionAddress = reinterpret_cast<void*>(ctx.Eip);
-    exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
-    EXCEPTION_POINTERS exc_ptrs = {&exc_rec, &ctx};
+// Starts up child client and reporter processes. The client will request a
+// report, and the reporter will generate, upload, and then verify the report.
+// If |request_memory_range| is true, inclusion of kGlobalString will be
+// requested (and verified).
+void DoInvokeSendReport(bool request_memory_range) {
+  // Start building the Client process command line.
+  base::CommandLine client_command_line =
+      base::GetMultiProcessTestChildBaseCommandLine();
+  client_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                        "ClientProcess");
+  if (request_memory_range)
+    client_command_line.AppendSwitch(kExpectGlobalSwitch);
+  // Launch the Client process.
+  base::Process client_process =
+      base::LaunchProcess(client_command_line, base::LaunchOptions());
+  ASSERT_TRUE(client_process.IsValid());
+  // Make sure that we terminate the client process, even if we ASSERT out of
+  // here.
+  base::ScopedClosureRunner terminate_client_process(
+      base::Bind(base::IgnoreResult(&base::Process::Terminate),
+                 base::Unretained(&client_process), 0, true));
 
-    CrashKey crash_keys[] = {{L"hello", L"world"}, {L"", L"bar"}};
+  // Start building the Reporter process command line.
+  base::CommandLine reporter_command_line =
+      base::GetMultiProcessTestChildBaseCommandLine();
+  reporter_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                          "WaitForClientInvocation");
 
-    std::vector<MemoryRange> memory_ranges;
-    // GetMemoryRange is extracted to prevent kGlobalString from unintentionally
-    // being on the stack and potentially being included for that reason.
-    if (request_memory_range)
-      memory_ranges.push_back(GetMemoryRange());
+  // Pass the client process ID, used to share event and RPC endpoint names.
+  reporter_command_line.AppendSwitchASCII(
+      kClientProcessIdSwitch, base::UintToString(client_process.Pid()));
 
-    SendReport(&exc_ptrs, SMALL_DUMP_TYPE, NULL, 0, crash_keys,
-               arraysize(crash_keys), memory_ranges.data(),
-               memory_ranges.size());
+  if (request_memory_range)
+    reporter_command_line.AppendSwitch(kExpectGlobalSwitch);
 
-    // Tell the reporter process it may exit.
-    exit_event_.Signal();
+  // Launch the Reporter process and wait until it is fully initialized.
+  base::Process reporter_process =
+      base::LaunchProcess(reporter_command_line, base::LaunchOptions());
+  ASSERT_TRUE(reporter_process.IsValid());
+  // Make sure that we terminate the reporter process, even if we ASSERT out of
+  // here.
+  base::ScopedClosureRunner terminate_reporter_process(
+      base::Bind(base::IgnoreResult(&base::Process::Terminate),
+                 base::Unretained(&reporter_process), 0, true));
 
-    // The reporter process will exit after successfully uploading the generated
-    // report and verifying its contents.
+  // The client will wait for the reporter to signal a "ready" event.
+  // The client will then invoke SendReport and exit.
+  // The reporter process will exit after the generated report has been uploaded
+  // and its contents verified.
 
-    // Wait for the reporter process to exit and verify its status code.
-    int exit_code = 0;
-    reporter_process.WaitForExit(&exit_code);
-    ASSERT_EQ(0, exit_code);
-  }
-
- private:
-  MemoryRange GetMemoryRange() {
-    MemoryRange memory_range = {reinterpret_cast<const void*>(kGlobalString),
-                                sizeof(kGlobalString)};
-    return memory_range;
-  }
-
-  base::string16 process_id_string_;
-  base::WaitableEvent ready_event_;
-  base::WaitableEvent exit_event_;
-
-  DISALLOW_COPY_AND_ASSIGN(TestClient);
-};
+  // Wait for the reporter process to exit and verify its status code.
+  int exit_code = 0;
+  reporter_process.WaitForExit(&exit_code);
+  ASSERT_EQ(0, exit_code);
+}
 
 }  // namespace
 
@@ -363,24 +364,51 @@ TEST(ApiTest, ExportedConstants) {
       kasko::api::kPermanentFailureMinidumpExtension);
 }
 
-TEST(ApiTest, ClientTests) {
-  // TODO(erikwright): For now it is impossible to initialize/shutdown the
-  // client or reporter twice in the same process. This is because internally,
-  // it will spin up and down the AtExitManager, causing singletons to be
-  // destroyed (as expected) during shutdown. But base::Singleton does not fully
-  // reset its state during the AtExit callback, and as such the second spin-up
-  // crashes.
-  // Thus, all tests that require InitializeClient to be called must be done in
-  // this single test suite, with a single TestClient instance.
+TEST(ApiTest, SendReport) {
+  DoInvokeSendReport(false);  // Without explicit memory ranges.
+  DoInvokeSendReport(true);   // With explicit memory ranges.
+}
 
-  TestClient test_client;
-  test_client.DoInvokeSendReport(false);
-  test_client.DoInvokeSendReport(true);
-
+// Signals when it is done registering crash keys and then sleeps indefinitely.
+// The parent process is responsible for terminating this child after
+// SendReportForProcess has successfully been invoked on it.
+MULTIPROCESS_TEST_MAIN(RegisterCrashKeysClient) {
   CrashKey crash_keys[] = {
       {L"largest", L"Jupiter"}, {L"inhabitable", L"Earth"}, {L"", L""}};
 
   RegisterCrashKeys(crash_keys, arraysize(crash_keys));
+
+  base::WaitableEvent ready_event(base::win::ScopedHandle(::CreateEvent(
+      nullptr, false, false,
+      (kReadyEventNamePrefix + base::UintToString16(base::GetCurrentProcId()))
+          .c_str())));
+  ready_event.Signal();
+  ::Sleep(INFINITE);
+  return 0;
+}
+
+TEST(ApiTest, CrashKeyRegistrationTest) {
+  base::CommandLine client_command_line =
+      base::GetMultiProcessTestChildBaseCommandLine();
+  client_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                        "RegisterCrashKeysClient");
+
+  // Launch the Client process.
+  base::Process client_process =
+      base::LaunchProcess(client_command_line, base::LaunchOptions());
+  ASSERT_TRUE(client_process.IsValid());
+  // Make sure that we terminate the client process, even if we ASSERT out of
+  // here.
+  base::ScopedClosureRunner terminate_client_process(
+      base::Bind(base::IgnoreResult(&base::Process::Terminate),
+                 base::Unretained(&client_process), 0, true));
+
+  // Wait for the child to be initialized.
+  base::WaitableEvent child_ready_event(base::win::ScopedHandle(::CreateEvent(
+      nullptr, false, false,
+      (kReadyEventNamePrefix + base::UintToString16(client_process.Pid()))
+          .c_str())));
+  child_ready_event.Wait();
 
   // Launch a Reporter process that will call SendReportForProcess and then
   // verify that the registered keys are included.
@@ -394,7 +422,7 @@ TEST(ApiTest, ClientTests) {
 
   // Pass the client process ID, used to call SendReportForProcess.
   reporter_command_line.AppendSwitchASCII(
-      kClientProcessIdSwitch, base::UintToString(base::GetCurrentProcId()));
+      kClientProcessIdSwitch, base::UintToString(client_process.Pid()));
 
   // Launch the Reporter process.
   base::Process reporter_process =
@@ -410,8 +438,44 @@ TEST(ApiTest, ClientTests) {
   ASSERT_EQ(0, exit_code);
 }
 
-// TODO(erikwright): Fix me!
-TEST(ApiTest, DISABLED_SendReportForProcessTest) {
+// Signals when it is executing and then sleeps indefinitely. The parent process
+// is responsible for terminating this child after SendReportForProcess has
+// successfully been invoked on it.
+MULTIPROCESS_TEST_MAIN(IdleChildProcess) {
+  base::WaitableEvent ready_event(base::win::ScopedHandle(::CreateEvent(
+      nullptr, false, false,
+      (kReadyEventNamePrefix + base::UintToString16(base::GetCurrentProcId()))
+          .c_str())));
+  ready_event.Signal();
+  ::Sleep(INFINITE);
+  return 0;
+}
+
+// Starts up a child process to be reported on, and then instantiates a reporter
+// process that generates and verifies the report.
+TEST(ApiTest, SendReportForProcessTest) {
+  base::CommandLine client_command_line =
+      base::GetMultiProcessTestChildBaseCommandLine();
+  client_command_line.AppendSwitchASCII(switches::kTestChildProcess,
+                                        "IdleChildProcess");
+
+  // Launch the Client process.
+  base::Process client_process =
+      base::LaunchProcess(client_command_line, base::LaunchOptions());
+  ASSERT_TRUE(client_process.IsValid());
+  // Make sure that we terminate the client process, even if we ASSERT out of
+  // here.
+  base::ScopedClosureRunner terminate_client_process(
+      base::Bind(base::IgnoreResult(&base::Process::Terminate),
+                 base::Unretained(&client_process), 0, true));
+
+  // Wait for the child to be initialized.
+  base::WaitableEvent child_ready_event(base::win::ScopedHandle(::CreateEvent(
+      nullptr, false, false,
+      (kReadyEventNamePrefix + base::UintToString16(client_process.Pid()))
+          .c_str())));
+  child_ready_event.Wait();
+
   // Start building the Reporter process command line.
   base::CommandLine reporter_command_line =
       base::GetMultiProcessTestChildBaseCommandLine();
@@ -420,15 +484,15 @@ TEST(ApiTest, DISABLED_SendReportForProcessTest) {
 
   // Pass the client process ID, used to call SendReportForProcess.
   reporter_command_line.AppendSwitchASCII(
-      kClientProcessIdSwitch, base::UintToString(base::GetCurrentProcId()));
+      kClientProcessIdSwitch, base::UintToString(client_process.Pid()));
 
   // Launch the Reporter process.
   base::Process reporter_process =
       base::LaunchProcess(reporter_command_line, base::LaunchOptions());
   ASSERT_TRUE(reporter_process.IsValid());
 
-  // The Reporter process will exit after taking a dump of us and verifying its
-  // contents.
+  // The Reporter process will exit after taking a dump of the client and
+  // verifying its contents.
 
   // Wait for the reporter process to exit and verify its status code.
   int exit_code = 0;
