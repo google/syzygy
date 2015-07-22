@@ -217,22 +217,24 @@ TypeCreator::~TypeCreator() {
 }
 
 base::string16 TypeCreator::BasicTypeName(uint32 type) {
-  // TODO(mopler): better naming of the basic types.
   switch (type) {
 // Just return the name of the enum.
-#define SPECIAL_TYPE_NAME(record_type) \
-  case cci::record_type: {             \
-    return L#record_type;              \
-  }
-    SPECIAL_TYPE_CASE_TABLE(SPECIAL_TYPE_NAME)
+#define SPECIAL_TYPE_NAME(record_type, type_name, size) \
+  case cci::record_type: return L#type_name;
+    SPECIAL_TYPE_NAME_CASE_TABLE(SPECIAL_TYPE_NAME)
 #undef SPECIAL_TYPE_NAME
-    default:
-      return L"unknown_basic_type";
   }
+  return L"unknown_basic_type";
 }
 
 size_t TypeCreator::BasicTypeSize(uint32 type) {
-  // TODO(mopler): this needs to implemented ASAP.
+  switch (type) {
+    // Just return the name of the enum.
+#define SPECIAL_TYPE_NAME(record_type, type_name, size) \
+  case cci::record_type: return size;
+    SPECIAL_TYPE_NAME_CASE_TABLE(SPECIAL_TYPE_NAME)
+#undef SPECIAL_TYPE_NAME
+  }
   return 0;
 }
 

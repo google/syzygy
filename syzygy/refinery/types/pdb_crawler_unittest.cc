@@ -67,8 +67,7 @@ TEST_F(PdbCrawlerTest, InitializeForFile) {
   ASSERT_TRUE(ptr->GetContentType());
   EXPECT_EQ(Type::POINTER_TYPE_KIND, ptr->GetContentType()->kind());
 
-  // The basic types names will be eventually different.
-  EXPECT_EQ(L"T_SHORT const* volatile*", ptr->name());
+  EXPECT_EQ(L"int16_t const* volatile*", ptr->name());
 
   ASSERT_TRUE(ptr->GetContentType()->CastTo(&ptr));
   ASSERT_TRUE(ptr);
@@ -76,10 +75,11 @@ TEST_F(PdbCrawlerTest, InitializeForFile) {
   EXPECT_TRUE(ptr->is_const());
   EXPECT_FALSE(ptr->is_volatile());
   ASSERT_TRUE(ptr->GetContentType());
-  EXPECT_EQ(L"T_SHORT const*", ptr->name());
+  EXPECT_EQ(L"int16_t const*", ptr->name());
 
   EXPECT_EQ(Type::BASIC_TYPE_KIND, ptr->GetContentType()->kind());
-  EXPECT_EQ(L"T_SHORT", ptr->GetContentType()->name());
+  EXPECT_EQ(L"int16_t", ptr->GetContentType()->name());
+  EXPECT_EQ(2, ptr->GetContentType()->size());
 }
 
 }  // namespace refinery
