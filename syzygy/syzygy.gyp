@@ -34,6 +34,7 @@
         'application/application.gyp:*',
         'ar/ar.gyp:*',
         'assm/assm.gyp:*',
+        'bard/bard.gyp:*',
         'block_graph/analysis/block_graph_analysis.gyp:*',
         'block_graph/block_graph.gyp:*',
         'block_graph/orderers/block_graph_orderers.gyp:*',
