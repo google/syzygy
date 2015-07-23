@@ -106,6 +106,11 @@ void asan_no_check();
 // The no-op string instruction memory access checker.
 void asan_string_no_check();
 
+// The table containing the array of shadow memory references. This is made
+// visible so that it can be used by the memory interceptor patcher. The table
+// itself will not be modified, but the pointers it points to will be.
+extern const void* asan_shadow_references[];
+
 #define DECLARE_MEM_INTERCEPT_FUNCTIONS(access_size, \
                                         access_mode_str, \
                                         access_mode_value) \

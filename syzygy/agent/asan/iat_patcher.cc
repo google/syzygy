@@ -19,6 +19,7 @@
 #include "base/logging.h"
 #include "base/win/iat_patch_function.h"
 #include "base/win/pe_image.h"
+#include "syzygy/agent/asan/scoped_page_protections.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/com_utils.h"
 
@@ -26,9 +27,6 @@ namespace agent {
 namespace asan {
 
 namespace {
-
-// Assume 4K pages.
-const size_t kPageSize = 4096;
 
 bool UpdateImportThunk(volatile PIMAGE_THUNK_DATA iat,
                        FunctionPointer function) {
@@ -68,17 +66,7 @@ class IATPatchWorker {
                           PIMAGE_THUNK_DATA iat, PVOID cookie);
   bool OnImport(const char* name, PIMAGE_THUNK_DATA iat);
 
-  // Makes the page containing @p addr writable.
-  bool EnsureContainingPageWritable(void* addr);
-  // Restores all page protections modified.
-  void RestorePageProtections();
-
-  using UnprotectedPages = std::vector<std::pair<void*, DWORD>>;
-
-  // Stores the pages unprotected with their original settings.
-  // This is a vector as typically this'll be a single page, two at most in
-  // practice.
-  UnprotectedPages unprotected_pages_;
+  ScopedPageProtections scoped_page_protections_;
   const IATPatchMap& patch_;
 
   DISALLOW_COPY_AND_ASSIGN(IATPatchWorker);
@@ -94,7 +82,7 @@ bool IATPatchWorker::PatchImage(base::win::PEImage* image) {
   bool ret = image->EnumAllImports(&VisitImport, this);
 
   // Clean up whatever we soiled, success or failure be damned.
-  RestorePageProtections();
+  scoped_page_protections_.RestorePageProtections();
 
   return ret;
 }
@@ -116,63 +104,12 @@ bool IATPatchWorker::OnImport(const char* name, PIMAGE_THUNK_DATA iat) {
     return true;
 
   // Make the containing page writable.
-  if (!EnsureContainingPageWritable(iat))
+  if (!scoped_page_protections_.EnsureContainingPagesWritable(
+          iat, sizeof(IMAGE_THUNK_DATA))) {
     return false;
+  }
 
   return UpdateImportThunk(iat, it->second);
-}
-
-bool IATPatchWorker::EnsureContainingPageWritable(void* addr) {
-  void* page = common::AlignDown(addr, kPageSize);
-
-  // Check whether we've already unprotected this page.
-  for (auto unprotected_page : unprotected_pages_) {
-    if (unprotected_page.first == page)
-      return true;
-  }
-
-  // We didn't unprotect this yet, make the page writable.
-  MEMORY_BASIC_INFORMATION memory_info {};
-  if (!::VirtualQuery(page, &memory_info, sizeof(memory_info))) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "VirtualQuery failed: " << common::LogWe(error);
-    return false;
-  }
-
-  // It is valid for a PE binary to locate the IAT in an executable code
-  // section. It's therefore necessary to preserve the potential executable
-  // permission on the IAT page during patching.
-  DWORD is_executable = (PAGE_EXECUTE | PAGE_EXECUTE_READ |
-                        PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY) &
-                        memory_info.Protect;
-  DWORD new_prot = PAGE_READWRITE;
-  if (is_executable)
-    new_prot = PAGE_EXECUTE_READWRITE;
-
-  DWORD old_prot = 0;
-  if (!::VirtualProtect(page, kPageSize, new_prot, &old_prot)) {
-    DWORD error = ::GetLastError();
-    LOG(ERROR) << "VirtualProtect failed: " << common::LogWe(error);
-    return false;
-  }
-
-  // Make a note that we modified this page, as well as its original settings.
-  unprotected_pages_.push_back(std::make_pair(page, old_prot));
-
-  return true;
-}
-
-void IATPatchWorker::RestorePageProtections() {
-  // Best-effort restore the old page protections.
-  for (auto unprotected_page : unprotected_pages_) {
-    DWORD old_prot = 0;
-    if (!::VirtualProtect(unprotected_page.first,
-                          kPageSize,
-                          unprotected_page.second, &old_prot)) {
-      DWORD error = ::GetLastError();
-      LOG(ERROR) << "VirtualProtect failed: " << common::LogWe(error);
-    }
-  }
 }
 
 }  // namespace

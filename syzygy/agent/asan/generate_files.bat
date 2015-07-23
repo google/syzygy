@@ -14,7 +14,7 @@
 :: limitations under the License.
 set SYZYGY_PYTHON="%~dp0..\..\..\third_party\python_26\python.exe"
 
-%SYZYGY_PYTHON% "%~dp0system_interceptor_parser.py" ^
+%SYZYGY_PYTHON% "%~dp0system_interceptor_generator.py" ^
   --overwrite --output-base="%~dp0gen\\system_interceptors" ^
   --def-file="%~dp0syzyasan_rtl.def.template" ^
   "%~dp0system_interceptors_function_list.txt"
