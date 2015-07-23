@@ -28,7 +28,19 @@ namespace {
 
 RedirectEntryCallback redirect_entry_callback;
 
+// The global shadow memory that is used by the memory interceptors.
+// This is only used by interceptors that make use of the Shadow API.
+// Interceptors with direct reference (the basic read/write probes) to the
+// shadow memory must be patched directly.
+Shadow* memory_interceptor_shadow_ = nullptr;
+
 }  // namespace
+
+Shadow* SetMemoryInterceptorShadow(Shadow* shadow) {
+  Shadow* old_shadow = memory_interceptor_shadow_;
+  memory_interceptor_shadow_ = shadow;
+  return old_shadow;
+}
 
 const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 #define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, \
@@ -80,8 +92,10 @@ void CheckMemoryAccess(void* location,
                        AccessMode access_mode,
                        size_t access_size,
                        const AsanContext& context) {
-  if (!StaticShadow::shadow.IsAccessible(location))
+  if (memory_interceptor_shadow_ &&
+      !memory_interceptor_shadow_->IsAccessible(location)) {
     ReportBadMemoryAccess(location, access_mode, access_size, context);
+  }
 }
 
 // The slow path relies on the fact that the shadow memory non accessible byte

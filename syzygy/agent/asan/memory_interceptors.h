@@ -21,6 +21,17 @@
 namespace agent {
 namespace asan {
 
+class Shadow;
+
+// Configures the shadow memory to be used by the memory interceptors.
+// @param shadow The shadow memory to use. May be null, effectively
+//     disabling the string interceptors.
+// @returns the previously configured shadow memory.
+// @note This only updates uses of the shadow via the Shadow API. Interceptors
+//     that make direct reference to the shadow memory must be patched in
+//     place using 'PatchMemoryInterceptorShadowReferences'.
+Shadow* SetMemoryInterceptorShadow(Shadow* shadow);
+
 // Memory accessor mode select.
 enum MemoryAccessorMode {
   MEMORY_ACCESSOR_MODE_NOOP,  // Noop mode - no checking performed.

@@ -32,6 +32,7 @@
 #include "syzygy/agent/asan/crt_interceptors.h"
 #include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/logger.h"
+#include "syzygy/agent/asan/memory_interceptors.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
@@ -506,6 +507,7 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Setup the shadow and configure the CRT and system interceptors to use it.
   shadow()->SetUp();
   agent::asan::SetCrtInterceptorShadow(shadow());
+  agent::asan::SetMemoryInterceptorShadow(shadow());
   agent::asan::SetSystemInterceptorShadow(shadow());
 
   // Setup the "global" state.
