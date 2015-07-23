@@ -111,13 +111,12 @@ void ParseContentType(const base::string16& content_type_str,
       DCHECK(param_value_begin <= tokenizer.token_end());
       TrimLWS(&param_value_begin, &param_value_end);
 
-      if (base::LowerCaseEqualsASCII(param_name_begin, param_name_end,
-                                     "charset")) {
+      if (LowerCaseEqualsASCII(param_name_begin, param_name_end, "charset")) {
         charset_val = param_value_begin - begin;
         charset_end = param_value_end - begin;
         type_has_charset = true;
-      } else if (base::LowerCaseEqualsASCII(param_name_begin, param_name_end,
-                                            "boundary")) {
+      } else if (LowerCaseEqualsASCII(param_name_begin, param_name_end,
+                                      "boundary")) {
         if (boundary)
           boundary->assign(param_value_begin, param_value_end);
       }
@@ -153,8 +152,8 @@ void ParseContentType(const base::string16& content_type_str,
       content_type_str.find_first_of(L'/') != base::string16::npos) {
     // The common case here is that mime_type is empty.
     bool eq = !mime_type->empty() &&
-              base::LowerCaseEqualsASCII(begin + type_val, begin + type_end,
-                                         base::WideToUTF8(*mime_type).data());
+              LowerCaseEqualsASCII(begin + type_val, begin + type_end,
+                                   base::WideToUTF8(*mime_type).data());
     if (!eq) {
       mime_type->assign(begin + type_val, begin + type_end);
       base::StringToLowerASCII(mime_type);

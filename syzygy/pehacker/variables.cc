@@ -258,7 +258,8 @@ bool ParseVariable(const std::string& raw_name,
 
   // Parse the value. We first try to parse it as valid JSON. If that
   // fails we treat it as a raw string.
-  scoped_ptr<base::Value> value(base::JSONReader::Read(value_string, 0));
+  scoped_ptr<base::Value> value;
+  value.reset(base::JSONReader::Read(value_string, 0));
   if (value.get() == NULL)
     value.reset(new base::StringValue(value_string));
 

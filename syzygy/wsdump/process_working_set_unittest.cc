@@ -83,8 +83,8 @@ TEST(ProcessWorkingSetTest, Initialize) {
 
   // Our executable should be in the working set.
   std::wstring exe_name;
-  ASSERT_TRUE(::GetModuleFileName(NULL, base::WriteInto(&exe_name, MAX_PATH),
-                                  MAX_PATH));
+  ASSERT_TRUE(
+      ::GetModuleFileName(NULL, WriteInto(&exe_name, MAX_PATH), MAX_PATH));
   exe_name.resize(wcslen(exe_name.c_str()));
 
   EXPECT_TRUE(module_names.find(exe_name) != module_names.end());

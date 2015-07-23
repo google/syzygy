@@ -50,8 +50,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   // TODO(siggi): This needs rewriting.
   TypePtr type;
   for (auto it = types.begin(); it != types.end(); ++it) {
-    if (base::EndsWith((*it)->name(), L"::TestSimpleUDT",
-                       base::CompareCase::SENSITIVE)) {
+    if (EndsWith((*it)->name(), L"::TestSimpleUDT", true)) {
       type = *it;
       break;
     }
@@ -59,8 +58,7 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   ASSERT_TRUE(type);
 
   EXPECT_EQ(16, type->size());
-  EXPECT_TRUE(base::EndsWith(type->name(), L"::TestSimpleUDT",
-                             base::CompareCase::SENSITIVE));
+  EXPECT_TRUE(EndsWith(type->name(), L"::TestSimpleUDT", true));
 
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 

@@ -1063,7 +1063,7 @@ bool GetAsanHooksIATEntries(const PEImage &image,
   EXPECT_NE(static_cast<const char*>(NULL), name);
 
   // Ensures that the function is an asan_check_access hook.
-  if (base::StartsWith(name, "asan_check_", base::CompareCase::SENSITIVE))
+  if (StartsWithASCII(name, "asan_check_", true /* case sensitive */))
     hooks_iat_entries->insert(reinterpret_cast<PVOID>(iat->u1.Function));
 
   return true;

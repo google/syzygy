@@ -546,8 +546,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
       const FARPROC imported_fn = pair.second;
 
       // Is this an instrumentation import?
-      const bool is_asan_fn =
-          base::StartsWith(name, "asan_", base::CompareCase::SENSITIVE);
+      const bool is_asan_fn = StartsWithASCII(name, "asan_", true);
       if (!is_asan_fn)
         continue;
 
@@ -555,8 +554,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
       FARPROC rtl_export_fn = ::GetProcAddress(dyn_rtl, name.c_str());
 
       // Is it a memory accessor?
-      const bool is_asan_check_fn =
-          base::StartsWith(name, "asan_check", base::CompareCase::SENSITIVE);
+      const bool is_asan_check_fn = StartsWithASCII(name, "asan_check", true);
       if (is_asan_check_fn) {
         // Memory acessors in the dynamic RTL must be redirected after first
         // use of the function. If the dynamic RTL doesn't redirect the imports
@@ -1072,8 +1070,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     SourceFileCoverageDataMap::const_iterator file = files.begin();
     const SourceFileCoverageData* data = NULL;
     for (; file != files.end(); ++file) {
-      if (base::EndsWith(file->first, "coverage_tests.cc",
-                         base::CompareCase::SENSITIVE)) {
+      if (EndsWith(file->first, "coverage_tests.cc", true)) {
         data = &file->second;
         break;
       }

@@ -69,7 +69,7 @@ TEST(CrashKeysSerializationTest, IllegalDictionaryContents) {
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath temp_file = temp_dir.path().Append(L"test.dat");
   std::string file_contents;
-  ASSERT_TRUE(base::JSONWriter::Write(dictionary, &file_contents));
+  ASSERT_TRUE(base::JSONWriter::Write(&dictionary, &file_contents));
   ASSERT_TRUE(
       base::WriteFile(temp_file, file_contents.data(), file_contents.length()));
   std::map<base::string16, base::string16> crash_keys_from_disk;
@@ -83,7 +83,7 @@ TEST(CrashKeysSerializationTest, NotADictionary) {
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
   base::FilePath temp_file = temp_dir.path().Append(L"test.dat");
   std::string file_contents;
-  ASSERT_TRUE(base::JSONWriter::Write(list, &file_contents));
+  ASSERT_TRUE(base::JSONWriter::Write(&list, &file_contents));
   ASSERT_TRUE(
       base::WriteFile(temp_file, file_contents.data(), file_contents.length()));
   std::map<base::string16, base::string16> crash_keys_from_disk;

@@ -114,19 +114,19 @@ bool GrinderApp::ParseCommandLine(const base::CommandLine* command_line) {
 
   // Parse the processing mode.
   std::string mode = command_line->GetSwitchValueASCII("mode");
-  if (base::LowerCaseEqualsASCII(mode, "profile")) {
+  if (LowerCaseEqualsASCII(mode, "profile")) {
     mode_ = kProfile;
     grinder_.reset(new grinders::ProfileGrinder());
-  } else if (base::LowerCaseEqualsASCII(mode, "coverage")) {
+  } else if (LowerCaseEqualsASCII(mode, "coverage")) {
     mode_ = kCoverage;
     grinder_.reset(new grinders::CoverageGrinder());
-  } else if (base::LowerCaseEqualsASCII(mode, "bbentry")) {
+  } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
     mode_ = kBasicBlockEntry;
     grinder_.reset(new grinders::IndexedFrequencyDataGrinder());
-  } else if (base::LowerCaseEqualsASCII(mode, "branch")) {
+  } else if (LowerCaseEqualsASCII(mode, "branch")) {
     mode_ = kIndexedFrequencyData;
     grinder_.reset(new grinders::IndexedFrequencyDataGrinder());
-  } else if (base::LowerCaseEqualsASCII(mode, "sample")) {
+  } else if (LowerCaseEqualsASCII(mode, "sample")) {
     mode_ = kSample;
     grinder_.reset(new grinders::SampleGrinder());
   } else {

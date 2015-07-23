@@ -197,10 +197,9 @@ bool GetProcessStrings(uint32 pid,
   // Read the image path name.
   std::wstring temp_exe_path;
   size_t num_chars_in_path = string_value[0].Length / sizeof(wchar_t);
-  if (!::ReadProcessMemory(
-          handle, string_value[0].Buffer,
-          base::WriteInto(&temp_exe_path, num_chars_in_path + 1),
-          string_value[0].Length, NULL)) {
+  if (!::ReadProcessMemory(handle, string_value[0].Buffer,
+                           WriteInto(&temp_exe_path, num_chars_in_path + 1),
+                           string_value[0].Length, NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read the exe path for PID=" << pid
                << ": " << ::common::LogWe(error) << ".";
@@ -211,7 +210,7 @@ bool GetProcessStrings(uint32 pid,
   // Read the command line.
   size_t num_chars_in_cmd_line = string_value[1].Length / sizeof(wchar_t);
   if (!::ReadProcessMemory(handle, string_value[1].Buffer,
-                           base::WriteInto(cmd_line, num_chars_in_cmd_line + 1),
+                           WriteInto(cmd_line, num_chars_in_cmd_line + 1),
                            string_value[1].Length, NULL)) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "Failed to read the command line for PID=" << pid

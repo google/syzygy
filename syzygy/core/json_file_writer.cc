@@ -220,7 +220,7 @@ bool JSONFileWriter::PrintValue(const Value* value) {
     case Value::TYPE_STRING:
     case Value::TYPE_BINARY: {
       std::string str;
-      base::JSONWriter::Write(*value, &str);
+      base::JSONWriter::Write(value, &str);
       return Printf("%s", str.c_str());
     }
 

@@ -361,7 +361,7 @@ bool SampleGrinder::ParseCommandLine(const base::CommandLine* command_line) {
     std::string s = command_line->GetSwitchValueASCII(kAggregationLevel);
     bool known_level = false;
     for (size_t i = 0; i < arraysize(kAggregationLevelNames); ++i) {
-      if (base::LowerCaseEqualsASCII(s, kAggregationLevelNames[i])) {
+      if (LowerCaseEqualsASCII(s, kAggregationLevelNames[i])) {
         known_level = true;
         aggregation_level_ = static_cast<AggregationLevel>(i);
         break;

@@ -224,10 +224,7 @@ bool ModuleNameMatches(const base::StringPiece& module_name,
   size_t max_len = dll_name.ElementCount();
   if (max_len < module_name.size())
     return false;
-  return base::EqualsCaseInsensitiveASCII(
-      base::StringPiece(dll_name->string,
-                        std::min(max_len, module_name.size())),
-      module_name.data());
+  return base::strncasecmp(dll_name->string, module_name.data(), max_len) == 0;
 }
 
 bool SymbolNameMatches(const base::StringPiece& symbol_name,

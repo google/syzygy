@@ -57,9 +57,9 @@ bool CoverageGrinder::ParseCommandLine(const base::CommandLine* command_line) {
     return true;
 
   std::string format = command_line->GetSwitchValueASCII(kOutputFormat);
-  if (base::LowerCaseEqualsASCII(format, "lcov")) {
+  if (LowerCaseEqualsASCII(format, "lcov")) {
     output_format_ = kLcovFormat;
-  } else if (base::LowerCaseEqualsASCII(format, "cachegrind")) {
+  } else if (LowerCaseEqualsASCII(format, "cachegrind")) {
     output_format_ = kCacheGrindFormat;
   } else {
     LOG(ERROR) << "Unknown output format: " << format << ".";
