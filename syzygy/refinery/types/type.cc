@@ -20,10 +20,18 @@
 namespace refinery {
 
 Type::Type(TypeKind kind, const base::string16& name, size_t size)
+    : Type(kind, name, name, size) {
+}
+
+Type::Type(TypeKind kind,
+           const base::string16& name,
+           const base::string16& decorated_name,
+           size_t size)
     : repository_(nullptr),
       type_id_(kNoTypeId),
       kind_(kind),
       name_(name),
+      decorated_name_(decorated_name),
       size_(size) {
 }
 
@@ -44,6 +52,12 @@ UserDefinedType::UserDefinedType(const base::string16& name, size_t size) :
     Type(USER_DEFINED_TYPE_KIND, name, size) {
 }
 
+UserDefinedType::UserDefinedType(const base::string16& name,
+                                 const base::string16& decorated_name,
+                                 size_t size)
+    : Type(USER_DEFINED_TYPE_KIND, name, decorated_name, size) {
+}
+
 TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
   DCHECK(repository());
   DCHECK_GT(fields_.size(), field_no);
@@ -51,8 +65,8 @@ TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
   return repository()->GetType(fields_[field_no].type_id());
 }
 
-BasicType::BasicType(const base::string16& name, size_t size) :
-    Type(BASIC_TYPE_KIND, name, size) {
+BasicType::BasicType(const base::string16& name, size_t size)
+    : Type(BASIC_TYPE_KIND, name, name, size) {
 }
 
 void UserDefinedType::Finalize(const Fields& fields) {
@@ -90,6 +104,14 @@ PointerType::PointerType(size_t size)
       content_type_id_(kNoTypeId) {
 }
 
+PointerType::PointerType(const base::string16& name,
+                         const base::string16& decorated_name,
+                         size_t size)
+    : flags_(0),
+      content_type_id_(kNoTypeId),
+      Type(POINTER_TYPE_KIND, name, decorated_name, size) {
+}
+
 TypePtr PointerType::GetContentType() const {
   DCHECK(repository());
 
@@ -111,6 +133,12 @@ void PointerType::SetName(const base::string16& name) {
 }
 
 WildcardType::WildcardType(const base::string16& name, size_t size)
+    : Type(WILDCARD_TYPE_KIND, name, size) {
+}
+
+WildcardType::WildcardType(const base::string16& name,
+                           const base::string16& decorated_name,
+                           size_t size)
     : Type(WILDCARD_TYPE_KIND, name, size) {
 }
 

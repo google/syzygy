@@ -57,6 +57,7 @@ class Type : public base::RefCounted<Type> {
   TypeRepository* repository() const { return repository_; }
   TypeId type_id() const { return type_id_; }
   const base::string16& name() const { return name_; }
+  const base::string16& decorated_name() const { return decorated_name_; }
   size_t size() const { return size_; }
   TypeKind kind() const { return kind_; }
   // @}
@@ -69,7 +70,14 @@ class Type : public base::RefCounted<Type> {
 
  protected:
   friend class base::RefCounted<Type>;
+
+  // This constructor will eventually be removed.
   Type(TypeKind kind, const base::string16& name, size_t size);
+  // This is the way to go.
+  Type(TypeKind kind,
+       const base::string16& name,
+       const base::string16& decorated_name,
+       size_t size);
   virtual ~Type() = 0;
 
   // Name of type.
@@ -85,6 +93,8 @@ class Type : public base::RefCounted<Type> {
   TypeRepository* repository_;
   TypeId type_id_;
 
+  // Decorated name of type.
+  base::string16 decorated_name_;
   // The kind of this type is, synonymous with its class.
   const TypeKind kind_;
   // Size of type.
@@ -101,6 +111,7 @@ class BasicType : public Type {
   static const TypeKind ID = BASIC_TYPE_KIND;
 
   // Creates a new basictype with name @p name and size @p size.
+  // Sets decorated_name equal to name as basic types have no decorated names.
   BasicType(const base::string16& name, size_t size);
 
  private:
@@ -119,7 +130,15 @@ class UserDefinedType : public Type {
 
   // Creates a new user defined type with name @p name, size @p size.
   // This creates an un-finalized UDT with no fields.
+  // This will eventually be deleted.
   UserDefinedType(const base::string16& name, size_t size);
+
+  // Creates a new user defined type with name @p name, decorated name @p
+  // decorated_name and size @p size.
+  // This creates an un-finalized UDT with no fields.
+  UserDefinedType(const base::string16& name,
+                  const base::string16& decorated_name,
+                  size_t size);
 
   // Retrieves the type associated with field @p field_no.
   // @pre field_no < fields().size().
@@ -195,6 +214,12 @@ class PointerType : public Type {
   // Creates a new (non-finalized) pointer type with size @p size.
   explicit PointerType(size_t size);
 
+  // Creates a new pointer type with name @p name, decorated name
+  // @p decorated_name and size @p size.
+  PointerType(const base::string16& name,
+              const base::string16& decorated_name,
+              size_t size);
+
   // Accessors.
   // @{
   TypeId content_type_id() const { return content_type_id_; }
@@ -226,9 +251,12 @@ class WildcardType : public Type {
  public:
   static const TypeKind ID = WILDCARD_TYPE_KIND;
 
-  // Creates a new pointer type with name @p name, size @p size, pointing to
-  // an object of type @p type_id.
+  // Creates a new wildcard type with name @p name, size @p size.
+  WildcardType(const base::string16& name, size_t size);
+  // Creates a new wildcard type with name @p name, @p decorated_name and
+  // size @p size.
   WildcardType(const base::string16& name,
+               const base::string16& decorated_name,
                size_t size);
 };
 

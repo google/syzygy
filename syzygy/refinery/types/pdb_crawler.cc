@@ -158,14 +158,14 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
   name += GetCVMod(flags);
   decorated_name += GetCVMod(flags);
 
-  PointerTypePtr created = new PointerType(size);
+  PointerTypePtr created =
+      new PointerType(child->name + L"*", child->decorated_name + L"*", size);
 
   // Setting the flags from the child node - this is needed because of
   // different semantics between PDB file and Type interface. In PDB pointer
   // has a const flag when it's const, while here pointer has a const flag if
   // it points to a const type.
   created->Finalize(child->flags, child->type_id);
-  created->SetName(child->name + L"*");
 
   repository_->AddTypeWithId(created, type_id);
 
