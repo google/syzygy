@@ -41,6 +41,9 @@ _FILE_PATTERNS_TO_COPY = [
     '*_unittests.exe',
     '*.dll',
     '*.pdb',
+    # The unittests executables compiled against base/ expect the ICU .dat file
+    # to be alongside them.
+    '*.dat',
     'agent_logger.exe',
     'call_trace_service.exe',
     'test_data',
