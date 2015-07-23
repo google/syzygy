@@ -373,16 +373,16 @@ extern "C" int main(int argc, char** argv) {
     return Usage();
   }
 
-  if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "stop")) {
+  if (base::LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "stop")) {
     std::wstring id;
     return (GetInstanceId(cmd_line, &id) && StopService(id)) ? 0 : 1;
   }
 
-  if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "start")) {
+  if (base::LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "start")) {
     return RunService(cmd_line, &app_command_line) ? 0 : 1;
   }
 
-  if (LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "spawn")) {
+  if (base::LowerCaseEqualsASCII(cmd_line->GetArgs()[0], "spawn")) {
     return SpawnService(cmd_line) ? 0 : 1;
   }
 

@@ -481,8 +481,10 @@ bool HasImportEntry(block_graph::BlockGraph::Block* header_block,
     }
 
     size_t max_len = ref_dll_name.ElementCount();
-    if (base::strncasecmp(ref_dll_name->string, dll_name.data(),
-                          max_len) == 0) {
+    if (base::CompareCaseInsensitiveASCII(
+            base::StringPiece(ref_dll_name->string,
+                              std::min(max_len, dll_name.size())),
+            dll_name.data()) == 0) {
       *has_import_entry = true;
       break;
     }

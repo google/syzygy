@@ -150,7 +150,7 @@ class AppImplBase {
       const base::CommandLine* cmd_line,
       const std::string& current_switch_name,
       const std::string& deprecated_switch_name,
-      ValueType (base::CommandLine::*getter)(const std::string&) const,
+      ValueType (base::CommandLine::*getter)(const base::StringPiece&) const,
       ValueType* value) {
     DCHECK(cmd_line != NULL);
     DCHECK(getter != NULL);

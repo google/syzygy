@@ -400,10 +400,10 @@ void AllocationFilterTransformTest::WriteToJSON(
   outer_dict.SetWithoutPathExpansion("hooks", hooks);
 
   if (pretty_print) {
-    base::JSONWriter::WriteWithOptions(&outer_dict,
-        base::JSONWriter::OPTIONS_PRETTY_PRINT, json);
+    base::JSONWriter::WriteWithOptions(
+        outer_dict, base::JSONWriter::OPTIONS_PRETTY_PRINT, json);
   } else {
-    base::JSONWriter::WriteWithOptions(&outer_dict, 0, json);
+    base::JSONWriter::WriteWithOptions(outer_dict, 0, json);
   }
 }
 

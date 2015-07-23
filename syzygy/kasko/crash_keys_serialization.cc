@@ -67,7 +67,7 @@ bool WriteCrashKeysToFile(
   }
 
   std::string file_contents;
-  if (!base::JSONWriter::Write(&dictionary, &file_contents)) {
+  if (!base::JSONWriter::Write(dictionary, &file_contents)) {
     LOG(ERROR) << "Failed to serialize crash keys.";
     return false;
   }
