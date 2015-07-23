@@ -146,7 +146,7 @@ bool GenFilterApp::ParseCommandLine(const base::CommandLine* command_line) {
   size_t min_inputs = 1;
   size_t max_inputs = SIZE_MAX;
   std::string action = command_line->GetSwitchValueASCII("action");
-  if (LowerCaseEqualsASCII(action, "compile")) {
+  if (base::LowerCaseEqualsASCII(action, "compile")) {
     action_ = kCompile;
 
     // In compile mode we need an input image.
@@ -157,16 +157,16 @@ bool GenFilterApp::ParseCommandLine(const base::CommandLine* command_line) {
       return false;
     }
     input_pdb_ = command_line->GetSwitchValuePath("input-pdb");
-  } else if (LowerCaseEqualsASCII(action, "intersect")) {
+  } else if (base::LowerCaseEqualsASCII(action, "intersect")) {
     action_ = kIntersect;
     min_inputs = 2;
-  } else if (LowerCaseEqualsASCII(action, "invert")) {
+  } else if (base::LowerCaseEqualsASCII(action, "invert")) {
     action_ = kInvert;
     max_inputs = 1;
-  } else if (LowerCaseEqualsASCII(action, "subtract")) {
+  } else if (base::LowerCaseEqualsASCII(action, "subtract")) {
     action_ = kSubtract;
     min_inputs = 2;
-  } else if (LowerCaseEqualsASCII(action, "union")) {
+  } else if (base::LowerCaseEqualsASCII(action, "union")) {
     action_ = kUnion;
     min_inputs = 2;
   } else {

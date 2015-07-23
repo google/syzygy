@@ -47,7 +47,8 @@ TEST_F(PdbCrawlerTest, InitializeForFile) {
   // This should find the member 'three' of TestSimpleUDT.
   TypePtr type;
   for (auto it = types.begin(); it != types.end(); ++it) {
-    if (EndsWith((*it)->name(), L" const* volatile*", true)) {
+    if (base::EndsWith((*it)->name(), L" const* volatile*",
+                       base::CompareCase::SENSITIVE)) {
       type = *it;
       break;
     }

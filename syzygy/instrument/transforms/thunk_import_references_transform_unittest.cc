@@ -106,7 +106,8 @@ TEST_F(ThunkImportReferencesTransformTest, LookupImportLocations) {
   static const char kExportDLLPrefix[] = "export_dll.dll:";
 
   for (; it != all_import_locations.end(); ++it) {
-    if (StartsWithASCII(it->second, kExportDLLPrefix, false))
+    if (base::StartsWith(it->second, kExportDLLPrefix,
+                         base::CompareCase::INSENSITIVE_ASCII))
       export_dll_imports.insert(it->second);
   }
 
@@ -210,7 +211,8 @@ TEST_F(ThunkImportReferencesTransformTest, TestInstrumentation) {
 
       // Compare on the import name prefix case-insensitively to determine
       // whether this is an eligible or excluded import.
-      if (StartsWithASCII(location_it->second, "kernel32.dll:", false)) {
+      if (base::StartsWith(location_it->second, "kernel32.dll:",
+                           base::CompareCase::INSENSITIVE_ASCII)) {
         // Excluded import, the referring block must not be in
         // the thunks section.
         EXPECT_NE(thunks_section_id, referring_block->section());

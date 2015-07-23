@@ -140,11 +140,11 @@ void InstrumentApp::ParseDeprecatedMode(const base::CommandLine* cmd_line) {
     return;
   }
 
-  if (LowerCaseEqualsASCII(client, "profiler")) {
+  if (base::LowerCaseEqualsASCII(client, "profiler")) {
     LOG(INFO) << "DEPRECATED: Using --mode=profile.";
     instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
         instrumenters::EntryThunkInstrumenter::PROFILE));
-  } else if (LowerCaseEqualsASCII(client, "rpc")) {
+  } else if (base::LowerCaseEqualsASCII(client, "rpc")) {
     LOG(INFO) << "DEPRECATED: Using --mode=calltrace.";
     instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
         instrumenters::EntryThunkInstrumenter::CALL_TRACE));
@@ -168,23 +168,23 @@ bool InstrumentApp::ParseCommandLine(const base::CommandLine* cmd_line) {
     ParseDeprecatedMode(cmd_line);
   } else {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
-    if (LowerCaseEqualsASCII(mode, "asan")) {
+    if (base::LowerCaseEqualsASCII(mode, "asan")) {
       // We wrap the Asan instrumenter in an ArchiveInstrumenter adapter so
       // that it can transparently handle .lib files.
       instrumenter_.reset(new instrumenters::ArchiveInstrumenter(
           &AsanInstrumenterFactory));
-    } else if (LowerCaseEqualsASCII(mode, "bbentry")) {
+    } else if (base::LowerCaseEqualsASCII(mode, "bbentry")) {
       instrumenter_.reset(new instrumenters::BasicBlockEntryInstrumenter());
-    } else if (LowerCaseEqualsASCII(mode, "branch")) {
+    } else if (base::LowerCaseEqualsASCII(mode, "branch")) {
       instrumenter_.reset(new instrumenters::BranchInstrumenter());
-    } else if (LowerCaseEqualsASCII(mode, "calltrace")) {
+    } else if (base::LowerCaseEqualsASCII(mode, "calltrace")) {
       instrumenter_.reset(new instrumenters::EntryThunkInstrumenter(
           instrumenters::EntryThunkInstrumenter::CALL_TRACE));
-    } else if (LowerCaseEqualsASCII(mode, "coverage")) {
+    } else if (base::LowerCaseEqualsASCII(mode, "coverage")) {
       instrumenter_.reset(new instrumenters::CoverageInstrumenter());
-    } else if (LowerCaseEqualsASCII(mode, "flummox")) {
+    } else if (base::LowerCaseEqualsASCII(mode, "flummox")) {
       instrumenter_.reset(new instrumenters::FlummoxInstrumenter());
-    } else if (LowerCaseEqualsASCII(mode, "profile")) {
+    } else if (base::LowerCaseEqualsASCII(mode, "profile")) {
       instrumenter_.reset(new instrumenters::EntryCallInstrumenter());
     } else {
       return Usage(cmd_line,

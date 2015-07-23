@@ -482,15 +482,12 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Validate compiland names.
   // MSVS produces files named test_dll.obj and Ninja build produces files
   // named test_dll.test_dll.obj.
-  EXPECT_TRUE(EndsWith(dll_main_block->compiland_name(),
-                       "test_dll.obj",
-                       true));
-  EXPECT_TRUE(EndsWith(func_with_inl_asm_block->compiland_name(),
-                       "test_dll.obj",
-                       true));
-  EXPECT_TRUE(EndsWith(strchr_block->compiland_name(),
-                       "strchr.obj",
-                       true));
+  EXPECT_TRUE(base::EndsWith(dll_main_block->compiland_name(), "test_dll.obj",
+                             base::CompareCase::SENSITIVE));
+  EXPECT_TRUE(base::EndsWith(func_with_inl_asm_block->compiland_name(),
+                             "test_dll.obj", base::CompareCase::SENSITIVE));
+  EXPECT_TRUE(base::EndsWith(strchr_block->compiland_name(), "strchr.obj",
+                             base::CompareCase::SENSITIVE));
 
   // Validate that the DllMain block has the expected population of labels.
   EXPECT_EQ(kDllMainLabelCount, dll_main_block->labels().size());

@@ -228,14 +228,11 @@ bool PEHackerApp::ParseConfigFile() {
   }
 
   VLOG(1) << "Parsing configuration file contents.";
-  scoped_ptr<base::Value> config;
   int error_code = 0;
   std::string error_message;
-  config.reset(base::JSONReader::ReadAndReturnError(
-      json,
-      base::JSON_ALLOW_TRAILING_COMMAS,
-      &error_code,
-      &error_message));
+  scoped_ptr<base::Value> config(base::JSONReader::ReadAndReturnError(
+                   json, base::JSON_ALLOW_TRAILING_COMMAS, &error_code,
+                   &error_message));
   if (config.get() == NULL) {
     LOG(ERROR) << "Failed to parse configuration file: "
                << error_message << "(" << error_code << ").";

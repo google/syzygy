@@ -64,6 +64,11 @@ deps = {
   "src/tools/code_coverage":
     Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),
 
+  # This brings in Clang. This is required to generate the project files.
+  "src/tools/clang":
+    "https://chromium.googlesource.com/chromium/src/tools/clang@" +
+      '33c2e4149926da7262361323a111605877add859',
+
   # This brings in protobuf, used by SyzyASan metadata.
   "src/third_party/protobuf/src":
     "http://protobuf.googlecode.com/svn/trunk/src@573",

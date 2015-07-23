@@ -74,10 +74,10 @@ bool TestJSONSerialization(bool pretty_print) {
         base::ReadFileToString(temp_file_path, &file_string));
 
   // Parse the JSON, extracting the root dictionary.
-  scoped_ptr<Value> value;
   DictionaryValue* metadata_dict = NULL;
+  scoped_ptr<Value> value;
   if (success) {
-    value.reset(base::JSONReader::Read(file_string));
+    value = base::JSONReader::Read(file_string).Pass();
     EXPECT_TRUE(success =
         (value.get() != NULL && value->GetType() == Value::TYPE_DICTIONARY));
     if (success)
