@@ -349,12 +349,15 @@ class SystemInterceptorGenerator(object):
     # Copy the input DEF file.
     with open(def_file, 'r') as f:
       template = f.read()
+      # The static runtime library uses the 2GB probes by default.
       self._def_file.write(template.format(
-          r='check', s='rtl', message=_GENERATED_MESSAGE.format(c=';')))
+          r='check', s='rtl', m='_2gb',
+          message=_GENERATED_MESSAGE.format(c=';')))
       self._def_file.write('\n  ; Generated system intercepts\n')
 
       self._dyn_def_file.write(template.format(
-          r='redirect', s='dyn', message=_GENERATED_MESSAGE.format(c=';')))
+          r='redirect', s='dyn', m='',
+          message=_GENERATED_MESSAGE.format(c=';')))
       self._dyn_def_file.write('\n  ; Generated system intercepts\n')
 
     # List of the intercepted functions.

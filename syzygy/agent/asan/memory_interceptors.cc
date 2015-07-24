@@ -43,22 +43,21 @@ Shadow* SetMemoryInterceptorShadow(Shadow* shadow) {
 }
 
 const MemoryAccessorVariants kMemoryAccessorVariants[] = {
-#define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, \
-                                             access_mode_str, \
-                                             access_mode_value) \
-  { \
-    "asan_check_" #access_size "_byte_" #access_mode_str, \
-    asan_redirect_ ## access_size ## _byte_ ## access_mode_str, \
-    asan_no_check, \
-    asan_check_ ## access_size ## _byte_ ## access_mode_str \
-  }, { \
-    "asan_check_" #access_size "_byte_" #access_mode_str "_no_flags", \
-    asan_redirect_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
-    asan_no_check, \
-    asan_check_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
-  },
+#define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, access_mode_str,   \
+                                             access_mode_value)              \
+  {                                                                          \
+    "asan_check_" #access_size "_byte_" #access_mode_str,                    \
+        asan_redirect_##access_size##_byte_##access_mode_str, asan_no_check, \
+        asan_check_##access_size##_byte_##access_mode_str##_2gb,             \
+        asan_check_##access_size##_byte_##access_mode_str##_4gb              \
+  }                                                                          \
+  , {"asan_check_" #access_size "_byte_" #access_mode_str "_no_flags",       \
+     asan_redirect_##access_size##_byte_##access_mode_str##_no_flags,        \
+     asan_no_check,                                                          \
+     asan_check_##access_size##_byte_##access_mode_str##_no_flags_2gb,       \
+     asan_check_##access_size##_byte_##access_mode_str##_no_flags_4gb},
 
-  ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
+    ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS
 
@@ -71,7 +70,7 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
     asan_check ## prefix ## access_size ## _byte_ ## func ## _access, \
   },
 
-  ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
+        ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS
 };
@@ -177,16 +176,11 @@ MemoryAccessorFunction asan_redirect_stub_entry(
     mode = redirect_entry_callback.Run(caller_address);
 
   for (size_t i = 0; i < arraysize(kMemoryAccessorVariants); ++i) {
-    if (kMemoryAccessorVariants[i].redirect_accessor == called_redirect) {
-      switch (mode) {
-        case MEMORY_ACCESSOR_MODE_NOOP:
-          return kMemoryAccessorVariants[i].accessor_noop;
-        case MEMORY_ACCESSOR_MODE_2G:
-          return kMemoryAccessorVariants[i].accessor_2G;
-        default:
-          NOTREACHED();
-      }
-    }
+    if (kMemoryAccessorVariants[i].redirect_accessor != called_redirect)
+      continue;
+    CHECK_LE(0u, mode);
+    CHECK_GT(MEMORY_ACCESSOR_MODE_MAX, mode);
+    return kMemoryAccessorVariants[i].accessors[mode];
   }
 
   NOTREACHED();

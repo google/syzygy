@@ -52,6 +52,32 @@ void TearDownAtExitManager() {
   at_exit = nullptr;
 }
 
+MemoryAccessorMode SelectMemoryAccessorMode() {
+  static uint64_t kOneGB = 1ull << 30;
+
+  // Determine the amount of address space available to the process.
+  MEMORYSTATUSEX mem_status = {};
+  mem_status.dwLength = sizeof(mem_status);
+  if (!::GlobalMemoryStatusEx(&mem_status))
+    return MEMORY_ACCESSOR_MODE_NOOP;
+
+  // Get this rounded up to the nearest number of gigabytes.
+  uint64_t gb =
+      ::common::AlignUp64(mem_status.ullTotalVirtual, kOneGB) / kOneGB;
+
+  switch (gb) {
+    case 2:
+      return MEMORY_ACCESSOR_MODE_2G;
+    // TODO(chrisha): Use the 4GB memory model once the dynamic shadow
+    //     allocation is supported.
+    case 4:
+      return MEMORY_ACCESSOR_MODE_NOOP;
+    // 1GB should never happen, and 3GB simply isn't properly supported.
+    default:
+      return MEMORY_ACCESSOR_MODE_NOOP;
+  }
+}
+
 MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
   // This grabs the loader's lock, which could be a problem. If there are
   // multiple instrumented DLLs, or a single one executing on multiple threads,
@@ -66,11 +92,17 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
       kFlags, reinterpret_cast<LPCWSTR>(caller_address), &calling_module);
   CHECK_EQ(TRUE, success);
 
+  // TODO(chrisha): Implement logic for selecting the noop mode if the system
+  // isn't up to par, if so configured by Finch, if the shadow memory
+  // allocation failed, etc.
+  MemoryAccessorMode mode = SelectMemoryAccessorMode();
+
   // Build the IAT patch map.
   IATPatchMap patch_map;
   for (size_t i = 0; i < kNumMemoryAccessorVariants; ++i) {
-    patch_map.insert(std::make_pair(kMemoryAccessorVariants[i].name,
-                                    kMemoryAccessorVariants[i].accessor_2G));
+    patch_map.insert(
+        std::make_pair(kMemoryAccessorVariants[i].name,
+                       kMemoryAccessorVariants[i].accessors[mode]));
   }
 
   // Grab the patching lock only while patching the caller's IAT. Assuming no
@@ -80,7 +112,7 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
   base::AutoLock lock(patch_lock);
   CHECK(PatchIATForModule(calling_module, patch_map));
 
-  return MEMORY_ACCESSOR_MODE_2G;
+  return mode;
 }
 
 }  // namespace

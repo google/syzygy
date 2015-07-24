@@ -35,7 +35,9 @@ Shadow* SetMemoryInterceptorShadow(Shadow* shadow);
 // Memory accessor mode select.
 enum MemoryAccessorMode {
   MEMORY_ACCESSOR_MODE_NOOP,  // Noop mode - no checking performed.
-  MEMORY_ACCESSOR_MODE_2G,  // 2G address space mode
+  MEMORY_ACCESSOR_MODE_2G,    // 2G address space mode
+  MEMORY_ACCESSOR_MODE_4G,    // 4G address space mode
+  MEMORY_ACCESSOR_MODE_MAX,   // This must be last.
 };
 
 // Type of the callback invoked on entry to the redirector stub. This is
@@ -62,9 +64,19 @@ struct MemoryAccessorVariants {
   // Canonical name of the exported function, e.g. asan_XXX.
   const char* name;
   MemoryAccessorFunction redirect_accessor;
-  MemoryAccessorFunction accessor_noop;
-  MemoryAccessorFunction accessor_2G;
+  union {
+    struct {
+      // The MemoryAccessorMode enumeration and the following list must remain
+      // in sync.
+      MemoryAccessorFunction accessor_noop;
+      MemoryAccessorFunction accessor_2G;
+      MemoryAccessorFunction accessor_4G;
+    };
+    MemoryAccessorFunction accessors[MEMORY_ACCESSOR_MODE_MAX];
+  };
 };
+static_assert(sizeof(MemoryAccessorVariants) == 5 * sizeof(uintptr_t),
+              "MemoryAccessorVariants definition is out of sync");
 
 extern const MemoryAccessorVariants kMemoryAccessorVariants[];
 extern const size_t kNumMemoryAccessorVariants;
@@ -122,15 +134,14 @@ void asan_string_no_check();
 // itself will not be modified, but the pointers it points to will be.
 extern const void* asan_shadow_references[];
 
-#define DECLARE_MEM_INTERCEPT_FUNCTIONS(access_size, \
-                                        access_mode_str, \
-                                        access_mode_value) \
-    void asan_redirect_ ## access_size ## _byte_ ## access_mode_str(); \
-    void asan_check_ ## access_size ## _byte_ ## access_mode_str(); \
-    void asan_redirect_ ## access_size ## _byte_ ## access_mode_str \
-        ## _no_flags(); \
-    void asan_check_ ## access_size ## _byte_ ## access_mode_str \
-        ## _no_flags();
+#define DECLARE_MEM_INTERCEPT_FUNCTIONS(access_size, access_mode_str,      \
+                                        access_mode_value)                 \
+  void asan_redirect_##access_size##_byte_##access_mode_str();             \
+  void asan_check_##access_size##_byte_##access_mode_str##_2gb();          \
+  void asan_check_##access_size##_byte_##access_mode_str##_4gb();          \
+  void asan_redirect_##access_size##_byte_##access_mode_str##_no_flags();  \
+  void asan_check_##access_size##_byte_##access_mode_str##_no_flags_2gb(); \
+  void asan_check_##access_size##_byte_##access_mode_str##_no_flags_4gb();
 
 // Declare all the memory interceptor functions. Note that these functions have
 // a custom calling convention, and can't be invoked directly.

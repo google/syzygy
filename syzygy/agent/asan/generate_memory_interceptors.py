@@ -14,6 +14,7 @@
 
 import datetime
 import os.path
+import re
 import string
 
 
@@ -216,14 +217,26 @@ _RESTORE_EFLAGS = """\
   pop eax"""
 
 
+_2GB_CHECK = """\
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
+  sar edx, 3
+  js report_failure_{probe_index}"""
+
+
+_4GB_CHECK = """\
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3"""
+
+
 # The common part of the fast path shared between the different
 # implementations of the hooks.
 #
 # This does the following:
 #   - Saves the memory location in EDX for the slow path.
-#   - Checks if the address we're trying to access is signed, if so this mean
-#       that this is an access to the upper region of the memory (over the
-#       2GB limit) and we should report this as a wild access.
+#   - Does an address check if neccessary.
 #   - Checks for zero shadow for this memory location. We use the cmp
 #       instruction so it'll set the sign flag if the upper bit of the shadow
 #       value of this memory location is set to 1.
@@ -231,8 +244,7 @@ _RESTORE_EFLAGS = """\
 #   - Otherwise it removes the memory location from the top of the stack.
 _FAST_PATH = """\
   push edx
-  sar edx, 3
-  js report_failure_{probe_index}
+  {range_check}
   movzx edx, BYTE PTR[edx + {shadow}]
   ; This is a label to the previous shadow memory reference. It will be
   ; referenced by the table at the end of the 'asan_probes' procedure.
@@ -327,7 +339,8 @@ _CHECK_FUNCTION = """\
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_{access_size}_byte_{access_mode_str} PROC  ; Probe #{probe_index}.
+asan_check_{access_size}_byte_{access_mode_str}_{mem_model} PROC  \
+; Probe #{probe_index}.
   {AsanSaveEflags}
   {AsanFastPath}
   ; Restore original EDX.
@@ -345,13 +358,13 @@ report_failure_{probe_index} LABEL NEAR
   pop edx
   {AsanRestoreEflags}
   {AsanErrorPath}
-asan_check_{access_size}_byte_{access_mode_str} ENDP
+asan_check_{access_size}_byte_{access_mode_str}_{mem_model} ENDP
 """
 
 
 # Declare the check access function public label.
 _CHECK_FUNCTION_DECL = """\
-PUBLIC asan_check_{access_size}_byte_{access_mode_str}  ; Probe \
+PUBLIC asan_check_{access_size}_byte_{access_mode_str}_{mem_model}  ; Probe \
 #{probe_index}."""
 
 
@@ -375,8 +388,8 @@ _CHECK_FUNCTION_NO_FLAGS = """\
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_{access_size}_byte_{access_mode_str}_no_flags PROC  ; Probe \
-#{probe_index}.
+asan_check_{access_size}_byte_{access_mode_str}_no_flags_{mem_model} PROC  \
+; Probe #{probe_index}.
   {AsanFastPath}
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 4]
@@ -390,14 +403,14 @@ report_failure_{probe_index} LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
   {AsanErrorPath}
-asan_check_{access_size}_byte_{access_mode_str}_no_flags ENDP
+asan_check_{access_size}_byte_{access_mode_str}_no_flags_{mem_model} ENDP
 """
 
 
 # Declare the check access function public label.
 _CHECK_FUNCTION_NO_FLAGS_DECL = """\
-PUBLIC asan_check_{access_size}_byte_{access_mode_str}_no_flags  ; Probe \
-#{probe_index}."""
+PUBLIC asan_check_{access_size}_byte_{access_mode_str}_no_flags_{mem_model}  \
+; Probe #{probe_index}."""
 
 
 # Generates the Asan memory accessor redirector stubs.
@@ -524,14 +537,18 @@ class MacroAssembler(string.Formatter):
     for (lit, fld, fmt, conv) in super(MacroAssembler, self).parse(str):
       # Strip trailing whitespace from the previous literal to allow natural
       # use of AsanXXX macros.
-      if lit[-5:] == '\n    ':
-        lit = lit[:-4]
+      m = re.match('^(.*\n)( +)$', lit)
+      if m:
+        lit = m.group(0)
       yield((lit, fld, fmt, conv))
 
   def get_value(self, key, args, kwargs):
     """Override to inject macro definitions."""
     if key in _MACROS:
-      return _MACROS[key].format(*args, **kwargs)
+      macro = _MACROS[key].format(*args, **kwargs)
+      # Trim leading whitespace to allow natural use of AsanXXX macros.
+      macro = macro.lstrip()
+      return macro
     return super(MacroAssembler, self).get_value(key, args, kwargs)
 
 
@@ -550,6 +567,14 @@ _ASAN_UNKNOWN_ACCESS = 2
 _ACCESS_MODES = [
     ('read_access', _ASAN_READ_ACCESS),
     ('write_access', _ASAN_WRITE_ACCESS),
+]
+
+
+# Memory models for the generated accessors, and the associated address range
+# checks to insert.
+_MEMORY_MODELS = [
+    ('2gb', _2GB_CHECK.lstrip()),
+    ('4gb', _4GB_CHECK.lstrip()),
 ]
 
 
@@ -610,29 +635,35 @@ def _IterateOverInterceptors(parts,
   # called.
   shadow_index = ToStringCounter(shadow_index)
 
-  # Iterate over the probes that have flags.
-  for access_size in _ACCESS_SIZES:
-    for access, access_name in _ACCESS_MODES:
-      parts.append(f.format(format,
-                            access_size=access_size,
-                            access_mode_str=access,
-                            access_mode_value=access_name,
-                            probe_index=probe_index,
-                            shadow=_SHADOW,
-                            shadow_index=shadow_index))
-      probe_index += 1
+  for mem_model, range_check in _MEMORY_MODELS:
+    # Iterate over the probes that have flags.
+    for access_size in _ACCESS_SIZES:
+      for access, access_name in _ACCESS_MODES:
+        formatted_range_check = f.format(range_check, probe_index=probe_index)
+        parts.append(f.format(format,
+                              access_size=access_size,
+                              access_mode_str=access,
+                              access_mode_value=access_name,
+                              mem_model=mem_model,
+                              probe_index=probe_index,
+                              range_check=formatted_range_check,
+                              shadow=_SHADOW,
+                              shadow_index=shadow_index))
+        probe_index += 1
 
-  # Iterate over the probes that have no flags.
-  for access_size in _ACCESS_SIZES:
-    for access, access_name in _ACCESS_MODES:
-      parts.append(f.format(format_no_flags,
-                            access_size=access_size,
-                            access_mode_str=access,
-                            access_mode_value=access_name,
-                            probe_index=probe_index,
-                            shadow=_SHADOW,
-                            shadow_index=shadow_index))
-      probe_index += 1
+    for access_size in _ACCESS_SIZES:
+      for access, access_name in _ACCESS_MODES:
+        formatted_range_check = f.format(range_check, probe_index=probe_index)
+        parts.append(f.format(format_no_flags,
+                              access_size=access_size,
+                              access_mode_str=access,
+                              access_mode_value=access_name,
+                              mem_model=mem_model,
+                              probe_index=probe_index,
+                              range_check=formatted_range_check,
+                              shadow=_SHADOW,
+                              shadow_index=shadow_index))
+        probe_index += 1
 
   # Return the probe and shadow memory reference counts.
   return (probe_index, shadow_index.count())

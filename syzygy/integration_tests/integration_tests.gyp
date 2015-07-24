@@ -28,6 +28,7 @@
         'integration_tests_harness',
         'report_crash_with_protobuf_harness',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_dyn',
         '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
         '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
             'basic_block_entry_client',

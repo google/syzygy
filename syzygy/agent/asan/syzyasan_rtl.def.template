@@ -18,35 +18,35 @@ LIBRARY syzyasan_{s}.dll
 
 EXPORTS
   ; Access checking functions.
-  asan_check_1_byte_read_access=asan_{r}_1_byte_read_access
-  asan_check_2_byte_read_access=asan_{r}_2_byte_read_access
-  asan_check_4_byte_read_access=asan_{r}_4_byte_read_access
-  asan_check_8_byte_read_access=asan_{r}_8_byte_read_access
-  asan_check_10_byte_read_access=asan_{r}_10_byte_read_access
-  asan_check_16_byte_read_access=asan_{r}_16_byte_read_access
-  asan_check_32_byte_read_access=asan_{r}_32_byte_read_access
-  asan_check_1_byte_write_access=asan_{r}_1_byte_write_access
-  asan_check_2_byte_write_access=asan_{r}_2_byte_write_access
-  asan_check_4_byte_write_access=asan_{r}_4_byte_write_access
-  asan_check_8_byte_write_access=asan_{r}_8_byte_write_access
-  asan_check_10_byte_write_access=asan_{r}_10_byte_write_access
-  asan_check_16_byte_write_access=asan_{r}_16_byte_write_access
-  asan_check_32_byte_write_access=asan_{r}_32_byte_write_access
+  asan_check_1_byte_read_access=asan_{r}_1_byte_read_access{m}
+  asan_check_2_byte_read_access=asan_{r}_2_byte_read_access{m}
+  asan_check_4_byte_read_access=asan_{r}_4_byte_read_access{m}
+  asan_check_8_byte_read_access=asan_{r}_8_byte_read_access{m}
+  asan_check_10_byte_read_access=asan_{r}_10_byte_read_access{m}
+  asan_check_16_byte_read_access=asan_{r}_16_byte_read_access{m}
+  asan_check_32_byte_read_access=asan_{r}_32_byte_read_access{m}
+  asan_check_1_byte_write_access=asan_{r}_1_byte_write_access{m}
+  asan_check_2_byte_write_access=asan_{r}_2_byte_write_access{m}
+  asan_check_4_byte_write_access=asan_{r}_4_byte_write_access{m}
+  asan_check_8_byte_write_access=asan_{r}_8_byte_write_access{m}
+  asan_check_10_byte_write_access=asan_{r}_10_byte_write_access{m}
+  asan_check_16_byte_write_access=asan_{r}_16_byte_write_access{m}
+  asan_check_32_byte_write_access=asan_{r}_32_byte_write_access{m}
 
-  asan_check_1_byte_read_access_no_flags=asan_{r}_1_byte_read_access_no_flags
-  asan_check_2_byte_read_access_no_flags=asan_{r}_2_byte_read_access_no_flags
-  asan_check_4_byte_read_access_no_flags=asan_{r}_4_byte_read_access_no_flags
-  asan_check_8_byte_read_access_no_flags=asan_{r}_8_byte_read_access_no_flags
-  asan_check_10_byte_read_access_no_flags=asan_{r}_10_byte_read_access_no_flags
-  asan_check_16_byte_read_access_no_flags=asan_{r}_16_byte_read_access_no_flags
-  asan_check_32_byte_read_access_no_flags=asan_{r}_32_byte_read_access_no_flags
-  asan_check_1_byte_write_access_no_flags=asan_{r}_1_byte_write_access_no_flags
-  asan_check_2_byte_write_access_no_flags=asan_{r}_2_byte_write_access_no_flags
-  asan_check_4_byte_write_access_no_flags=asan_{r}_4_byte_write_access_no_flags
-  asan_check_8_byte_write_access_no_flags=asan_{r}_8_byte_write_access_no_flags
-  asan_check_10_byte_write_access_no_flags=asan_{r}_10_byte_write_access_no_flags
-  asan_check_16_byte_write_access_no_flags=asan_{r}_16_byte_write_access_no_flags
-  asan_check_32_byte_write_access_no_flags=asan_{r}_32_byte_write_access_no_flags
+  asan_check_1_byte_read_access_no_flags=asan_{r}_1_byte_read_access_no_flags{m}
+  asan_check_2_byte_read_access_no_flags=asan_{r}_2_byte_read_access_no_flags{m}
+  asan_check_4_byte_read_access_no_flags=asan_{r}_4_byte_read_access_no_flags{m}
+  asan_check_8_byte_read_access_no_flags=asan_{r}_8_byte_read_access_no_flags{m}
+  asan_check_10_byte_read_access_no_flags=asan_{r}_10_byte_read_access_no_flags{m}
+  asan_check_16_byte_read_access_no_flags=asan_{r}_16_byte_read_access_no_flags{m}
+  asan_check_32_byte_read_access_no_flags=asan_{r}_32_byte_read_access_no_flags{m}
+  asan_check_1_byte_write_access_no_flags=asan_{r}_1_byte_write_access_no_flags{m}
+  asan_check_2_byte_write_access_no_flags=asan_{r}_2_byte_write_access_no_flags{m}
+  asan_check_4_byte_write_access_no_flags=asan_{r}_4_byte_write_access_no_flags{m}
+  asan_check_8_byte_write_access_no_flags=asan_{r}_8_byte_write_access_no_flags{m}
+  asan_check_10_byte_write_access_no_flags=asan_{r}_10_byte_write_access_no_flags{m}
+  asan_check_16_byte_write_access_no_flags=asan_{r}_16_byte_write_access_no_flags{m}
+  asan_check_32_byte_write_access_no_flags=asan_{r}_32_byte_write_access_no_flags{m}
 
   asan_check_repz_1_byte_cmps_access=asan_{r}_repz_1_byte_cmps_access
   asan_check_repz_2_byte_cmps_access=asan_{r}_repz_2_byte_cmps_access

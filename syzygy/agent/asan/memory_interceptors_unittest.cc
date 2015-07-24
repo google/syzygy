@@ -29,23 +29,27 @@ using testing::MemoryAccessorTester;
 using testing::Return;
 using testing::TestMemoryInterceptors;
 
-static const TestMemoryInterceptors::InterceptFunction
-    intercept_functions[] = {
-#define DEFINE_INTERCEPT_FUNCTION_TABLE(access_size, access_mode_str, \
-                                        access_mode) \
-  { asan_check_ ## access_size ## _byte_ ## access_mode_str, access_size },
+static const TestMemoryInterceptors::InterceptFunction intercept_functions[] = {
+#define DEFINE_INTERCEPT_FUNCTION_TABLE(access_size, access_mode_str,      \
+                                        access_mode)                       \
+  { asan_check_##access_size##_byte_##access_mode_str##_2gb, access_size } \
+  , {asan_check_##access_size##_byte_##access_mode_str##_4gb, access_size},
 
-ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE)
+    ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE)
 
 #undef DEFINE_INTERCEPT_FUNCTION_TABLE
 };
 
 static const TestMemoryInterceptors::InterceptFunction
     intercept_functions_no_flags[] = {
-#define DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS(access_size, \
-    access_mode_str, access_mode) \
-  { asan_check_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
-    access_size },
+#define DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS(access_size, access_mode_str, \
+                                                 access_mode)                  \
+  {                                                                            \
+    asan_check_##access_size##_byte_##access_mode_str##_no_flags_2gb,          \
+        access_size                                                            \
+  }                                                                            \
+  , {asan_check_##access_size##_byte_##access_mode_str##_no_flags_4gb,         \
+     access_size},
 
 ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS)
 

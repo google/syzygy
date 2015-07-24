@@ -40,52 +40,80 @@ PUBLIC asan_no_check
 PUBLIC asan_string_no_check
 PUBLIC asan_redirect_tail
 PUBLIC asan_shadow_references
-PUBLIC asan_check_1_byte_read_access  ; Probe #0.
-PUBLIC asan_check_1_byte_write_access  ; Probe #1.
-PUBLIC asan_check_2_byte_read_access  ; Probe #2.
-PUBLIC asan_check_2_byte_write_access  ; Probe #3.
-PUBLIC asan_check_4_byte_read_access  ; Probe #4.
-PUBLIC asan_check_4_byte_write_access  ; Probe #5.
-PUBLIC asan_check_8_byte_read_access  ; Probe #6.
-PUBLIC asan_check_8_byte_write_access  ; Probe #7.
-PUBLIC asan_check_10_byte_read_access  ; Probe #8.
-PUBLIC asan_check_10_byte_write_access  ; Probe #9.
-PUBLIC asan_check_16_byte_read_access  ; Probe #10.
-PUBLIC asan_check_16_byte_write_access  ; Probe #11.
-PUBLIC asan_check_32_byte_read_access  ; Probe #12.
-PUBLIC asan_check_32_byte_write_access  ; Probe #13.
-PUBLIC asan_check_1_byte_read_access_no_flags  ; Probe #14.
-PUBLIC asan_check_1_byte_write_access_no_flags  ; Probe #15.
-PUBLIC asan_check_2_byte_read_access_no_flags  ; Probe #16.
-PUBLIC asan_check_2_byte_write_access_no_flags  ; Probe #17.
-PUBLIC asan_check_4_byte_read_access_no_flags  ; Probe #18.
-PUBLIC asan_check_4_byte_write_access_no_flags  ; Probe #19.
-PUBLIC asan_check_8_byte_read_access_no_flags  ; Probe #20.
-PUBLIC asan_check_8_byte_write_access_no_flags  ; Probe #21.
-PUBLIC asan_check_10_byte_read_access_no_flags  ; Probe #22.
-PUBLIC asan_check_10_byte_write_access_no_flags  ; Probe #23.
-PUBLIC asan_check_16_byte_read_access_no_flags  ; Probe #24.
-PUBLIC asan_check_16_byte_write_access_no_flags  ; Probe #25.
-PUBLIC asan_check_32_byte_read_access_no_flags  ; Probe #26.
-PUBLIC asan_check_32_byte_write_access_no_flags  ; Probe #27.
-PUBLIC asan_check_repz_4_byte_cmps_access  ; Probe #28.
-PUBLIC asan_check_repz_2_byte_cmps_access  ; Probe #29.
-PUBLIC asan_check_repz_1_byte_cmps_access  ; Probe #30.
-PUBLIC asan_check_4_byte_cmps_access  ; Probe #31.
-PUBLIC asan_check_2_byte_cmps_access  ; Probe #32.
-PUBLIC asan_check_1_byte_cmps_access  ; Probe #33.
-PUBLIC asan_check_repz_4_byte_movs_access  ; Probe #34.
-PUBLIC asan_check_repz_2_byte_movs_access  ; Probe #35.
-PUBLIC asan_check_repz_1_byte_movs_access  ; Probe #36.
-PUBLIC asan_check_4_byte_movs_access  ; Probe #37.
-PUBLIC asan_check_2_byte_movs_access  ; Probe #38.
-PUBLIC asan_check_1_byte_movs_access  ; Probe #39.
-PUBLIC asan_check_repz_4_byte_stos_access  ; Probe #40.
-PUBLIC asan_check_repz_2_byte_stos_access  ; Probe #41.
-PUBLIC asan_check_repz_1_byte_stos_access  ; Probe #42.
-PUBLIC asan_check_4_byte_stos_access  ; Probe #43.
-PUBLIC asan_check_2_byte_stos_access  ; Probe #44.
-PUBLIC asan_check_1_byte_stos_access  ; Probe #45.
+PUBLIC asan_check_1_byte_read_access_2gb  ; Probe #0.
+PUBLIC asan_check_1_byte_write_access_2gb  ; Probe #1.
+PUBLIC asan_check_2_byte_read_access_2gb  ; Probe #2.
+PUBLIC asan_check_2_byte_write_access_2gb  ; Probe #3.
+PUBLIC asan_check_4_byte_read_access_2gb  ; Probe #4.
+PUBLIC asan_check_4_byte_write_access_2gb  ; Probe #5.
+PUBLIC asan_check_8_byte_read_access_2gb  ; Probe #6.
+PUBLIC asan_check_8_byte_write_access_2gb  ; Probe #7.
+PUBLIC asan_check_10_byte_read_access_2gb  ; Probe #8.
+PUBLIC asan_check_10_byte_write_access_2gb  ; Probe #9.
+PUBLIC asan_check_16_byte_read_access_2gb  ; Probe #10.
+PUBLIC asan_check_16_byte_write_access_2gb  ; Probe #11.
+PUBLIC asan_check_32_byte_read_access_2gb  ; Probe #12.
+PUBLIC asan_check_32_byte_write_access_2gb  ; Probe #13.
+PUBLIC asan_check_1_byte_read_access_no_flags_2gb  ; Probe #14.
+PUBLIC asan_check_1_byte_write_access_no_flags_2gb  ; Probe #15.
+PUBLIC asan_check_2_byte_read_access_no_flags_2gb  ; Probe #16.
+PUBLIC asan_check_2_byte_write_access_no_flags_2gb  ; Probe #17.
+PUBLIC asan_check_4_byte_read_access_no_flags_2gb  ; Probe #18.
+PUBLIC asan_check_4_byte_write_access_no_flags_2gb  ; Probe #19.
+PUBLIC asan_check_8_byte_read_access_no_flags_2gb  ; Probe #20.
+PUBLIC asan_check_8_byte_write_access_no_flags_2gb  ; Probe #21.
+PUBLIC asan_check_10_byte_read_access_no_flags_2gb  ; Probe #22.
+PUBLIC asan_check_10_byte_write_access_no_flags_2gb  ; Probe #23.
+PUBLIC asan_check_16_byte_read_access_no_flags_2gb  ; Probe #24.
+PUBLIC asan_check_16_byte_write_access_no_flags_2gb  ; Probe #25.
+PUBLIC asan_check_32_byte_read_access_no_flags_2gb  ; Probe #26.
+PUBLIC asan_check_32_byte_write_access_no_flags_2gb  ; Probe #27.
+PUBLIC asan_check_1_byte_read_access_4gb  ; Probe #28.
+PUBLIC asan_check_1_byte_write_access_4gb  ; Probe #29.
+PUBLIC asan_check_2_byte_read_access_4gb  ; Probe #30.
+PUBLIC asan_check_2_byte_write_access_4gb  ; Probe #31.
+PUBLIC asan_check_4_byte_read_access_4gb  ; Probe #32.
+PUBLIC asan_check_4_byte_write_access_4gb  ; Probe #33.
+PUBLIC asan_check_8_byte_read_access_4gb  ; Probe #34.
+PUBLIC asan_check_8_byte_write_access_4gb  ; Probe #35.
+PUBLIC asan_check_10_byte_read_access_4gb  ; Probe #36.
+PUBLIC asan_check_10_byte_write_access_4gb  ; Probe #37.
+PUBLIC asan_check_16_byte_read_access_4gb  ; Probe #38.
+PUBLIC asan_check_16_byte_write_access_4gb  ; Probe #39.
+PUBLIC asan_check_32_byte_read_access_4gb  ; Probe #40.
+PUBLIC asan_check_32_byte_write_access_4gb  ; Probe #41.
+PUBLIC asan_check_1_byte_read_access_no_flags_4gb  ; Probe #42.
+PUBLIC asan_check_1_byte_write_access_no_flags_4gb  ; Probe #43.
+PUBLIC asan_check_2_byte_read_access_no_flags_4gb  ; Probe #44.
+PUBLIC asan_check_2_byte_write_access_no_flags_4gb  ; Probe #45.
+PUBLIC asan_check_4_byte_read_access_no_flags_4gb  ; Probe #46.
+PUBLIC asan_check_4_byte_write_access_no_flags_4gb  ; Probe #47.
+PUBLIC asan_check_8_byte_read_access_no_flags_4gb  ; Probe #48.
+PUBLIC asan_check_8_byte_write_access_no_flags_4gb  ; Probe #49.
+PUBLIC asan_check_10_byte_read_access_no_flags_4gb  ; Probe #50.
+PUBLIC asan_check_10_byte_write_access_no_flags_4gb  ; Probe #51.
+PUBLIC asan_check_16_byte_read_access_no_flags_4gb  ; Probe #52.
+PUBLIC asan_check_16_byte_write_access_no_flags_4gb  ; Probe #53.
+PUBLIC asan_check_32_byte_read_access_no_flags_4gb  ; Probe #54.
+PUBLIC asan_check_32_byte_write_access_no_flags_4gb  ; Probe #55.
+PUBLIC asan_check_repz_4_byte_cmps_access  ; Probe #56.
+PUBLIC asan_check_repz_2_byte_cmps_access  ; Probe #57.
+PUBLIC asan_check_repz_1_byte_cmps_access  ; Probe #58.
+PUBLIC asan_check_4_byte_cmps_access  ; Probe #59.
+PUBLIC asan_check_2_byte_cmps_access  ; Probe #60.
+PUBLIC asan_check_1_byte_cmps_access  ; Probe #61.
+PUBLIC asan_check_repz_4_byte_movs_access  ; Probe #62.
+PUBLIC asan_check_repz_2_byte_movs_access  ; Probe #63.
+PUBLIC asan_check_repz_1_byte_movs_access  ; Probe #64.
+PUBLIC asan_check_4_byte_movs_access  ; Probe #65.
+PUBLIC asan_check_2_byte_movs_access  ; Probe #66.
+PUBLIC asan_check_1_byte_movs_access  ; Probe #67.
+PUBLIC asan_check_repz_4_byte_stos_access  ; Probe #68.
+PUBLIC asan_check_repz_2_byte_stos_access  ; Probe #69.
+PUBLIC asan_check_repz_1_byte_stos_access  ; Probe #70.
+PUBLIC asan_check_4_byte_stos_access  ; Probe #71.
+PUBLIC asan_check_2_byte_stos_access  ; Probe #72.
+PUBLIC asan_check_1_byte_stos_access  ; Probe #73.
 
 ; Create a new text segment to house the memory interceptors.
 .probes SEGMENT PAGE PUBLIC READ EXECUTE 'CODE'
@@ -148,12 +176,15 @@ asan_redirect_tail ENDP
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_1_byte_read_access PROC  ; Probe #0.
-    ; Save the EFLAGS.
+asan_check_1_byte_read_access_2gb PROC  ; Probe #0.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_0
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -165,13 +196,13 @@ shadow_reference_0 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_0 LABEL NEAR
-    js report_failure_0
+  js report_failure_0
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -179,7 +210,7 @@ check_access_slow_0 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -187,11 +218,11 @@ check_access_slow_0 LABEL NEAR
 report_failure_0 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -215,19 +246,22 @@ report_failure_0 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_1_byte_read_access ENDP
+asan_check_1_byte_read_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_1_byte_write_access PROC  ; Probe #1.
-    ; Save the EFLAGS.
+asan_check_1_byte_write_access_2gb PROC  ; Probe #1.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_1
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -239,13 +273,13 @@ shadow_reference_1 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_1 LABEL NEAR
-    js report_failure_1
+  js report_failure_1
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -253,7 +287,7 @@ check_access_slow_1 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -261,11 +295,11 @@ check_access_slow_1 LABEL NEAR
 report_failure_1 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -289,19 +323,22 @@ report_failure_1 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_1_byte_write_access ENDP
+asan_check_1_byte_write_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_2_byte_read_access PROC  ; Probe #2.
-    ; Save the EFLAGS.
+asan_check_2_byte_read_access_2gb PROC  ; Probe #2.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_2
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -313,13 +350,13 @@ shadow_reference_2 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_2 LABEL NEAR
-    js report_failure_2
+  js report_failure_2
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -327,7 +364,7 @@ check_access_slow_2 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -335,11 +372,11 @@ check_access_slow_2 LABEL NEAR
 report_failure_2 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -363,19 +400,22 @@ report_failure_2 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_2_byte_read_access ENDP
+asan_check_2_byte_read_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_2_byte_write_access PROC  ; Probe #3.
-    ; Save the EFLAGS.
+asan_check_2_byte_write_access_2gb PROC  ; Probe #3.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_3
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -387,13 +427,13 @@ shadow_reference_3 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_3 LABEL NEAR
-    js report_failure_3
+  js report_failure_3
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -401,7 +441,7 @@ check_access_slow_3 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -409,11 +449,11 @@ check_access_slow_3 LABEL NEAR
 report_failure_3 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -437,19 +477,22 @@ report_failure_3 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_2_byte_write_access ENDP
+asan_check_2_byte_write_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_4_byte_read_access PROC  ; Probe #4.
-    ; Save the EFLAGS.
+asan_check_4_byte_read_access_2gb PROC  ; Probe #4.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_4
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -461,13 +504,13 @@ shadow_reference_4 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_4 LABEL NEAR
-    js report_failure_4
+  js report_failure_4
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -475,7 +518,7 @@ check_access_slow_4 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -483,11 +526,11 @@ check_access_slow_4 LABEL NEAR
 report_failure_4 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -511,19 +554,22 @@ report_failure_4 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_4_byte_read_access ENDP
+asan_check_4_byte_read_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_4_byte_write_access PROC  ; Probe #5.
-    ; Save the EFLAGS.
+asan_check_4_byte_write_access_2gb PROC  ; Probe #5.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_5
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -535,13 +581,13 @@ shadow_reference_5 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_5 LABEL NEAR
-    js report_failure_5
+  js report_failure_5
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -549,7 +595,7 @@ check_access_slow_5 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -557,11 +603,11 @@ check_access_slow_5 LABEL NEAR
 report_failure_5 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -585,19 +631,22 @@ report_failure_5 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_4_byte_write_access ENDP
+asan_check_4_byte_write_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_8_byte_read_access PROC  ; Probe #6.
-    ; Save the EFLAGS.
+asan_check_8_byte_read_access_2gb PROC  ; Probe #6.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_6
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -609,13 +658,13 @@ shadow_reference_6 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_6 LABEL NEAR
-    js report_failure_6
+  js report_failure_6
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -623,7 +672,7 @@ check_access_slow_6 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -631,11 +680,11 @@ check_access_slow_6 LABEL NEAR
 report_failure_6 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -659,19 +708,22 @@ report_failure_6 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_8_byte_read_access ENDP
+asan_check_8_byte_read_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_8_byte_write_access PROC  ; Probe #7.
-    ; Save the EFLAGS.
+asan_check_8_byte_write_access_2gb PROC  ; Probe #7.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_7
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -683,13 +735,13 @@ shadow_reference_7 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_7 LABEL NEAR
-    js report_failure_7
+  js report_failure_7
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -697,7 +749,7 @@ check_access_slow_7 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -705,11 +757,11 @@ check_access_slow_7 LABEL NEAR
 report_failure_7 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -733,19 +785,22 @@ report_failure_7 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_8_byte_write_access ENDP
+asan_check_8_byte_write_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_10_byte_read_access PROC  ; Probe #8.
-    ; Save the EFLAGS.
+asan_check_10_byte_read_access_2gb PROC  ; Probe #8.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_8
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -757,13 +812,13 @@ shadow_reference_8 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_8 LABEL NEAR
-    js report_failure_8
+  js report_failure_8
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -771,7 +826,7 @@ check_access_slow_8 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -779,11 +834,11 @@ check_access_slow_8 LABEL NEAR
 report_failure_8 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -807,19 +862,22 @@ report_failure_8 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_10_byte_read_access ENDP
+asan_check_10_byte_read_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_10_byte_write_access PROC  ; Probe #9.
-    ; Save the EFLAGS.
+asan_check_10_byte_write_access_2gb PROC  ; Probe #9.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_9
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -831,13 +889,13 @@ shadow_reference_9 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_9 LABEL NEAR
-    js report_failure_9
+  js report_failure_9
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -845,7 +903,7 @@ check_access_slow_9 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -853,11 +911,11 @@ check_access_slow_9 LABEL NEAR
 report_failure_9 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -881,19 +939,22 @@ report_failure_9 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_10_byte_write_access ENDP
+asan_check_10_byte_write_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_16_byte_read_access PROC  ; Probe #10.
-    ; Save the EFLAGS.
+asan_check_16_byte_read_access_2gb PROC  ; Probe #10.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_10
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -905,13 +966,13 @@ shadow_reference_10 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_10 LABEL NEAR
-    js report_failure_10
+  js report_failure_10
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -919,7 +980,7 @@ check_access_slow_10 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -927,11 +988,11 @@ check_access_slow_10 LABEL NEAR
 report_failure_10 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -955,19 +1016,22 @@ report_failure_10 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_16_byte_read_access ENDP
+asan_check_16_byte_read_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_16_byte_write_access PROC  ; Probe #11.
-    ; Save the EFLAGS.
+asan_check_16_byte_write_access_2gb PROC  ; Probe #11.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_11
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -979,13 +1043,13 @@ shadow_reference_11 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_11 LABEL NEAR
-    js report_failure_11
+  js report_failure_11
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -993,7 +1057,7 @@ check_access_slow_11 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -1001,11 +1065,11 @@ check_access_slow_11 LABEL NEAR
 report_failure_11 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1029,19 +1093,22 @@ report_failure_11 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_16_byte_write_access ENDP
+asan_check_16_byte_write_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_32_byte_read_access PROC  ; Probe #12.
-    ; Save the EFLAGS.
+asan_check_32_byte_read_access_2gb PROC  ; Probe #12.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_12
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1053,13 +1120,13 @@ shadow_reference_12 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_12 LABEL NEAR
-    js report_failure_12
+  js report_failure_12
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1067,7 +1134,7 @@ check_access_slow_12 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -1075,11 +1142,11 @@ check_access_slow_12 LABEL NEAR
 report_failure_12 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1103,19 +1170,22 @@ report_failure_12 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_32_byte_read_access ENDP
+asan_check_32_byte_read_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function modifies no other registers,
 ; in particular it saves and restores EFLAGS.
 ALIGN 16
-asan_check_32_byte_write_access PROC  ; Probe #13.
-    ; Save the EFLAGS.
+asan_check_32_byte_write_access_2gb PROC  ; Probe #13.
+  ; Save the EFLAGS.
   push eax
   lahf
   seto al
-    push edx
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_13
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1127,13 +1197,13 @@ shadow_reference_13 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
   ret 4
 check_access_slow_13 LABEL NEAR
-    js report_failure_13
+  js report_failure_13
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1141,7 +1211,7 @@ check_access_slow_13 LABEL NEAR
   add esp, 4
   ; Restore original EDX.
   mov edx, DWORD PTR[esp + 8]
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
@@ -1149,11 +1219,11 @@ check_access_slow_13 LABEL NEAR
 report_failure_13 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore the EFLAGS.
+  ; Restore the EFLAGS.
   add al, 7Fh
   sahf
   pop eax
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1177,15 +1247,18 @@ report_failure_13 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_32_byte_write_access ENDP
+asan_check_32_byte_write_access_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_1_byte_read_access_no_flags PROC  ; Probe #14.
-    push edx
+asan_check_1_byte_read_access_no_flags_2gb PROC  ; Probe #14.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_14
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1199,7 +1272,7 @@ shadow_reference_14 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_14 LABEL NEAR
-    js report_failure_14
+  js report_failure_14
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1211,7 +1284,7 @@ check_access_slow_14 LABEL NEAR
 report_failure_14 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1235,15 +1308,18 @@ report_failure_14 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_1_byte_read_access_no_flags ENDP
+asan_check_1_byte_read_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_1_byte_write_access_no_flags PROC  ; Probe #15.
-    push edx
+asan_check_1_byte_write_access_no_flags_2gb PROC  ; Probe #15.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_15
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1257,7 +1333,7 @@ shadow_reference_15 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_15 LABEL NEAR
-    js report_failure_15
+  js report_failure_15
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1269,7 +1345,7 @@ check_access_slow_15 LABEL NEAR
 report_failure_15 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1293,15 +1369,18 @@ report_failure_15 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_1_byte_write_access_no_flags ENDP
+asan_check_1_byte_write_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_2_byte_read_access_no_flags PROC  ; Probe #16.
-    push edx
+asan_check_2_byte_read_access_no_flags_2gb PROC  ; Probe #16.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_16
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1315,7 +1394,7 @@ shadow_reference_16 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_16 LABEL NEAR
-    js report_failure_16
+  js report_failure_16
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1327,7 +1406,7 @@ check_access_slow_16 LABEL NEAR
 report_failure_16 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1351,15 +1430,18 @@ report_failure_16 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_2_byte_read_access_no_flags ENDP
+asan_check_2_byte_read_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_2_byte_write_access_no_flags PROC  ; Probe #17.
-    push edx
+asan_check_2_byte_write_access_no_flags_2gb PROC  ; Probe #17.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_17
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1373,7 +1455,7 @@ shadow_reference_17 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_17 LABEL NEAR
-    js report_failure_17
+  js report_failure_17
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1385,7 +1467,7 @@ check_access_slow_17 LABEL NEAR
 report_failure_17 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1409,15 +1491,18 @@ report_failure_17 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_2_byte_write_access_no_flags ENDP
+asan_check_2_byte_write_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_4_byte_read_access_no_flags PROC  ; Probe #18.
-    push edx
+asan_check_4_byte_read_access_no_flags_2gb PROC  ; Probe #18.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_18
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1431,7 +1516,7 @@ shadow_reference_18 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_18 LABEL NEAR
-    js report_failure_18
+  js report_failure_18
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1443,7 +1528,7 @@ check_access_slow_18 LABEL NEAR
 report_failure_18 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1467,15 +1552,18 @@ report_failure_18 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_4_byte_read_access_no_flags ENDP
+asan_check_4_byte_read_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_4_byte_write_access_no_flags PROC  ; Probe #19.
-    push edx
+asan_check_4_byte_write_access_no_flags_2gb PROC  ; Probe #19.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_19
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1489,7 +1577,7 @@ shadow_reference_19 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_19 LABEL NEAR
-    js report_failure_19
+  js report_failure_19
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1501,7 +1589,7 @@ check_access_slow_19 LABEL NEAR
 report_failure_19 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1525,15 +1613,18 @@ report_failure_19 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_4_byte_write_access_no_flags ENDP
+asan_check_4_byte_write_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_8_byte_read_access_no_flags PROC  ; Probe #20.
-    push edx
+asan_check_8_byte_read_access_no_flags_2gb PROC  ; Probe #20.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_20
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1547,7 +1638,7 @@ shadow_reference_20 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_20 LABEL NEAR
-    js report_failure_20
+  js report_failure_20
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1559,7 +1650,7 @@ check_access_slow_20 LABEL NEAR
 report_failure_20 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1583,15 +1674,18 @@ report_failure_20 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_8_byte_read_access_no_flags ENDP
+asan_check_8_byte_read_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_8_byte_write_access_no_flags PROC  ; Probe #21.
-    push edx
+asan_check_8_byte_write_access_no_flags_2gb PROC  ; Probe #21.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_21
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1605,7 +1699,7 @@ shadow_reference_21 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_21 LABEL NEAR
-    js report_failure_21
+  js report_failure_21
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1617,7 +1711,7 @@ check_access_slow_21 LABEL NEAR
 report_failure_21 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1641,15 +1735,18 @@ report_failure_21 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_8_byte_write_access_no_flags ENDP
+asan_check_8_byte_write_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_10_byte_read_access_no_flags PROC  ; Probe #22.
-    push edx
+asan_check_10_byte_read_access_no_flags_2gb PROC  ; Probe #22.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_22
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1663,7 +1760,7 @@ shadow_reference_22 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_22 LABEL NEAR
-    js report_failure_22
+  js report_failure_22
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1675,7 +1772,7 @@ check_access_slow_22 LABEL NEAR
 report_failure_22 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1699,15 +1796,18 @@ report_failure_22 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_10_byte_read_access_no_flags ENDP
+asan_check_10_byte_read_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_10_byte_write_access_no_flags PROC  ; Probe #23.
-    push edx
+asan_check_10_byte_write_access_no_flags_2gb PROC  ; Probe #23.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_23
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1721,7 +1821,7 @@ shadow_reference_23 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_23 LABEL NEAR
-    js report_failure_23
+  js report_failure_23
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1733,7 +1833,7 @@ check_access_slow_23 LABEL NEAR
 report_failure_23 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1757,15 +1857,18 @@ report_failure_23 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_10_byte_write_access_no_flags ENDP
+asan_check_10_byte_write_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_16_byte_read_access_no_flags PROC  ; Probe #24.
-    push edx
+asan_check_16_byte_read_access_no_flags_2gb PROC  ; Probe #24.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_24
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1779,7 +1882,7 @@ shadow_reference_24 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_24 LABEL NEAR
-    js report_failure_24
+  js report_failure_24
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1791,7 +1894,7 @@ check_access_slow_24 LABEL NEAR
 report_failure_24 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1815,15 +1918,18 @@ report_failure_24 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_16_byte_read_access_no_flags ENDP
+asan_check_16_byte_read_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_16_byte_write_access_no_flags PROC  ; Probe #25.
-    push edx
+asan_check_16_byte_write_access_no_flags_2gb PROC  ; Probe #25.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_25
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1837,7 +1943,7 @@ shadow_reference_25 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_25 LABEL NEAR
-    js report_failure_25
+  js report_failure_25
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1849,7 +1955,7 @@ check_access_slow_25 LABEL NEAR
 report_failure_25 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1873,15 +1979,18 @@ report_failure_25 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_16_byte_write_access_no_flags ENDP
+asan_check_16_byte_write_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_32_byte_read_access_no_flags PROC  ; Probe #26.
-    push edx
+asan_check_32_byte_read_access_no_flags_2gb PROC  ; Probe #26.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_26
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1895,7 +2004,7 @@ shadow_reference_26 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_26 LABEL NEAR
-    js report_failure_26
+  js report_failure_26
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1907,7 +2016,7 @@ check_access_slow_26 LABEL NEAR
 report_failure_26 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1931,15 +2040,18 @@ report_failure_26 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_32_byte_read_access_no_flags ENDP
+asan_check_32_byte_read_access_no_flags_2gb ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored
 ; and popped off the stack. This function may modify EFLAGS, but preserves
 ; all other registers.
 ALIGN 16
-asan_check_32_byte_write_access_no_flags PROC  ; Probe #27.
-    push edx
+asan_check_32_byte_write_access_no_flags_2gb PROC  ; Probe #27.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. This is a signed
+  ; operation so the sign bit will stay positive if the address is above the 2GB
+  ; threshold, and the check will fail.
   sar edx, 3
   js report_failure_27
   movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
@@ -1953,7 +2065,7 @@ shadow_reference_27 LABEL NEAR
   mov edx, DWORD PTR[esp + 4]
   ret 4
 check_access_slow_27 LABEL NEAR
-    js report_failure_27
+  js report_failure_27
   mov dh, BYTE PTR[esp]
   and dh, 7
   cmp dh, dl
@@ -1965,7 +2077,7 @@ check_access_slow_27 LABEL NEAR
 report_failure_27 LABEL NEAR
   ; Restore memory location in EDX.
   pop edx
-    ; Restore original value of EDX, and put memory location on stack.
+  ; Restore original value of EDX, and put memory location on stack.
   xchg edx, DWORD PTR[esp + 4]
   ; Create an Asan registers context on the stack.
   pushfd
@@ -1989,10 +2101,1886 @@ report_failure_27 LABEL NEAR
   popfd
   ; Return and remove memory location on stack.
   ret 4
-asan_check_32_byte_write_access_no_flags ENDP
+asan_check_32_byte_write_access_no_flags_2gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_1_byte_read_access_4gb PROC  ; Probe #28.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_28 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_28
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_28 LABEL NEAR
+  js report_failure_28
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_28
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_28 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 1
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_1_byte_read_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_1_byte_write_access_4gb PROC  ; Probe #29.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_29 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_29
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_29 LABEL NEAR
+  js report_failure_29
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_29
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_29 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 1
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_1_byte_write_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_2_byte_read_access_4gb PROC  ; Probe #30.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_30 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_30
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_30 LABEL NEAR
+  js report_failure_30
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_30
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_30 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 2
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_2_byte_read_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_2_byte_write_access_4gb PROC  ; Probe #31.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_31 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_31
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_31 LABEL NEAR
+  js report_failure_31
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_31
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_31 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 2
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_2_byte_write_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_4_byte_read_access_4gb PROC  ; Probe #32.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_32 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_32
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_32 LABEL NEAR
+  js report_failure_32
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_32
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_32 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 4
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_4_byte_read_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_4_byte_write_access_4gb PROC  ; Probe #33.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_33 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_33
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_33 LABEL NEAR
+  js report_failure_33
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_33
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_33 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 4
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_4_byte_write_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_8_byte_read_access_4gb PROC  ; Probe #34.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_34 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_34
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_34 LABEL NEAR
+  js report_failure_34
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_34
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_34 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 8
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_8_byte_read_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_8_byte_write_access_4gb PROC  ; Probe #35.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_35 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_35
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_35 LABEL NEAR
+  js report_failure_35
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_35
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_35 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 8
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_8_byte_write_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_10_byte_read_access_4gb PROC  ; Probe #36.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_36 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_36
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_36 LABEL NEAR
+  js report_failure_36
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_36
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_36 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 10
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_10_byte_read_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_10_byte_write_access_4gb PROC  ; Probe #37.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_37 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_37
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_37 LABEL NEAR
+  js report_failure_37
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_37
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_37 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 10
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_10_byte_write_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_16_byte_read_access_4gb PROC  ; Probe #38.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_38 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_38
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_38 LABEL NEAR
+  js report_failure_38
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_38
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_38 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 16
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_16_byte_read_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_16_byte_write_access_4gb PROC  ; Probe #39.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_39 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_39
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_39 LABEL NEAR
+  js report_failure_39
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_39
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_39 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 16
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_16_byte_write_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_32_byte_read_access_4gb PROC  ; Probe #40.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_40 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_40
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_40 LABEL NEAR
+  js report_failure_40
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_40
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_40 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 32
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_32_byte_read_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function modifies no other registers,
+; in particular it saves and restores EFLAGS.
+ALIGN 16
+asan_check_32_byte_write_access_4gb PROC  ; Probe #41.
+  ; Save the EFLAGS.
+  push eax
+  lahf
+  seto al
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_41 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_41
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+check_access_slow_41 LABEL NEAR
+  js report_failure_41
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_41
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 8]
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ret 4
+report_failure_41 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore the EFLAGS.
+  add al, 7Fh
+  sahf
+  pop eax
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 32
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_32_byte_write_access_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_1_byte_read_access_no_flags_4gb PROC  ; Probe #42.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_42 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_42
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_42 LABEL NEAR
+  js report_failure_42
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_42
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_42 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 1
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_1_byte_read_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_1_byte_write_access_no_flags_4gb PROC  ; Probe #43.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_43 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_43
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_43 LABEL NEAR
+  js report_failure_43
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_43
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_43 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 1
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_1_byte_write_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_2_byte_read_access_no_flags_4gb PROC  ; Probe #44.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_44 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_44
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_44 LABEL NEAR
+  js report_failure_44
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_44
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_44 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 2
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_2_byte_read_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_2_byte_write_access_no_flags_4gb PROC  ; Probe #45.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_45 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_45
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_45 LABEL NEAR
+  js report_failure_45
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_45
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_45 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 2
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_2_byte_write_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_4_byte_read_access_no_flags_4gb PROC  ; Probe #46.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_46 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_46
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_46 LABEL NEAR
+  js report_failure_46
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_46
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_46 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 4
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_4_byte_read_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_4_byte_write_access_no_flags_4gb PROC  ; Probe #47.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_47 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_47
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_47 LABEL NEAR
+  js report_failure_47
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_47
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_47 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 4
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_4_byte_write_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_8_byte_read_access_no_flags_4gb PROC  ; Probe #48.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_48 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_48
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_48 LABEL NEAR
+  js report_failure_48
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_48
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_48 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 8
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_8_byte_read_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_8_byte_write_access_no_flags_4gb PROC  ; Probe #49.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_49 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_49
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_49 LABEL NEAR
+  js report_failure_49
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_49
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_49 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 8
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_8_byte_write_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_10_byte_read_access_no_flags_4gb PROC  ; Probe #50.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_50 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_50
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_50 LABEL NEAR
+  js report_failure_50
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_50
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_50 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 10
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_10_byte_read_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_10_byte_write_access_no_flags_4gb PROC  ; Probe #51.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_51 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_51
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_51 LABEL NEAR
+  js report_failure_51
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_51
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_51 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 10
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_10_byte_write_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_16_byte_read_access_no_flags_4gb PROC  ; Probe #52.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_52 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_52
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_52 LABEL NEAR
+  js report_failure_52
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_52
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_52 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 16
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_16_byte_read_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_16_byte_write_access_no_flags_4gb PROC  ; Probe #53.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_53 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_53
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_53 LABEL NEAR
+  js report_failure_53
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_53
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_53 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 16
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_16_byte_write_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_32_byte_read_access_no_flags_4gb PROC  ; Probe #54.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_54 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_54
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_54 LABEL NEAR
+  js report_failure_54
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_54
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_54 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 32
+  ; Push ARG2: the access type.
+  push 0
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_32_byte_read_access_no_flags_4gb ENDP
+
+; On entry, the address to check is in EDX and the previous contents of
+; EDX are on stack. On exit the previous contents of EDX have been restored
+; and popped off the stack. This function may modify EFLAGS, but preserves
+; all other registers.
+ALIGN 16
+asan_check_32_byte_write_access_no_flags_4gb PROC  ; Probe #55.
+  push edx
+  ; Divide by 8 to convert the address to a shadow index. No range check is
+  ; needed as the address space is 4GB.
+  shr edx, 3
+  movzx edx, BYTE PTR[edx + asan_memory_interceptors_shadow_memory]
+  ; This is a label to the previous shadow memory reference. It will be
+  ; referenced by the table at the end of the 'asan_probes' procedure.
+shadow_reference_55 LABEL NEAR
+  cmp dl, 0
+  jnz check_access_slow_55
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+check_access_slow_55 LABEL NEAR
+  js report_failure_55
+  mov dh, BYTE PTR[esp]
+  and dh, 7
+  cmp dh, dl
+  jae report_failure_55
+  add esp, 4
+  ; Restore original EDX.
+  mov edx, DWORD PTR[esp + 4]
+  ret 4
+report_failure_55 LABEL NEAR
+  ; Restore memory location in EDX.
+  pop edx
+  ; Restore original value of EDX, and put memory location on stack.
+  xchg edx, DWORD PTR[esp + 4]
+  ; Create an Asan registers context on the stack.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 12 bytes (e.g. EFLAGS / EIP / Original EDX).
+  add DWORD PTR[esp + 12], 12
+  ; Push ARG4: the address of Asan context on stack.
+  push esp
+  ; Push ARG3: the access size.
+  push 32
+  ; Push ARG2: the access type.
+  push 1
+  ; Push ARG1: the memory location.
+  push DWORD PTR[esp + 52]
+  call asan_report_bad_memory_access
+  ; Remove 4 x ARG on stack.
+  add esp, 16
+  ; Restore original registers.
+  popad
+  popfd
+  ; Return and remove memory location on stack.
+  ret 4
+asan_check_32_byte_write_access_no_flags_4gb ENDP
 
 ALIGN 16
-asan_check_repz_4_byte_cmps_access PROC  ; Probe #28.
+asan_check_repz_4_byte_cmps_access PROC  ; Probe #56.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2004,9 +3992,9 @@ asan_check_repz_4_byte_cmps_access PROC  ; Probe #28.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_28
+  jz skip_neg_direction_56
   neg ebx
-skip_neg_direction_28 LABEL NEAR
+skip_neg_direction_56 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2037,7 +4025,7 @@ skip_neg_direction_28 LABEL NEAR
 asan_check_repz_4_byte_cmps_access ENDP
 
 ALIGN 16
-asan_check_repz_2_byte_cmps_access PROC  ; Probe #29.
+asan_check_repz_2_byte_cmps_access PROC  ; Probe #57.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2049,9 +4037,9 @@ asan_check_repz_2_byte_cmps_access PROC  ; Probe #29.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_29
+  jz skip_neg_direction_57
   neg ebx
-skip_neg_direction_29 LABEL NEAR
+skip_neg_direction_57 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2082,7 +4070,7 @@ skip_neg_direction_29 LABEL NEAR
 asan_check_repz_2_byte_cmps_access ENDP
 
 ALIGN 16
-asan_check_repz_1_byte_cmps_access PROC  ; Probe #30.
+asan_check_repz_1_byte_cmps_access PROC  ; Probe #58.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2094,9 +4082,9 @@ asan_check_repz_1_byte_cmps_access PROC  ; Probe #30.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_30
+  jz skip_neg_direction_58
   neg ebx
-skip_neg_direction_30 LABEL NEAR
+skip_neg_direction_58 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2127,7 +4115,7 @@ skip_neg_direction_30 LABEL NEAR
 asan_check_repz_1_byte_cmps_access ENDP
 
 ALIGN 16
-asan_check_4_byte_cmps_access PROC  ; Probe #31.
+asan_check_4_byte_cmps_access PROC  ; Probe #59.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2139,9 +4127,9 @@ asan_check_4_byte_cmps_access PROC  ; Probe #31.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_31
+  jz skip_neg_direction_59
   neg ebx
-skip_neg_direction_31 LABEL NEAR
+skip_neg_direction_59 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2172,7 +4160,7 @@ skip_neg_direction_31 LABEL NEAR
 asan_check_4_byte_cmps_access ENDP
 
 ALIGN 16
-asan_check_2_byte_cmps_access PROC  ; Probe #32.
+asan_check_2_byte_cmps_access PROC  ; Probe #60.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2184,9 +4172,9 @@ asan_check_2_byte_cmps_access PROC  ; Probe #32.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_32
+  jz skip_neg_direction_60
   neg ebx
-skip_neg_direction_32 LABEL NEAR
+skip_neg_direction_60 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2217,7 +4205,7 @@ skip_neg_direction_32 LABEL NEAR
 asan_check_2_byte_cmps_access ENDP
 
 ALIGN 16
-asan_check_1_byte_cmps_access PROC  ; Probe #33.
+asan_check_1_byte_cmps_access PROC  ; Probe #61.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2229,9 +4217,9 @@ asan_check_1_byte_cmps_access PROC  ; Probe #33.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_33
+  jz skip_neg_direction_61
   neg ebx
-skip_neg_direction_33 LABEL NEAR
+skip_neg_direction_61 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2262,7 +4250,7 @@ skip_neg_direction_33 LABEL NEAR
 asan_check_1_byte_cmps_access ENDP
 
 ALIGN 16
-asan_check_repz_4_byte_movs_access PROC  ; Probe #34.
+asan_check_repz_4_byte_movs_access PROC  ; Probe #62.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2274,9 +4262,9 @@ asan_check_repz_4_byte_movs_access PROC  ; Probe #34.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_34
+  jz skip_neg_direction_62
   neg ebx
-skip_neg_direction_34 LABEL NEAR
+skip_neg_direction_62 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2307,7 +4295,7 @@ skip_neg_direction_34 LABEL NEAR
 asan_check_repz_4_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_repz_2_byte_movs_access PROC  ; Probe #35.
+asan_check_repz_2_byte_movs_access PROC  ; Probe #63.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2319,9 +4307,9 @@ asan_check_repz_2_byte_movs_access PROC  ; Probe #35.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_35
+  jz skip_neg_direction_63
   neg ebx
-skip_neg_direction_35 LABEL NEAR
+skip_neg_direction_63 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2352,7 +4340,7 @@ skip_neg_direction_35 LABEL NEAR
 asan_check_repz_2_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_repz_1_byte_movs_access PROC  ; Probe #36.
+asan_check_repz_1_byte_movs_access PROC  ; Probe #64.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2364,9 +4352,9 @@ asan_check_repz_1_byte_movs_access PROC  ; Probe #36.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_36
+  jz skip_neg_direction_64
   neg ebx
-skip_neg_direction_36 LABEL NEAR
+skip_neg_direction_64 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2397,7 +4385,7 @@ skip_neg_direction_36 LABEL NEAR
 asan_check_repz_1_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_4_byte_movs_access PROC  ; Probe #37.
+asan_check_4_byte_movs_access PROC  ; Probe #65.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2409,9 +4397,9 @@ asan_check_4_byte_movs_access PROC  ; Probe #37.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_37
+  jz skip_neg_direction_65
   neg ebx
-skip_neg_direction_37 LABEL NEAR
+skip_neg_direction_65 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2442,7 +4430,7 @@ skip_neg_direction_37 LABEL NEAR
 asan_check_4_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_2_byte_movs_access PROC  ; Probe #38.
+asan_check_2_byte_movs_access PROC  ; Probe #66.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2454,9 +4442,9 @@ asan_check_2_byte_movs_access PROC  ; Probe #38.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_38
+  jz skip_neg_direction_66
   neg ebx
-skip_neg_direction_38 LABEL NEAR
+skip_neg_direction_66 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2487,7 +4475,7 @@ skip_neg_direction_38 LABEL NEAR
 asan_check_2_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_1_byte_movs_access PROC  ; Probe #39.
+asan_check_1_byte_movs_access PROC  ; Probe #67.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2499,9 +4487,9 @@ asan_check_1_byte_movs_access PROC  ; Probe #39.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_39
+  jz skip_neg_direction_67
   neg ebx
-skip_neg_direction_39 LABEL NEAR
+skip_neg_direction_67 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2532,7 +4520,7 @@ skip_neg_direction_39 LABEL NEAR
 asan_check_1_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_repz_4_byte_stos_access PROC  ; Probe #40.
+asan_check_repz_4_byte_stos_access PROC  ; Probe #68.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2544,9 +4532,9 @@ asan_check_repz_4_byte_stos_access PROC  ; Probe #40.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_40
+  jz skip_neg_direction_68
   neg ebx
-skip_neg_direction_40 LABEL NEAR
+skip_neg_direction_68 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2577,7 +4565,7 @@ skip_neg_direction_40 LABEL NEAR
 asan_check_repz_4_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_repz_2_byte_stos_access PROC  ; Probe #41.
+asan_check_repz_2_byte_stos_access PROC  ; Probe #69.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2589,9 +4577,9 @@ asan_check_repz_2_byte_stos_access PROC  ; Probe #41.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_41
+  jz skip_neg_direction_69
   neg ebx
-skip_neg_direction_41 LABEL NEAR
+skip_neg_direction_69 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2622,7 +4610,7 @@ skip_neg_direction_41 LABEL NEAR
 asan_check_repz_2_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_repz_1_byte_stos_access PROC  ; Probe #42.
+asan_check_repz_1_byte_stos_access PROC  ; Probe #70.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2634,9 +4622,9 @@ asan_check_repz_1_byte_stos_access PROC  ; Probe #42.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_42
+  jz skip_neg_direction_70
   neg ebx
-skip_neg_direction_42 LABEL NEAR
+skip_neg_direction_70 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2667,7 +4655,7 @@ skip_neg_direction_42 LABEL NEAR
 asan_check_repz_1_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_4_byte_stos_access PROC  ; Probe #43.
+asan_check_4_byte_stos_access PROC  ; Probe #71.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2679,9 +4667,9 @@ asan_check_4_byte_stos_access PROC  ; Probe #43.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_43
+  jz skip_neg_direction_71
   neg ebx
-skip_neg_direction_43 LABEL NEAR
+skip_neg_direction_71 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2712,7 +4700,7 @@ skip_neg_direction_43 LABEL NEAR
 asan_check_4_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_2_byte_stos_access PROC  ; Probe #44.
+asan_check_2_byte_stos_access PROC  ; Probe #72.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2724,9 +4712,9 @@ asan_check_2_byte_stos_access PROC  ; Probe #44.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_44
+  jz skip_neg_direction_72
   neg ebx
-skip_neg_direction_44 LABEL NEAR
+skip_neg_direction_72 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2757,7 +4745,7 @@ skip_neg_direction_44 LABEL NEAR
 asan_check_2_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_1_byte_stos_access PROC  ; Probe #45.
+asan_check_1_byte_stos_access PROC  ; Probe #73.
   ; Prologue, save context.
   pushfd
   pushad
@@ -2769,9 +4757,9 @@ asan_check_1_byte_stos_access PROC  ; Probe #45.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_45
+  jz skip_neg_direction_73
   neg ebx
-skip_neg_direction_45 LABEL NEAR
+skip_neg_direction_73 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -2839,6 +4827,34 @@ asan_shadow_references LABEL FAR
   DWORD shadow_reference_25 - 4
   DWORD shadow_reference_26 - 4
   DWORD shadow_reference_27 - 4
+  DWORD shadow_reference_28 - 4
+  DWORD shadow_reference_29 - 4
+  DWORD shadow_reference_30 - 4
+  DWORD shadow_reference_31 - 4
+  DWORD shadow_reference_32 - 4
+  DWORD shadow_reference_33 - 4
+  DWORD shadow_reference_34 - 4
+  DWORD shadow_reference_35 - 4
+  DWORD shadow_reference_36 - 4
+  DWORD shadow_reference_37 - 4
+  DWORD shadow_reference_38 - 4
+  DWORD shadow_reference_39 - 4
+  DWORD shadow_reference_40 - 4
+  DWORD shadow_reference_41 - 4
+  DWORD shadow_reference_42 - 4
+  DWORD shadow_reference_43 - 4
+  DWORD shadow_reference_44 - 4
+  DWORD shadow_reference_45 - 4
+  DWORD shadow_reference_46 - 4
+  DWORD shadow_reference_47 - 4
+  DWORD shadow_reference_48 - 4
+  DWORD shadow_reference_49 - 4
+  DWORD shadow_reference_50 - 4
+  DWORD shadow_reference_51 - 4
+  DWORD shadow_reference_52 - 4
+  DWORD shadow_reference_53 - 4
+  DWORD shadow_reference_54 - 4
+  DWORD shadow_reference_55 - 4
   DWORD 0
 
 .rdata ENDS
