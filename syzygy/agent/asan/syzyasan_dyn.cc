@@ -55,23 +55,20 @@ void TearDownAtExitManager() {
 MemoryAccessorMode SelectMemoryAccessorMode() {
   static uint64_t kOneGB = 1ull << 30;
 
-  // Determine the amount of address space available to the process.
-  MEMORYSTATUSEX mem_status = {};
-  mem_status.dwLength = sizeof(mem_status);
-  if (!::GlobalMemoryStatusEx(&mem_status))
+  // If there is no runtime then use the noop probes.
+  if (asan_runtime == nullptr)
     return MEMORY_ACCESSOR_MODE_NOOP;
 
-  // Get this rounded up to the nearest number of gigabytes.
-  uint64_t gb =
-      ::common::AlignUp64(mem_status.ullTotalVirtual, kOneGB) / kOneGB;
+  // Determine the amount of shadow memory allocated.
+  uint64_t gb = asan_runtime->shadow()->length();
+  gb <<= kShadowRatioLog;
+  gb /= kOneGB;
 
   switch (gb) {
     case 2:
       return MEMORY_ACCESSOR_MODE_2G;
-    // TODO(chrisha): Use the 4GB memory model once the dynamic shadow
-    //     allocation is supported.
     case 4:
-      return MEMORY_ACCESSOR_MODE_NOOP;
+      return MEMORY_ACCESSOR_MODE_4G;
     // 1GB should never happen, and 3GB simply isn't properly supported.
     default:
       return MEMORY_ACCESSOR_MODE_NOOP;
@@ -96,6 +93,12 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
   // isn't up to par, if so configured by Finch, if the shadow memory
   // allocation failed, etc.
   MemoryAccessorMode mode = SelectMemoryAccessorMode();
+
+  // If a runtime has been successfully allocated but for whatever reason the
+  // noop instrumentation has been selected, then cleanup the runtime
+  // allocation.
+  if (mode == MEMORY_ACCESSOR_MODE_NOOP && asan_runtime != nullptr)
+    TearDownAsanRuntime(&asan_runtime);
 
   // Build the IAT patch map.
   IATPatchMap patch_map;
@@ -133,6 +136,8 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       base::CommandLine::Init(0, NULL);
       ::common::InitLoggingForDll(L"asan");
 
+      // Setup the ASAN runtime. If this fails then |asan_runtime| will remain
+      // nullptr, and the stub redirection will enable the noop probes.
       SetUpAsanRuntime(&asan_runtime);
 
       // Hookup IAT patching on redirector stub entry.
@@ -156,7 +161,6 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // This should be the last thing called in the agent DLL before it
       // gets unloaded. Everything should otherwise have been initialized
       // and we're now just cleaning it up again.
-      agent::asan::TearDownRtl();
       TearDownAsanRuntime(&asan_runtime);
       TearDownAtExitManager();
       break;

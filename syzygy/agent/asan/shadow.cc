@@ -42,28 +42,8 @@ inline void AddressToPageMask(const void* address,
 
 }  // namespace
 
-extern "C" {
-uint8 asan_memory_interceptors_shadow_memory[StaticShadow::kShadowSize] = {};
-}
-
-// The RTL wide static shadow. These will disappear when runtime chosen
-// instrumentation stubs are available, and we move to a DI approach.
-Shadow StaticShadow::shadow(asan_memory_interceptors_shadow_memory,
-                            kShadowSize);
-
 Shadow::Shadow() : own_memory_(false), shadow_(nullptr), length_(0) {
-  MEMORYSTATUSEX mem_status = {};
-  mem_status.dwLength = sizeof(mem_status);
-  CHECK(::GlobalMemoryStatusEx(&mem_status));
-
-  // Because of the way the interceptors work we only support 2GB or 4GB
-  // virtual memory sizes, even if the actual is 3GB (32-bit windows, LAA,
-  // and 4GT kernel option enabled).
-  uint64 mem_size = ::common::AlignUp64(
-      mem_status.ullTotalVirtual,
-      2UL << 30);  // 2GB.
-
-  Init(mem_size >> kShadowRatioLog);
+  Init(RequiredLength());
 }
 
 Shadow::Shadow(size_t length)
@@ -82,6 +62,21 @@ Shadow::~Shadow() {
   own_memory_ = false;
   shadow_ = nullptr;
   length_ = 0;
+}
+
+// static
+size_t Shadow::RequiredLength() {
+  MEMORYSTATUSEX mem_status = {};
+  mem_status.dwLength = sizeof(mem_status);
+  CHECK(::GlobalMemoryStatusEx(&mem_status));
+
+  // Because of the way the interceptors work we only support 2GB or 4GB
+  // virtual memory sizes, even if the actual is 3GB (32-bit windows, LAA,
+  // and 4GT kernel option enabled).
+  uint64 mem_size = ::common::AlignUp64(mem_status.ullTotalVirtual,
+                                        2UL << 30);  // 2GB.
+
+  return mem_size >> kShadowRatioLog;
 }
 
 void Shadow::SetUp() {
@@ -191,14 +186,21 @@ void Shadow::GetPointerAndSizeImpl(void const** self, size_t* size) const {
 void Shadow::Init(size_t length) {
   DCHECK_LT(0u, length);
 
+  // The allocation may fail and it needs to be handled gracefully.
   void* mem = ::VirtualAlloc(nullptr, length, MEM_COMMIT, PAGE_READWRITE);
-  DCHECK_NE(static_cast<void*>(nullptr), mem);
   Init(true, mem, length);
 }
 
 void Shadow::Init(bool own_memory, void* shadow, size_t length) {
+  // Handle the case of a failed allocation.
+  if (shadow == nullptr) {
+    own_memory_ = false;
+    shadow_ = nullptr;
+    length = 0;
+    return;
+  }
+
   DCHECK_LT(0u, length);
-  DCHECK_NE(static_cast<uint8*>(nullptr), shadow);
   DCHECK(::common::IsAligned(shadow, kShadowRatio));
 
   own_memory_ = own_memory;

@@ -439,7 +439,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
   }
 
   // Invoke a test function inside test_dll by addressing it with a test id.
-  // Returns the value resulting of test function execution.
+  // Returns the value resulting from the test function execution.
   unsigned int InvokeTestDllFunction(testing::EndToEndTestId test) {
     // Load the exported 'function_name' function.
     typedef unsigned int (CALLBACK* TestDllFuncs)(unsigned int);

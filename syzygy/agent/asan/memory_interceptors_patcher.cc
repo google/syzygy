@@ -75,8 +75,8 @@ enum WritePointerStatus {
 // Safely writes the given value to the given address under an exception
 // handler. If this fails with an access violation then it silently swallows
 // the exception. Returns a detailed status.
-WritePointerStatus WritePointerImpl(void* expected_old_value,
-                                    void* value,
+WritePointerStatus WritePointerImpl(const void* expected_old_value,
+                                    const void* value,
                                     volatile void** address) {
   DCHECK_NE(static_cast<void*>(nullptr), address);
 
@@ -103,8 +103,8 @@ WritePointerStatus WritePointerImpl(void* expected_old_value,
     return kWritePointerUnexpectedPreviousValue;
 
   // Stamp the new value into the template.
-  *reinterpret_cast<void**>(
-      reinterpret_cast<uint8_t*>(new_values) + offset) = value;
+  *reinterpret_cast<void**>(reinterpret_cast<uint8_t*>(new_values) + offset) =
+      const_cast<void*>(value);
 
   // Up until now everything has been 'safe' reads. Stamp in the new data,
   // but use interlocked operations to be extra careful.
@@ -136,8 +136,8 @@ WritePointerStatus WritePointerImpl(void* expected_old_value,
 // Safely writes the given value to the given address under an exception
 // handler. Returns true on succes, false on failure. Logs verbosely on
 // failure.
-bool WritePointer(void* expected_old_value,
-                  void* value,
+bool WritePointer(const void* expected_old_value,
+                  const void* value,
                   volatile void** address) {
   DCHECK_NE(static_cast<void*>(nullptr), address);
 
@@ -162,9 +162,9 @@ bool WritePointer(void* expected_old_value,
 
 bool PatchMemoryInterceptorShadowReferencesInternalImpl(
     HMODULE module,
-    uint8_t* current_shadow_memory,
+    const uint8_t* current_shadow_memory,
     const void** shadow_memory_references,
-    uint8_t* new_shadow_memory,
+    const uint8_t* new_shadow_memory,
     ScopedPageProtections* scoped_page_protections) {
   DCHECK_NE(static_cast<HMODULE>(nullptr), module);
   DCHECK_NE(static_cast<uint8_t*>(nullptr), current_shadow_memory);
@@ -237,24 +237,11 @@ bool PatchMemoryInterceptorShadowReferencesInternalImpl(
   return true;
 }
 
-}  // namespace
-
-bool PatchMemoryInterceptorShadowReferences(uint8_t* new_shadow_memory) {
-  DCHECK_NE(static_cast<uint8_t*>(nullptr), new_shadow_memory);
-  if (!PatchMemoryInterceptorShadowReferencesImpl(
-          reinterpret_cast<HMODULE>(&__ImageBase),
-          asan_memory_interceptors_shadow_memory, asan_shadow_references,
-          new_shadow_memory)) {
-    return false;
-  }
-  return true;
-}
-
 bool PatchMemoryInterceptorShadowReferencesImpl(
     HMODULE module,
-    uint8_t* current_shadow_memory,
+    const uint8_t* current_shadow_memory,
     const void** shadow_memory_references,
-    uint8_t* new_shadow_memory) {
+    const uint8_t* new_shadow_memory) {
   DCHECK_NE(static_cast<HMODULE>(nullptr), module);
   DCHECK_NE(static_cast<uint8_t*>(nullptr), current_shadow_memory);
   DCHECK_NE(static_cast<void**>(nullptr), shadow_memory_references);
@@ -280,6 +267,19 @@ bool PatchMemoryInterceptorShadowReferencesImpl(
     did_succeed = false;
 
   return did_succeed;
+}
+
+}  // namespace
+
+bool PatchMemoryInterceptorShadowReferences(const uint8_t* old_shadow_memory,
+                                            const uint8_t* new_shadow_memory) {
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), new_shadow_memory);
+  if (!PatchMemoryInterceptorShadowReferencesImpl(
+          reinterpret_cast<HMODULE>(&__ImageBase), old_shadow_memory,
+          asan_shadow_references, new_shadow_memory)) {
+    return false;
+  }
+  return true;
 }
 
 }  // namespace asan

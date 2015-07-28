@@ -33,6 +33,7 @@
 #include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/asan/memory_interceptors.h"
+#include "syzygy/agent/asan/memory_interceptors_patcher.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
@@ -361,18 +362,6 @@ bool HeapListContainsEntry(const LIST_ENTRY* list, const LIST_ENTRY* item) {
   return false;
 }
 
-// Check if the current process is large address aware.
-// @returns true if it is, false otherwise.
-bool CurrentProcessIsLargeAddressAware() {
-  const base::win::PEImage image(::GetModuleHandle(NULL));
-
-  bool process_is_large_address_aware =
-    (image.GetNTHeaders()->FileHeader.Characteristics &
-        IMAGE_FILE_LARGE_ADDRESS_AWARE) != 0;
-
-  return process_is_large_address_aware;
-}
-
 // A helper function to send a command to Windbg. Windbg should first receive
 // the ".ocommand ASAN" command to treat those messages as commands.
 void AsanDbgCmd(const wchar_t* fmt, ...) {
@@ -473,6 +462,12 @@ size_t MaxSafeAllocaSize() {
     }  \
   }
 
+void LaunchMessageBox(const base::StringPiece& message) {
+  // TODO(chrisha): Consider making this close itself with a timeout to prevent
+  //     hangs on the waterfall.
+  ::MessageBoxA(nullptr, message.data(), nullptr, MB_OK | MB_ICONEXCLAMATION);
+}
+
 }  // namespace
 
 base::Lock AsanRuntime::lock_;
@@ -489,40 +484,38 @@ AsanRuntime::AsanRuntime()
 AsanRuntime::~AsanRuntime() {
 }
 
-void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
+bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   base::AutoLock auto_lock(lock_);
   DCHECK(!runtime_);
   runtime_ = this;
 
-  // Ensure that the current process is not large address aware. It shouldn't be
-  // because the shadow memory assume that the process will only be able to use
-  // 2GB of address space.
-  CHECK(!CurrentProcessIsLargeAddressAware());
+  // Setup the shadow memory first. If this fails the dynamic runtime can
+  // safely disable the instrumentation.
+  if (!SetUpShadow())
+    return false;
+
+  // Parse and propagate any flags set via the environment variable. This logs
+  // failure for us.
+  if (!::common::ParseAsanParameters(flags_command_line, &params_))
+    return false;
 
   // Initialize the command-line structures. This is needed so that
   // SetUpLogger() can include the command-line in the message announcing
   // this process. Note: this is mostly for debugging purposes.
   base::CommandLine::Init(0, NULL);
 
-  // Setup the shadow and configure the CRT and system interceptors to use it.
-  shadow()->SetUp();
-  agent::asan::SetCrtInterceptorShadow(shadow());
-  agent::asan::SetMemoryInterceptorShadow(shadow());
-  agent::asan::SetSystemInterceptorShadow(shadow());
-
-  // Setup the "global" state.
+  // Setup other global state.
   common::StackCapture::Init();
   StackCaptureCache::Init();
-  SetUpMemoryNotifier();
-  SetUpLogger();
-  SetUpStackCache();
-  SetUpHeapManager();
+  if (!SetUpMemoryNotifier())
+    return false;
+  if (!SetUpLogger())
+    return false;
+  if (!SetUpStackCache())
+    return false;
+  if (!SetUpHeapManager())
+    return false;
   WindowsHeapAdapter::SetUp(heap_manager_.get());
-
-  // Parse and propagate any flags set via the environment variable. This logs
-  // failure for us.
-  if (!::common::ParseAsanParameters(flags_command_line, &params_))
-    return;
 
   if (params_.enable_feature_randomization)
     enabled_features_ = GenerateRandomFeatureSet();
@@ -553,19 +546,23 @@ void AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Finally, initialize the heap manager. This comes after parsing all
   // parameters as some decisions can only be made once.
   heap_manager_->Init();
+
+  return true;
 }
 
 void AsanRuntime::TearDown() {
   base::AutoLock auto_lock(lock_);
 
-  WindowsHeapAdapter::TearDown();
+  // The WindowsHeapAdapter will only have been initialized if the heap manager
+  // was successfully created and initialized.
+  if (heap_manager_.get() != nullptr)
+    WindowsHeapAdapter::TearDown();
   TearDownHeapManager();
   TearDownStackCache();
   TearDownLogger();
   TearDownMemoryNotifier();
-  DCHECK(asan_error_callback_.is_null() == FALSE);
+  TearDownShadow();
   asan_error_callback_.Reset();
-  shadow()->TearDown();
 
   // Unregister ourselves as the singleton runtime for UEF.
   runtime_ = NULL;
@@ -618,19 +615,79 @@ void AsanRuntime::SetErrorCallBack(const AsanOnErrorCallBack& callback) {
   asan_error_callback_ = callback;
 }
 
-void AsanRuntime::SetUpMemoryNotifier() {
+bool AsanRuntime::SetUpShadow() {
+  // If a non-trivial static shadow is provided, but it's the wrong size, then
+  // this runtime is unable to support hotpatching and its being run in the
+  // wrong memory model.
+  if (asan_memory_interceptors_shadow_memory_size > 1 &&
+      asan_memory_interceptors_shadow_memory_size != Shadow::RequiredLength()) {
+    static const char kMessage[] =
+        "Runtime can't support the current memory model. LAA?";
+    LaunchMessageBox(kMessage);
+    NOTREACHED() << kMessage;
+  }
+
+  // Use the static shadow memory if possible.
+  if (asan_memory_interceptors_shadow_memory_size == Shadow::RequiredLength()) {
+    shadow_.reset(new Shadow(asan_memory_interceptors_shadow_memory,
+                             asan_memory_interceptors_shadow_memory_size));
+  } else {
+    // Otherwise dynamically allocate the shadow memory.
+    shadow_.reset(new Shadow());
+
+    // If the allocation fails, then return false.
+    if (shadow_->shadow() == nullptr)
+      return false;
+
+    // Patch the memory interceptors to refer to the newly allocated shadow.
+    // If this fails simply explode because it is unsafe to continue.
+    CHECK(PatchMemoryInterceptorShadowReferences(
+        asan_memory_interceptors_shadow_memory, shadow_->shadow()));
+  }
+
+  // Setup the shadow and configure the various interceptors to use it.
+  shadow_->SetUp();
+  agent::asan::SetCrtInterceptorShadow(shadow_.get());
+  agent::asan::SetMemoryInterceptorShadow(shadow_.get());
+  agent::asan::SetSystemInterceptorShadow(shadow_.get());
+
+  return true;
+}
+
+void AsanRuntime::TearDownShadow() {
+  // If this didn't successfully initialize then do nothing.
+  if (shadow_->shadow() == nullptr)
+    return;
+
+  shadow_->TearDown();
+  agent::asan::SetCrtInterceptorShadow(nullptr);
+  agent::asan::SetMemoryInterceptorShadow(nullptr);
+  agent::asan::SetSystemInterceptorShadow(nullptr);
+  // Unpatch the probes if necessary.
+  if (shadow_->shadow() != asan_memory_interceptors_shadow_memory) {
+    CHECK(PatchMemoryInterceptorShadowReferences(
+        shadow_->shadow(), asan_memory_interceptors_shadow_memory));
+  }
+  shadow_.reset();
+}
+
+bool AsanRuntime::SetUpMemoryNotifier() {
+  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow_.get());
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), shadow_->shadow());
   DCHECK_EQ(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
   memory_notifiers::ShadowMemoryNotifier* memory_notifier =
-      new memory_notifiers::ShadowMemoryNotifier(shadow());
+      new memory_notifiers::ShadowMemoryNotifier(shadow_.get());
   memory_notifier->NotifyInternalUse(
       memory_notifier, sizeof(*memory_notifier));
   memory_notifier_.reset(memory_notifier);
+  return true;
 }
 
 void AsanRuntime::TearDownMemoryNotifier() {
-  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
-            memory_notifier_.get());
+  if (memory_notifier_.get() == nullptr)
+    return;
+
   memory_notifiers::ShadowMemoryNotifier* memory_notifier =
       reinterpret_cast<memory_notifiers::ShadowMemoryNotifier*>(
           memory_notifier_.get());
@@ -639,7 +696,7 @@ void AsanRuntime::TearDownMemoryNotifier() {
   memory_notifier_.reset(nullptr);
 }
 
-void AsanRuntime::SetUpLogger() {
+bool AsanRuntime::SetUpLogger() {
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
   DCHECK_EQ(static_cast<AsanLogger*>(nullptr), logger_.get());
@@ -658,17 +715,21 @@ void AsanRuntime::SetUpLogger() {
   // Register the client singleton instance.
   logger_.reset(client.release());
   memory_notifier_->NotifyInternalUse(logger_.get(), sizeof(*logger_.get()));
+
+  return true;
 }
 
 void AsanRuntime::TearDownLogger() {
+  if (logger_.get() == nullptr)
+    return;
+
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
-  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
   memory_notifier_->NotifyReturnedToOS(logger_.get(), sizeof(*logger_.get()));
   logger_.reset();
 }
 
-void AsanRuntime::SetUpStackCache() {
+bool AsanRuntime::SetUpStackCache() {
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
   DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
@@ -677,20 +738,25 @@ void AsanRuntime::SetUpStackCache() {
       logger_.get(), memory_notifier_.get()));
   memory_notifier_->NotifyInternalUse(
       stack_cache_.get(), sizeof(*stack_cache_.get()));
+
+  return true;
 }
 
 void AsanRuntime::TearDownStackCache() {
+  if (stack_cache_.get() == nullptr)
+    return;
+
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
   DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
-  DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache_.get());
+
   stack_cache_->LogStatistics();
   memory_notifier_->NotifyReturnedToOS(
       stack_cache_.get(), sizeof(*stack_cache_.get()));
   stack_cache_.reset();
 }
 
-void AsanRuntime::SetUpHeapManager() {
+bool AsanRuntime::SetUpHeapManager() {
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
   DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
@@ -706,15 +772,18 @@ void AsanRuntime::SetUpHeapManager() {
   // Configure the heap manager to notify us on heap corruption.
   heap_manager_->SetHeapErrorCallback(base::Bind(&AsanRuntime::OnError,
                                                  base::Unretained(this)));
+
+  return true;
 }
 
 void AsanRuntime::TearDownHeapManager() {
+  if (stack_cache_.get() == nullptr)
+    return;
+
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr),
             memory_notifier_.get());
   DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache_.get());
-  DCHECK_NE(static_cast<heap_managers::BlockHeapManager*>(nullptr),
-            heap_manager_.get());
 
   // Tear down the heap manager before we destroy it and lose our pointer
   // to it. This is necessary because the heap manager can raise errors

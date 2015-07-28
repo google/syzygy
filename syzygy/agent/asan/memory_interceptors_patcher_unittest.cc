@@ -35,26 +35,27 @@ void ExpectShadowReferencesTo(const uint8_t* shadow_memory) {
 
 }  // namespace
 
-TEST(MemoryInterceptorPatcher, PatchMemoryInterceptorShadowReferences) {
+TEST(MemoryInterceptorPatcherTest, PatchMemoryInterceptorShadowReferences) {
   // The references should initially be to the static shadow memory.
   EXPECT_NO_FATAL_FAILURE(
       ExpectShadowReferencesTo(asan_memory_interceptors_shadow_memory));
 
   // Patch the references to point to a new shadow memory.
   uint8_t dummy_shadow[1] = {};
-  EXPECT_TRUE(PatchMemoryInterceptorShadowReferences(dummy_shadow));
+  EXPECT_TRUE(PatchMemoryInterceptorShadowReferences(
+      asan_memory_interceptors_shadow_memory, dummy_shadow));
   EXPECT_NO_FATAL_FAILURE(ExpectShadowReferencesTo(dummy_shadow));
 
   // Try patching again. The 'current' shadow memory matching will fail
   // and the functions should still point to the new shadow.
-  EXPECT_FALSE(PatchMemoryInterceptorShadowReferences(dummy_shadow));
+  EXPECT_FALSE(PatchMemoryInterceptorShadowReferences(
+      asan_memory_interceptors_shadow_memory, dummy_shadow));
   EXPECT_NO_FATAL_FAILURE(ExpectShadowReferencesTo(dummy_shadow));
 
   // Patch this back to the original shadow memory so the unittest leaves no
   // side effects.
-  EXPECT_TRUE(PatchMemoryInterceptorShadowReferencesImpl(
-      reinterpret_cast<HMODULE>(&__ImageBase), dummy_shadow,
-      asan_shadow_references, asan_memory_interceptors_shadow_memory));
+  EXPECT_TRUE(PatchMemoryInterceptorShadowReferences(
+      dummy_shadow, asan_memory_interceptors_shadow_memory));
   EXPECT_NO_FATAL_FAILURE(
       ExpectShadowReferencesTo(asan_memory_interceptors_shadow_memory));
 }

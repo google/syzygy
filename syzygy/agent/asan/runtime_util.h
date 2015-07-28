@@ -28,7 +28,8 @@ namespace asan {
 // @param asan_runtime pointer that will receive the created Asan runtime
 //     object.
 // @pre |*asan_runtime| must be nullptr.
-void SetUpAsanRuntime(AsanRuntime** asan_runtime);
+// @returns true on success, false otherwise.
+bool SetUpAsanRuntime(AsanRuntime** asan_runtime);
 
 // Calls the |TearDown| function of the runtime and deletes the runtime object.
 // @param asan_runtime pointer to the Asan runtime object to destruct. This

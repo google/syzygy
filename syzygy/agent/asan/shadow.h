@@ -99,11 +99,15 @@ class Shadow {
 
   // Default constructor. Creates a shadow memory of the appropriate size
   // depending on the addressable memory for this process.
+  // @note The allocation may fail, in which case 'shadow()' will return
+  //     nullptr. If this is true the object should not be used.
   Shadow();
 
   // Shadow constructor. Allocates shadow memory internally.
   // @param length The length of the shadow memory in bytes. This implicitly
   //     encodes the maximum addressable address of the shadow.
+  // @note The allocation may fail, in which case 'shadow()' will return
+  //     nullptr. If this is true the object should not be used.
   explicit Shadow(size_t length);
 
   // Shadow constructor.
@@ -115,6 +119,9 @@ class Shadow {
 
   // Destructor.
   virtual ~Shadow();
+
+  // @returns the length of the shadow memory required for the current process.
+  static size_t RequiredLength();
 
   // Set up the shadow memory.
   void SetUp();
@@ -435,26 +442,12 @@ class ShadowWalker {
   DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
 };
 
-// The actual static shadow array memory. This will eventually be provided by
-// the RTL itself once the transition to a dynamic shadow memory is complete.
-// TODO(chrisha): Move me to a RTL-specific shadow implementation file!
+// The static shadow memory that is referred to by the memory interceptors.
+// These are provided by one of 'dummy_shadow.cc' or 'static_shadow.cc'.
 extern "C" {
-extern uint8 asan_memory_interceptors_shadow_memory[];
+extern const size_t asan_memory_interceptors_shadow_memory_size;
+extern uint8_t asan_memory_interceptors_shadow_memory[];
 }
-
-// An all-static class that stores a static copy of shadow memory.
-struct StaticShadow {
-  // One shadow byte for per group of kShadowRatio bytes in a 2G address space.
-  // NOTE: This is dependent on the process NOT being large address aware.
-  static const size_t kShadowSize = 1 << (31 - kShadowRatioLog);
-
-  // The upper bound of the addressable memory.
-  static const size_t kAddressUpperBound = kShadowSize << kShadowRatioLog;
-
-  // The static shadow object itself.
-  // TODO(chrisha): Use DI in the RTL to make this disappear.
-  static Shadow shadow;
-};
 
 // Bring in the implementation of the templated functions.
 #include "syzygy/agent/asan/shadow_impl.h"

@@ -28,35 +28,16 @@ namespace asan {
 // module.
 // @param new_shadow_memory The shadow memory that is to be patched into the
 //     probes.
+// @param old_shadow_memory The shadow memory that the probe should currently
+//     be referring to.
 // @note This function is BYOL - bring your own locking.
 // @note Patching is inherently racy. It's wise to call this function from
 //     under a lock that prevents concurrent patching on the same module, and
 //     the caller must guarantee that the module is not unloaded during
 //     patching.
 // @returns true on success, false otherwise. Logs verbosely on failure.
-bool PatchMemoryInterceptorShadowReferences(uint8_t* new_shadow_memory);
-
-// Patches the memory interceptors found in the .probes section of the given
-// module.
-// @param module The module to patch up.
-// @param current_shadow_memory A pointer to the current shadow memory that
-//     the probes make reference to.
-// @param shadow_memory_references A pointer to the table of shadow memory
-//     references to be patched.
-// @param new_shadow_memory The shadow memory that is to be patched into the
-//     probes.
-// @note This function is exposed for unittesting.
-// @note This function is BYOL - bring your own locking.
-// @note Patching is inherently racy. It's wise to call this function from
-//     under a lock that prevents concurrent patching on the same module, and
-//     the caller must guarantee that the module is not unloaded during
-//     patching.
-// @returns true on success, false otherwise. Logs verbosely on failure.
-bool PatchMemoryInterceptorShadowReferencesImpl(
-    HMODULE module,
-    uint8_t* current_shadow_memory,
-    const void** shadow_memory_references,
-    uint8_t* new_shadow_memory);
+bool PatchMemoryInterceptorShadowReferences(const uint8_t* old_shadow_memory,
+                                            const uint8_t* new_shadow_memory);
 
 }  // namespace asan
 }  // namespace agent

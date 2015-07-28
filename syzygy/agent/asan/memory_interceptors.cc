@@ -45,32 +45,31 @@ Shadow* SetMemoryInterceptorShadow(Shadow* shadow) {
 const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 #define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, access_mode_str,   \
                                              access_mode_value)              \
-  {                                                                          \
-    "asan_check_" #access_size "_byte_" #access_mode_str,                    \
-        asan_redirect_##access_size##_byte_##access_mode_str, asan_no_check, \
-        asan_check_##access_size##_byte_##access_mode_str##_2gb,             \
-        asan_check_##access_size##_byte_##access_mode_str##_4gb              \
-  }                                                                          \
-  , {"asan_check_" #access_size "_byte_" #access_mode_str "_no_flags",       \
+  { "asan_check_" #access_size "_byte_" #access_mode_str,                    \
+    asan_redirect_##access_size##_byte_##access_mode_str, asan_no_check,     \
+    asan_check_##access_size##_byte_##access_mode_str##_2gb,                 \
+    asan_check_##access_size##_byte_##access_mode_str##_4gb                  \
+  },                                                                         \
+  { "asan_check_" #access_size "_byte_" #access_mode_str "_no_flags",        \
      asan_redirect_##access_size##_byte_##access_mode_str##_no_flags,        \
      asan_no_check,                                                          \
      asan_check_##access_size##_byte_##access_mode_str##_no_flags_2gb,       \
      asan_check_##access_size##_byte_##access_mode_str##_no_flags_4gb},
 
-    ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
+  ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS
 
 #define ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS( \
-    func, prefix, counter, dst_mode, src_mode, access_size, compare) \
-  { \
-    "asan_check" #prefix #access_size "_byte_" #func "_access", \
-    asan_redirect ## prefix ## access_size ## _byte_ ## func ## _access, \
-    asan_string_no_check, \
-    asan_check ## prefix ## access_size ## _byte_ ## func ## _access, \
+    func, prefix, counter, dst_mode, src_mode, access_size, compare)         \
+  { "asan_check" #prefix #access_size "_byte_" #func "_access",              \
+    asan_redirect ## prefix ## access_size ## _byte_ ## func ## _access,     \
+    asan_string_no_check,                                                    \
+    asan_check ## prefix ## access_size ## _byte_ ## func ## _access,        \
+    asan_check ## prefix ## access_size ## _byte_ ## func ## _access,        \
   },
 
-        ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
+  ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS
 };

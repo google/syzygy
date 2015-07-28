@@ -67,16 +67,18 @@ class AsanRuntime {
 
   // @name Accessors.
   // @{
-  MemoryNotifierInterface* memory_notifier() { return memory_notifier_.get(); }
-  AsanLogger* logger() { return logger_.get(); }
-  // TODO(chrisha): Dynamically allocate a shadow!
-  Shadow* shadow() { return &StaticShadow::shadow; }
-  StackCaptureCache* stack_cache() { return stack_cache_.get(); }
+  MemoryNotifierInterface* memory_notifier() const {
+    return memory_notifier_.get();
+  }
+  AsanLogger* logger() const { return logger_.get(); }
+  Shadow* shadow() const { return shadow_.get(); }
+  StackCaptureCache* stack_cache() const { return stack_cache_.get(); }
   // @}
 
   // Initialize asan runtime library.
   // @param flags_command_line The parameters string.
-  void SetUp(const std::wstring& flags_command_line);
+  // @returns true on success, false otherwise.
+  bool SetUp(const std::wstring& flags_command_line);
 
   // Release asan runtime library.
   void TearDown();
@@ -218,26 +220,37 @@ class AsanRuntime {
   AsanFeatureSet enabled_features_;
 
  private:
+  // Sets up the shadow memory.
+  // @returns true on success, false otherwise.
+  bool SetUpShadow();
+
+  // Tears down the shadow memory.
+  void TearDownShadow();
+
   // Set up the memory notifier.
-  void SetUpMemoryNotifier();
+  // @returns true on success, false otherwise.
+  bool SetUpMemoryNotifier();
 
   // Tear down the memory notifier.
   void TearDownMemoryNotifier();
 
   // Set up the logger.
-  void SetUpLogger();
+  // @returns true on success, false otherwise.
+  bool SetUpLogger();
 
   // Tear down the logger.
   void TearDownLogger();
 
   // Set up the stack cache.
-  void SetUpStackCache();
+  // @returns true on success, false otherwise.
+  bool SetUpStackCache();
 
   // Tear down the stack cache.
   void TearDownStackCache();
 
   // Set up the heap manager.
-  void SetUpHeapManager();
+  // @returns true on success, false otherwise.
+  bool SetUpHeapManager();
 
   // Tear down the heap manager.
   void TearDownHeapManager();
@@ -265,6 +278,9 @@ class AsanRuntime {
   static bool uef_installed_;  // Under lock_.
   // @}
 
+  // The shadow memory used by this runtime.
+  scoped_ptr<Shadow> shadow_;
+
   // The shared memory notifier that will be used to update the shadow memory
   // with redzones for internally allocated memory.
   scoped_ptr<MemoryNotifierInterface> memory_notifier_;
@@ -290,6 +306,7 @@ class AsanRuntime {
   // This is used to validate thread IDs in a block trailer.
   base::Lock thread_ids_lock_;
   base::hash_set<uint32> thread_ids_;  // Under thread_ids_lock_.
+
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

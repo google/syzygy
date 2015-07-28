@@ -62,7 +62,9 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       base::CommandLine::Init(0, NULL);
       common::InitLoggingForDll(L"asan");
 
-      SetUpAsanRuntime(&asan_runtime);
+      // This runtime has no ability to disable instrumentation so can't
+      // tolerate an initialization failure.
+      CHECK(SetUpAsanRuntime(&asan_runtime));
       break;
     }
 
@@ -82,7 +84,6 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // This should be the last thing called in the agent DLL before it
       // gets unloaded. Everything should otherwise have been initialized
       // and we're now just cleaning it up again.
-      agent::asan::TearDownRtl();
       TearDownAsanRuntime(&asan_runtime);
       TearDownAtExitManager();
       break;

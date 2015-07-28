@@ -132,6 +132,7 @@
       ],
       'sources': [
         'gen/system_interceptors.def',
+        'static_shadow.cc',
         'syzyasan_rtl.cc',
         'syzyasan_rtl.rc',
       ],
@@ -215,6 +216,7 @@
         'shadow_marker_unittest.cc',
         'shadow_unittest.cc',
         'stack_capture_cache_unittest.cc',
+        'static_shadow.cc',
         'system_interceptors_unittest.cc',
         'timed_try_unittest.cc',
         'windows_heap_adapter_unittest.cc',
@@ -305,6 +307,7 @@
       'type': 'executable',
       'sources': [
         'hot_patching_asan_runtime_unittest.cc',
+        'static_shadow.cc',
         '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
@@ -341,6 +344,7 @@
         # This file must have a .def extension in order for GYP to
         # automatically configure it as the ModuleDefinitionFile
         # (we usually suffix generated files with .gen).
+        'dummy_shadow.cc',
         'gen/system_interceptors_dyn.def',
         'syzyasan_dyn.cc',
         'syzyasan_dyn.rc',

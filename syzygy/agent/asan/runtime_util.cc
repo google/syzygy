@@ -181,11 +181,9 @@ bool LookForEmbeddedAsanParameters(
 
 }  // namespace
 
-void SetUpAsanRuntime(AsanRuntime** asan_runtime) {
+bool SetUpAsanRuntime(AsanRuntime** asan_runtime) {
   DCHECK_NE(static_cast<AsanRuntime**>(nullptr), asan_runtime);
   DCHECK_EQ(static_cast<AsanRuntime*>(nullptr), *asan_runtime);
-  *asan_runtime = new AsanRuntime();
-  CHECK_NE(static_cast<AsanRuntime*>(nullptr), *asan_runtime);
 
   // Look for any parameters that have been embedded in instrumented modules.
   const ::common::AsanParameters* asan_params = nullptr;
@@ -193,12 +191,16 @@ void SetUpAsanRuntime(AsanRuntime** asan_runtime) {
     LOG(ERROR) << "Error while trying to find embedded Asan parameters.";
   }
 
+  scoped_ptr<AsanRuntime> runtime(new AsanRuntime());
+  if (runtime.get() == nullptr)
+    return false;
+
   // Inflate these and inject them into the runtime library. These will serve
   // as the baseline parameters that will then be potentially modified by any
   // parameters via the environment.
   if (asan_params != nullptr &&
       !::common::InflateAsanParameters(asan_params,
-                                       &(*asan_runtime)->params())) {
+                                       &runtime->params())) {
     LOG(ERROR) << "Failed to inflate embedded Asan parameters.";
   }
 
@@ -209,13 +211,20 @@ void SetUpAsanRuntime(AsanRuntime** asan_runtime) {
   }
 
   // Setup the runtime library with the given options.
-  (*asan_runtime)->SetUp(asan_flags_str);
-  agent::asan::SetUpRtl(*asan_runtime);
+  if (!runtime->SetUp(asan_flags_str))
+    return false;
+  agent::asan::SetUpRtl(runtime.get());
+
+  // Transfer ownership to the caller.
+  *asan_runtime = runtime.release();
+  return true;
 }
 
 void TearDownAsanRuntime(AsanRuntime** asan_runtime) {
   DCHECK_NE(static_cast<AsanRuntime**>(nullptr), asan_runtime);
-  DCHECK_NE(static_cast<AsanRuntime*>(nullptr), *asan_runtime);
+  if (asan_runtime == nullptr)
+    return;
+  agent::asan::TearDownRtl();
   (*asan_runtime)->TearDown();
   delete *asan_runtime;
   *asan_runtime = nullptr;
