@@ -27,7 +27,7 @@ class EventInterface {
 
   // Event name.
   // @returns the name of this event.
-  virtual const char* name() = 0;
+  virtual const char* name() const = 0;
 
   // Replays the recorded function call, possibly modifying the current
   // backdrop.
