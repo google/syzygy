@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <windows.h>  // NOLINT
+#include <tlhelp32.h>
+
 #include "base/base_switches.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -30,6 +33,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/synchronization/waitable_event.h"
 #include "base/test/multiprocess_test.h"
+#include "base/win/scoped_comptr.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/kasko/api/client.h"
 #include "syzygy/kasko/api/reporter.h"
@@ -49,6 +53,7 @@ const char kGlobalString[] = "a global string";
 const char kClientProcessIdSwitch[] = "client-process-id";
 const char kExpectGlobalSwitch[] = "expect-global";
 const char kExpectRegisteredKeys[] = "expect-registered-keys";
+const char kSynthesizeException[] = "synthesize-exception";
 
 const base::char16 kExitEventNamePrefix[] = L"kasko_api_test_exit_event_";
 const base::char16 kReadyEventNamePrefix[] = L"kasko_api_test_ready_event_";
@@ -156,6 +161,28 @@ class ChildProcess {
   DISALLOW_COPY_AND_ASSIGN(ChildProcess);
 };
 
+// Takes a snapshot of all threads in the system and returns the first one from
+// |process|.
+base::PlatformThreadId GetMainThreadFromProcess(const base::Process& process) {
+  base::win::ScopedHandle thread_snapshot(
+      CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0));
+  if (!thread_snapshot.IsValid())
+    return 0;
+
+  THREADENTRY32 te32 = {0};
+  te32.dwSize = sizeof(THREADENTRY32);
+
+  if (!Thread32First(thread_snapshot.Get(), &te32))
+    return 0;
+
+  do {
+    if (te32.th32OwnerProcessID == process.Pid())
+      return te32.th32ThreadID;
+  } while (Thread32Next(thread_snapshot.Get(), &te32));
+
+  return 0;
+}
+
 // Use an event to tell the client process that it is ready to serve requests.
 // Expects to receive a single invocation of SendReport followed by
 // the exit of the client process.
@@ -217,16 +244,45 @@ MULTIPROCESS_TEST_MAIN(WaitForClientInvocation) {
 MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
   class DoSendReportForProcess : public ChildProcess {
    private:
+    static void MinidumpVisitor(IDebugClient4* client,
+                                IDebugControl* control,
+                                IDebugSymbols* symbols) {
+      base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+      bool synthesize_exception = cmd_line->HasSwitch(kSynthesizeException);
+      base::win::ScopedComPtr<IDebugAdvanced2> debug_advanced_2;
+      HRESULT result = client->QueryInterface(__uuidof(IDebugAdvanced2),
+                                             debug_advanced_2.ReceiveVoid());
+      CHECK(SUCCEEDED(result)) << "QueryInterface(IDebugAdvanced2)";
+      EXCEPTION_RECORD64 exception_record = {0};
+      result = debug_advanced_2->Request(DEBUG_REQUEST_TARGET_EXCEPTION_RECORD,
+                                         nullptr, 0, &exception_record,
+                                         sizeof(exception_record), nullptr);
+      // If and only if kSynthesizeException, there should be an exception
+      // record.
+      CHECK_IMPLIES(synthesize_exception, SUCCEEDED(result))
+          << "IDebugAdvanced2::Request";
+    }
     void OnInitialized() override {
       // Request a dump of the client process.
       base::char16* keys[] = {L"hello", L"", nullptr};
       base::char16* values[] = {L"world", L"bar", nullptr};
-      base::win::ScopedHandle client_process(
-          ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE,
-                        client_process_id()));
+      base::Process client_process = base::Process::OpenWithAccess(
+          client_process_id(), PROCESS_QUERY_INFORMATION | PROCESS_VM_READ);
       CHECK(client_process.IsValid());
 
-      SendReportForProcess(client_process.Get(), SMALL_DUMP_TYPE, keys, values);
+      CONTEXT ctx = {};
+      EXCEPTION_RECORD exc_rec = {};
+      exc_rec.ExceptionAddress = 0;
+      exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
+      EXCEPTION_POINTERS exc_ptrs = {&exc_rec, &ctx};
+
+      base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
+      bool synthesize_exception = cmd_line->HasSwitch(kSynthesizeException);
+      SendReportForProcess(
+          client_process.Handle(),
+          synthesize_exception ? GetMainThreadFromProcess(client_process) : 0,
+          synthesize_exception ? &exc_ptrs : nullptr, SMALL_DUMP_TYPE, keys,
+          values);
     }
 
     void OnComplete(
@@ -248,6 +304,8 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
         CHECK(crash_keys.end() != crash_keys.find("inhabitable"));
         CHECK_EQ("Earth", crash_keys.find("inhabitable")->second);
       }
+      CHECK(SUCCEEDED(
+          testing::VisitMinidump(minidump_path, base::Bind(&MinidumpVisitor))));
     }
   };
 
@@ -496,6 +554,19 @@ TEST(ApiTest, SendReportForProcessTest) {
 
   // Wait for the reporter process to exit and verify its status code.
   int exit_code = 0;
+  reporter_process.WaitForExit(&exit_code);
+  ASSERT_EQ(0, exit_code);
+
+  // Do it again, with kSynthesizeException.
+  reporter_command_line.AppendSwitch(kSynthesizeException);
+
+  // Launch the Reporter process.
+  reporter_process =
+      base::LaunchProcess(reporter_command_line, base::LaunchOptions());
+  ASSERT_TRUE(reporter_process.IsValid());
+
+  // Wait for the reporter process to exit and verify its status code.
+  exit_code = 0;
   reporter_process.WaitForExit(&exit_code);
   ASSERT_EQ(0, exit_code);
 }

@@ -76,6 +76,7 @@ void SendReport(const EXCEPTION_POINTERS* exception_pointers,
   }
 
   MinidumpRequest request;
+  request.client_exception_pointers = true;
   request.exception_info_address =
       reinterpret_cast<uint32_t>(exception_pointers);
   if (protobuf_length) {

@@ -44,6 +44,7 @@ boolean KaskoService_SendDiagnosticReport(handle_t IDL_handle,
 
   kasko::MinidumpRequest internal_request;
 
+  internal_request.client_exception_pointers = true;
   internal_request.exception_info_address = request.exception_info_address;
 
   switch (request.type) {

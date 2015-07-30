@@ -17,8 +17,9 @@
 namespace kasko {
 
 MinidumpRequest::MinidumpRequest()
-    : type(SMALL_DUMP_TYPE), exception_info_address(0) {
-}
+    : type(SMALL_DUMP_TYPE),
+      client_exception_pointers(false),
+      exception_info_address(0) {}
 
 MinidumpRequest::~MinidumpRequest() {
 }

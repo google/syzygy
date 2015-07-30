@@ -62,8 +62,11 @@ struct MinidumpRequest {
   // The requested dump type (default: SMALL_DUMP_TYPE).
   Type type;
 
-  // The address of an EXCEPTION_INFO structure, valid in the target process
-  // (optional, default: nullptr).
+  // True if exception_info_address is valid in the client process; false
+  // otherwise.
+  bool client_exception_pointers;
+
+  // The address of an EXCEPTION_POINTERS structure (optional, default: 0).
   uint32_t exception_info_address;
 
   // Crash keys to be included with the report (default: empty).

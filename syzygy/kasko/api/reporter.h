@@ -17,6 +17,7 @@
 
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
+#include "base/threading/platform_thread.h"
 #include "syzygy/kasko/api/kasko_export.h"
 #include "syzygy/kasko/api/minidump_type.h"
 
@@ -78,14 +79,20 @@ KASKO_EXPORT bool InitializeReporter(
 // Sends a diagnostic report for a specified process with the specified crash
 // keys. May only be invoked after a successful call to InitializeReporter.
 // @param process_handle A handle to the process to report on.
+// @param thread_id The crashing thread to report on. Ignored if
+//     exception_info_address is null.
+// @param exception_info_address Optional exception information.
 // @param minidump_type The type of minidump to be included in the report.
 // @param keys An optional null-terminated array of crash key names
 // @param values An optional null-terminated array of crash key values. Must be
 //     of equal length to |keys|.
-KASKO_EXPORT void SendReportForProcess(base::ProcessHandle process_handle,
-                                       MinidumpType minidump_type,
-                                       const base::char16* const* keys,
-                                       const base::char16* const* values);
+KASKO_EXPORT void SendReportForProcess(
+    base::ProcessHandle process_handle,
+    base::PlatformThreadId thread_id,
+    const EXCEPTION_POINTERS* exception_pointers,
+    MinidumpType minidump_type,
+    const base::char16* const* keys,
+    const base::char16* const* values);
 
 // Shuts down the Kasko reporter process. Must only be called after a successful
 // invocation of InitializeReporter.

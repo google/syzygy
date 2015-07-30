@@ -101,6 +101,8 @@ bool InitializeReporter(const base::char16* endpoint_name,
 }
 
 void SendReportForProcess(base::ProcessHandle process_handle,
+                          base::PlatformThreadId thread_id,
+                          const EXCEPTION_POINTERS* exception_pointers,
                           MinidumpType minidump_type,
                           const base::char16* const* keys,
                           const base::char16* const* values) {
@@ -110,6 +112,10 @@ void SendReportForProcess(base::ProcessHandle process_handle,
   DCHECK_EQ(keys == nullptr, values == nullptr);
 
   MinidumpRequest request;
+
+  request.exception_info_address =
+      reinterpret_cast<uint32_t>(exception_pointers);
+
   if (keys != nullptr && values != nullptr) {
     size_t i = 0;
     for (; keys[i] && values[i]; ++i) {
@@ -148,7 +154,7 @@ void SendReportForProcess(base::ProcessHandle process_handle,
       break;
   }
 
-  g_reporter->SendReportForProcess(process_handle, 0, request);
+  g_reporter->SendReportForProcess(process_handle, thread_id, request);
 }
 
 void ShutdownReporter() {

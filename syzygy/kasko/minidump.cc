@@ -149,7 +149,7 @@ bool GenerateMinidump(const base::FilePath& destination,
     dump_exception_info.ThreadId = thread_id;
     dump_exception_info.ExceptionPointers =
         reinterpret_cast<PEXCEPTION_POINTERS>(request.exception_info_address);
-    dump_exception_info.ClientPointers = true;
+    dump_exception_info.ClientPointers = request.client_exception_pointers;
 
     dump_exception_pointers = &dump_exception_info;
   }
