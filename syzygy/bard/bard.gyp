@@ -21,9 +21,28 @@
       'target_name': 'bard_lib',
       'type': 'static_library',
       'sources': [
+        'causal_link.cc',
+        'causal_link.h',
         'event.h',
+        'events/linked_event.cc',
+        'events/linked_event.h',
       ],
       'dependencies': [
+        '<(src)/base/base.gyp:base',
+      ],
+    },
+    {
+      'target_name': 'bard_unittests',
+      'type': 'executable',
+      'sources': [
+        'causal_link_unittest.cc',
+        'events/linked_event_unittest.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
+      ],
+      'dependencies': [
+        'bard_lib',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
   ]
