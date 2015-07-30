@@ -85,6 +85,9 @@ bool Application<Impl, kInitLogging>::InitializeLogging() {
     logging::SetMinLogLevel(-::abs(value));
   }
 
+  if (command_line_->HasSwitch("quiet"))
+    logging::SetMinLogLevel(logging::LOG_ERROR);
+
   return true;
 }
 

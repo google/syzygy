@@ -110,6 +110,9 @@
       # Reorder tests.
       '<(src)/syzygy/reorder/reorder.gyp:reorder_unittests',
 
+      # RunLAA tests.
+      '<(src)/syzygy/runlaa/runlaa.gyp:runlaa_unittests',
+
       # Sampler tests.
       '<(src)/syzygy/sampler/sampler.gyp:sampler_unittests',
 
