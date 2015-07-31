@@ -46,6 +46,7 @@ _FILE_PATTERNS_TO_COPY = [
     '*.dat',
     'agent_logger.exe',
     'call_trace_service.exe',
+    'runlaa.exe',
     'test_data',
 ]
 
