@@ -18,6 +18,7 @@
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/process/launch.h"
+#include "base/strings/stringprintf.h"
 #include "base/win/pe_image.h"
 #include "syzygy/core/file_util.h"
 #include "syzygy/pe/pe_file.h"
@@ -39,13 +40,18 @@ static const char kUsageFormatStr[] =
     "                   to allow self-unittesting.\n"
     "  --in-place       Modifies the image in-place if necessary. Returns the\n"
     "                   image to its original state when completed.\n"
-    "  --keep-temp-dir  If specified then the temp directory will not be\n"
-    "                   deleted.\n"
+    "  --keep-temp      If specified then the temp image copy will not be\n"
+    "                   deleted. Ignored if --in-place is specified.\n"
+    "  --side-by-side   If specified then the binary will be rewritten\n"
+    "                   alongside the original binary. If not specified a\n"
+    "                   temp directory will be created. Ignored if\n"
+    "                   --in-place is specified.\n"
     "\n";
 
 static const char kInPlace[] = "in-place";
 static const char kImage[] = "image";
-static const char kKeepTempDir[] = "keep-temp-dir";
+static const char kKeepTemp[] = "keep-temp";
+static const char kSideBySide[] = "side-by-side";
 static const char kMode[] = "mode";
 static const char kModeLaa[] = "laa";
 static const char kModeNoLaa[] = "nolaa";
@@ -130,7 +136,51 @@ bool SelfTest(const std::string& expect_mode) {
   return false;
 }
 
+// A small utility class for automatically deleting a file.
+class ScopedFileDeleter {
+ public:
+  ScopedFileDeleter() {}
+  explicit ScopedFileDeleter(const base::FilePath& path) : path_(path) {}
+
+  // Places |path| under ownership of this deleter. If a previous path was
+  // already being managed this will first be deleted.
+  void reset(const base::FilePath& path) {
+    Delete();
+    path_ = path;
+  }
+
+  // Returns the path that was to be automatically deleted. The caller takes
+  // ownership of the file and it is no longer tracked by this deleter.
+  base::FilePath take() {
+    base::FilePath path = path_;
+    path_.clear();
+    return path;
+  }
+
+  ~ScopedFileDeleter() {
+    Delete();
+  }
+
+ private:
+  void Delete() {
+    if (!path_.empty()) {
+      VLOG(1) << "Deleting file: " << path_.value();
+      CHECK(base::DeleteFile(path_, false));
+      path_.clear();
+    }
+  }
+
+  base::FilePath path_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedFileDeleter);
+};
+
 }  // namespace
+
+RunLaaApp::RunLaaApp()
+    : AppImplBase("RunLAA"), is_laa_(false), in_place_(false),
+      keep_temp_(false), side_by_side_(false) {
+}
 
 bool RunLaaApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK_NE(static_cast<const base::CommandLine*>(nullptr), command_line);
@@ -172,7 +222,8 @@ bool RunLaaApp::ParseCommandLine(const base::CommandLine* command_line) {
 
   // Parse optional options.
   in_place_ = command_line->HasSwitch(kInPlace);
-  keep_temp_dir_ = command_line->HasSwitch(kKeepTempDir);
+  keep_temp_ = command_line->HasSwitch(kKeepTemp);
+  side_by_side_ = command_line->HasSwitch(kSideBySide);
 
   // Copy the child process arguments.
   child_argv_ = command_line->GetArgs();
@@ -193,6 +244,7 @@ int RunLaaApp::Run() {
   if (!GetLaaBit(image_, &was_laa))
     return 1;
 
+  ScopedFileDeleter scoped_file;
   base::ScopedTempDir scoped_temp_dir;
   base::FilePath child_image(image_);
   bool toggle_back = false;
@@ -217,22 +269,33 @@ int RunLaaApp::Run() {
       // The work is occurring in place and the image needs to be toggled back.
       toggle_back = true;
     } else {
-      // The work is not to happen in place. Create a temp directory and copy
-      // the image.
-      if (!scoped_temp_dir.CreateUniqueTempDir()) {
-        LOG(ERROR) << "Failed to create temp directory.";
-        return 1;
+      // The work is not to happen in place. It's either happening alongside
+      // the original binary or in a temp directory.
+      if (side_by_side_) {
+        base::FilePath::StringType base =
+            image_.BaseName().RemoveExtension().value();
+        base += base::StringPrintf(L".runlaa-%d.exe", ::GetCurrentProcessId());
+        child_image = image_.DirName().Append(base);
+        if (!keep_temp_)
+          scoped_file.reset(child_image);
+      } else {
+        // Create a temp directory to house the copy.
+        if (!scoped_temp_dir.CreateUniqueTempDir()) {
+          LOG(ERROR) << "Failed to create temp directory.";
+          return 1;
+        }
+
+        // Take ownership of the temp directory if it is to be left around.
+        base::FilePath temp_dir = scoped_temp_dir.path();
+        if (keep_temp_) {
+          temp_dir = scoped_temp_dir.Take();
+          LOG(INFO) << "Temporary directory will be preserved: "
+                    << temp_dir.value();
+        }
+
+        child_image = temp_dir.Append(image_.BaseName());
       }
 
-      // Take ownership of the temp directory if it is to be left around.
-      base::FilePath temp_dir = scoped_temp_dir.path();
-      if (keep_temp_dir_) {
-        temp_dir = scoped_temp_dir.Take();
-        LOG(INFO) << "Temporary directory will be preserved: "
-                  << temp_dir.value();
-      }
-
-      child_image = temp_dir.Append(image_.BaseName());
       LOG(INFO) << "Creating copy of image: " << child_image.value();
       if (!base::CopyFile(image_, child_image)) {
         LOG(ERROR) << "Failed to copy image.";

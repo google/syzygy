@@ -28,7 +28,8 @@ class TestRunLaaApp : public RunLaaApp {
   using RunLaaApp::is_laa_;
   using RunLaaApp::image_;
   using RunLaaApp::in_place_;
-  using RunLaaApp::keep_temp_dir_;
+  using RunLaaApp::keep_temp_;
+  using RunLaaApp::side_by_side_;
   using RunLaaApp::child_argv_;
 };
 
@@ -104,14 +105,16 @@ TEST_F(RunLaaAppTest, ParseMinimalCommandLineSucceeds) {
   EXPECT_EQ(exe_path_, test_impl_.image_);
   EXPECT_TRUE(test_impl_.is_laa_);
   EXPECT_FALSE(test_impl_.in_place_);
-  EXPECT_FALSE(test_impl_.keep_temp_dir_);
+  EXPECT_FALSE(test_impl_.keep_temp_);
+  EXPECT_FALSE(test_impl_.side_by_side_);
   EXPECT_TRUE(test_impl_.child_argv_.empty());
 }
 
 TEST_F(RunLaaAppTest, ParseMaximalCommandLineSucceeds) {
   cmd_line_.AppendSwitchPath("image", exe_path_);
   cmd_line_.AppendSwitch("in-place");
-  cmd_line_.AppendSwitch("keep-temp-dir");
+  cmd_line_.AppendSwitch("keep-temp");
+  cmd_line_.AppendSwitch("side-by-side");
   cmd_line_.AppendSwitchASCII("mode", "nolaa");
   cmd_line_.AppendArg("--");
   cmd_line_.AppendArg("--foo");
@@ -120,7 +123,8 @@ TEST_F(RunLaaAppTest, ParseMaximalCommandLineSucceeds) {
   EXPECT_EQ(exe_path_, test_impl_.image_);
   EXPECT_FALSE(test_impl_.is_laa_);
   EXPECT_TRUE(test_impl_.in_place_);
-  EXPECT_TRUE(test_impl_.keep_temp_dir_);
+  EXPECT_TRUE(test_impl_.keep_temp_);
+  EXPECT_TRUE(test_impl_.side_by_side_);
   EXPECT_THAT(test_impl_.child_argv_, testing::Contains(L"--foo"));
 }
 
@@ -139,6 +143,7 @@ TEST_F(RunLaaAppTest, ParseTestingCommandLineSucceeds) {
 TEST_F(RunLaaAppTest, LaaModeSucceeds) {
   cmd_line_.AppendSwitchPath("image", exe_path_);
   cmd_line_.AppendSwitchASCII("mode", "laa");
+  cmd_line_.AppendSwitch("side-by-side");
   cmd_line_.AppendArg("--");
   cmd_line_.AppendArg("--expect-mode=laa");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -148,6 +153,7 @@ TEST_F(RunLaaAppTest, LaaModeSucceeds) {
 TEST_F(RunLaaAppTest, NoLaaModeSucceeds) {
   cmd_line_.AppendSwitchPath("image", exe_path_);
   cmd_line_.AppendSwitchASCII("mode", "nolaa");
+  cmd_line_.AppendSwitch("side-by-side");
   cmd_line_.AppendArg("--");
   cmd_line_.AppendArg("--expect-mode=nolaa");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -157,6 +163,7 @@ TEST_F(RunLaaAppTest, NoLaaModeSucceeds) {
 TEST_F(RunLaaAppTest, LaaModeUnexpected) {
   cmd_line_.AppendSwitchPath("image", exe_path_);
   cmd_line_.AppendSwitchASCII("mode", "laa");
+  cmd_line_.AppendSwitch("side-by-side");
   cmd_line_.AppendArg("--");
   cmd_line_.AppendArg("--expect-mode=nolaa");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));
@@ -166,6 +173,7 @@ TEST_F(RunLaaAppTest, LaaModeUnexpected) {
 TEST_F(RunLaaAppTest, NoLaaModeUnexpected) {
   cmd_line_.AppendSwitchPath("image", exe_path_);
   cmd_line_.AppendSwitchASCII("mode", "nolaa");
+  cmd_line_.AppendSwitch("side-by-side");
   cmd_line_.AppendArg("--");
   cmd_line_.AppendArg("--expect-mode=laa");
   ASSERT_TRUE(test_impl_.ParseCommandLine(&cmd_line_));

@@ -26,11 +26,7 @@ namespace runlaa {
 
 class RunLaaApp : public application::AppImplBase {
  public:
-  RunLaaApp()
-      : AppImplBase("RunLAA"),
-        is_laa_(false),
-        in_place_(false),
-        keep_temp_dir_(false) {}
+  RunLaaApp();
 
   // @name Implementation of the AppImplBase interface.
   // @{
@@ -44,7 +40,8 @@ class RunLaaApp : public application::AppImplBase {
   base::FilePath image_;
   bool is_laa_;
   bool in_place_;
-  bool keep_temp_dir_;
+  bool keep_temp_;
+  bool side_by_side_;
   base::CommandLine::StringVector child_argv_;
 };
 
