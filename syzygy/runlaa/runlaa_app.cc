@@ -189,15 +189,15 @@ int RunLaaApp::Run() {
     return 1;
   }
 
-  bool is_laa = false;
-  if (!GetLaaBit(image_, &is_laa))
+  bool was_laa = false;
+  if (!GetLaaBit(image_, &was_laa))
     return 1;
 
   base::ScopedTempDir scoped_temp_dir;
   base::FilePath child_image(image_);
   bool toggle_back = false;
 
-  if (is_laa == is_laa_) {
+  if (was_laa == is_laa_) {
     LOG(INFO) << "Image already in desired mode, running directly.";
   } else {
     // The image is not in the desired mode. It needs to be toggled.
@@ -218,8 +218,7 @@ int RunLaaApp::Run() {
       toggle_back = true;
     } else {
       // The work is not to happen in place. Create a temp directory and copy
-      // the
-      // image.
+      // the image.
       if (!scoped_temp_dir.CreateUniqueTempDir()) {
         LOG(ERROR) << "Failed to create temp directory.";
         return 1;
@@ -265,7 +264,7 @@ int RunLaaApp::Run() {
   if (toggle_back) {
     // The assumption is that work was in place and the bit was previously
     // toggled.
-    DCHECK_NE(is_laa, is_laa_);
+    DCHECK_NE(was_laa, is_laa_);
     DCHECK_EQ(child_image.value(), image_.value());
     LOG(INFO) << "Toggling back LargeAddressAware bit.";
     if (!ToggleLaaBit(child_image))
