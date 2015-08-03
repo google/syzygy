@@ -101,6 +101,11 @@ class TypeCreator {
   // @returns size for a basic type specified by its @ type.
   static size_t BasicTypeSize(uint32 type);
 
+  // @returns size of a member field pointer given its @p ptrmode and @p
+  // ptrtype.
+  static size_t MemberPointerSize(cci::CV_pmtype ptrmode,
+                                  cci::CV_ptrtype ptrtype);
+
   // @returns the string of CV modifiers.
   static base::string16 GetCVMod(Type::Flags flags);
 
@@ -120,25 +125,48 @@ class TypeCreator {
 // Parses pointers from the type info stream.
 template <>
 bool TypeCreator::ReadType<cci::LeafPointer>() {
+  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
+
   cci::LeafPointer::LeafPointerBody type_info = {};
-  if (!type_info_enum_.GetDataStream()->Read(&type_info, 1)) {
+  if (!stream->Read(&type_info, 1)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  size_t size;
+  size_t size = 0;
   Type::Flags flags = 0x0000;
+  cci::CV_ptrtype ptrtype = (cci::CV_ptrtype)(type_info.attr & cci::ptrtype);
 
-  switch (type_info.attr & cci::ptrtype) {
-    case cci::CV_PTR_NEAR32:
-      size = 4;
+  // Set the size of the pointer.
+  switch ((type_info.attr & cci::ptrmode) >> 5) {
+    // The size of a regular pointer or reference can be deduced from its type.
+    // TODO(mopler): Investigate references.
+    case cci::CV_PTR_MODE_PTR:
+    case cci::CV_PTR_MODE_REF: {
+      if (ptrtype == cci::CV_PTR_NEAR32)
+        size = 4;
+      else if (ptrtype == cci::CV_PTR_64)
+        size = 8;
       break;
-    case cci::CV_PTR_64:
-      size = 8;
+    }
+    // However in case of a member field pointer, its size depends on the
+    // properties of the containing class. The pointer contains extra
+    // information about the containing class.
+    case cci::CV_PTR_MODE_PMFUNC:
+    case cci::CV_PTR_MODE_PMEM: {
+      cci::CV_pmtype ptrmode = cci::CV_PMTYPE_Undef;
+
+      // Skip the type index of the containing class and read the pointer mode.
+      if (!stream->Seek(stream->pos() + 4) || !stream->Read(&ptrmode, 1)) {
+        LOG(ERROR) << "Unable to read the member field pointer mode.";
+        return false;
+      }
+      size = MemberPointerSize(ptrmode, ptrtype);
       break;
-    default:
-      // TODO(mopler): What are the other pointer types and their sizes?
-      size = 0;
-      break;
+    }
+    case cci::CV_PTR_MODE_RESERVED: {
+      // We shouldn't encounter reserved pointer mode.
+      return false;
+    }
   }
 
   // Try to find the object in the repository.
@@ -146,6 +174,7 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
   if (child == nullptr)
     return false;
 
+  // TODO(mopler): Different names for member data and member function pointers.
   base::string16 name = child->name + L"*";
   base::string16 decorated_name = child->decorated_name + L"*";
   TypeId type_id = type_info_enum_.type_id();
@@ -235,6 +264,60 @@ size_t TypeCreator::BasicTypeSize(uint32 type) {
     SPECIAL_TYPE_NAME_CASE_TABLE(SPECIAL_TYPE_NAME)
 #undef SPECIAL_TYPE_NAME
   }
+  return 0;
+}
+
+size_t TypeCreator::MemberPointerSize(cci::CV_pmtype ptrmode,
+                                      cci::CV_ptrtype ptrtype) {
+  DCHECK(ptrtype == cci::CV_PTR_NEAR32 || ptrtype == cci::CV_PTR_64);
+
+  // The translation of modes to pointer sizes depends on the compiler. The
+  // following values have been determined experimentally. For details see
+  // https://github.com/google/syzygy/wiki/MemberPointersInPdbFiles.
+  if (ptrtype == cci::CV_PTR_NEAR32) {
+    switch (ptrmode) {
+      case cci::CV_PMTYPE_Undef:
+        return 0;
+      case cci::CV_PMTYPE_D_Single:
+        return 4;
+      case cci::CV_PMTYPE_D_Multiple:
+        return 4;
+      case cci::CV_PMTYPE_D_Virtual:
+        return 8;
+      case cci::CV_PMTYPE_D_General:
+        return 12;
+      case cci::CV_PMTYPE_F_Single:
+        return 4;
+      case cci::CV_PMTYPE_F_Multiple:
+        return 8;
+      case cci::CV_PMTYPE_F_Virtual:
+        return 12;
+      case cci::CV_PMTYPE_F_General:
+        return 16;
+    }
+  } else if (ptrtype == cci::CV_PTR_64) {
+    switch (ptrmode) {
+      case cci::CV_PMTYPE_Undef:
+        return 0;
+      case cci::CV_PMTYPE_D_Single:
+        return 4;
+      case cci::CV_PMTYPE_D_Multiple:
+        return 4;
+      case cci::CV_PMTYPE_D_Virtual:
+        return 8;
+      case cci::CV_PMTYPE_D_General:
+        return 12;
+      case cci::CV_PMTYPE_F_Single:
+        return 8;
+      case cci::CV_PMTYPE_F_Multiple:
+        return 16;
+      case cci::CV_PMTYPE_F_Virtual:
+        return 16;
+      case cci::CV_PMTYPE_F_General:
+        return 24;
+    }
+  }
+  // It seems that VS doesn't use the other pointer types in PDB files.
   return 0;
 }
 
