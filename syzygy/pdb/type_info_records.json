@@ -1,0 +1,40 @@
+{
+  "structs": [
+    {
+      "name": "LeafClass",
+      "first_extra_field": "data",
+      "extra_fields": [
+        {
+          "name": "size",
+          "type_name": "UnsignedNumeric"
+        },
+        {
+          "name": "name",
+          "type_name": "WideString"
+        },
+        {
+          "name": "decorated_name",
+          "type_name": "WideString",
+          "condition": "property().decorated_name_present != 0"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "property",
+          "type": "LeafPropertyField"
+        }
+      ]
+    }
+  ],
+  "types": {
+    "WideString": {
+      "parser": "ReadWideString",
+      "type": "base::string16"
+    },
+    "UnsignedNumeric": {
+      "parser": "ReadUnsignedNumeric",
+      "ret_by_value": "True",
+      "type": "uint64_t"
+    }
+  }
+}
