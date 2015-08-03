@@ -48,7 +48,7 @@ class HeapBackdrop {
   // @param name the name of the heap function call.
   // @param time the time the heap call took to run, in cycles as
   //     measured by rdtsc.
-  void UpdateStats(std::string name, uint64 time);
+  void UpdateStats(std::string name, uint64_t time);
 
   // Exposed for unittesting.
  protected:
@@ -56,8 +56,8 @@ class HeapBackdrop {
   // function call: the sum of the time it takes to run and the number
   // of times it was called.
   struct Stats {
-    uint64 time;
-    uint64 calls;
+    uint64_t time;
+    uint64_t calls;
   };
 
   TraceLiveMap<HANDLE> heap_map_;

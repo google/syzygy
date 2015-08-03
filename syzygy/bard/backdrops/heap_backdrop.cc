@@ -22,7 +22,7 @@ namespace backdrops {
 HeapBackdrop::HeapBackdrop() {
 }
 
-void HeapBackdrop::UpdateStats(std::string name, uint64 time) {
+void HeapBackdrop::UpdateStats(std::string name, uint64_t time) {
   base::AutoLock auto_lock(lock_);
 
   auto stats = total_stats_.insert(std::make_pair(name, struct Stats())).first;
