@@ -55,7 +55,6 @@
       'target_name': 'parse_unittest_utils',
       'type': 'static_library',
       'sources': [
-        'unittest_util.cc',
         'unittest_util.h',
       ],
       'dependencies': [
