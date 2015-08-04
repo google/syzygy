@@ -16,39 +16,27 @@
 
 namespace bard {
 
-CausalLink::CausalLink() : cv_(&lock_), signaled_(false) {
-}
-
-void CausalLink::Wait() {
-  base::AutoLock auto_lock(lock_);
-  // Wait until link is signaled.
-  while (!signaled_)
-    cv_.Wait();
-}
-
-bool CausalLink::TimedWait(const base::TimeDelta& max_time) {
-  base::AutoLock auto_lock(lock_);
-  // Wait up to the maximum allowed time or up to receiving a Broadcast
-  // signal.
-  cv_.TimedWait(max_time);
-
-  if (!signaled_)
-    return false;
-  return true;
-}
-
-void CausalLink::Signal() {
-  base::AutoLock auto_lock(lock_);
-  // Mark the link as signaled and broadcast, which unblocks all the
-  // waiting threads.
-  signaled_ = true;
-  cv_.Broadcast();
+CausalLink::CausalLink() : event_(true, false) {
 }
 
 void CausalLink::Reset() {
-  base::AutoLock auto_lock(lock_);
-  // Mark the link as unsignaled.
-  signaled_ = false;
+  event_.Reset();
+}
+
+void CausalLink::Signal() {
+  event_.Signal();
+}
+
+bool CausalLink::IsSignaled() {
+  return event_.IsSignaled();
+}
+
+void CausalLink::Wait() {
+  event_.Wait();
+}
+
+bool CausalLink::TimedWait(const base::TimeDelta& max_time) {
+  return event_.TimedWait(max_time);
 }
 
 }  // namespace bard

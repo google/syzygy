@@ -16,8 +16,7 @@
 #ifndef SYZYGY_BARD_CAUSAL_LINK_H_
 #define SYZYGY_BARD_CAUSAL_LINK_H_
 
-#include "base/synchronization/condition_variable.h"
-#include "base/synchronization/lock.h"
+#include "base/synchronization/waitable_event.h"
 
 namespace bard {
 
@@ -26,6 +25,17 @@ namespace bard {
 class CausalLink {
  public:
   CausalLink();
+
+  // Resets the link to an un-signaled state.
+  void Reset();
+
+  // Toggles the state of this link to be signaled. This will unblock all
+  // threads actively waiting on the link, and any future threads that
+  // attempt to wait.
+  void Signal();
+
+  // @returns true if this link is in a signaled state, false otherwise.
+  bool IsSignaled();
 
   // Blocks the calling thread and waits indefinitely for the link to be
   // signaled. If the event has already been signaled, returns immediately.
@@ -38,18 +48,8 @@ class CausalLink {
   //     to a timeout.
   bool TimedWait(const base::TimeDelta& max_time);
 
-  // Toggles the state of this link to be signaled. This will unblock all
-  // threads actively waiting on the link, and any future threads that
-  // attempt to wait.
-  void Signal();
-
-  // Resets the link to an un-signaled state.
-  void Reset();
-
  private:
-  base::Lock lock_;
-  base::ConditionVariable cv_;
-  bool signaled_;
+  base::WaitableEvent event_;
 
   DISALLOW_COPY_AND_ASSIGN(CausalLink);
 };
