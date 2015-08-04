@@ -27,12 +27,15 @@ bool TraceLiveMap<T>::AddMapping(T trace, T live) {
 
   auto insert_trace_live = trace_live_.insert(std::make_pair(trace, live));
 
-  if (!insert_trace_live.second)
+  if (!insert_trace_live.second) {
+    LOG(ERROR) << "Trace argument was previously added.";
     return false;
+  }
 
   auto insert_live_trace = live_trace_.insert(std::make_pair(live, trace));
 
   if (!insert_live_trace.second) {
+    LOG(ERROR) << "Live argument was previously added.";
     trace_live_.erase(insert_trace_live.first);
     return false;
   }
@@ -49,8 +52,13 @@ bool TraceLiveMap<T>::RemoveMapping(T trace, T live) {
   auto find_trace_live = trace_live_.find(trace);
   auto find_live_trace = live_trace_.find(live);
 
-  if (find_trace_live == trace_live_.end() ||
-      find_live_trace == live_trace_.end()) {
+  if (find_trace_live == trace_live_.end()) {
+    LOG(ERROR) << "Trace was not previously added.";
+    return false;
+  }
+
+  if (find_live_trace == live_trace_.end()) {
+    LOG(ERROR) << "Live was not previously added.";
     return false;
   }
 
@@ -65,8 +73,10 @@ bool TraceLiveMap<T>::GetLiveFromTrace(T trace, T* live) {
   base::AutoLock auto_lock(lock_);
 
   auto live_it = trace_live_.find(trace);
-  if (live_it == trace_live_.end())
+  if (live_it == trace_live_.end()) {
+    LOG(ERROR) << "Trace argument was not previously added.";
     return false;
+  }
 
   *live = live_it->second;
   return true;
@@ -78,8 +88,10 @@ bool TraceLiveMap<T>::GetTraceFromLive(T live, T* trace) {
   base::AutoLock auto_lock(lock_);
 
   auto trace_it = live_trace_.find(live);
-  if (trace_it == live_trace_.end())
+  if (trace_it == live_trace_.end()) {
+    LOG(ERROR) << "Live argument was not previously added.";
     return false;
+  }
 
   *trace = trace_it->second;
   return true;
