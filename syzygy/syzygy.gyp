@@ -64,7 +64,6 @@
         'relink/relink.gyp:*',
         'refinery/refinery.gyp:*',
         'reorder/reorder.gyp:*',
-        'runlaa/runlaa.gyp:*',
         'sampler/sampler.gyp:*',
         'scripts/benchmark/benchmark.gyp:*',
         'scripts/graph/graph.gyp:*',

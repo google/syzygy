@@ -81,6 +81,8 @@
       'target_name': 'testing_lib',
       'type': 'static_library',
       'sources': [
+        'laa.cc',
+        'laa.h',
         'metrics.cc',
         'metrics.h',
         'toolchain.cc',

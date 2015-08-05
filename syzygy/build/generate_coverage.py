@@ -36,6 +36,7 @@ _DLLS_TO_INSTRUMENT = [
 
 # The list of file patterns to copy to the staging/coverage area.
 _FILE_PATTERNS_TO_COPY = [
+    '*_4g.exe',  # Large address aware versions of binaries.
     '*_harness.exe',
     '*_tests.exe',
     '*_unittests.exe',
@@ -46,7 +47,6 @@ _FILE_PATTERNS_TO_COPY = [
     '*.dat',
     'agent_logger.exe',
     'call_trace_service.exe',
-    'runlaa.exe',
     'test_data',
 ]
 
@@ -194,7 +194,9 @@ class _CodeCoverageRunnerBase(object):
 
   def _RunUnittests(self):
     unittests = (glob.glob(os.path.join(self._work_dir, '*_unittests.exe')) +
-        glob.glob(os.path.join(self._work_dir, '*_tests.exe')))
+        glob.glob(os.path.join(self._work_dir, '*_unittests_4g.exe')) +
+        glob.glob(os.path.join(self._work_dir, '*_tests.exe')) +
+        glob.glob(os.path.join(self._work_dir, '*_tests_4g.exe')))
     for unittest in unittests:
       _LOGGER.info('Running unittest "%s".', unittest)
       # Run single threaded, and with a 5 minute (in ms) timeout. This

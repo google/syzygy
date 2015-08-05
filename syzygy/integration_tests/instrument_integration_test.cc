@@ -44,6 +44,7 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_transform_policy.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/testing/laa.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/common/unittest_util.h"
 
@@ -1378,7 +1379,9 @@ void LenientInstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
 
 }  // namespace
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanEndToEnd) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
@@ -1400,7 +1403,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndDynamicRTL) {
   ASSERT_NO_FATAL_FAILURE(DynRtlCheckTestDllImportsRedirected());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
@@ -1410,7 +1415,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
@@ -1420,7 +1427,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
@@ -1430,7 +1439,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
+  TEST_ONLY_SUPPORTS_2G();
+
   cmd_line_.AppendSwitchASCII(
       "asan-rtl-options",
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
@@ -1446,8 +1457,10 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
   ASSERT_EQ(1000000u, runtime->params().quarantine_block_size);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
+  TEST_ONLY_SUPPORTS_2G();
+
   scoped_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(env.get(), nullptr);
   env->SetVar(::common::kSyzyAsanOptionsEnvVar,
@@ -1472,7 +1485,9 @@ TEST_F(InstrumentAppIntegrationTest,
   env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
 }
 
-TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
+TEST_F_2G(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
@@ -1482,8 +1497,10 @@ TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanInvalidAccessWithCorruptAllocatedBlockHeader) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanInvalidAccessWithCorruptAllocatedBlockHeader) {
+  TEST_ONLY_SUPPORTS_2G();
+
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1491,8 +1508,10 @@ TEST_F(InstrumentAppIntegrationTest,
       kAsanCorruptHeap, NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanHeapCheckerIgnoresCrashForException) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanHeapCheckerIgnoresCrashForException) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Heap checker failures go through the unhandled exception filter even if
   // CrashForException is defined.
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1504,8 +1523,10 @@ TEST_F(InstrumentAppIntegrationTest,
   EXPECT_EQ(EXIT_SUCCESS, exit_code);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanHeapCheckerCallsReportCrashWithProtobuf) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanHeapCheckerCallsReportCrashWithProtobuf) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Heap checker failures do get reported to ReportCrashWithProtobuf if it is
   // defined.
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1517,8 +1538,9 @@ TEST_F(InstrumentAppIntegrationTest,
   EXPECT_EQ(kExeReportCrashWithProtobufExitCode, exit_code);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanOverflowCallsCrashForException) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanOverflowCallsCrashForException) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Asan-detected violations go through CrashForException if it is available.
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1528,8 +1550,10 @@ TEST_F(InstrumentAppIntegrationTest,
   EXPECT_EQ(kExeCrashForExceptionExitCode, exit_code);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanOverflowCallsReportCrashWithProtobuf) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanOverflowCallsReportCrashWithProtobuf) {
+  TEST_ONLY_SUPPORTS_2G();
+
   // Asan-detected violations go through ReportCrashWithProtobuf if it is
   // available.
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1540,8 +1564,10 @@ TEST_F(InstrumentAppIntegrationTest,
   EXPECT_EQ(kExeReportCrashWithProtobufExitCode, exit_code);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanInvalidAccessWithCorruptAllocatedBlockTrailer) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanInvalidAccessWithCorruptAllocatedBlockTrailer) {
+  TEST_ONLY_SUPPORTS_2G();
+
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1549,7 +1575,10 @@ TEST_F(InstrumentAppIntegrationTest,
       kAsanCorruptHeap, NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanInvalidAccessWithCorruptFreedBlock) {
+  TEST_ONLY_SUPPORTS_2G();
+
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1557,7 +1586,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
       NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
+  TEST_ONLY_SUPPORTS_2G();
+
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1565,7 +1596,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
       kAsanHeapUseAfterFree, kAsanCorruptHeap);
 }
 
-TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
+TEST_F_2G(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
+  TEST_ONLY_SUPPORTS_2G();
+
   cmd_line_.AppendSwitchASCII("asan-rtl-options",
                               "--allocation_guard_rate=0.5 "
                               "--no_check_heap_on_failure");
@@ -1574,7 +1607,9 @@ TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckSampledAllocations());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapEnabledTest) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanLargeBlockHeapEnabledTest) {
+  TEST_ONLY_SUPPORTS_2G();
+
   cmd_line_.AppendSwitchASCII("asan-rtl-options",
                               "--no_check_heap_on_failure "
                               "--quarantine_size=4000000 "
@@ -1584,7 +1619,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapEnabledTest) {
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(true));
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
+  TEST_ONLY_SUPPORTS_2G();
+
   cmd_line_.AppendSwitchASCII("asan-rtl-options",
                               "--no_check_heap_on_failure "
                               "--disable_large_block_heap");
@@ -1593,7 +1630,10 @@ TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapCtMallocDisabledTest) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanLargeBlockHeapCtMallocDisabledTest) {
+  TEST_ONLY_SUPPORTS_2G();
+
   cmd_line_.AppendSwitchASCII("asan-rtl-options",
                               "--no_check_heap_on_failure "
                               "--disable_large_block_heap "
@@ -1603,15 +1643,18 @@ TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapCtMallocDisabledTest) {
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
+  TEST_ONLY_SUPPORTS_2G();
   AsanZebraHeapTest(false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
+  TEST_ONLY_SUPPORTS_2G();
   AsanZebraHeapTest(true);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferOverflow) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferOverflow) {
+  TEST_ONLY_SUPPORTS_2G();
   AsanSymbolizerTest(testing::kAsanRead8BufferOverflow,
                      STRINGIFY(HEAP_BUFFER_OVERFLOW),
                      STRINGIFY(ASAN_READ_ACCESS),
@@ -1619,7 +1662,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferOverflow) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferUnderflow) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferUnderflow) {
+  TEST_ONLY_SUPPORTS_2G();
   AsanSymbolizerTest(testing::kAsanWrite32BufferUnderflow,
                      STRINGIFY(HEAP_BUFFER_UNDERFLOW),
                      STRINGIFY(ASAN_WRITE_ACCESS),
@@ -1627,7 +1671,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferUnderflow) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanUseAfterFree) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanUseAfterFree) {
+  TEST_ONLY_SUPPORTS_2G();
   AsanSymbolizerTest(testing::kAsanRead64UseAfterFree,
                      STRINGIFY(USE_AFTER_FREE),
                      STRINGIFY(ASAN_READ_ACCESS),
@@ -1635,7 +1680,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanUseAfterFree) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanCorruptBlock) {
+TEST_F_2G(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanCorruptBlock) {
+  TEST_ONLY_SUPPORTS_2G();
   AsanSymbolizerTest(testing::kAsanCorruptBlock,
                      STRINGIFY(CORRUPT_BLOCK),
                      STRINGIFY(ASAN_UNKNOWN_ACCESS),
@@ -1643,8 +1689,9 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanCorruptBlock) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanSymbolizerTestAsanCorruptBlockInQuarantine) {
+TEST_F_2G(InstrumentAppIntegrationTest,
+          AsanSymbolizerTestAsanCorruptBlockInQuarantine) {
+  TEST_ONLY_SUPPORTS_2G();
   AsanSymbolizerTest(testing::kAsanCorruptBlockInQuarantine,
                      STRINGIFY(CORRUPT_BLOCK),
                      STRINGIFY(ASAN_UNKNOWN_ACCESS),

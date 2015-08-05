@@ -26,6 +26,7 @@
 #include "base/test/test_suite.h"
 #include "base/test/test_switches.h"
 #include "base/test/launcher/unit_test_launcher.h"
+#include "syzygy/testing/laa.h"
 
 namespace {
 
@@ -38,6 +39,21 @@ class NoAtExitBaseTestSuite : public base::TestSuite {
 
 int RunTestSuite(int argc, char** argv) {
   return NoAtExitBaseTestSuite(argc, argv).Run();
+}
+
+void AddOrSuffixGTestFilter(const char* filter) {
+  static const char kGTestFilter[] = "gtest_filter";
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  std::string s = command_line->GetSwitchValueASCII(kGTestFilter);
+  if (s.empty()) {
+    s = filter;
+  } else {
+    s.append(":");
+    s.append(filter);
+  }
+
+  // Only the last switch matters, so simply add another.
+  command_line->AppendSwitchASCII(kGTestFilter, s);
 }
 
 }  // namespace
@@ -59,6 +75,17 @@ int main(int argc, char** argv) {
   // No retry on failures.
   base::CommandLine::ForCurrentProcess()->AppendSwitchASCII(
       switches::kTestLauncherRetryLimit, "0");
+
+#ifdef SYZYGY_UNITTESTS_CHECK_MEMORY_MODEL
+  // Depending on the memory model, eliminate tests that can't run in that
+  // memory model.
+  if (testing::GetAddressSpaceSize() == 2) {
+    AddOrSuffixGTestFilter("-*_4G");
+  } else {
+    CHECK_EQ(4u, testing::GetAddressSpaceSize());
+    AddOrSuffixGTestFilter("-*_2G");
+  }
+#endif
 
   // We don't need to update |argc| and |argv|, gtest read the value from
   // base::CommandLine::ForCurrentProcess().

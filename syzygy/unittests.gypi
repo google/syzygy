@@ -77,6 +77,8 @@
 
       # Integration tests.
       '<(src)/syzygy/integration_tests/integration_tests.gyp:integration_tests',
+      '<(src)/syzygy/integration_tests/integration_tests.gyp:'
+          'integration_tests_4g',
 
       # Instrumenter tests.
       '<(src)/syzygy/instrument/instrument.gyp:instrument_unittests',
@@ -109,9 +111,6 @@
 
       # Reorder tests.
       '<(src)/syzygy/reorder/reorder.gyp:reorder_unittests',
-
-      # RunLAA tests.
-      '<(src)/syzygy/runlaa/runlaa.gyp:runlaa_unittests',
 
       # Sampler tests.
       '<(src)/syzygy/sampler/sampler.gyp:sampler_unittests',

@@ -48,15 +48,38 @@
       ],
       'msvs_settings': {
         'VCLinkerTool': {
-          # Asan agent is compiled without large address spaces to allow a
-          # memory optimization on the shadow memory. Agents should run in both
-          # modes, thus in the long term, we should remove this.
-          # Disable support for large address spaces.
+          # This test binary is initially compiled without large address
+          # support. A second version of it that is LAA aware is created by
+          # another build step.
           'LargeAddressAware': 1,
         },
       },
       'defines': [
+        'SYZYGY_UNITTESTS_CHECK_MEMORY_MODEL=1',
         'SYZYGY_UNITTESTS_USE_LONG_TIMEOUT=1',
+      ],
+    },
+    {
+      'target_name': 'integration_tests_4g',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'dependencies': ['integration_tests'],
+      'actions': [
+        {
+          'action_name': 'make_integration_tests_4g',
+          'inputs': [
+            '<(src)/syzygy/build/copy_laa.py',
+            '<(PRODUCT_DIR)/integration_tests.exe',
+          ],
+          'outputs': ['<(PRODUCT_DIR)/integration_tests_4g.exe'],
+          'action': [
+            '<(python_exe)',
+            '<(src)/syzygy/build/copy_laa.py',
+            '--input=$(OutDir)\\integration_tests.exe',
+            '--output=$(OutDir)\\integration_tests_4g.exe',
+            '--overwrite',
+          ],
+        },
       ],
     },
     {
