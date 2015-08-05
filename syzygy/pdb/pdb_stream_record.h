@@ -17,7 +17,9 @@
 
 #include <cstdint>
 
+#include "base/logging.h"
 #include "base/strings/string16.h"
+#include "syzygy/common/assertions.h"
 
 namespace pdb {
 
@@ -42,6 +44,10 @@ bool ReadUnsignedNumeric(PdbStream* stream, uint64_t* data_field);
 // @returns true on success, false on failure.
 template <typename T>
 bool ReadBasicType(PdbStream* stream, T* basic_type) {
+  COMPILE_ASSERT_IS_POD(T);
+  DCHECK(stream);
+  DCHECK(basic_type);
+
   return stream->Read(basic_type, 1);
 }
 
