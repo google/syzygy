@@ -21,8 +21,11 @@
 #   // List of all the structs that will be generated.
 #   "structs": [
 #     {
-#       // Name of the struct in the CVInfo.h header.
+#       // Name of the generated struct.
 #       "name": "LeafClass",
+#       // Optional entry with the name of the struct from CVInfo.h header
+#       // which this struct encapsulates.
+#       "original_name": "LeafClass",
 #       // Optional entry with the name of the first field that can't directly
 #       // be parsed by direct byte coercion (ie: variable length fields,
 #       // optional fields, etc). All bytes up to this field will be read
@@ -135,7 +138,7 @@ class {name} {{
 
   // @name Accessors.
   // @{{
-  const {cci}::{name}& body() {{ return body_; }}
+  const {cci}::{original_name}& body() {{ return body_; }}
 """
 
 _GETTER_REF_DECL_IMPL = """\
@@ -174,9 +177,12 @@ _CLASS_MIDDLE = """\
 
  private:
   // The struct from CVInfo.h which represents this record.
-  {cci}::{name} body_;
+  {cci}::{original_name} body_;
+"""
 
-  // Variable length fields parsed from the pdb stream.
+_EXTRA_FIELDS_DESCRIPTION = """\
+
+  // Additional fields parsed from the pdb stream.
 """
 
 _CLASS_FOOTER = """\
@@ -185,7 +191,7 @@ _CLASS_FOOTER = """\
 """
 
 _OFFSET_OF = """\
-offsetof({cci}::{name}, \
+offsetof({cci}::{original_name}, \
 {first_extra_field});"""
 
 _SIZE_OF = """\
@@ -230,6 +236,10 @@ _COMMON_SUBSTITUTES = {
   'basename': os.path.basename(__file__)
 }
 
+_DEFAULT_TYPE = {
+  "parser": "ReadBasicType",
+  "ret_by_value": "True"
+}
 
 def _Substitute(str, **more):
   """Substitutes both the common and specific strings."""
@@ -259,6 +269,9 @@ def _GenerateClass(pdb_class):
       code += _Substitute(_CONDITION_DECL_IMPL, **field)
 
   code += _Substitute(_CLASS_MIDDLE, **pdb_class)
+
+  if pdb_class.get('extra_fields', []):
+    code += _Substitute(_EXTRA_FIELDS_DESCRIPTION)
 
   for field in pdb_class.get('extra_fields', []):
     code += _Substitute(_MEMBER_DECL, **field)
@@ -330,8 +343,15 @@ def ascii_encode_dict(data):
 
 def _FillFields(pdb_class, types_definition):
   """Adds type information to fields of a struct."""
-  for field in pdb_class['extra_fields']:
-    field.update(types_definition[field['type_name']])
+  name = pdb_class['name']
+  pdb_class.setdefault('original_name', name);
+  for field in pdb_class.get('extra_fields', []):
+    if field['type_name'] in types_definition:
+      field.update(types_definition[field['type_name']])
+    else:
+      default_definition = _DEFAULT_TYPE.copy()
+      default_definition.setdefault('type', field['type_name'])
+      field.update(default_definition)
   return pdb_class
 
 

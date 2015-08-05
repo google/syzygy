@@ -36,6 +36,15 @@ bool ReadWideString(PdbStream* stream, base::string16* string_field);
 // @returns true on success, false on failure.
 bool ReadUnsignedNumeric(PdbStream* stream, uint64_t* data_field);
 
+// Reads basic type from pdb stream.
+// @param stream a pointer to the pdb stream.
+// @param basic_type a pointer to the destination object.
+// @returns true on success, false on failure.
+template <typename T>
+bool ReadBasicType(PdbStream* stream, T* basic_type) {
+  return stream->Read(basic_type, 1);
+}
+
 }  // namespace pdb
 
 #endif  // SYZYGY_PDB_PDB_STREAM_RECORD_H_

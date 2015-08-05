@@ -17,6 +17,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
+#include "syzygy/pdb/gen/pdb_type_info_records.h"
 #include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/type_repository.h"
@@ -125,19 +126,18 @@ class TypeCreator {
 // Parses pointers from the type info stream.
 template <>
 bool TypeCreator::ReadType<cci::LeafPointer>() {
+  pdb::LeafPointer type_info;
   scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
-
-  cci::LeafPointer::LeafPointerBody type_info = {};
-  if (!stream->Read(&type_info, 1)) {
+  if (!type_info.Initialize(stream.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  size_t size = 0;
-  Type::Flags flags = 0x0000;
-  cci::CV_ptrtype ptrtype = (cci::CV_ptrtype)(type_info.attr & cci::ptrtype);
 
+  const cci::CV_ptrtype ptrtype = (cci::CV_ptrtype)(type_info.attr().ptrtype);
+
+  size_t size = 0;
   // Set the size of the pointer.
-  switch ((type_info.attr & cci::ptrmode) >> 5) {
+  switch (type_info.attr().ptrmode) {
     // The size of a regular pointer or reference can be deduced from its type.
     // TODO(mopler): Investigate references.
     case cci::CV_PTR_MODE_PTR:
@@ -170,7 +170,7 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
   }
 
   // Try to find the object in the repository.
-  TempType* child = FindOrCreateTempType(type_info.utype);
+  TempType* child = FindOrCreateTempType(type_info.body().utype);
   if (child == nullptr)
     return false;
 
@@ -179,9 +179,10 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
   base::string16 decorated_name = child->decorated_name + L"*";
   TypeId type_id = type_info_enum_.type_id();
 
-  if (type_info.attr & cci::isconst)
+  Type::Flags flags = kNoTypeFlags;
+  if (type_info.attr().isconst)
     flags |= Type::FLAG_CONST;
-  if (type_info.attr & cci::isvolatile)
+  if (type_info.attr().isvolatile)
     flags |= Type::FLAG_VOLATILE;
 
   name += GetCVMod(flags);
@@ -206,27 +207,21 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
 // Parses modifiers from the type info stream.
 template <>
 bool TypeCreator::ReadType<cci::LeafModifier>() {
-  cci::LeafModifier type_info = {};
-  LeafModifierAttribute modifier_attributes = {};
-  size_t to_read = offsetof(cci::LeafModifier, attr);
-  size_t bytes_read = 0;
-
+  pdb::LeafModifier type_info;
   scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      !stream->Read(&modifier_attributes, 1) || bytes_read != to_read) {
+  if (!type_info.Initialize(stream.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
 
-  Type::Flags flags = 0x0000;
-  TempType* child = FindOrCreateTempType(type_info.type);
-
+  TempType* child = FindOrCreateTempType(type_info.body().type);
   if (child == nullptr)
     return false;
 
-  if (modifier_attributes.mod_const)
+  Type::Flags flags = kNoTypeFlags;
+  if (type_info.attr().mod_const)
     flags |= Type::FLAG_CONST;
-  if (modifier_attributes.mod_volatile)
+  if (type_info.attr().mod_volatile)
     flags |= Type::FLAG_VOLATILE;
 
   AddTempType(type_info_enum_.type_id(), child->name + GetCVMod(flags),
@@ -398,7 +393,7 @@ TempType* TypeCreator::CreateBasicType(TypeId type_index) {
 
     // Create temporary type to temporary stash.
     return AddTempType(type_index, child->name + L"*",
-                       child->decorated_name + L"*", type_index, 0);
+                       child->decorated_name + L"*", type_index, kNoTypeFlags);
   }
 }
 
@@ -411,7 +406,8 @@ TempType* TypeCreator::FindOrCreateTempType(TypeId type_index) {
   if (type_index >= type_info_enum_.type_info_header().type_min) {
     // For now returning wildcard dummy.
     // TODO(mopler): return nullptr here once we implement the other types.
-    return AddTempType(type_index, L"dummy", L"dummy", type_index, 0);
+    return AddTempType(type_index, L"dummy", L"dummy", type_index,
+                       kNoTypeFlags);
   } else {
     // Construct the needed basic type.
     return CreateBasicType(type_index);

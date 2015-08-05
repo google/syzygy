@@ -105,6 +105,8 @@ class Type : public base::RefCounted<Type> {
 
 using TypePtr = scoped_refptr<Type>;
 
+const Type::Flags kNoTypeFlags = 0x0000;
+
 // Represents a basic type, such as e.g. an int, char, void, etc.
 class BasicType : public Type {
  public:

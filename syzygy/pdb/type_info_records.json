@@ -24,6 +24,27 @@
           "type": "LeafPropertyField"
         }
       ]
+    },
+    {
+      "name": "LeafModifier",
+      "first_extra_field": "attr",
+      "extra_fields": [
+        {
+          "name": "attr",
+          "type_name": "LeafModifierAttribute"
+        }
+      ]
+    },
+    {
+      "original_name": "LeafPointer::LeafPointerBody",
+      "name": "LeafPointer",
+      "first_extra_field": "attr",
+      "extra_fields": [
+        {
+          "name": "attr",
+          "type_name": "LeafPointerAttribute"
+        }
+      ]
     }
   ],
   "types": {

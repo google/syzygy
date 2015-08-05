@@ -52,10 +52,56 @@ class LeafClass {
   // The struct from CVInfo.h which represents this record.
   Microsoft_Cci_Pdb::LeafClass body_;
 
-  // Variable length fields parsed from the pdb stream.
+  // Additional fields parsed from the pdb stream.
   uint64_t size_;
   base::string16 name_;
   base::string16 decorated_name_;
+};
+
+class LeafModifier {
+ public:
+  LeafModifier();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafModifier& body() { return body_; }
+  LeafModifierAttribute attr() const { return attr_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafModifier body_;
+
+  // Additional fields parsed from the pdb stream.
+  LeafModifierAttribute attr_;
+};
+
+class LeafPointer {
+ public:
+  LeafPointer();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody& body() { return body_; }
+  LeafPointerAttribute attr() const { return attr_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody body_;
+
+  // Additional fields parsed from the pdb stream.
+  LeafPointerAttribute attr_;
 };
 
 }  // namespace pdb

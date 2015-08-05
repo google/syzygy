@@ -28,8 +28,8 @@ bool ReadWideString(PdbStream* stream, base::string16* string_field) {
   std::string narrow_string;
   if (!ReadString(stream, &narrow_string))
     return false;
-  *string_field = base::UTF8ToWide(narrow_string);
-  return true;
+  return base::UTF8ToWide(narrow_string.c_str(), narrow_string.length(),
+                          string_field);
 }
 
 bool ReadUnsignedNumeric(PdbStream* stream, uint64_t* data_field) {

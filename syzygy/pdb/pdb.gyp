@@ -90,6 +90,7 @@
         'pdb_stream_record_unittest.cc',
         'pdb_stream_unittest.cc',
         'pdb_symbol_record_unittest.cc',
+        'pdb_type_info_records_unittest.cc',
         'pdb_type_info_stream_enum_unittest.cc',
         'pdb_util_unittest.cc',
         'pdb_writer_unittest.cc',

@@ -42,4 +42,38 @@ bool LeafClass::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafModifier::LeafModifier() {
+  ::memset(&body_, 0, sizeof(body_));
+}
+
+bool LeafModifier::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafModifier, attr);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadBasicType(stream, &attr_))
+    return false;
+
+  return true;
+}
+
+LeafPointer::LeafPointer() {
+  ::memset(&body_, 0, sizeof(body_));
+}
+
+bool LeafPointer::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody, attr);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadBasicType(stream, &attr_))
+    return false;
+
+  return true;
+}
+
 }  // namespace pdb

@@ -22,85 +22,104 @@
 
 namespace pdb {
 
-TEST(PdbStreamRecordTest, ReadWideString) {
+namespace {
+
+class PdbStreamRecordTest : public testing::Test {
+ protected:
+  void SetUp() override {
+    stream_ = new PdbByteStream;
+    write_stream_ = stream_->GetWritablePdbStream();
+  }
+
+  void WriteWideString(const base::string16& wide_string) {
+    std::string narrow_string;
+    ASSERT_TRUE(base::WideToUTF8(wide_string.c_str(), wide_string.length(),
+                                 &narrow_string));
+    ASSERT_TRUE(write_stream_->WriteString(narrow_string));
+  }
+
+  template <typename T>
+  void WriteData(const T& value) {
+    ASSERT_TRUE(write_stream_->Write(value));
+  }
+
+  scoped_refptr<PdbByteStream> stream_;
+  scoped_refptr<WritablePdbStream> write_stream_;
+};
+
+}  // namespace
+
+TEST_F(PdbStreamRecordTest, ReadWideString) {
   const base::string16 wide_string = L"base::string16 wide_string";
-  const size_t string_length = wide_string.length();
-
-  const std::string narrow_string = base::WideToUTF8(wide_string);
-
-  ASSERT_EQ(narrow_string.length(), string_length);
-
-  scoped_refptr<PdbByteStream> stream(new PdbByteStream);
-  uint8_t* byte_data = new uint8_t[string_length + 1];
-
-  ASSERT_TRUE(byte_data);
-
-  ::memcpy(byte_data, narrow_string.c_str(), string_length);
-  byte_data[narrow_string.length()] = '\0';
-
-  ASSERT_TRUE(stream->Init(byte_data, string_length + 1));
-
   base::string16 control_string;
 
-  ReadWideString(stream.get(), &control_string);
-  EXPECT_EQ(wide_string, control_string);
+  // Fail when attempting to read empty stream.
+  EXPECT_FALSE(ReadWideString(stream_.get(), &control_string));
 
-  delete byte_data;
+  WriteWideString(wide_string);
+  EXPECT_TRUE(ReadWideString(stream_.get(), &control_string));
+  EXPECT_EQ(wide_string, control_string);
 }
 
-TEST(PdbStreamRecordTest, ReadLeafUnsignedNumeric) {
-  const uint16_t val16 = 42;
-  const uint32_t val32 = 1333666999;
-  const uint64_t val64 = 314159265358979;
-
-  const uint16_t lf_ushort = Microsoft_Cci_Pdb::LF_USHORT;
-  const uint16_t lf_ulong = Microsoft_Cci_Pdb::LF_ULONG;
-  const uint16 lf_uquad = Microsoft_Cci_Pdb::LF_UQUADWORD;
-
-  scoped_refptr<PdbByteStream> stream(new PdbByteStream);
-
-  // Allocate enough space.
-  uint8_t* byte_data = new uint8_t[16];
-
+TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericDirect) {
+  const uint16_t kVal16 = 42;
   uint64_t numeric;
 
-  // For values smaller than 0x8000 the numeric leaf reads just their value.
-  ::memcpy(byte_data, &val16, 2);
-  ASSERT_TRUE(stream->Init(byte_data, 2));
-  ASSERT_TRUE(ReadUnsignedNumeric(stream.get(), &numeric));
-  EXPECT_EQ(val16, numeric);
+  // Fail when attempting to read empty stream.
+  EXPECT_FALSE(ReadUnsignedNumeric(stream_.get(), &numeric));
 
-  // Reset the stream.
-  EXPECT_TRUE(stream->Seek(0));
+  // For values smaller than 0x8000 the numeric leaf reads just their value.
+  WriteData(kVal16);
+  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
+  EXPECT_EQ(kVal16, numeric);
+}
+
+TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUshort) {
+  const uint16_t kVal16 = 42;
+  const uint16_t kLfUshort = Microsoft_Cci_Pdb::LF_USHORT;
+  uint64_t numeric;
 
   // Test reading 16-bit values inside LF_USHORT.
-  ::memcpy(byte_data, &lf_ushort, sizeof(lf_ushort));
-  ::memcpy(byte_data + sizeof(lf_ushort), &val16, sizeof(val16));
-  ASSERT_TRUE(stream->Init(byte_data, sizeof(val16) + sizeof(lf_ushort)));
-  ASSERT_TRUE(ReadUnsignedNumeric(stream.get(), &numeric));
-  EXPECT_EQ(val16, numeric);
+  WriteData(kLfUshort);
+  WriteData(kVal16);
+  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
+  EXPECT_EQ(kVal16, numeric);
+}
 
-  // Reset the stream.
-  EXPECT_TRUE(stream->Seek(0));
+TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUlong) {
+  const uint32_t kVal32 = 1333666999;
+  const uint16_t kLfUlong = Microsoft_Cci_Pdb::LF_ULONG;
+  uint64_t numeric;
 
   // Test reading 32-bit values.
-  ::memcpy(byte_data, &lf_ulong, sizeof(lf_ulong));
-  ::memcpy(byte_data + sizeof(lf_ulong), &val32, sizeof(val32));
-  ASSERT_TRUE(stream->Init(byte_data, sizeof(val32) + sizeof(lf_ulong)));
-  ASSERT_TRUE(ReadUnsignedNumeric(stream.get(), &numeric));
-  EXPECT_EQ(val32, numeric);
+  WriteData(kLfUlong);
+  WriteData(kVal32);
+  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
+  EXPECT_EQ(kVal32, numeric);
+}
 
-  // Reset the stream.
-  EXPECT_TRUE(stream->Seek(0));
+TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUquad) {
+  const uint64_t kVal64 = 314159265358979;
+  const uint16 kLfUquad = Microsoft_Cci_Pdb::LF_UQUADWORD;
+  uint64_t numeric;
 
   // Test reading 64-bit values.
-  ::memcpy(byte_data, &lf_uquad, sizeof(lf_uquad));
-  ::memcpy(byte_data + sizeof(lf_uquad), &val64, sizeof(val64));
-  ASSERT_TRUE(stream->Init(byte_data, sizeof(val64) + sizeof(lf_ulong)));
-  ASSERT_TRUE(ReadUnsignedNumeric(stream.get(), &numeric));
-  EXPECT_EQ(val64, numeric);
+  WriteData(kLfUquad);
+  WriteData(kVal64);
+  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
+  EXPECT_EQ(kVal64, numeric);
+}
 
-  delete byte_data;
+TEST_F(PdbStreamRecordTest, ReadBasicType) {
+  const uint32_t kValue = 0x12345678;
+  uint32_t control_value = 0;
+
+  // Fail when attempting to read empty stream.
+  EXPECT_FALSE(ReadBasicType(stream_.get(), &control_value));
+
+  WriteData(kValue);
+  EXPECT_TRUE(ReadBasicType(stream_.get(), &control_value));
+  EXPECT_EQ(kValue, control_value);
 }
 
 }  // namespace pdb
