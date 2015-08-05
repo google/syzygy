@@ -104,6 +104,7 @@ _BLACK_LIST = [
   # These can't be run under AppVerifier because we end up double hooking the
   # operating system heap function, leading to nonsense.
   'integration_tests.exe',
+  'integration_tests_4g.exe',
   'syzyasan_rtl_unittests.exe',
 ]
 
