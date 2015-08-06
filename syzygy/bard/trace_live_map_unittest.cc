@@ -15,35 +15,27 @@
 #include "syzygy/bard/trace_live_map.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/bard/unittest_util.h"
 
 namespace bard {
 
 TEST(TraceLiveMapTest, TestMapping) {
-  TraceLiveMap<void*> trace_live_map_;
+  TraceLiveMap<void*> trace_live_map;
 
   void* trace = reinterpret_cast<void*>(0xAB11CD22);
   void* extra_trace = reinterpret_cast<void*>(0x13213221);
-  void* check_trace = nullptr;
   void* live = reinterpret_cast<void*>(0xCC9437A2);
   void* extra_live = reinterpret_cast<void*>(0xABBAABBA);
-  void* check_live = nullptr;
 
-  EXPECT_TRUE(trace_live_map_.AddMapping(trace, live));
-  EXPECT_FALSE(trace_live_map_.AddMapping(trace, extra_live));
-  EXPECT_FALSE(trace_live_map_.AddMapping(extra_trace, live));
+  EXPECT_TRUE(trace_live_map.AddMapping(trace, live));
+  EXPECT_FALSE(trace_live_map.AddMapping(trace, extra_live));
+  EXPECT_FALSE(trace_live_map.AddMapping(extra_trace, live));
+  testing::CheckTraceLiveMapContains(trace_live_map, trace, live);
 
-  EXPECT_TRUE(trace_live_map_.GetLiveFromTrace(trace, &check_live));
-  EXPECT_EQ(live, check_live);
+  EXPECT_TRUE(trace_live_map.RemoveMapping(trace, live));
+  testing::CheckTraceLiveMapNotContain(trace_live_map, trace, live);
 
-  EXPECT_TRUE(trace_live_map_.GetTraceFromLive(live, &check_trace));
-  EXPECT_EQ(trace, check_trace);
-
-  EXPECT_TRUE(trace_live_map_.RemoveMapping(trace, live));
-
-  EXPECT_FALSE(trace_live_map_.GetLiveFromTrace(trace, &check_live));
-  EXPECT_FALSE(trace_live_map_.GetTraceFromLive(live, &check_trace));
-
-  EXPECT_FALSE(trace_live_map_.RemoveMapping(trace, live));
+  EXPECT_FALSE(trace_live_map.RemoveMapping(trace, live));
 }
 
 }  // namespace bard

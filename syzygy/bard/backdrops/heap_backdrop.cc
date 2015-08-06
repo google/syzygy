@@ -22,6 +22,18 @@ namespace backdrops {
 HeapBackdrop::HeapBackdrop() {
 }
 
+HANDLE HeapBackdrop::HeapCreate(DWORD options,
+                                SIZE_T initial_size,
+                                SIZE_T maximum_size) {
+  DCHECK(!heap_create_.is_null());
+  return heap_create_.Run(options, initial_size, maximum_size);
+}
+
+BOOL HeapBackdrop::HeapDestroy(HANDLE heap) {
+  DCHECK(!heap_destroy_.is_null());
+  return heap_destroy_.Run(heap);
+}
+
 void HeapBackdrop::UpdateStats(std::string name, uint64_t time) {
   base::AutoLock auto_lock(lock_);
 

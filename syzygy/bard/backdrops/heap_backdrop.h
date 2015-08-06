@@ -21,7 +21,8 @@
 #include <map>
 #include <string>
 
-#include "base/basictypes.h"
+#include "base/bind.h"
+#include "base/callback.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/bard/trace_live_map.h"
 
@@ -35,14 +36,38 @@ namespace backdrops {
 // The class is thread safe for simultaneous access across multiple threads.
 class HeapBackdrop {
  public:
+  // @name Heap Function Calls callbacks.
+  // @{
+  using HeapCreateCallback = base::Callback<HANDLE(DWORD, SIZE_T, SIZE_T)>;
+  using HeapDestroyCallback = base::Callback<BOOL(HANDLE)>;
+  // @}
+
   HeapBackdrop();
 
-  // TraceLiveMap accessors.
+  // @name TraceLiveMap Accessors.
+  // @{
   TraceLiveMap<HANDLE>& heap_map() { return heap_map_; }
   TraceLiveMap<LPVOID>& alloc_map() { return alloc_map_; }
 
   const TraceLiveMap<HANDLE>& heap_map() const { return heap_map_; }
   const TraceLiveMap<LPVOID>& alloc_map() const { return alloc_map_; }
+  // @}
+
+  // @name Heap Function Calls.
+  // @{
+  HANDLE HeapCreate(DWORD options, SIZE_T initial_size, SIZE_T maximum_size);
+  BOOL HeapDestroy(HANDLE heap);
+  // @}
+
+  // @name Heap Function Calls Mutators.
+  // @{
+  void set_heap_create(const HeapCreateCallback& heap_create) {
+    heap_create_ = heap_create;
+  }
+  void set_heap_destroy(const HeapDestroyCallback& heap_destroy) {
+    heap_destroy_ = heap_destroy;
+  }
+  // @}
 
   // Update the total time taken by a event with name @p name.
   // @param name the name of the heap function call.
@@ -59,6 +84,10 @@ class HeapBackdrop {
     uint64_t time;
     uint64_t calls;
   };
+
+  // Pointers to heap API implementation that is being evaluated.
+  HeapCreateCallback heap_create_;
+  HeapDestroyCallback heap_destroy_;
 
   TraceLiveMap<HANDLE> heap_map_;
   TraceLiveMap<LPVOID> alloc_map_;

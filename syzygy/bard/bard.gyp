@@ -28,11 +28,27 @@
         'trace_live_map_impl.h',
         'backdrops/heap_backdrop.cc',
         'backdrops/heap_backdrop.h',
+        'events/heap_create_event.cc',
+        'events/heap_create_event.h',
+        'events/heap_destroy_event.cc',
+        'events/heap_destroy_event.h',
         'events/linked_event.cc',
         'events/linked_event.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
+      ],
+    },
+    {
+      'target_name': 'bard_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        'bard_lib',
+        '<(src)/testing/gtest.gyp:gtest',
       ],
     },
     {
@@ -42,14 +58,24 @@
         'causal_link_unittest.cc',
         'trace_live_map_unittest.cc',
         'backdrops/heap_backdrop_unittest.cc',
+        'events/heap_create_event_unittest.cc',
+        'events/heap_destroy_event_unittest.cc',
         'events/linked_event_unittest.cc',
         '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
         'bard_lib',
+        'bard_unittest_utils',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces.
+          'LargeAddressAware': 1,
+        },
+      },
     },
   ]
 }
