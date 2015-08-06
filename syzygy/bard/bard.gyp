@@ -44,6 +44,7 @@
       'target_name': 'bard_unittest_utils',
       'type': 'static_library',
       'sources': [
+        'unittest_util.cc',
         'unittest_util.h',
       ],
       'dependencies': [
