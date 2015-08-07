@@ -1,6 +1,22 @@
 {
   "structs": [
     {
+      "name": "LeafBClass",
+      "first_extra_field": "offset",
+      "extra_fields": [
+        {
+          "name": "offset",
+          "type_name": "UnsignedNumeric"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
+        }
+      ]
+    },
+    {
       "name": "LeafClass",
       "first_extra_field": "data",
       "extra_fields": [
@@ -26,6 +42,39 @@
       ]
     },
     {
+      "name": "LeafEnumerate",
+      "first_extra_field": "value",
+      "extra_fields": [
+        {
+          "name": "value",
+          "type_name": "UnsignedNumeric"
+        },
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
+        }
+      ]
+    },
+    {
+      "name": "LeafFriendCls"
+    },
+    {
+      "name": "LeafFriendFcn",
+      "first_extra_field": "name",
+      "extra_fields": [
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ]
+    },
+    {
       "name": "LeafMember",
       "first_extra_field": "offset",
       "extra_fields": [
@@ -46,12 +95,39 @@
       ]
     },
     {
+      "name": "LeafMethod",
+      "first_extra_field": "name",
+      "extra_fields": [
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ]
+    },
+    {
       "name": "LeafModifier",
       "first_extra_field": "attr",
       "extra_fields": [
         {
           "name": "attr",
           "type_name": "LeafModifierAttribute"
+        }
+      ]
+    },
+    {
+      "name": "LeafNestType",
+      "original_name": "LeafNestTypeEx",
+      "first_extra_field": "name",
+      "extra_fields": [
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
         }
       ]
     },
@@ -63,6 +139,26 @@
         {
           "name": "attr",
           "type_name": "LeafPointerAttribute"
+        }
+      ]
+    },
+    {
+      "name": "LeafVBClass",
+      "first_extra_field": "vbpoff",
+      "extra_fields": [
+        {
+          "name": "vbpoff",
+          "type_name": "UnsignedNumeric"
+        },
+        {
+          "name": "vboff",
+          "type_name": "UnsignedNumeric"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
         }
       ]
     }

@@ -69,6 +69,28 @@ class PdbTypeInfoRecordsTest : public testing::Test {
 
 }  // namespace
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafBClass) {
+  const uint32_t kType = 0x1492;
+  const LeafMemberAttributeField kAttr = {0xABBA};
+  const uint64_t kOffset = 80085;
+
+  LeafBClass type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteData(kType);
+  WriteUnsignedNumeric(kOffset);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kOffset, type_record.offset());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
   const uint16_t kCount = 21;
   const LeafPropertyField kProperty = {0x0200};
@@ -108,6 +130,69 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
   EXPECT_EQ(kDecoratedName, type_record.decorated_name());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafEnumerate) {
+  const LeafMemberAttributeField kAttr = {0x1989};
+  const uint64_t kValue = 0x8BADF00D;
+  const base::string16 kName = L"enumName@@test";
+
+  LeafEnumerate type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteUnsignedNumeric(kValue);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kValue, type_record.value());
+  EXPECT_EQ(kName, type_record.name());
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafFriendCls) {
+  const uint16_t kPad = 0x0000;
+  const uint32_t kType = 0x05141316;
+
+  LeafFriendCls type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kPad);
+  WriteData(kType);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kPad, type_record.body().pad0);
+  EXPECT_EQ(kType, type_record.body().index);
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafFriendFcn) {
+  const uint16_t kPad = 0x0000;
+  const uint32_t kType = 0x1918;
+  const base::string16 kName = L"friendFunctionName@@test";
+
+  LeafFriendFcn type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kPad);
+  WriteData(kType);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kPad, type_record.body().pad0);
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_EQ(kName, type_record.name());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
   const uint32_t kType = 0x1993;
   const LeafMemberAttributeField kAttr = {0x12A5};
@@ -133,6 +218,28 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
   EXPECT_EQ(kName, type_record.name());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafMethod) {
+  const uint16_t kCount = 1348;
+  const uint32_t kMlist = 0xBADDCAFE;
+  const base::string16 kName = L"methodName@@test";
+
+  LeafMethod type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kCount);
+  WriteData(kMlist);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kCount, type_record.body().count);
+  EXPECT_EQ(kMlist, type_record.body().mList);
+  EXPECT_EQ(kName, type_record.name());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafModifier) {
   const uint32_t kType = 0x2008;
   const LeafModifierAttribute kAttr = {0x0001};
@@ -152,6 +259,28 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafModifier) {
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafNestType) {
+  const LeafMemberAttributeField kAttr = {0xAC1D};
+  const uint32_t kType = 0x1A11;
+  const base::string16 kName = L"nestTypeName@@test";
+
+  LeafNestType type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteData(kType);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_EQ(kName, type_record.name());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafPointer) {
   const uint32_t kType = 0x2008;
   const LeafPointerAttribute kAttr = {0x12A5};
@@ -169,6 +298,34 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafPointer) {
 
   EXPECT_EQ(kType, type_record.body().utype);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
+  const uint32_t kType = 0x0480;
+  const LeafMemberAttributeField kAttr = {0x0BAD};
+  const uint32_t kVbptr = 79123;
+  const uint64_t kVbpoff = 80085;
+  const uint64_t kVboff = 0x07011867;
+
+  LeafVBClass type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteData(kType);
+  WriteData(kVbptr);
+  WriteUnsignedNumeric(kVbpoff);
+  WriteUnsignedNumeric(kVboff);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kVbptr, type_record.body().vbptr);
+  EXPECT_EQ(kVbpoff, type_record.vbpoff());
+  EXPECT_EQ(kVboff, type_record.vboff());
 }
 
 }  // namespace pdb

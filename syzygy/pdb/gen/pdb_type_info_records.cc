@@ -19,6 +19,22 @@
 
 namespace pdb {
 
+LeafBClass::LeafBClass() : body_{},
+                           offset_{} {}
+
+bool LeafBClass::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafBClass, offset);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadUnsignedNumeric(stream, &offset_))
+    return false;
+
+  return true;
+}
+
 LeafClass::LeafClass() : body_{},
                          size_{},
                          name_{},
@@ -43,6 +59,54 @@ bool LeafClass::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafEnumerate::LeafEnumerate() : body_{},
+                                 value_{},
+                                 name_{} {}
+
+bool LeafEnumerate::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafEnumerate, value);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadUnsignedNumeric(stream, &value_))
+    return false;
+  if (!ReadWideString(stream, &name_))
+    return false;
+
+  return true;
+}
+
+LeafFriendCls::LeafFriendCls() : body_{} {}
+
+bool LeafFriendCls::Initialize(PdbStream* stream) {
+  size_t to_read = sizeof(body_);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+
+  return true;
+}
+
+LeafFriendFcn::LeafFriendFcn() : body_{},
+                                 name_{} {}
+
+bool LeafFriendFcn::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafFriendFcn, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadWideString(stream, &name_))
+    return false;
+
+  return true;
+}
+
 LeafMember::LeafMember() : body_{},
                            offset_{},
                            name_{} {}
@@ -56,6 +120,22 @@ bool LeafMember::Initialize(PdbStream* stream) {
   }
   if (!ReadUnsignedNumeric(stream, &offset_))
     return false;
+  if (!ReadWideString(stream, &name_))
+    return false;
+
+  return true;
+}
+
+LeafMethod::LeafMethod() : body_{},
+                           name_{} {}
+
+bool LeafMethod::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafMethod, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
   if (!ReadWideString(stream, &name_))
     return false;
 
@@ -78,6 +158,22 @@ bool LeafModifier::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafNestType::LeafNestType() : body_{},
+                               name_{} {}
+
+bool LeafNestType::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafNestTypeEx, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadWideString(stream, &name_))
+    return false;
+
+  return true;
+}
+
 LeafPointer::LeafPointer() : body_{},
                              attr_{} {}
 
@@ -89,6 +185,25 @@ bool LeafPointer::Initialize(PdbStream* stream) {
     return false;
   }
   if (!ReadBasicType(stream, &attr_))
+    return false;
+
+  return true;
+}
+
+LeafVBClass::LeafVBClass() : body_{},
+                             vbpoff_{},
+                             vboff_{} {}
+
+bool LeafVBClass::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafVBClass, vbpoff);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadUnsignedNumeric(stream, &vbpoff_))
+    return false;
+  if (!ReadUnsignedNumeric(stream, &vboff_))
     return false;
 
   return true;
