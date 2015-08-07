@@ -138,7 +138,7 @@ class {name} {{
 
   // @name Accessors.
   // @{{
-  const {cci}::{original_name}& body() {{ return body_; }}
+  const {cci}::{original_name}& body() const {{ return body_; }}
 """
 
 _GETTER_REF_DECL_IMPL = """\
@@ -198,9 +198,10 @@ _SIZE_OF = """\
 sizeof(body_);"""
 
 _INIT_HEADER = """\
-{name}::{name}() {{
-  ::memset(&body_, 0, sizeof(body_));
-}}
+{name}::{name}() : """
+
+_INIT_MIDDLE = """\
+ {{}}
 
 bool {name}::Initialize(PdbStream* stream) {{
   size_t to_read = {bytes_to_read}
@@ -286,6 +287,13 @@ def _GenerateInit(pdb_class):
   pdb_class['bytes_to_read'] = _Substitute(size, **pdb_class)
 
   code = _Substitute(_INIT_HEADER, **pdb_class)
+  indent = len(code)
+  initializers = ['body_{}']
+  for field in pdb_class.get('extra_fields', []):
+    initializers.append(' '*indent + field['name'] + '_{}')
+
+  code += ',\n'.join(initializers)
+  code += _Substitute(_INIT_MIDDLE, **pdb_class)
 
   for field in pdb_class.get('extra_fields', []):
     if 'condition' in field:
@@ -343,8 +351,7 @@ def ascii_encode_dict(data):
 
 def _FillFields(pdb_class, types_definition):
   """Adds type information to fields of a struct."""
-  name = pdb_class['name']
-  pdb_class.setdefault('original_name', name);
+  pdb_class.setdefault('original_name', pdb_class['name'])
   for field in pdb_class.get('extra_fields', []):
     if field['type_name'] in types_definition:
       field.update(types_definition[field['type_name']])

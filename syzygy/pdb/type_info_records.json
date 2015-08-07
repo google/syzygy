@@ -26,6 +26,26 @@
       ]
     },
     {
+      "name": "LeafMember",
+      "first_extra_field": "offset",
+      "extra_fields": [
+        {
+          "name": "offset",
+          "type_name": "UnsignedNumeric"
+        },
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
+        }
+      ]
+    },
+    {
       "name": "LeafModifier",
       "first_extra_field": "attr",
       "extra_fields": [

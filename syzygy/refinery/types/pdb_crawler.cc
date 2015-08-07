@@ -77,11 +77,17 @@ class TypeCreator {
     return true;
   }
 
+  // Parses a member field from the data stream and inserts it into the @p
+  // fields vector.
+  // @returns true on success, false on failure.
+  bool ReadMember(UserDefinedType::Fields* fields);
+
   // Parses type given by a type from the PDB type info stream.
   // @returns true on success, false on failure.
   bool ParseType(uint16_t type);
 
-  // Checks if type object referenced by @p type_index exists.
+  // Checks if type object referenced by @p type_index exists. If it references
+  // a basic type it creates one when needed.
   // @returns pointer to the type object.
   TempType* FindOrCreateTempType(TypeId type_index);
 
@@ -90,6 +96,9 @@ class TypeCreator {
   TempType* CreateBasicType(TypeId type_index);
 
   // Adds temporary type to the temporary hash.
+  // @p type_index of the type, @p its name, @p decorated_name, @p type index
+  // of the underlying type and @p flags.
+  // @returns pointer to the created object.
   TempType* AddTempType(TypeId type_index,
                         const base::string16& name,
                         const base::string16& decorated_name,
@@ -121,6 +130,14 @@ class TypeCreator {
 
   // Temporary types hash.
   base::hash_map<TypeId, TempType*> temp_stash_;
+
+  // Temporary fieldlist hash.
+  base::hash_map<TypeId, UserDefinedType::Fields> fieldlists_;
+
+  // Hash to find the forward declaration for UDT. Key is the decorated name
+  // and value is type index of the forward declaration. The UDT type is then
+  // created with the forward declaration index.
+  base::hash_map<base::string16, TypeId> udt_map;
 };
 
 // Parses pointers from the type info stream.
@@ -128,6 +145,7 @@ template <>
 bool TypeCreator::ReadType<cci::LeafPointer>() {
   pdb::LeafPointer type_info;
   scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
+
   if (!type_info.Initialize(stream.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
@@ -229,6 +247,100 @@ bool TypeCreator::ReadType<cci::LeafModifier>() {
   return true;
 }
 
+// Parses fieldlist from the type info stream.
+template <>
+bool TypeCreator::ReadType<cci::LeafFieldList>() {
+  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
+  size_t leaf_end = stream->pos() + type_info_enum_.len();
+
+  UserDefinedType::Fields fieldlist;
+
+  while (stream->pos() < leaf_end) {
+    uint16 leaf_type = 0;
+    if (!stream->Read(&leaf_type, 1)) {
+      LOG(ERROR) << "Unable to read the type of a list field.";
+      return false;
+    }
+
+    bool unsupported_field = false;
+    switch (leaf_type) {
+      case cci::LF_MEMBER: {
+        if (!ReadMember(&fieldlist))
+          return false;
+        break;
+      }
+      // TODO(mopler): Parse other types and remove the default.
+      default: {
+        // Because we don't know the length of this member we simply insert an
+        // *ERROR* field and skip the rest of the fieldlist.
+        UserDefinedType::Field field(L"*ERROR*", 0, 0, 0, 0, 0);
+        fieldlist.push_back(field);
+        unsupported_field = true;
+        break;
+      }
+    }
+    if (unsupported_field)
+      break;
+    stream->Seek(common::AlignUp(stream->pos(), 4));
+  }
+
+  // Store fieldlist so we can use it when we stumble upon the UDT.
+  fieldlists_.insert(std::make_pair(type_info_enum_.type_id(), fieldlist));
+  return true;
+}
+
+// Parses classes(UDT) from the type info stream.
+template <>
+bool TypeCreator::ReadType<cci::LeafClass>() {
+  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
+
+  pdb::LeafClass type_info;
+  if (!type_info.Initialize(stream.get())) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+
+  TypeId type_id = type_info_enum_.type_id();
+
+  if (type_info.property().fwdref) {
+    // Insert forward declaration in the hash.
+    if (!udt_map.insert(std::make_pair(type_info.decorated_name(), type_id))
+             .second) {
+      // Second forward declaration of the same type should not appear.
+      LOG(ERROR) << "Encountered second forward declaration of the same type";
+      return false;
+    }
+  } else {
+    // Try to find a forward declaration of this class.
+    auto fwd = udt_map.find(type_info.decorated_name());
+    // If the forward declaration exists we want to use its type index so the
+    // structures referencing the declaration are pointing at the UDT itself.
+    if (fwd != udt_map.end())
+      type_id = fwd->second;
+
+    // Create UDT of the class and find its fieldlist.
+    UserDefinedTypePtr created = new UserDefinedType(
+        type_info.name(), type_info.decorated_name(), type_info.size());
+
+    auto flist_it = fieldlists_.find(type_info.body().field);
+    if (flist_it == fieldlists_.end()) {
+      LOG(ERROR) << "Wrong reference to a field list.";
+      return false;
+    } else {
+      created->Finalize(flist_it->second);
+
+      // TODO(mopler): multiple definitions will cause trouble here. They
+      // should appear only when incrementally linking stuff.
+      bool inserted = repository_->AddTypeWithId(created, type_id);
+      DCHECK(inserted);
+    }
+  }
+
+  AddTempType(type_info_enum_.type_id(), type_info.name(),
+              type_info.decorated_name(), type_id, kNoTypeFlags);
+  return true;
+}
+
 // TODO(mopler): Add template specialization for more leaves.
 
 TypeCreator::TypeCreator(TypeRepository* repository) : repository_(repository) {
@@ -240,9 +352,35 @@ TypeCreator::~TypeCreator() {
     delete it->second;
 }
 
+bool TypeCreator::ReadMember(UserDefinedType::Fields* fields) {
+  DCHECK(fields);
+
+  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
+  pdb::LeafMember type_info;
+
+  if (!type_info.Initialize(stream.get())) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+
+  // TODO(mopler): Should we store the access protection and other info?
+
+  TempType* child = FindOrCreateTempType(type_info.body().index);
+  if (child == nullptr) {
+    LOG(ERROR) << "Found member referencing unknown type index.";
+    return false;
+  }
+
+  fields->push_back(UserDefinedType::Field(type_info.name(), type_info.offset(),
+                                           child->flags,
+                                           /* bit_pos */ 0,
+                                           /* bit_len */ 0, child->type_id));
+  return true;
+}
+
 base::string16 TypeCreator::BasicTypeName(uint32 type) {
   switch (type) {
-// Just return the name of the enum.
+// Just return the name of the type.
 #define SPECIAL_TYPE_NAME(record_type, type_name, size) \
   case cci::record_type: return L#type_name;
     SPECIAL_TYPE_NAME_CASE_TABLE(SPECIAL_TYPE_NAME)
@@ -253,7 +391,7 @@ base::string16 TypeCreator::BasicTypeName(uint32 type) {
 
 size_t TypeCreator::BasicTypeSize(uint32 type) {
   switch (type) {
-    // Just return the name of the enum.
+// Just return the size of the type.
 #define SPECIAL_TYPE_NAME(record_type, type_name, size) \
   case cci::record_type: return size;
     SPECIAL_TYPE_NAME_CASE_TABLE(SPECIAL_TYPE_NAME)
@@ -386,7 +524,7 @@ TempType* TypeCreator::CreateBasicType(TypeId type_index) {
 
     // Create and add type to the repository.
     PointerTypePtr created = new PointerType(size);
-    created->Finalize(0x0, basic_index);
+    created->Finalize(kNoTypeFlags, basic_index);
     created->SetName(child->name + L"*");
     bool inserted = repository_->AddTypeWithId(created, type_index);
     DCHECK(inserted);

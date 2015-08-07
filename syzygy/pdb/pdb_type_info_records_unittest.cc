@@ -38,13 +38,13 @@ class PdbTypeInfoRecordsTest : public testing::Test {
     if (value < Microsoft_Cci_Pdb::LF_NUMERIC) {
       ASSERT_TRUE(write_stream_->Write(2, data_pointer));
     } else if (value <= UINT16_MAX) {
-      ASSERT_TRUE(write_stream_->Write(Microsoft_Cci_Pdb::LF_USHORT));
+      WriteData<uint16_t>(Microsoft_Cci_Pdb::LF_USHORT);
       ASSERT_TRUE(write_stream_->Write(2, data_pointer));
     } else if (value <= UINT32_MAX) {
-      ASSERT_TRUE(write_stream_->Write(Microsoft_Cci_Pdb::LF_ULONG));
+      WriteData<uint16_t>(Microsoft_Cci_Pdb::LF_ULONG);
       ASSERT_TRUE(write_stream_->Write(4, data_pointer));
     } else if (value <= UINT64_MAX) {
-      ASSERT_TRUE(write_stream_->Write(Microsoft_Cci_Pdb::LF_UQUADWORD));
+      WriteData<uint16_t>(Microsoft_Cci_Pdb::LF_UQUADWORD);
       ASSERT_TRUE(write_stream_->Write(8, data_pointer));
     } else {
       FAIL();
@@ -106,6 +106,31 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
   EXPECT_TRUE(type_record.has_decorated_name());
   EXPECT_EQ(kName, type_record.name());
   EXPECT_EQ(kDecoratedName, type_record.decorated_name());
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
+  const uint32_t kType = 0x1993;
+  const LeafMemberAttributeField kAttr = {0x12A5};
+  const uint64_t kOffset = 0xA205B064;
+  const base::string16 kName = L"memberName@@test";
+
+  LeafMember type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteData(kType);
+  WriteUnsignedNumeric(kOffset);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kOffset, type_record.offset());
+  EXPECT_EQ(kName, type_record.name());
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafModifier) {

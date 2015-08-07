@@ -19,9 +19,10 @@
 
 namespace pdb {
 
-LeafClass::LeafClass() {
-  ::memset(&body_, 0, sizeof(body_));
-}
+LeafClass::LeafClass() : body_{},
+                         size_{},
+                         name_{},
+                         decorated_name_{} {}
 
 bool LeafClass::Initialize(PdbStream* stream) {
   size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafClass, data);
@@ -42,9 +43,27 @@ bool LeafClass::Initialize(PdbStream* stream) {
   return true;
 }
 
-LeafModifier::LeafModifier() {
-  ::memset(&body_, 0, sizeof(body_));
+LeafMember::LeafMember() : body_{},
+                           offset_{},
+                           name_{} {}
+
+bool LeafMember::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafMember, offset);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadUnsignedNumeric(stream, &offset_))
+    return false;
+  if (!ReadWideString(stream, &name_))
+    return false;
+
+  return true;
 }
+
+LeafModifier::LeafModifier() : body_{},
+                               attr_{} {}
 
 bool LeafModifier::Initialize(PdbStream* stream) {
   size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafModifier, attr);
@@ -59,9 +78,8 @@ bool LeafModifier::Initialize(PdbStream* stream) {
   return true;
 }
 
-LeafPointer::LeafPointer() {
-  ::memset(&body_, 0, sizeof(body_));
-}
+LeafPointer::LeafPointer() : body_{},
+                             attr_{} {}
 
 bool LeafPointer::Initialize(PdbStream* stream) {
   size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody, attr);

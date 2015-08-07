@@ -32,7 +32,7 @@ class LeafClass {
 
   // @name Accessors.
   // @{
-  const Microsoft_Cci_Pdb::LeafClass& body() { return body_; }
+  const Microsoft_Cci_Pdb::LeafClass& body() const { return body_; }
   uint64_t size() const { return size_; }
   const base::string16& name() const { return name_; }
   const base::string16& decorated_name() const { return decorated_name_; }
@@ -58,13 +58,39 @@ class LeafClass {
   base::string16 decorated_name_;
 };
 
+class LeafMember {
+ public:
+  LeafMember();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafMember& body() const { return body_; }
+  uint64_t offset() const { return offset_; }
+  const base::string16& name() const { return name_; }
+  LeafMemberAttributeField attr() const { return {body_.attr}; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafMember body_;
+
+  // Additional fields parsed from the pdb stream.
+  uint64_t offset_;
+  base::string16 name_;
+};
+
 class LeafModifier {
  public:
   LeafModifier();
 
   // @name Accessors.
   // @{
-  const Microsoft_Cci_Pdb::LeafModifier& body() { return body_; }
+  const Microsoft_Cci_Pdb::LeafModifier& body() const { return body_; }
   LeafModifierAttribute attr() const { return attr_; }
   // @}
 
@@ -87,7 +113,7 @@ class LeafPointer {
 
   // @name Accessors.
   // @{
-  const Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody& body() { return body_; }
+  const Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody& body() const { return body_; }
   LeafPointerAttribute attr() const { return attr_; }
   // @}
 
