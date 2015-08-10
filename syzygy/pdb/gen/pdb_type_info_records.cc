@@ -51,7 +51,7 @@ bool LeafClass::Initialize(PdbStream* stream) {
     return false;
   if (!ReadWideString(stream, &name_))
     return false;
-  if (property().decorated_name_present != 0 &&
+  if ((property().decorated_name_present != 0) &&
       !ReadWideString(stream, &decorated_name_)) {
     return false;
   }
@@ -175,7 +175,9 @@ bool LeafNestType::Initialize(PdbStream* stream) {
 }
 
 LeafPointer::LeafPointer() : body_{},
-                             attr_{} {}
+                             attr_{},
+                             containing_class_{},
+                             pmtype_{} {}
 
 bool LeafPointer::Initialize(PdbStream* stream) {
   size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody, attr);
@@ -186,6 +188,16 @@ bool LeafPointer::Initialize(PdbStream* stream) {
   }
   if (!ReadBasicType(stream, &attr_))
     return false;
+  if ((attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||
+       attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC) &&
+      !ReadBasicType(stream, &containing_class_)) {
+    return false;
+  }
+  if ((attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||
+       attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC) &&
+      !ReadBasicType(stream, &pmtype_)) {
+    return false;
+  }
 
   return true;
 }

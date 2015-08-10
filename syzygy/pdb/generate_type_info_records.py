@@ -42,6 +42,8 @@
 #           "type_name": "UnsignedNumeric"
 #           // Optional entry with C++ declaration that can be coerced to a
 #           // bool. The field gets populated only when the result is true.
+#           // This entry can also contain newline character if the condition
+#           // is too long.
 #           "condition': "property().fwdref != 0"
 #         }
 #       ],
@@ -160,7 +162,7 @@ _ACCESSORS_END = """\
 _CONDITION_DECL_IMPL = """\
 
   bool has_{name}() const {{
-    return {condition};
+    return ({condition_indented});
   }}
 """
 
@@ -213,7 +215,7 @@ bool {name}::Initialize(PdbStream* stream) {{
 """
 
 _INIT_CONDITION = """\
-  if ({condition} &&
+  if (({condition_indented}) &&
       !{parser}(stream, &{name}_)) {{
     return false;
   }}
@@ -250,6 +252,11 @@ def _Substitute(str, **more):
   return str
 
 
+def _IncreaseIndent(field, indent):
+  """Increases indent of each new line in the given string."""
+  return field.replace('\n', '\n' + ' ' * indent)
+
+
 def _GenerateClass(pdb_class):
   """Generates the class definition string."""
   code = _Substitute(_CLASS_HEADER, **pdb_class)
@@ -267,6 +274,7 @@ def _GenerateClass(pdb_class):
 
   for field in pdb_class.get('extra_fields', []):
     if 'condition' in field:
+      field['condition_indented'] = _IncreaseIndent(field['condition'], 11)
       code += _Substitute(_CONDITION_DECL_IMPL, **field)
 
   code += _Substitute(_CLASS_MIDDLE, **pdb_class)
@@ -297,6 +305,7 @@ def _GenerateInit(pdb_class):
 
   for field in pdb_class.get('extra_fields', []):
     if 'condition' in field:
+      field['condition_indented'] = _IncreaseIndent(field['condition'], 6)
       code += _Substitute(_INIT_CONDITION, **field)
     else:
       code += _Substitute(_INIT_FIELD, **field)

@@ -64,7 +64,7 @@ class LeafClass {
   // @}
 
   bool has_decorated_name() const {
-    return property().decorated_name_present != 0;
+    return (property().decorated_name_present != 0);
   }
 
   // Initializes the class from the given pdb stream.
@@ -254,7 +254,19 @@ class LeafPointer {
   // @{
   const Microsoft_Cci_Pdb::LeafPointer::LeafPointerBody& body() const { return body_; }
   LeafPointerAttribute attr() const { return attr_; }
+  uint32_t containing_class() const { return containing_class_; }
+  uint16_t pmtype() const { return pmtype_; }
   // @}
+
+  bool has_containing_class() const {
+    return (attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||
+            attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC);
+  }
+
+  bool has_pmtype() const {
+    return (attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||
+            attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC);
+  }
 
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
@@ -267,6 +279,8 @@ class LeafPointer {
 
   // Additional fields parsed from the pdb stream.
   LeafPointerAttribute attr_;
+  uint32_t containing_class_;
+  uint16_t pmtype_;
 };
 
 class LeafVBClass {

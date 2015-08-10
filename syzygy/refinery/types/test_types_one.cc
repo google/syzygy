@@ -42,6 +42,51 @@ struct TestRecursiveUDT {
   struct TestRecursiveUDT* next;
 };
 
+// The following classes are set up to test correct reading of pointer to data
+// members and functions.
+class A {};
+class B {};
+
+class Single : public A {};
+class Multi : public A, public B {};
+class Virtual : virtual public A {};
+class Unknown;
+
+typedef int (Single::*SingleFunc)();
+typedef int (Multi::*MultiFunc)();
+typedef int (Virtual::*VirtualFunc)();
+typedef int (Unknown::*UnknownFunc)();
+
+typedef int* Single::*SingleData;
+typedef int* Multi::*MultiData;
+typedef int* Virtual::*VirtualData;
+typedef int* Unknown::*UnknownData;
+
+// The member pointers sizes as a constants. This way their values appear in
+// the symbol stream of the PDB file which allows us to test against them that
+// we are assigning the correct sizes.
+static const size_t kSingleFuncSize = sizeof(SingleFunc);
+static const size_t kMultiFuncSize = sizeof(MultiFunc);
+static const size_t kVirtualFuncSize = sizeof(VirtualFunc);
+static const size_t kUnknownFuncSize = sizeof(UnknownFunc);
+
+static const size_t kSingleDataSize = sizeof(SingleData);
+static const size_t kMultiDataSize = sizeof(MultiData);
+static const size_t kVirtualDataSize = sizeof(VirtualData);
+static const size_t kUnknownDataSize = sizeof(UnknownData);
+
+struct TestMemberPointersUDT {
+  SingleData testSingleDataSize;
+  MultiData testMultiDataSize;
+  VirtualData testVirtualDataSize;
+  UnknownData testUnknownDataSize;
+
+  SingleFunc testSingleFuncSize;
+  MultiFunc testMultiFuncSize;
+  VirtualFunc testVirtualFuncSize;
+  UnknownFunc testUnknownFuncSize;
+};
+
 void AliasTypesOne() {
   // Make sure the types are used in the file.
   TestCollidingUDT colliding = {};
@@ -52,6 +97,9 @@ void AliasTypesOne() {
 
   TestRecursiveUDT recursive = {};
   Alias(&recursive);
+
+  TestMemberPointersUDT member_data = {};
+  Alias(&member_data);
 }
 
 }  // namespace testing

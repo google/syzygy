@@ -20,6 +20,11 @@
 #include "base/strings/string_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
+#include "syzygy/pdb/pdb_dbi_stream.h"
+#include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_record.h"
+#include "syzygy/pdb/pdb_symbol_record.h"
+#include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/type_repository.h"
 
@@ -29,7 +34,7 @@ namespace {
 
 class PdbCrawlerTest : public testing::Test {
  protected:
-  virtual void SetUp() {
+  void SetUp() override {
     test_types_file_ = testing::GetSrcRelativePath(
         L"syzygy\\refinery\\test_data\\test_types.dll.pdb");
     LoadTypes();
@@ -40,6 +45,49 @@ class PdbCrawlerTest : public testing::Test {
 
     ASSERT_TRUE(crawler_.GetTypes(&types_));
     ASSERT_LE(1U, types_.size());
+  }
+
+  // This function reads all the constants from the symbol stream. We use this
+  // to find the const static variables containing sizes of member pointers.
+  void LoadConstantsFromSymbolStream() {
+    pdb::PdbReader reader;
+    pdb::PdbFile pdb_file;
+    pdb::DbiStream dbi_stream;
+
+    ASSERT_TRUE(reader.Read(test_types_file_, &pdb_file));
+    dbi_stream.Read(pdb_file.GetStream(pdb::kDbiStream).get());
+
+    ASSERT_NE(-1, dbi_stream.header().symbol_record_stream);
+    scoped_refptr<pdb::PdbStream> sym_record_stream =
+        pdb_file.GetStream(dbi_stream.header().symbol_record_stream).get();
+
+    ASSERT_NE(nullptr, sym_record_stream);
+    pdb::SymbolRecordVector symbol_vector;
+    ASSERT_TRUE(pdb::ReadSymbolRecord(
+        sym_record_stream.get(), sym_record_stream->length(), &symbol_vector));
+
+    pdb::SymbolRecordVector::const_iterator symbol_iter = symbol_vector.begin();
+    for (; symbol_iter != symbol_vector.end(); ++symbol_iter) {
+      ASSERT_TRUE(sym_record_stream->Seek(symbol_iter->start_position));
+
+      // We are interested only in constants.
+      if (symbol_iter->type != Microsoft_Cci_Pdb::S_CONSTANT)
+        continue;
+
+      // Read the type index it points to.
+      uint32_t type_index = 0;
+      ASSERT_TRUE(sym_record_stream->Read(&type_index, 1));
+
+      // Read the value.
+      uint64_t value;
+      ASSERT_TRUE(pdb::ReadUnsignedNumeric(sym_record_stream.get(), &value));
+
+      // And its name.
+      base::string16 name;
+      ASSERT_TRUE(pdb::ReadWideString(sym_record_stream.get(), &name));
+
+      constants_.insert(std::make_pair(name, value));
+    }
   }
 
   std::vector<TypePtr> FindTypesBySuffix(const base::string16& suffix) {
@@ -53,14 +101,15 @@ class PdbCrawlerTest : public testing::Test {
   }
 
   PdbCrawler crawler_;
-  TypeRepository types_;
   base::FilePath test_types_file_;
+  base::hash_map<base::string16, size_t> constants_;
+  TypeRepository types_;
 };
 
 }  // namespace
 
 TEST_F(PdbCrawlerTest, TestSimpleUDT) {
-  auto simple_udt = FindTypesBySuffix(L"::TestSimpleUDT");
+  std::vector<TypePtr> simple_udt = FindTypesBySuffix(L"::TestSimpleUDT");
 
   ASSERT_EQ(1U, simple_udt.size());
 
@@ -147,7 +196,8 @@ TEST_F(PdbCrawlerTest, TestSimpleUDT) {
 }
 
 TEST_F(PdbCrawlerTest, TestCollidingUDTs) {
-  auto colliding_types = FindTypesBySuffix(L"::TestCollidingUDT");
+  std::vector<TypePtr> colliding_types =
+      FindTypesBySuffix(L"::TestCollidingUDT");
 
   ASSERT_EQ(2U, colliding_types.size());
   TypePtr type1 = colliding_types[0];
@@ -174,7 +224,7 @@ TEST_F(PdbCrawlerTest, TestCollidingUDTs) {
 }
 
 TEST_F(PdbCrawlerTest, TestRecursiveUDTs) {
-  auto recursive_udt = FindTypesBySuffix(L"::TestRecursiveUDT");
+  std::vector<TypePtr> recursive_udt = FindTypesBySuffix(L"::TestRecursiveUDT");
 
   ASSERT_EQ(1U, recursive_udt.size());
 
@@ -200,6 +250,45 @@ TEST_F(PdbCrawlerTest, TestRecursiveUDTs) {
 
   EXPECT_EQ(udt, ptr1->GetContentType());
   EXPECT_EQ(udt, ptr2->GetContentType());
+}
+
+// TODO(mopler): Test also against 64-bit images.
+TEST_F(PdbCrawlerTest, TestMemberPointerSizes) {
+  LoadConstantsFromSymbolStream();
+
+  std::vector<TypePtr> member_data_udt =
+      FindTypesBySuffix(L"::TestMemberPointersUDT");
+
+  ASSERT_EQ(1U, member_data_udt.size());
+
+  TypePtr type = member_data_udt[0];
+
+  ASSERT_TRUE(type);
+  ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  EXPECT_EQ(8, udt->fields().size());
+
+  for (size_t i = 0; i < udt->fields().size(); ++i) {
+    ASSERT_EQ(Type::POINTER_TYPE_KIND, udt->GetFieldType(i)->kind());
+
+    PointerTypePtr pointer;
+    ASSERT_TRUE(udt->GetFieldType(i)->CastTo(&pointer));
+    ASSERT_TRUE(pointer);
+
+    const base::string16& member_name = udt->fields()[i].name();
+    ASSERT_TRUE(
+        base::StartsWith(member_name, L"test", base::CompareCase::SENSITIVE));
+    base::string16 const_name =
+        L"k" + member_name.substr(4, base::string16::npos);
+
+    const auto it = constants_.find(const_name);
+    ASSERT_NE(constants_.end(), it);
+    EXPECT_EQ(pointer->size(), it->second);
+  }
 }
 
 }  // namespace refinery

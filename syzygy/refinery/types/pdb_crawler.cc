@@ -151,7 +151,8 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
     return false;
   }
 
-  const cci::CV_ptrtype ptrtype = (cci::CV_ptrtype)(type_info.attr().ptrtype);
+  const cci::CV_ptrtype ptrtype =
+      static_cast<cci::CV_ptrtype>(type_info.attr().ptrtype);
 
   size_t size = 0;
   // Set the size of the pointer.
@@ -171,14 +172,9 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
     // information about the containing class.
     case cci::CV_PTR_MODE_PMFUNC:
     case cci::CV_PTR_MODE_PMEM: {
-      cci::CV_pmtype ptrmode = cci::CV_PMTYPE_Undef;
-
-      // Skip the type index of the containing class and read the pointer mode.
-      if (!stream->Seek(stream->pos() + 4) || !stream->Read(&ptrmode, 1)) {
-        LOG(ERROR) << "Unable to read the member field pointer mode.";
-        return false;
-      }
-      size = MemberPointerSize(ptrmode, ptrtype);
+      const cci::CV_pmtype pmtype =
+          static_cast<cci::CV_pmtype>(type_info.pmtype());
+      size = MemberPointerSize(pmtype, ptrtype);
       break;
     }
     case cci::CV_PTR_MODE_RESERVED: {

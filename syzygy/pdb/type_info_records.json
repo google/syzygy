@@ -139,6 +139,16 @@
         {
           "name": "attr",
           "type_name": "LeafPointerAttribute"
+        },
+        {
+          "name": "containing_class",
+          "type_name": "uint32_t",
+          "condition": "attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||\n attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC"
+        },
+        {
+          "name": "pmtype",
+          "type_name": "uint16_t",
+          "condition": "attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||\n attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC"
         }
       ]
     },

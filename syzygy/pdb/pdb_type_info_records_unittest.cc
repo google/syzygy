@@ -298,6 +298,37 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafPointer) {
 
   EXPECT_EQ(kType, type_record.body().utype);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_FALSE(type_record.has_containing_class());
+  EXPECT_FALSE(type_record.has_pmtype());
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafMemberPointer) {
+  const uint32_t kType = 0x1918;
+  const LeafPointerAttribute kAttr = {0x1254};
+  const uint32_t kContainingClass = 0x01020304;
+  const uint16_t kPmtype = Microsoft_Cci_Pdb::CV_PMTYPE_D_Virtual;
+
+  EXPECT_EQ(Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM, kAttr.ptrmode);
+
+  LeafPointer type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kType);
+  WriteData(kAttr);
+  WriteData(kContainingClass);
+  WriteData(kPmtype);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.body().utype);
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_TRUE(type_record.has_containing_class());
+  EXPECT_TRUE(type_record.has_pmtype());
+  EXPECT_EQ(kContainingClass, type_record.containing_class());
+  EXPECT_EQ(kPmtype, type_record.pmtype());
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {

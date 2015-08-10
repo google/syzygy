@@ -515,21 +515,21 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(LeafPropertyField, 2);
 
 // This structure represent a bitfield for a leaf pointer attribute.
 union LeafPointerAttribute {
-  uint16 raw;
+  uint32 raw;
   struct {
-    uint16 ptrtype : 5;
-    uint16 ptrmode : 3;
-    uint16 isflat32 : 1;
-    uint16 isvolatile : 1;
-    uint16 isconst : 1;
-    uint16 isunaligned : 1;
-    uint16 isrestrict : 1;
-    uint16 reserved : 3;
+    uint32 ptrtype : 5;  // Of type CV_ptrtype.
+    uint32 ptrmode : 3;  // Of type CV_ptrmode.
+    uint32 isflat32 : 1;
+    uint32 isvolatile : 1;
+    uint32 isconst : 1;
+    uint32 isunaligned : 1;
+    uint32 isrestrict : 1;
+    uint32 reserved : 19;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
-// exactly 2 bytes in size.
-COMPILE_ASSERT_IS_POD_OF_SIZE(LeafPointerAttribute, 2);
+// exactly 4 bytes in size.
+COMPILE_ASSERT_IS_POD_OF_SIZE(LeafPointerAttribute, 4);
 
 // This structure represent a bitfield for a leaf modifier attribute.
 union LeafModifierAttribute {
