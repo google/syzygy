@@ -15,6 +15,7 @@
 #include "syzygy/bard/events/linked_event.h"
 
 #include "base/memory/scoped_ptr.h"
+#include "base/synchronization/lock.h"
 #include "base/threading/simple_thread.h"
 #include "gtest/gtest.h"
 
@@ -32,13 +33,18 @@ class TestLinkedEvent : public LinkedEvent {
   const char* name() const override { return "TestLinkedEvent"; }
 
   bool PlayImpl(void* backdrop) override {
+    base::AutoLock auto_lock(lock_);
     played_ = true;
     return true;
   }
 
-  bool played() const { return played_; }
+  bool played() const {
+    base::AutoLock auto_lock(const_cast<base::Lock&>(lock_));
+    return played_;
+  }
 
  protected:
+  base::Lock lock_;
   bool played_;
 };
 
