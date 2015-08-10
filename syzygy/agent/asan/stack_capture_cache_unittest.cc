@@ -18,11 +18,17 @@
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"
+#include "testing/gmock/include/gmock/gmock.h"
 
 namespace agent {
 namespace asan {
 
 namespace {
+
+using ::testing::_;
+using ::testing::Eq;
+using ::testing::Pointee;
+using ::testing::Property;
 
 using agent::common::StackCapture;
 
@@ -58,6 +64,13 @@ class StackCaptureCacheTest : public testing::Test {
     StackCapture::Init();
     StackCaptureCache::Init();
   }
+};
+
+class TestStackCaptureCacheObserver : public StackCaptureCache::Observer {
+ public:
+   TestStackCaptureCacheObserver() {}
+
+  MOCK_METHOD1(OnNewStack, void(common::StackCapture* new_stack));
 };
 
 }  // namespace
@@ -357,6 +370,34 @@ TEST_F(StackCaptureCacheTest, StackCapturePointerIsValid) {
   // A null pointer should be invalid.
   EXPECT_FALSE(cache.StackCapturePointerIsValid(
       reinterpret_cast<const StackCapture*>(NULL)));
+}
+
+TEST_F(StackCaptureCacheTest, StackCaptureObserver) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+  TestStackCaptureCacheObserver observer;
+  cache.AddObserver(&observer);
+
+  // Capture a stack trace.
+  StackCapture stack;
+  stack.InitFromStack();
+  // Expect one callback with the right stack id value.
+  EXPECT_CALL(observer, OnNewStack(Pointee(Property(&StackCapture::stack_id,
+                                                    Eq(stack.stack_id())))))
+      .Times(1);
+  cache.SaveStackTrace(stack);
+
+  // Capture another stack trace.
+  StackCapture stack2;
+  stack2.InitFromStack();
+  // Expect one callback with the right stack id value.
+  EXPECT_CALL(observer, OnNewStack(Pointee(Property(&StackCapture::stack_id,
+                                                    Eq(stack2.stack_id())))))
+      .Times(1);
+  cache.SaveStackTrace(stack2);
+
+  // Save again the first stack, which should not call back our observer.
+  cache.SaveStackTrace(stack);
 }
 
 }  // namespace asan

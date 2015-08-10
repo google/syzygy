@@ -15,6 +15,7 @@
 #ifndef SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 #define SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 
+#include "base/observer_list.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/common/stack_capture.h"
@@ -120,6 +121,19 @@ class StackCaptureCache {
   // @param stack_capture The pointer that we want to check.
   // @returns true if the pointer is valid, false otherwise.
   bool StackCapturePointerIsValid(const common::StackCapture* stack_capture);
+
+  // Observer that is notified when a new stack is saved.
+  class Observer {
+   public:
+    virtual void OnNewStack(common::StackCapture* new_stack) = 0;
+  };
+  // Adds an observer for this class. An observer should not be added more
+  // than once. The caller retains the ownership of the observer object.
+  // @param obs the observer to add.
+  void AddObserver(Observer* obs);
+  // Removes an observer.
+  // @param obs the observer to remove.
+  void RemoveObserver(Observer* obs);
 
  protected:
   // The container type in which we store the cached stacks. This enforces
@@ -239,6 +253,9 @@ class StackCaptureCache {
   // as a pointer to the next StackCapture of that size, if there is one.
   // Accessed under reclaimed_locks_.
   common::StackCapture* reclaimed_[common::StackCapture::kMaxNumFrames + 1];
+
+  // The list of observers.
+  base::ObserverList<Observer> observer_list_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(StackCaptureCache);

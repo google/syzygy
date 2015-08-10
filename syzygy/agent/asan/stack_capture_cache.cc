@@ -181,6 +181,7 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
           known_stacks_[known_stack_shard].insert(stack_trace);
       DCHECK(it.second);
       DCHECK(stack_trace->HasNoRefs());
+      FOR_EACH_OBSERVER(Observer, observer_list_, OnNewStack(stack_trace));
     } else {
       already_cached = true;
       stack_trace = *result;
@@ -316,6 +317,14 @@ bool StackCaptureCache::StackCapturePointerIsValid(
     page = page->next_page_;
   }
   return false;
+}
+
+void StackCaptureCache::AddObserver(Observer* obs) {
+  observer_list_.AddObserver(obs);
+}
+
+void StackCaptureCache::RemoveObserver(Observer* obs) {
+  observer_list_.RemoveObserver(obs);
 }
 
 void StackCaptureCache::LogStatistics()  {
