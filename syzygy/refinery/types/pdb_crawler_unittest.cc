@@ -266,7 +266,7 @@ TEST_F(PdbCrawlerTest, TestRecursiveUDTs) {
 
 // TODO(mopler): Test also against 64-bit images.
 TEST_F(PdbCrawlerTest, TestMemberPointerSizes) {
-  LoadConstantsFromSymbolStream();
+  ASSERT_NO_FATAL_FAILURE(LoadConstantsFromSymbolStream());
 
   std::vector<TypePtr> member_data_udt =
       FindTypesBySuffix(L"::TestMemberPointersUDT");
