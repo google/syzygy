@@ -51,7 +51,8 @@ def _ParseArguments():
       opts.cdb_path = path
       break
   if not opts.cdb_path:
-    parser.error('Unable to find cdb.exe.')
+    parser.error(
+        'Unable to find cdb.exe. Make sure Windows SDK 8.0 is installed.')
 
   return opts
 

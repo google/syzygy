@@ -69,9 +69,8 @@ TEST_F(SamplingProfilerTest, Initialize) {
 }
 
 TEST_F(SamplingProfilerTest, Sample) {
-  if (base::win::GetVersion() == base::win::VERSION_WIN8 ||
-      base::win::GetVersion() == base::win::VERSION_WIN8_1) {
-    LOG(INFO) << "Not running test on Windows 8 / 8.1";
+  if (base::win::GetVersion() >= base::win::VERSION_WIN8) {
+    LOG(INFO) << "Not running test on Windows 8 or higher.";
     return;
   }
   SamplingProfiler profiler;

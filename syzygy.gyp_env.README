@@ -23,6 +23,6 @@
   # "ninja-msvs" part for a little quicker project generation.
   'GYP_GENERATORS': 'ninja,msvs-ninja',
 
-  # Build an official build by default.
-  'GYP_DEFINES': 'buildtype=Official',
+  # Uncomment this for an official build.
+  #'GYP_DEFINES': 'official_build=1',
 }
