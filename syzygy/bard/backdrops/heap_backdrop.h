@@ -29,6 +29,8 @@
 namespace bard {
 namespace backdrops {
 
+using base::Callback;
+
 // Backdrop class to be used with Heap management events. It stores the
 // existing heaps and objects, and maps them from and to their trace file
 // addresses. It also stores the total time taken to run all the commands
@@ -36,15 +38,17 @@ namespace backdrops {
 // The class is thread safe for simultaneous access across multiple threads.
 class HeapBackdrop {
  public:
-  // @name Heap Function Calls callbacks.
+  // @name Heap API callback signatures.
   // @{
-  using HeapCreateCallback = base::Callback<HANDLE(DWORD, SIZE_T, SIZE_T)>;
-  using HeapDestroyCallback = base::Callback<BOOL(HANDLE)>;
+  using HeapAllocCallback = Callback<LPVOID(HANDLE, DWORD, SIZE_T)>;
+  using HeapCreateCallback = Callback<HANDLE(DWORD, SIZE_T, SIZE_T)>;
+  using HeapDestroyCallback = Callback<BOOL(HANDLE)>;
+  using HeapFreeCallback = Callback<BOOL(HANDLE, DWORD, LPVOID)>;
   // @}
 
   HeapBackdrop();
 
-  // @name TraceLiveMap Accessors.
+  // @name TraceLiveMap accessors.
   // @{
   TraceLiveMap<HANDLE>& heap_map() { return heap_map_; }
   TraceLiveMap<LPVOID>& alloc_map() { return alloc_map_; }
@@ -53,19 +57,27 @@ class HeapBackdrop {
   const TraceLiveMap<LPVOID>& alloc_map() const { return alloc_map_; }
   // @}
 
-  // @name Heap Function Calls.
+  // @name Heap API functions.
   // @{
+  LPVOID HeapAlloc(HANDLE heap, DWORD flags, SIZE_T bytes);
   HANDLE HeapCreate(DWORD options, SIZE_T initial_size, SIZE_T maximum_size);
   BOOL HeapDestroy(HANDLE heap);
+  BOOL HeapFree(HANDLE heap, DWORD flags, LPVOID mem);
   // @}
 
-  // @name Heap Function Calls Mutators.
+  // @name Heap API callback mutators.
   // @{
+  void set_heap_alloc(const HeapAllocCallback& heap_alloc) {
+    heap_alloc_ = heap_alloc;
+  }
   void set_heap_create(const HeapCreateCallback& heap_create) {
     heap_create_ = heap_create;
   }
   void set_heap_destroy(const HeapDestroyCallback& heap_destroy) {
     heap_destroy_ = heap_destroy;
+  }
+  void set_heap_free(const HeapFreeCallback& heap_free) {
+    heap_free_ = heap_free;
   }
   // @}
 
@@ -86,8 +98,10 @@ class HeapBackdrop {
   };
 
   // Pointers to heap API implementation that is being evaluated.
+  HeapAllocCallback heap_alloc_;
   HeapCreateCallback heap_create_;
   HeapDestroyCallback heap_destroy_;
+  HeapFreeCallback heap_free_;
 
   TraceLiveMap<HANDLE> heap_map_;
   TraceLiveMap<LPVOID> alloc_map_;

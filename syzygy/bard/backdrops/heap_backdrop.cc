@@ -22,6 +22,11 @@ namespace backdrops {
 HeapBackdrop::HeapBackdrop() {
 }
 
+LPVOID HeapBackdrop::HeapAlloc(HANDLE heap, DWORD flags, SIZE_T bytes) {
+  DCHECK(!heap_alloc_.is_null());
+  return heap_alloc_.Run(heap, flags, bytes);
+}
+
 HANDLE HeapBackdrop::HeapCreate(DWORD options,
                                 SIZE_T initial_size,
                                 SIZE_T maximum_size) {
@@ -32,6 +37,11 @@ HANDLE HeapBackdrop::HeapCreate(DWORD options,
 BOOL HeapBackdrop::HeapDestroy(HANDLE heap) {
   DCHECK(!heap_destroy_.is_null());
   return heap_destroy_.Run(heap);
+}
+
+BOOL HeapBackdrop::HeapFree(HANDLE heap, DWORD flags, LPVOID mem) {
+  DCHECK(!heap_free_.is_null());
+  return heap_free_.Run(heap, flags, mem);
 }
 
 void HeapBackdrop::UpdateStats(std::string name, uint64_t time) {
