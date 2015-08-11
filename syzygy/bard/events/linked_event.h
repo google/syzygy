@@ -23,6 +23,7 @@
 #include "syzygy/bard/event.h"
 
 namespace bard {
+namespace events {
 
 // Specialization for Event interface that admits dependencies between
 // events through causal links. However, it is still an abstract class
@@ -51,6 +52,7 @@ class LinkedEvent : public EventInterface {
   DISALLOW_COPY_AND_ASSIGN(LinkedEvent);
 };
 
+}  // namespace events
 }  // namespace bard
 
 #endif  // SYZYGY_BARD_EVENTS_LINKED_EVENT_H_

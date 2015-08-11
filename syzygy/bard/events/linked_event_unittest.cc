@@ -20,6 +20,7 @@
 #include "gtest/gtest.h"
 
 namespace bard {
+namespace events {
 
 namespace {
 
@@ -175,4 +176,5 @@ TEST_F(LinkedEventTest, TestMultipleDependency) {
   EXPECT_TRUE(event3_.played());
 }
 
+}  // namespace events
 }  // namespace bard

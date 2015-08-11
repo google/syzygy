@@ -15,6 +15,7 @@
 #include "syzygy/bard/events/linked_event.h"
 
 namespace bard {
+namespace events {
 
 bool LinkedEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
@@ -31,4 +32,5 @@ bool LinkedEvent::Play(void* backdrop) {
   return true;
 }
 
+}  // namespace events
 }  // namespace bard
