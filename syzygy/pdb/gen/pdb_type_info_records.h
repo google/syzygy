@@ -265,6 +265,36 @@ class LeafNestType {
   base::string16 name_;
 };
 
+class LeafOneMethod {
+ public:
+  LeafOneMethod();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafOneMethod& body() const { return body_; }
+  uint32_t vbaseoff() const { return vbaseoff_; }
+  const base::string16& name() const { return name_; }
+  LeafMemberAttributeField attr() const { return {body_.attr}; }
+  // @}
+
+  bool has_vbaseoff() const {
+    return (attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro);
+  }
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafOneMethod body_;
+
+  // Additional fields parsed from the pdb stream.
+  uint32_t vbaseoff_;
+  base::string16 name_;
+};
+
 class LeafPointer {
  public:
   LeafPointer();
@@ -302,6 +332,30 @@ class LeafPointer {
   uint16_t pmtype_;
 };
 
+class LeafSTMember {
+ public:
+  LeafSTMember();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafSTMember& body() const { return body_; }
+  const base::string16& name() const { return name_; }
+  LeafMemberAttributeField attr() const { return {body_.attr}; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafSTMember body_;
+
+  // Additional fields parsed from the pdb stream.
+  base::string16 name_;
+};
+
 class LeafVBClass {
  public:
   LeafVBClass();
@@ -326,6 +380,54 @@ class LeafVBClass {
   // Additional fields parsed from the pdb stream.
   uint64_t vbpoff_;
   uint64_t vboff_;
+};
+
+class LeafVFuncOff {
+ public:
+  LeafVFuncOff();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafVFuncOff& body() const { return body_; }
+  uint32_t type() const { return type_; }
+  uint32_t offset() const { return offset_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafVFuncOff body_;
+
+  // Additional fields parsed from the pdb stream.
+  uint32_t type_;
+  uint32_t offset_;
+};
+
+class LeafVFuncTab {
+ public:
+  LeafVFuncTab();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafVFuncTab& body() const { return body_; }
+  uint32_t index() const { return index_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafVFuncTab body_;
+
+  // Additional fields parsed from the pdb stream.
+  uint32_t index_;
 };
 
 }  // namespace pdb

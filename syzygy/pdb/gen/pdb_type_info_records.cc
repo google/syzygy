@@ -187,6 +187,27 @@ bool LeafNestType::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafOneMethod::LeafOneMethod() : body_{},
+                                 vbaseoff_{},
+                                 name_{} {}
+
+bool LeafOneMethod::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafOneMethod, vbaseoff);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if ((attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro) &&
+      !ReadBasicType(stream, &vbaseoff_)) {
+    return false;
+  }
+  if (!ReadWideString(stream, &name_))
+    return false;
+
+  return true;
+}
+
 LeafPointer::LeafPointer() : body_{},
                              attr_{},
                              containing_class_{},
@@ -215,6 +236,22 @@ bool LeafPointer::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafSTMember::LeafSTMember() : body_{},
+                               name_{} {}
+
+bool LeafSTMember::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafSTMember, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadWideString(stream, &name_))
+    return false;
+
+  return true;
+}
+
 LeafVBClass::LeafVBClass() : body_{},
                              vbpoff_{},
                              vboff_{} {}
@@ -229,6 +266,41 @@ bool LeafVBClass::Initialize(PdbStream* stream) {
   if (!ReadUnsignedNumeric(stream, &vbpoff_))
     return false;
   if (!ReadUnsignedNumeric(stream, &vboff_))
+    return false;
+
+  return true;
+}
+
+LeafVFuncOff::LeafVFuncOff() : body_{},
+                               type_{},
+                               offset_{} {}
+
+bool LeafVFuncOff::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafVFuncOff, pad0);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadBasicType(stream, &type_))
+    return false;
+  if (!ReadBasicType(stream, &offset_))
+    return false;
+
+  return true;
+}
+
+LeafVFuncTab::LeafVFuncTab() : body_{},
+                               index_{} {}
+
+bool LeafVFuncTab::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafVFuncTab, pad0);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadBasicType(stream, &index_))
     return false;
 
   return true;

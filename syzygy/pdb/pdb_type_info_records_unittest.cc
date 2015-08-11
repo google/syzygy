@@ -303,6 +303,32 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafNestType) {
   EXPECT_EQ(kName, type_record.name());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafOneMethod) {
+  const LeafMemberAttributeField kAttr = {0x1212};
+  const uint32_t kType = 0xD15EA5E;
+  const uint32_t kVbaseOff = 0x10051936;
+  const base::string16 kName = L"oneMethodName@@test";
+
+  EXPECT_EQ(kAttr.mprop, Microsoft_Cci_Pdb::CV_MTintro);
+
+  LeafOneMethod type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteData(kType);
+  WriteData(kVbaseOff);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_EQ(kName, type_record.name());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafPointer) {
   const uint32_t kType = 0x2008;
   const LeafPointerAttribute kAttr = {0x12A5};
@@ -353,6 +379,28 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMemberPointer) {
   EXPECT_EQ(kPmtype, type_record.pmtype());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafSTMember) {
+  const uint32_t kType = 0xD15EA5E0;
+  const LeafMemberAttributeField kAttr = {0x12A5};
+  const base::string16 kName = L"staticMemberName@@test";
+
+  LeafSTMember type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteData(kType);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kName, type_record.name());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
   const uint32_t kType = 0x0480;
   const LeafMemberAttributeField kAttr = {0x0BAD};
@@ -379,6 +427,41 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
   EXPECT_EQ(kVbptr, type_record.body().vbptr);
   EXPECT_EQ(kVbpoff, type_record.vbpoff());
   EXPECT_EQ(kVboff, type_record.vboff());
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncOff) {
+  const uint32_t kType = 0x20AC;
+  const uint32_t kOffset = 0x0FF531;
+
+  LeafVFuncOff type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kType);
+  WriteData(kOffset);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.type());
+  EXPECT_EQ(kOffset, type_record.offset());
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncTab) {
+  const uint32_t kType = 0x2015;
+
+  LeafVFuncTab type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kType);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.index());
 }
 
 }  // namespace pdb

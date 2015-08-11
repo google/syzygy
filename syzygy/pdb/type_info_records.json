@@ -135,6 +135,27 @@
       ]
     },
     {
+      "name": "LeafOneMethod",
+      "first_extra_field": "vbaseoff",
+      "extra_fields": [
+        {
+          "name": "vbaseoff",
+          "type_name": "uint32_t",
+          "condition": "attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro"
+        },
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
+        }
+      ]
+    },
+    {
       "original_name": "LeafPointer::LeafPointerBody",
       "name": "LeafPointer",
       "first_extra_field": "attr",
@@ -156,6 +177,22 @@
       ]
     },
     {
+      "name": "LeafSTMember",
+      "first_extra_field": "name",
+      "extra_fields": [
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
+        }
+      ]
+    },
+    {
       "name": "LeafVBClass",
       "first_extra_field": "vbpoff",
       "extra_fields": [
@@ -172,6 +209,30 @@
         {
           "name": "attr",
           "type": "LeafMemberAttributeField"
+        }
+      ]
+    },
+    {
+      "name": "LeafVFuncOff",
+      "first_extra_field": "pad0",
+      "extra_fields": [
+        {
+          "name": "type",
+          "type_name": "uint32_t"
+        },
+        {
+          "name": "offset",
+          "type_name": "uint32_t"
+        }
+      ]
+    },
+    {
+      "name": "LeafVFuncTab",
+      "first_extra_field": "pad0",
+      "extra_fields": [
+        {
+          "name": "index",
+          "type_name": "uint32_t"
         }
       ]
     }
