@@ -50,6 +50,25 @@ class LeafBClass {
   uint64_t offset_;
 };
 
+class LeafBitfield {
+ public:
+  LeafBitfield();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafBitfield& body() const { return body_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafBitfield body_;
+};
+
 class LeafClass {
  public:
   LeafClass();

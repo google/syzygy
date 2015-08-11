@@ -106,6 +106,41 @@ class PdbCrawlerTest : public testing::Test {
   TypeRepository types_;
 };
 
+void ValidateField(const UserDefinedType::Field& field,
+                   size_t offset,
+                   size_t bit_pos,
+                   size_t bit_len,
+                   bool is_const,
+                   bool is_volatile,
+                   const base::string16& name) {
+  EXPECT_EQ(offset, field.offset());
+  EXPECT_EQ(name, field.name());
+  EXPECT_EQ(is_const, field.is_const());
+  EXPECT_EQ(is_volatile, field.is_volatile());
+  EXPECT_EQ(bit_pos, field.bit_pos());
+  EXPECT_EQ(bit_len, field.bit_len());
+}
+
+void ValidateBasicType(TypePtr type, size_t size, const base::string16& name) {
+  EXPECT_EQ(Type::BASIC_TYPE_KIND, type->kind());
+  EXPECT_EQ(size, type->size());
+  EXPECT_EQ(name, type->name());
+}
+
+void ValidatePointerType(TypePtr type,
+                         bool is_const,
+                         bool is_volatile,
+                         size_t size,
+                         const base::string16& name) {
+  EXPECT_EQ(Type::POINTER_TYPE_KIND, type->kind());
+  PointerTypePtr ptr;
+  ASSERT_TRUE(type->CastTo(&ptr));
+  EXPECT_EQ(is_const, ptr->is_const());
+  EXPECT_EQ(is_volatile, ptr->is_volatile());
+  EXPECT_EQ(size, type->size());
+  EXPECT_EQ(name, type->name());
+}
+
 }  // namespace
 
 TEST_F(PdbCrawlerTest, TestSimpleUDT) {
@@ -115,12 +150,16 @@ TEST_F(PdbCrawlerTest, TestSimpleUDT) {
 
   TypePtr type = simple_udt[0];
 
+  const size_t kBitPosZero = 0;
+  const size_t kBitLenZero = 0;
+  const bool kIsConst = true;
+  const bool kIsVolatile = true;
+
   ASSERT_TRUE(type);
 
   EXPECT_EQ(16, type->size());
   EXPECT_TRUE(
       EndsWith(type->name(), L"::TestSimpleUDT", base::CompareCase::SENSITIVE));
-
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
   UserDefinedTypePtr udt;
@@ -130,69 +169,42 @@ TEST_F(PdbCrawlerTest, TestSimpleUDT) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(6U, fields.size());
 
-  EXPECT_EQ(0, fields[0].offset());
-  EXPECT_EQ(L"one", fields[0].name());
-  EXPECT_FALSE(fields[0].is_const());
-  EXPECT_FALSE(fields[0].is_volatile());
-  EXPECT_EQ(0, fields[0].bit_pos());
-  EXPECT_EQ(0, fields[0].bit_len());
-  EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(0)->kind());
-  EXPECT_EQ(4, udt->GetFieldType(0)->size());
-  EXPECT_EQ(L"int32_t", udt->GetFieldType(0)->name());
+  // Test field: int one.
+  ValidateField(fields[0], 0, kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile,
+                L"one");
+  ValidateBasicType(udt->GetFieldType(0), 4, L"int32_t");
 
-  EXPECT_EQ(4, fields[1].offset());
-  EXPECT_EQ(L"two", fields[1].name());
-  EXPECT_TRUE(fields[1].is_const());
-  EXPECT_FALSE(fields[1].is_volatile());
-  EXPECT_EQ(0, fields[1].bit_pos());
-  EXPECT_EQ(0, fields[1].bit_len());
-  EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(1)->kind());
-  EXPECT_EQ(1, udt->GetFieldType(1)->size());
-  EXPECT_EQ(L"char", udt->GetFieldType(1)->name());
+  // Test field: const char two.
+  ValidateField(fields[1], 4, kBitPosZero, kBitLenZero, kIsConst, !kIsVolatile,
+                L"two");
+  ValidateBasicType(udt->GetFieldType(1), 1, L"char");
 
-  EXPECT_EQ(8, fields[2].offset());
-  EXPECT_EQ(L"three", fields[2].name());
-  EXPECT_FALSE(fields[2].is_const());
-  EXPECT_FALSE(fields[2].is_volatile());
-  EXPECT_EQ(0, fields[2].bit_pos());
-  EXPECT_EQ(0, fields[2].bit_len());
-  ASSERT_EQ(Type::POINTER_TYPE_KIND, udt->GetFieldType(2)->kind());
-  EXPECT_EQ(4, udt->GetFieldType(2)->size());
+  // Test field: short const* volatile* three.
+  ValidateField(fields[2], 8, kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile,
+                L"three");
+  ValidatePointerType(udt->GetFieldType(2), !kIsConst, kIsVolatile, 4,
+                      L"int16_t const* volatile*");
 
   PointerTypePtr ptr;
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&ptr));
-  ASSERT_TRUE(ptr);
-  EXPECT_EQ(4, ptr->size());
-  EXPECT_FALSE(ptr->is_const());
-  EXPECT_TRUE(ptr->is_volatile());
-  ASSERT_TRUE(ptr->GetContentType());
-  EXPECT_EQ(Type::POINTER_TYPE_KIND, ptr->GetContentType()->kind());
-  EXPECT_EQ(L"int16_t const* volatile*", ptr->name());
+  ValidatePointerType(ptr->GetContentType(), kIsConst, !kIsVolatile, 4,
+                      L"int16_t const*");
 
   ASSERT_TRUE(ptr->GetContentType()->CastTo(&ptr));
-  ASSERT_TRUE(ptr);
-  EXPECT_EQ(4, ptr->size());
-  EXPECT_TRUE(ptr->is_const());
-  EXPECT_FALSE(ptr->is_volatile());
-  ASSERT_TRUE(ptr->GetContentType());
+  ValidateBasicType(ptr->GetContentType(), 2, L"int16_t");
 
-  EXPECT_EQ(L"int16_t const*", ptr->name());
-  EXPECT_EQ(Type::BASIC_TYPE_KIND, ptr->GetContentType()->kind());
-  EXPECT_EQ(L"int16_t", ptr->GetContentType()->name());
-  EXPECT_EQ(2, ptr->GetContentType()->size());
+  // Test field: const volatile unsigned short four.
+  ValidateField(fields[3], 12, kBitPosZero, kBitLenZero, kIsConst, kIsVolatile,
+                L"four");
+  ValidateBasicType(udt->GetFieldType(3), 2, L"uint16_t");
 
-  EXPECT_EQ(12, fields[3].offset());
-  EXPECT_EQ(L"four", fields[3].name());
-  EXPECT_TRUE(fields[3].is_const());
-  EXPECT_TRUE(fields[3].is_volatile());
-  EXPECT_EQ(0, fields[3].bit_pos());
-  EXPECT_EQ(0, fields[3].bit_len());
-  EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(3)->kind());
-  EXPECT_EQ(2, udt->GetFieldType(3)->size());
-  EXPECT_EQ(L"uint16_t", udt->GetFieldType(3)->name());
+  // Test field: unsigned short five : 3.
+  ValidateField(fields[4], 14, 0, 3, !kIsConst, !kIsVolatile, L"five");
+  ValidateBasicType(udt->GetFieldType(4), 2, L"uint16_t");
 
-  // TODO(mopler): Process and test bitfields. In the current implementation
-  // the member field of bitfields point to a non-existent types.
+  // Test field: unsigned short six : 5.
+  ValidateField(fields[5], 14, 3, 5, !kIsConst, !kIsVolatile, L"six");
+  ValidateBasicType(udt->GetFieldType(5), 2, L"uint16_t");
 }
 
 TEST_F(PdbCrawlerTest, TestCollidingUDTs) {

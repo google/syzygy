@@ -35,6 +35,19 @@ bool LeafBClass::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafBitfield::LeafBitfield() : body_{} {}
+
+bool LeafBitfield::Initialize(PdbStream* stream) {
+  size_t to_read = sizeof(body_);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+
+  return true;
+}
+
 LeafClass::LeafClass() : body_{},
                          size_{},
                          name_{},

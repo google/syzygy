@@ -37,11 +37,24 @@ namespace {
 namespace cci = Microsoft_Cci_Pdb;
 
 struct TempType {
-  TempType(const base::string16& n,
-           const base::string16& dn,
-           TypeId t,
-           Type::Flags f)
-      : name(n), decorated_name(dn), type_id(t), flags(f) {}
+  TempType(const base::string16& name_in,
+           const base::string16& decorated_name_in,
+           TypeId type_id_in,
+           Type::Flags flags_in)
+      : name(name_in),
+        decorated_name(decorated_name_in),
+        type_id(type_id_in),
+        flags(flags_in),
+        bit_pos(0),
+        bit_len(0) {}
+
+  // Sets the bitfield properties if the type is a bitfield.
+  // @p bit_pos_in if this field is a bitfield, this is the bit position.
+  // @p bit_len_in if this field is a bitfield, this is the bit length.
+  void FinalizeBitfield(size_t bit_pos_in, size_t bit_len_in) {
+    bit_pos = bit_pos_in;
+    bit_len = bit_len_in;
+  }
 
   bool is_const() const { return (flags & Type::FLAG_CONST) != 0; }
   bool is_volatile() const { return (flags & Type::FLAG_VOLATILE) != 0; }
@@ -54,6 +67,12 @@ struct TempType {
 
   // Decorated name of the type.
   base::string16 decorated_name;
+
+  // If this type is a bitfield, this is the bit position.
+  size_t bit_pos : 6;
+
+  // If this type is a bitfield, this is the bit length.
+  size_t bit_len : 6;
 
   // Type Id of the closest element on the way down in the type repository.
   TypeId type_id;
@@ -337,6 +356,34 @@ bool TypeCreator::ReadType<cci::LeafClass>() {
   return true;
 }
 
+// Parses bitfields from the type info stream.
+template <>
+bool TypeCreator::ReadType<cci::LeafBitfield>() {
+  pdb::LeafBitfield type_info;
+  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
+  if (!type_info.Initialize(stream.get())) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+
+  const size_t kMaxBitfieldValue = 63;
+  if (type_info.body().position > kMaxBitfieldValue ||
+      type_info.body().length > kMaxBitfieldValue) {
+    LOG(ERROR) << "The bit position or length of bitfield is too large.";
+    return false;
+  }
+
+  TempType* child = FindOrCreateTempType(type_info.body().type);
+  if (child == nullptr)
+    return false;
+
+  TempType* inserted = AddTempType(type_info_enum_.type_id(), L"", L"",
+                                   child->type_id, child->flags);
+  inserted->FinalizeBitfield(type_info.body().position,
+                             type_info.body().length);
+  return true;
+}
+
 // TODO(mopler): Add template specialization for more leaves.
 
 TypeCreator::TypeCreator(TypeRepository* repository) : repository_(repository) {
@@ -368,9 +415,8 @@ bool TypeCreator::ReadMember(UserDefinedType::Fields* fields) {
   }
 
   fields->push_back(UserDefinedType::Field(type_info.name(), type_info.offset(),
-                                           child->flags,
-                                           /* bit_pos */ 0,
-                                           /* bit_len */ 0, child->type_id));
+                                           child->flags, child->bit_pos,
+                                           child->bit_len, child->type_id));
   return true;
 }
 
@@ -493,8 +539,7 @@ TempType* TypeCreator::CreateBasicType(TypeId type_index) {
 
     // Create temporary type to temporary stash.
     return AddTempType(type_index, BasicTypeName(type_index),
-                       BasicTypeName(type_index), type_index,
-                       BasicTypeSize(type_index));
+                       BasicTypeName(type_index), type_index, kNoTypeFlags);
   } else {
     TypeId basic_index = type_index & (cci::CV_PRIMITIVE_TYPE::CV_TMASK |
                                        cci::CV_PRIMITIVE_TYPE::CV_SMASK);

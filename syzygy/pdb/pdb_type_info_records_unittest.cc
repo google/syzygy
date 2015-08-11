@@ -91,6 +91,28 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafBClass) {
   EXPECT_EQ(kOffset, type_record.offset());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafBitfield) {
+  const uint32_t kType = 0x22031993;
+  const uint8_t kLength = 13;
+  const uint8_t kPosition = 9;
+
+  LeafBitfield type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kType);
+  WriteData(kLength);
+  WriteData(kPosition);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kType, type_record.body().type);
+  EXPECT_EQ(kLength, type_record.body().length);
+  EXPECT_EQ(kPosition, type_record.body().position);
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
   const uint16_t kCount = 21;
   const LeafPropertyField kProperty = {0x0200};

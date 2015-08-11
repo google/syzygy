@@ -17,6 +17,9 @@
       ]
     },
     {
+      "name": "LeafBitfield"
+    },
+    {
       "name": "LeafClass",
       "first_extra_field": "data",
       "extra_fields": [
