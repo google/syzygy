@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/types/test_types.h"
-
 #include <cstddef>
+
+#include "syzygy/refinery/types/test_types.h"
 
 namespace testing {
 
@@ -50,6 +50,11 @@ struct TestRecursiveUDT {
 };
 
 REGISTER_SIZEOF_TYPE(TestRecursiveUDT);
+
+struct TestArrays {
+  const int int_array[30];
+  TestRecursiveUDT* volatile (*array_ptr)[32];
+};
 
 // The following classes are set up to test correct reading of pointer to data
 // members and functions.
@@ -123,6 +128,9 @@ void AliasTypesOne() {
 
   TestRecursiveUDT recursive = {};
   Alias(&recursive);
+
+  TestArrays arrays = {{0}};
+  Alias(&arrays);
 
   TestMemberPointersUDT member_data = {};
   Alias(&member_data);

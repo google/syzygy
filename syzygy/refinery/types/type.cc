@@ -132,6 +132,43 @@ void PointerType::SetName(const base::string16& name) {
   name_ = name;
 }
 
+ArrayType::ArrayType(size_t size)
+    : Type(ARRAY_TYPE_KIND, L"", L"", size),
+      index_type_id_(kNoTypeId),
+      num_elements_(0),
+      element_type_id_(kNoTypeId) {
+}
+
+TypePtr ArrayType::GetIndexType() const {
+  DCHECK(repository());
+
+  return repository()->GetType(index_type_id_);
+}
+
+TypePtr ArrayType::GetElementType() const {
+  DCHECK(repository());
+
+  return repository()->GetType(element_type_id_);
+}
+
+void ArrayType::Finalize(Flags flags,
+                         TypeId index_type_id,
+                         size_t num_elements,
+                         TypeId element_type_id) {
+  DCHECK_EQ(kNoTypeId, index_type_id_);
+  DCHECK_EQ(0U, num_elements_);
+  DCHECK_EQ(kNoTypeId, element_type_id_);
+
+  flags_ = flags;
+  index_type_id_ = index_type_id;
+  num_elements_ = num_elements;
+  element_type_id_ = element_type_id;
+}
+
+void ArrayType::SetName(const base::string16& name) {
+  name_ = name;
+}
+
 WildcardType::WildcardType(const base::string16& name, size_t size)
     : Type(WILDCARD_TYPE_KIND, name, size) {
 }

@@ -44,6 +44,7 @@ class Type : public base::RefCounted<Type> {
     BASIC_TYPE_KIND,
     USER_DEFINED_TYPE_KIND,
     POINTER_TYPE_KIND,
+    ARRAY_TYPE_KIND,
     WILDCARD_TYPE_KIND,
   };
 
@@ -240,13 +241,61 @@ class PointerType : public Type {
   void SetName(const base::string16& name);
 
  private:
-  // Stores the CV qualifiers of this pointer.
+  // Stores the CV qualifiers of the pointee.
   Flags flags_;
   // Stores the type this pointer points to.
   TypeId content_type_id_;
 };
 
 using PointerTypePtr = scoped_refptr<PointerType>;
+
+// Represents an array of some other type.
+class ArrayType : public Type {
+ public:
+  static const TypeKind ID = ARRAY_TYPE_KIND;
+
+  explicit ArrayType(size_t size);
+
+  // Accessors.
+  // @{
+  TypeId index_type_id() const { return index_type_id_; }
+  size_t num_elements() const { return num_elements_; }
+  TypeId element_type_id() const { return element_type_id_; }
+
+  bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
+  bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
+  // @}
+
+  // @name Retrieve the index/element types.
+  // @pre SetRepository has been called.
+  // @{
+  TypePtr GetIndexType() const;
+  TypePtr GetElementType() const;
+  // @}
+
+  // Finalize the array type.
+  void Finalize(Flags flags,
+                TypeId index_type_id,
+                size_t num_elements,
+                TypeId element_type_id);
+  // Set the name of the array type.
+  void SetName(const base::string16& name);
+
+ private:
+  // The CV qualifiers for the elements.
+  Flags flags_;
+
+  // The type ID for the the index type.
+  TypeId index_type_id_;
+
+  // The number of elements in this array.
+  size_t num_elements_;
+
+  // The type ID for the element type.
+  TypeId element_type_id_;
+};
+
+using ArrayTypePtr = scoped_refptr<ArrayType>;
 
 // Represents an otherwise unsupported type.
 // TODO(siggi): This is a stub, which needs to go away ASAP.

@@ -29,33 +29,30 @@ namespace {
 
 class DiaCrawlerTest : public testing::Test {
  protected:
+  void SetUp() override {
+    DiaCrawler crawler;
+
+    ASSERT_TRUE(crawler.InitializeForFile(testing::GetSrcRelativePath(
+        L"syzygy\\refinery\\test_data\\test_types.dll.pdb")));
+
+    ASSERT_TRUE(crawler.GetTypes(&types_));
+  }
+
+  TypePtr FindTypeEndingWith(const base::string16& str) {
+    for (auto it : types_) {
+      if (base::EndsWith(it->name(), str, base::CompareCase::SENSITIVE))
+        return it;
+    }
+    return nullptr;
+  }
+
+  TypeRepository types_;
 };
 
 }  // namespace
 
-TEST_F(DiaCrawlerTest, InitializeForFile) {
-  DiaCrawler crawler;
-
-  ASSERT_TRUE(crawler.InitializeForFile(
-      testing::GetSrcRelativePath(
-          L"syzygy\\refinery\\test_data\\test_types.dll.pdb")));
-
-  TypeRepository types;
-  ASSERT_TRUE(crawler.GetTypes(&types));
-
-  // TODO(siggi): Types can be duplicated for some reason - maybe the crawler
-  // should eliminate dupes?
-  ASSERT_LE(1U, types.size());
-
-  // TODO(siggi): This needs rewriting.
-  TypePtr type;
-  for (auto it = types.begin(); it != types.end(); ++it) {
-    if (base::EndsWith((*it)->name(), L"::TestSimpleUDT",
-                       base::CompareCase::SENSITIVE)) {
-      type = *it;
-      break;
-    }
-  }
+TEST_F(DiaCrawlerTest, TestSimpleUDT) {
+  TypePtr type = FindTypeEndingWith(L"::TestSimpleUDT");
   ASSERT_TRUE(type);
 
   EXPECT_EQ(16, type->size());
@@ -150,6 +147,51 @@ TEST_F(DiaCrawlerTest, InitializeForFile) {
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(5)->kind());
   EXPECT_EQ(2, udt->GetFieldType(5)->size());
   EXPECT_EQ(L"uint16_t", udt->GetFieldType(5)->name());
+}
+
+TEST_F(DiaCrawlerTest, TestArray) {
+  TypePtr type = FindTypeEndingWith(L"::TestArrays");
+  ASSERT_TRUE(type);
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  ASSERT_EQ(2U, udt->fields().size());
+
+  ArrayTypePtr int_array;
+  ASSERT_TRUE(udt->GetFieldType(0)->CastTo(&int_array));
+  ASSERT_TRUE(int_array);
+
+  EXPECT_EQ(30, int_array->num_elements());
+  EXPECT_EQ(L"int32_t const[30]", int_array->name());
+  EXPECT_EQ(sizeof(int) * 30, int_array->size());
+  EXPECT_TRUE(int_array->is_const());
+  EXPECT_FALSE(int_array->is_volatile());
+
+  TypePtr index_type = int_array->GetIndexType();
+  EXPECT_EQ(L"uint32_t", index_type->name());
+
+  TypePtr element_type = int_array->GetElementType();
+  EXPECT_EQ(L"int32_t", element_type->name());
+
+  PointerTypePtr array_ptr;
+  ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&array_ptr));
+
+  ArrayTypePtr ptr_array;
+  ASSERT_TRUE(array_ptr->GetContentType()->CastTo(&ptr_array));
+
+  EXPECT_EQ(32, ptr_array->num_elements());
+  EXPECT_EQ(L"testing::TestRecursiveUDT* volatile[32]", ptr_array->name());
+  EXPECT_EQ(sizeof(void*) * 32, ptr_array->size());
+  EXPECT_FALSE(ptr_array->is_const());
+  EXPECT_TRUE(ptr_array->is_volatile());
+
+  index_type = ptr_array->GetIndexType();
+  EXPECT_EQ(L"uint32_t", index_type->name());
+
+  element_type = ptr_array->GetElementType();
+  EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
 }
 
 }  // namespace refinery

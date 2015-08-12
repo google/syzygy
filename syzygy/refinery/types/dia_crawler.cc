@@ -255,6 +255,19 @@ bool GetSymType(IDiaSymbol* symbol,
   return true;
 }
 
+bool GetSymArrayIndexType(IDiaSymbol* symbol,
+                          base::win::ScopedComPtr<IDiaSymbol>* type) {
+  DCHECK(symbol);
+  DCHECK(type);
+  base::win::ScopedComPtr<IDiaSymbol> tmp;
+  HRESULT hr = symbol->get_arrayIndexType(tmp.Receive());
+  if (hr != S_OK)
+    return false;
+
+  *type = tmp;
+  return true;
+}
+
 bool GetSymIndexId(IDiaSymbol* symbol, DWORD* index_id) {
   DCHECK(symbol); DCHECK(index_id);
   DWORD tmp = 0;
@@ -262,6 +275,17 @@ bool GetSymIndexId(IDiaSymbol* symbol, DWORD* index_id) {
   if (!SUCCEEDED(hr))
     return false;
   *index_id = tmp;
+  return true;
+}
+
+bool GetSymCount(IDiaSymbol* symbol, size_t* count) {
+  DCHECK(symbol);
+  DCHECK(count);
+  DWORD tmp = 0;
+  HRESULT hr = symbol->get_count(&tmp);
+  if (!SUCCEEDED(hr))
+    return false;
+  *count = tmp;
   return true;
 }
 
@@ -275,9 +299,11 @@ class TypeCreator {
  private:
   bool CreateTypesOfKind(enum SymTagEnum kind, IDiaSymbol* global);
 
-  // Assigns names to all pointer types that have been created.
-  bool AssignPointerNames();
+  // Assigns names to all pointer & array types that have been created.
+  bool AssignTypeNames();
+  bool EnsureTypeName(TypePtr type);
   bool AssignPointerName(PointerTypePtr ptr);
+  bool AssignArrayName(ArrayTypePtr ptr);
 
   // Finds or creates the type corresponding to @p symbol.
   // The type will be registered by a unique name in @p existing_types_.
@@ -294,6 +320,7 @@ class TypeCreator {
 
   bool FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt);
   bool FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr);
+  bool FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr type);
   bool FinalizeType(IDiaSymbol* symbol, TypePtr type);
 
   struct CreatedType {
@@ -383,6 +410,14 @@ bool TypeCreator::FinalizeType(IDiaSymbol* symbol, TypePtr type) {
       return FinalizePointer(symbol, ptr);
     }
 
+    case Type::ARRAY_TYPE_KIND: {
+      ArrayTypePtr array;
+      if (!type->CastTo(&array))
+        return false;
+
+      return FinalizeArray(symbol, array);
+    }
+
     default:
       return true;
   }
@@ -392,46 +427,75 @@ bool TypeCreator::CreateTypes(IDiaSymbol* global) {
   if (!CreateTypesOfKind(SymTagUDT, global) ||
       !CreateTypesOfKind(SymTagEnum, global) ||
       !CreateTypesOfKind(SymTagTypedef, global) ||
-      !CreateTypesOfKind(SymTagPointerType, global)) {
+      !CreateTypesOfKind(SymTagPointerType, global) ||
+      !CreateTypesOfKind(SymTagArrayType, global)) {
     return false;
   }
 
-  return AssignPointerNames();
+  return AssignTypeNames();
 }
 
-bool TypeCreator::AssignPointerNames() {
-  for (auto it : *repository_) {
-    if (it->kind() == Type::POINTER_TYPE_KIND && it->name().empty()) {
-      PointerTypePtr ptr;
-      if (!it->CastTo(&ptr))
-        return false;
-
-      if (!AssignPointerName(ptr))
-        return false;
-
-      DCHECK_NE(L"", ptr->name());
-    }
+bool TypeCreator::AssignTypeNames() {
+  for (auto type : *repository_) {
+    if (!EnsureTypeName(type))
+      return false;
   }
 
   return true;
 }
 
-bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
-  base::string16 name;
-  TypePtr content_type = ptr->GetContentType();
-  if (content_type) {
-    // Recurse on the content type if it's a pointer with an unassigned name.
-    if (content_type->name().empty() &&
-        content_type->kind() == Type::POINTER_TYPE_KIND) {
-      PointerTypePtr contained_ptr;
-      if (!content_type->CastTo(&contained_ptr) ||
-          !AssignPointerName(contained_ptr)) {
-        return false;
-      }
-    }
+bool TypeCreator::EnsureTypeName(TypePtr type) {
+  if (type->kind() == Type::POINTER_TYPE_KIND && type->name().empty()) {
+    PointerTypePtr ptr;
+    if (!type->CastTo(&ptr))
+      return false;
 
+    if (!AssignPointerName(ptr))
+      return false;
+
+    DCHECK_NE(L"", ptr->name());
+  } else if (type->kind() == Type::ARRAY_TYPE_KIND && type->name().empty()) {
+    ArrayTypePtr array;
+    if (!type->CastTo(&array))
+      return false;
+
+    if (!AssignArrayName(array))
+      return false;
+
+    DCHECK_NE(L"", array->name());
+  }
+
+  return true;
+}
+
+bool TypeCreator::AssignArrayName(ArrayTypePtr array) {
+  TypePtr element_type = array->GetElementType();
+  base::string16 name;
+  if (element_type) {
+    if (!EnsureTypeName(element_type))
+      return false;
+    name = element_type->name();
+  }
+
+  if (array->is_const())
+    name.append(L" const");
+  if (array->is_volatile())
+    name.append(L" volatile");
+  base::StringAppendF(&name, L"[%d]", array->num_elements());
+
+  array->SetName(name);
+  return true;
+}
+
+bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
+  TypePtr content_type = ptr->GetContentType();
+  base::string16 name;
+  if (content_type) {
+    if (!EnsureTypeName(content_type))
+      return false;
     name = content_type->name();
   }
+
   if (ptr->is_const())
     name.append(L" const");
   if (ptr->is_volatile())
@@ -630,6 +694,39 @@ bool TypeCreator::FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr) {
   return true;
 }
 
+bool TypeCreator::FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr array) {
+  DCHECK(symbol);
+  DCHECK(array);
+  DCHECK(IsSymTag(symbol, SymTagArrayType));
+
+  base::win::ScopedComPtr<IDiaSymbol> index_type_sym;
+  if (!GetSymArrayIndexType(symbol, &index_type_sym))
+    return false;
+
+  size_t element_count = 0;
+  if (!GetSymCount(symbol, &element_count))
+    return false;
+
+  base::win::ScopedComPtr<IDiaSymbol> element_type_sym;
+  if (!GetSymType(symbol, &element_type_sym))
+    return false;
+
+  Type::Flags flags = 0;
+  if (!GetSymFlags(element_type_sym.get(), &flags))
+    return false;
+
+  TypePtr index_type = FindOrCreateType(index_type_sym.get());
+  if (!index_type)
+    return false;
+  TypePtr element_type = FindOrCreateType(element_type_sym.get());
+  if (!element_type)
+    return false;
+
+  array->Finalize(flags, index_type->type_id(), element_count,
+                  element_type->type_id());
+  return true;
+}
+
 TypePtr TypeCreator::CreateBaseType(IDiaSymbol* symbol) {
   // Note that the void base type has zero size.
   DCHECK(symbol);
@@ -680,15 +777,12 @@ TypePtr TypeCreator::CreateArrayType(IDiaSymbol* symbol) {
   DCHECK(symbol);
   DCHECK(IsSymTag(symbol, SymTagArrayType));
 
-  base::string16 name;
   size_t size = 0;
-  if (!GetSymName(symbol, &name) ||
-      !GetSymSize(symbol, &size)) {
+  if (!GetSymSize(symbol, &size)) {
     return nullptr;
   }
 
-  // TODO(siggi): Implement an array type.
-  return new WildcardType(name, size);
+  return new ArrayType(size);
 }
 
 }  // namespace

@@ -21,27 +21,32 @@ namespace refinery {
 
 namespace {
 
-TypePtr CreateUDT(const wchar_t* name,
-                  size_t size,
-                  const UserDefinedType::Fields& fields) {
-  UserDefinedTypePtr udt = new UserDefinedType(name, size);
-  udt->Finalize(fields);
-  return udt;
-}
+class TypesTest : public testing::Test {
+ protected:
+  TypePtr CreateUDT(const wchar_t* name,
+                    size_t size,
+                    const UserDefinedType::Fields& fields) {
+    UserDefinedTypePtr udt = new UserDefinedType(name, size);
+    udt->Finalize(fields);
+    return udt;
+  }
 
-TypePtr CreatePointerType(const wchar_t* name,
-                          size_t size,
-                          Type::Flags flags,
-                          TypeId content_type_id) {
-  PointerTypePtr ptr = new PointerType(size);
-  ptr->Finalize(flags, content_type_id);
-  ptr->SetName(name);
-  return ptr;
-}
+  TypePtr CreatePointerType(const wchar_t* name,
+                            size_t size,
+                            Type::Flags flags,
+                            TypeId content_type_id) {
+    PointerTypePtr ptr = new PointerType(size);
+    ptr->Finalize(flags, content_type_id);
+    ptr->SetName(name);
+    return ptr;
+  }
+
+  TypeRepository repo_;
+};
 
 }  // namespace
 
-TEST(TypesTest, BasicType) {
+TEST_F(TypesTest, BasicType) {
   // Create a BasicType and store in a supertype pointer.
   TypePtr type = new BasicType(L"foo", 10);
 
@@ -64,23 +69,22 @@ TEST(TypesTest, BasicType) {
 }
 
 // This test will eventually be deleted with the no-decorated-name constructor.
-TEST(TypesTest, UserDefineType) {
+TEST_F(TypesTest, UserDefineType) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
-  TypeRepository repo;
 
-  const TypeId kBasicTypeId = repo.AddType(new BasicType(L"int", 4));
+  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"int", 4));
   fields.push_back(
       UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId));
   fields.push_back(UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, 0, 0,
                                           kBasicTypeId));
-  const TypeId kShortTypeId = repo.AddType(new BasicType(L"short", 2));
+  const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt =
       new UserDefinedType(L"foo", 10);
   udt->Finalize(fields);
 
-  repo.AddType(udt);
+  repo_.AddType(udt);
 
   // Up-cast it.
   TypePtr type(udt);
@@ -124,22 +128,20 @@ TEST(TypesTest, UserDefineType) {
 }
 
 // This test will eventually be deleted with the no-decorated-name constructor.
-TEST(TypesTest, UserDefineTypeWithDecoratedName) {
+TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
-  TypeRepository repo;
-
-  const TypeId kBasicTypeId = repo.AddType(new BasicType(L"int", 4));
+  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"int", 4));
   fields.push_back(
       UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId));
   fields.push_back(UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, 0, 0,
                                           kBasicTypeId));
-  const TypeId kShortTypeId = repo.AddType(new BasicType(L"short", 2));
+  const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 10);
   udt->Finalize(fields);
 
-  repo.AddType(udt);
+  repo_.AddType(udt);
 
   // Up-cast it.
   TypePtr type(udt);
@@ -182,13 +184,12 @@ TEST(TypesTest, UserDefineTypeWithDecoratedName) {
   EXPECT_EQ(2, basic_type->size());
 }
 
-TEST(TypesTest, PointerType) {
+TEST_F(TypesTest, PointerType) {
   // Build a Pointer instance.
-  TypeRepository repo;
-  const TypeId kPtrTypeId = repo.AddType(new BasicType(L"void", 0));
+  const TypeId kPtrTypeId = repo_.AddType(new BasicType(L"void", 0));
   TypePtr type =
       CreatePointerType(L"void*", 4, Type::FLAG_VOLATILE, kPtrTypeId);
-  repo.AddType(type);
+  repo_.AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
@@ -210,15 +211,14 @@ TEST(TypesTest, PointerType) {
   EXPECT_EQ(0U, pointer->GetContentType()->size());
 }
 
-TEST(TypesTest, PointerTypeWithDecoratedName) {
+TEST_F(TypesTest, PointerTypeWithDecoratedName) {
   // Build a Pointer instance.
-  TypeRepository repo;
-  const TypeId kPtrTypeId = repo.AddType(new BasicType(L"void", 0));
+  const TypeId kPtrTypeId = repo_.AddType(new BasicType(L"void", 0));
   PointerTypePtr ptr_type = new PointerType(L"void*", L"decorated_void*", 4);
   ptr_type->Finalize(Type::FLAG_VOLATILE, kPtrTypeId);
 
   TypePtr type = ptr_type;
-  repo.AddType(type);
+  repo_.AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
@@ -242,16 +242,39 @@ TEST(TypesTest, PointerTypeWithDecoratedName) {
   EXPECT_EQ(0U, pointer->GetContentType()->size());
 }
 
-TEST(TypesTest, WildcardType) {
+TEST_F(TypesTest, ArrayType) {
+  TypePtr int_type = new BasicType(L"int32_t", 0);
+  const TypeId kIntTypeId = repo_.AddType(int_type);
+  PointerTypePtr ptr_type =
+      new PointerType(L"aName", L"aDecoratedName", 4);
+  ptr_type->Finalize(Type::FLAG_VOLATILE, kIntTypeId);
+  const TypeId kPtrTypeId = repo_.AddType(ptr_type);
+
+  ArrayTypePtr array = new ArrayType(10 * ptr_type->size());
+  repo_.AddType(array);
+  array->Finalize(Type::FLAG_CONST, kIntTypeId, 10, kPtrTypeId);
+  ASSERT_EQ(L"", array->name());
+  array->SetName(L"ArrayName");
+
+  ASSERT_EQ(kIntTypeId, array->index_type_id());
+  ASSERT_EQ(10, array->num_elements());
+  ASSERT_EQ(kPtrTypeId, array->element_type_id());
+  ASSERT_EQ(int_type, array->GetIndexType());
+  ASSERT_EQ(ptr_type, array->GetElementType());
+  ASSERT_EQ(ptr_type, array->GetElementType());
+  ASSERT_EQ(L"ArrayName", array->name());
+  ASSERT_FALSE(array->is_volatile());
+}
+
+TEST_F(TypesTest, WildcardType) {
   // Build a wildcard instance.
-  TypeRepository repo;
-  TypePtr type = new WildcardType(L"Array", 4);
-  repo.AddType(type);
+  TypePtr type = new WildcardType(L"Wildcard", 4);
+  repo_.AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
-  EXPECT_EQ(L"Array", type->name());
-  EXPECT_EQ(L"Array", type->decorated_name());
+  EXPECT_EQ(L"Wildcard", type->name());
+  EXPECT_EQ(L"Wildcard", type->decorated_name());
   EXPECT_EQ(4U, type->size());
 
   // Downcast and test its fields.
