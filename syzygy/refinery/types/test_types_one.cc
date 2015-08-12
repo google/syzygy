@@ -14,9 +14,14 @@
 
 #include "syzygy/refinery/types/test_types.h"
 
+#include <cstddef>
+
 namespace testing {
 
 namespace {
+
+// Set the important sizes.
+REGISTER_SIZEOF(Pointer, void*);
 
 // This type is declared in the anonymous namespace to allow "colliding" on
 // the type name from another compilation unit.
@@ -37,10 +42,14 @@ struct TestSimpleUDT {
   unsigned short six : 5;
 };
 
+REGISTER_SIZEOF_TYPE(TestSimpleUDT);
+
 struct TestRecursiveUDT {
   struct TestRecursiveUDT* prev;
   struct TestRecursiveUDT* next;
 };
+
+REGISTER_SIZEOF_TYPE(TestRecursiveUDT);
 
 // The following classes are set up to test correct reading of pointer to data
 // members and functions.
@@ -62,30 +71,30 @@ typedef int* Multi::*MultiData;
 typedef int* Virtual::*VirtualData;
 typedef int* Unknown::*UnknownData;
 
-// The member pointers sizes as a constants. This way their values appear in
-// the symbol stream of the PDB file which allows us to test against them that
-// we are assigning the correct sizes.
-static const size_t kSingleFuncSize = sizeof(SingleFunc);
-static const size_t kMultiFuncSize = sizeof(MultiFunc);
-static const size_t kVirtualFuncSize = sizeof(VirtualFunc);
-static const size_t kUnknownFuncSize = sizeof(UnknownFunc);
+// Sizes of the member pointers.
+REGISTER_SIZEOF_TYPE(SingleFunc);
+REGISTER_SIZEOF_TYPE(MultiFunc);
+REGISTER_SIZEOF_TYPE(VirtualFunc);
+REGISTER_SIZEOF_TYPE(UnknownFunc);
 
-static const size_t kSingleDataSize = sizeof(SingleData);
-static const size_t kMultiDataSize = sizeof(MultiData);
-static const size_t kVirtualDataSize = sizeof(VirtualData);
-static const size_t kUnknownDataSize = sizeof(UnknownData);
+REGISTER_SIZEOF_TYPE(SingleData);
+REGISTER_SIZEOF_TYPE(MultiData);
+REGISTER_SIZEOF_TYPE(VirtualData);
+REGISTER_SIZEOF_TYPE(UnknownData);
 
 struct TestMemberPointersUDT {
-  SingleData testSingleDataSize;
-  MultiData testMultiDataSize;
-  VirtualData testVirtualDataSize;
-  UnknownData testUnknownDataSize;
+  SingleData testSingleData;
+  MultiData testMultiData;
+  VirtualData testVirtualData;
+  UnknownData testUnknownData;
 
-  SingleFunc testSingleFuncSize;
-  MultiFunc testMultiFuncSize;
-  VirtualFunc testVirtualFuncSize;
-  UnknownFunc testUnknownFuncSize;
+  SingleFunc testSingleFunc;
+  MultiFunc testMultiFunc;
+  VirtualFunc testVirtualFunc;
+  UnknownFunc testUnknownFunc;
 };
+
+REGISTER_SIZEOF_TYPE(TestMemberPointersUDT);
 
 struct TestAllInOneUDT : public A, virtual public B {
   static int static_member;
@@ -100,6 +109,9 @@ struct TestAllInOneUDT : public A, virtual public B {
 
   int regular_member;
 };
+
+REGISTER_SIZEOF_TYPE(TestAllInOneUDT);
+REGISTER_OFFSETOF(TestAllInOneUDT, regular_member);
 
 void AliasTypesOne() {
   // Make sure the types are used in the file.

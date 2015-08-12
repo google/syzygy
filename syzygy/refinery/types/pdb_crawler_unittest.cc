@@ -32,12 +32,21 @@ namespace refinery {
 
 namespace {
 
-class PdbCrawlerTest : public testing::Test {
+// We use parameterized tests to test against both the 32-bit and 64-bit images.
+class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
  protected:
   void SetUp() override {
-    test_types_file_ = testing::GetSrcRelativePath(
-        L"syzygy\\refinery\\test_data\\test_types.dll.pdb");
+    // Load the correct image and set the constants.
+    if (GetParam() == 32) {
+      test_types_file_ = testing::GetSrcRelativePath(
+          L"syzygy\\refinery\\test_data\\test_types.dll.pdb");
+    } else {
+      test_types_file_ = testing::GetSrcRelativePath(
+          L"syzygy\\refinery\\test_data\\test_types_x64.dll.pdb");
+    }
+
     LoadTypes();
+    LoadConstantsFromSymbolStream();
   }
 
   void LoadTypes() {
@@ -45,6 +54,32 @@ class PdbCrawlerTest : public testing::Test {
 
     ASSERT_TRUE(crawler_.GetTypes(&types_));
     ASSERT_LE(1U, types_.size());
+  }
+
+  // For a given type name, this function returns size of the type as encoded in
+  // the symbol stream. On failure the maximum possible value of size_t gets
+  // returned which would cause failure of the test using this function.
+  size_t LookupSizeOf(const base::string16& name) {
+    const auto it = constants_.find(L"k" + name + L"Size");
+    if (it != constants_.end()) {
+      return it->second;
+    } else {
+      return static_cast<size_t>(-1);
+    }
+  }
+
+  // For a given type and field name, this function returns offset of the field
+  // as encoded in the symbol stream. On failure the maximum possible value of
+  // size_t gets returned which would cause failure of the test using this
+  // function.
+  size_t LookupOffsetOf(const base::string16& type,
+                        const base::string16& field) {
+    const auto it = constants_.find(L"k" + field + L"In" + type + L"Offset");
+    if (it != constants_.end()) {
+      return it->second;
+    } else {
+      return static_cast<size_t>(-1);
+    }
   }
 
   // This function reads all the constants from the symbol stream. We use this
@@ -141,6 +176,7 @@ void ValidatePointerType(TypePtr type,
   EXPECT_EQ(name, type->name());
 }
 
+// Constants for better readability.
 const size_t kBitPosZero = 0;
 const size_t kBitLenZero = 0;
 const bool kIsConst = true;
@@ -148,7 +184,7 @@ const bool kIsVolatile = true;
 
 }  // namespace
 
-TEST_F(PdbCrawlerTest, TestSimpleUDT) {
+TEST_P(PdbCrawlerTest, TestSimpleUDT) {
   std::vector<TypePtr> simple_udt = FindTypesBySuffix(L"::TestSimpleUDT");
 
   ASSERT_EQ(1U, simple_udt.size());
@@ -156,8 +192,7 @@ TEST_F(PdbCrawlerTest, TestSimpleUDT) {
   TypePtr type = simple_udt[0];
 
   ASSERT_TRUE(type);
-
-  EXPECT_EQ(16, type->size());
+  EXPECT_EQ(LookupSizeOf(L"TestSimpleUDT"), type->size());
   EXPECT_TRUE(
       EndsWith(type->name(), L"::TestSimpleUDT", base::CompareCase::SENSITIVE));
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
@@ -169,45 +204,51 @@ TEST_F(PdbCrawlerTest, TestSimpleUDT) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(6U, fields.size());
 
+  size_t offset = 0;
+
   // Test field: int one.
-  ValidateField(fields[0], 0, kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile,
-                L"one");
-  ValidateBasicType(udt->GetFieldType(0), 4, L"int32_t");
+  ValidateField(fields[0], offset, kBitPosZero, kBitLenZero, !kIsConst,
+                !kIsVolatile, L"one");
+  ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
+  offset += sizeof(int32_t);
 
   // Test field: const char two.
-  ValidateField(fields[1], 4, kBitPosZero, kBitLenZero, kIsConst, !kIsVolatile,
-                L"two");
-  ValidateBasicType(udt->GetFieldType(1), 1, L"char");
+  ValidateField(fields[1], offset, kBitPosZero, kBitLenZero, kIsConst,
+                !kIsVolatile, L"two");
+  ValidateBasicType(udt->GetFieldType(1), sizeof(char), L"char");
+  offset += sizeof(int32_t);
 
   // Test field: short const* volatile* three.
-  ValidateField(fields[2], 8, kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile,
-                L"three");
-  ValidatePointerType(udt->GetFieldType(2), !kIsConst, kIsVolatile, 4,
-                      L"int16_t const* volatile*");
+  ValidateField(fields[2], offset, kBitPosZero, kBitLenZero, !kIsConst,
+                !kIsVolatile, L"three");
+  ValidatePointerType(udt->GetFieldType(2), !kIsConst, kIsVolatile,
+                      LookupSizeOf(L"Pointer"), L"int16_t const* volatile*");
 
   PointerTypePtr ptr;
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&ptr));
-  ValidatePointerType(ptr->GetContentType(), kIsConst, !kIsVolatile, 4,
-                      L"int16_t const*");
+  ValidatePointerType(ptr->GetContentType(), kIsConst, !kIsVolatile,
+                      LookupSizeOf(L"Pointer"), L"int16_t const*");
+  offset += LookupSizeOf(L"Pointer");
 
   ASSERT_TRUE(ptr->GetContentType()->CastTo(&ptr));
-  ValidateBasicType(ptr->GetContentType(), 2, L"int16_t");
+  ValidateBasicType(ptr->GetContentType(), sizeof(int16_t), L"int16_t");
 
   // Test field: const volatile unsigned short four.
-  ValidateField(fields[3], 12, kBitPosZero, kBitLenZero, kIsConst, kIsVolatile,
-                L"four");
-  ValidateBasicType(udt->GetFieldType(3), 2, L"uint16_t");
+  ValidateField(fields[3], offset, kBitPosZero, kBitLenZero, kIsConst,
+                kIsVolatile, L"four");
+  ValidateBasicType(udt->GetFieldType(3), sizeof(int16_t), L"uint16_t");
+  offset += sizeof(uint16_t);
 
   // Test field: unsigned short five : 3.
-  ValidateField(fields[4], 14, 0, 3, !kIsConst, !kIsVolatile, L"five");
-  ValidateBasicType(udt->GetFieldType(4), 2, L"uint16_t");
+  ValidateField(fields[4], offset, 0, 3, !kIsConst, !kIsVolatile, L"five");
+  ValidateBasicType(udt->GetFieldType(4), sizeof(uint16_t), L"uint16_t");
 
   // Test field: unsigned short six : 5.
-  ValidateField(fields[5], 14, 3, 5, !kIsConst, !kIsVolatile, L"six");
-  ValidateBasicType(udt->GetFieldType(5), 2, L"uint16_t");
+  ValidateField(fields[5], offset, 3, 5, !kIsConst, !kIsVolatile, L"six");
+  ValidateBasicType(udt->GetFieldType(5), sizeof(uint16_t), L"uint16_t");
 }
 
-TEST_F(PdbCrawlerTest, TestUDTWithStaticMembers) {
+TEST_P(PdbCrawlerTest, TestAllInOneUDT) {
   std::vector<TypePtr> test_udt = FindTypesBySuffix(L"::TestAllInOneUDT");
 
   ASSERT_EQ(1U, test_udt.size());
@@ -216,7 +257,7 @@ TEST_F(PdbCrawlerTest, TestUDTWithStaticMembers) {
 
   ASSERT_TRUE(type);
 
-  EXPECT_EQ(12, type->size());
+  EXPECT_EQ(LookupSizeOf(L"TestAllInOneUDT"), type->size());
   EXPECT_TRUE(EndsWith(type->name(), L"::TestAllInOneUDT",
                        base::CompareCase::SENSITIVE));
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
@@ -228,13 +269,13 @@ TEST_F(PdbCrawlerTest, TestUDTWithStaticMembers) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(1U, fields.size());
 
-  // Test field hidden behind static member.
-  ValidateField(fields[0], 8, kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile,
-                L"regular_member");
+  ValidateField(
+      fields[0], LookupOffsetOf(L"TestAllInOneUDT", L"regular_member"),
+      kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile, L"regular_member");
   ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
 }
 
-TEST_F(PdbCrawlerTest, TestCollidingUDTs) {
+TEST_P(PdbCrawlerTest, TestCollidingUDTs) {
   std::vector<TypePtr> colliding_types =
       FindTypesBySuffix(L"::TestCollidingUDT");
 
@@ -262,7 +303,7 @@ TEST_F(PdbCrawlerTest, TestCollidingUDTs) {
   EXPECT_NE(udt1->fields().size(), udt2->fields().size());
 }
 
-TEST_F(PdbCrawlerTest, TestRecursiveUDTs) {
+TEST_P(PdbCrawlerTest, TestRecursiveUDTs) {
   std::vector<TypePtr> recursive_udt = FindTypesBySuffix(L"::TestRecursiveUDT");
 
   ASSERT_EQ(1U, recursive_udt.size());
@@ -270,7 +311,7 @@ TEST_F(PdbCrawlerTest, TestRecursiveUDTs) {
   TypePtr type = recursive_udt[0];
 
   ASSERT_TRUE(type);
-
+  EXPECT_EQ(LookupSizeOf(L"TestRecursiveUDT"), type->size());
   ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
   UserDefinedTypePtr udt;
@@ -291,10 +332,7 @@ TEST_F(PdbCrawlerTest, TestRecursiveUDTs) {
   EXPECT_EQ(udt, ptr2->GetContentType());
 }
 
-// TODO(mopler): Test also against 64-bit images.
-TEST_F(PdbCrawlerTest, TestMemberPointerSizes) {
-  ASSERT_NO_FATAL_FAILURE(LoadConstantsFromSymbolStream());
-
+TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
   std::vector<TypePtr> member_data_udt =
       FindTypesBySuffix(L"::TestMemberPointersUDT");
 
@@ -303,6 +341,7 @@ TEST_F(PdbCrawlerTest, TestMemberPointerSizes) {
   TypePtr type = member_data_udt[0];
 
   ASSERT_TRUE(type);
+  EXPECT_EQ(LookupSizeOf(L"TestMemberPointersUDT"), type->size());
   ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
   UserDefinedTypePtr udt;
@@ -319,15 +358,18 @@ TEST_F(PdbCrawlerTest, TestMemberPointerSizes) {
     ASSERT_TRUE(pointer);
 
     const base::string16& member_name = udt->fields()[i].name();
+    // Test that the name starts with "test" and then use the rest for lookup.
     ASSERT_TRUE(
         base::StartsWith(member_name, L"test", base::CompareCase::SENSITIVE));
-    base::string16 const_name =
-        L"k" + member_name.substr(4, base::string16::npos);
-
-    const auto it = constants_.find(const_name);
-    ASSERT_NE(constants_.end(), it);
-    EXPECT_EQ(pointer->size(), it->second);
+    EXPECT_EQ(
+        LookupSizeOf(member_name.substr(strlen("test"), base::string16::npos)),
+        pointer->size());
   }
 }
+
+// Run both the 32-bit and 64-bit tests.
+INSTANTIATE_TEST_CASE_P(InstantiateFor32and64,
+                        PdbCrawlerTest,
+                        ::testing::Values(32, 64));
 
 }  // namespace refinery
