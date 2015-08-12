@@ -29,6 +29,8 @@
         'analysis_runner.cc',
         'analysis_runner.h',
         'analyzer.h',
+        'analyzer_util.cc',
+        'analyzer_util.h',
         'exception_analyzer.cc',
         'exception_analyzer.h',
         'memory_analyzer.cc',

@@ -17,6 +17,7 @@
 #include <dbghelp.h>
 
 #include "base/macros.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
@@ -80,30 +81,7 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     CONTEXT ctx = {};
     if (!thread_context.ReadElement(&ctx))
       return ANALYSIS_ERROR;
-
-    RegisterInformation* reg_info = thread_info->mutable_register_info();
-    if (ctx.ContextFlags & CONTEXT_SEGMENTS) {
-      reg_info->set_seg_gs(ctx.SegGs);
-      reg_info->set_seg_fs(ctx.SegFs);
-      reg_info->set_seg_es(ctx.SegEs);
-      reg_info->set_seg_ds(ctx.SegDs);
-    }
-    if (ctx.ContextFlags & CONTEXT_INTEGER) {
-      reg_info->set_edi(ctx.Edi);
-      reg_info->set_esi(ctx.Esi);
-      reg_info->set_ebx(ctx.Ebx);
-      reg_info->set_edx(ctx.Edx);
-      reg_info->set_ecx(ctx.Ecx);
-      reg_info->set_eax(ctx.Eax);
-    }
-    if (ctx.ContextFlags & CONTEXT_CONTROL) {
-      reg_info->set_ebp(ctx.Ebp);
-      reg_info->set_eip(ctx.Eip);
-      reg_info->set_seg_cs(ctx.SegCs);
-      reg_info->set_eflags(ctx.EFlags);
-      reg_info->set_esp(ctx.Esp);
-      reg_info->set_seg_ss(ctx.SegSs);
-    }
+    ParseContext(ctx, thread_info->mutable_register_info());
   }
 
   return ANALYSIS_COMPLETE;

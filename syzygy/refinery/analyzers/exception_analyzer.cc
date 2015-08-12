@@ -17,6 +17,7 @@
 #include <dbghelp.h>
 
 #include "base/memory/scoped_ptr.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
@@ -48,9 +49,6 @@ Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
   const MINIDUMP_EXCEPTION& exception_record =
       minidump_exception_stream.ExceptionRecord;
 
-  // TODO(manzagop): Read the exception's thread context. Reuse code from
-  // ThreadAnalyzer.
-
   // TODO(manzagop): Consider chained exceptions
   // (exception_record.ExceptionRecord).
 
@@ -65,6 +63,16 @@ Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
     exception.add_exception_information(
         exception_record.ExceptionInformation[i]);
   }
+
+  Minidump::Stream thread_context =
+      minidump.GetStreamFor(minidump_exception_stream.ThreadContext);
+  if (!thread_context.IsValid())
+    return ANALYSIS_ERROR;
+  // TODO(siggi): This ought to probe for the architecture somehow.
+  CONTEXT ctx = {};
+  if (!thread_context.ReadElement(&ctx))
+    return ANALYSIS_ERROR;
+  ParseContext(ctx, exception.mutable_register_info());
 
   // Add the exception information to the process state.
   if (!process_state->SetException(exception))

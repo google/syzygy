@@ -55,8 +55,7 @@ TEST(ExceptionAnalyzerTest, AnalyzeMinidump) {
   FAIL() << "No exception data found.";
 }
 
-class ExceptionAnalyzerSyntheticTest : public testing::SyntheticMinidumpTest {
-};
+class ExceptionAnalyzerSyntheticTest : public testing::SyntheticMinidumpTest {};
 
 TEST_F(ExceptionAnalyzerSyntheticTest, NoExceptionTest) {
   // Create a minidump with no exception data.
@@ -131,7 +130,26 @@ TEST_F(ExceptionAnalyzerSyntheticTest, BasicTest) {
   ASSERT_EQ(exception_spec.exception_information[1],
             exception.exception_information(1));
 
-  // TODO(manzagop): validate RegisterInformation once implemented.
+  // Validate RegisterInformation once implemented.
+  const RegisterInformation& reg_info = exception.register_info();
+  const CONTEXT* ctx =
+      reinterpret_cast<const CONTEXT*>(&exception_spec.context_data.at(0));
+  ASSERT_EQ(ctx->SegGs, reg_info.seg_gs());
+  ASSERT_EQ(ctx->SegFs, reg_info.seg_fs());
+  ASSERT_EQ(ctx->SegEs, reg_info.seg_es());
+  ASSERT_EQ(ctx->SegDs, reg_info.seg_ds());
+  ASSERT_EQ(ctx->Edi, reg_info.edi());
+  ASSERT_EQ(ctx->Esi, reg_info.esi());
+  ASSERT_EQ(ctx->Ebx, reg_info.ebx());
+  ASSERT_EQ(ctx->Edx, reg_info.edx());
+  ASSERT_EQ(ctx->Ecx, reg_info.ecx());
+  ASSERT_EQ(ctx->Eax, reg_info.eax());
+  ASSERT_EQ(ctx->Ebp, reg_info.ebp());
+  ASSERT_EQ(ctx->Eip, reg_info.eip());
+  ASSERT_EQ(ctx->SegCs, reg_info.seg_cs());
+  ASSERT_EQ(ctx->EFlags, reg_info.eflags());
+  ASSERT_EQ(ctx->Esp, reg_info.esp());
+  ASSERT_EQ(ctx->SegSs, reg_info.seg_ss());
 }
 
 }  // namespace refinery

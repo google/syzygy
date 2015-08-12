@@ -150,6 +150,8 @@ struct MinidumpSpecification::ExceptionSpecification {
   uint64 exception_record;
   uint64 exception_address;
   std::vector<uint64> exception_information;
+
+  std::string context_data;  // represents a CONTEXT.
 };
 
 struct MinidumpSpecification::ModuleSpecification {

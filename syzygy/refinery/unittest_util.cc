@@ -41,6 +41,30 @@ const base::FilePath TestMinidumps::GetNotepad64Dump() {
 
 namespace {
 
+void PopulateContext(std::string* context_bytes, int base_offset) {
+  DCHECK(context_bytes != nullptr);
+
+  context_bytes->resize(sizeof(CONTEXT));
+  CONTEXT* ctx = reinterpret_cast<CONTEXT*>(&context_bytes->at(0));
+  ctx->ContextFlags = CONTEXT_SEGMENTS | CONTEXT_INTEGER | CONTEXT_CONTROL;
+  ctx->SegGs = base_offset + 1;
+  ctx->SegFs = base_offset + 2;
+  ctx->SegEs = base_offset + 3;
+  ctx->SegDs = base_offset + 4;
+  ctx->Edi = base_offset + 11;
+  ctx->Esi = base_offset + 12;
+  ctx->Ebx = base_offset + 13;
+  ctx->Edx = base_offset + 14;
+  ctx->Ecx = base_offset + 15;
+  ctx->Eax = base_offset + 16;
+  ctx->Ebp = base_offset + 21;
+  ctx->Eip = base_offset + 22;
+  ctx->SegCs = base_offset + 23;
+  ctx->EFlags = base_offset + 24;
+  ctx->Esp = base_offset + 25;
+  ctx->SegSs = base_offset + 26;
+}
+
 using MemorySpecification = MinidumpSpecification::MemorySpecification;
 using ThreadSpecification = MinidumpSpecification::ThreadSpecification;
 using ExceptionSpecification = MinidumpSpecification::ExceptionSpecification;
@@ -239,6 +263,11 @@ bool MinidumpSerializer::SerializeExceptions(
     return succeeded();
 
   for (const ExceptionSpecification& spec : exception_specs) {
+    // Write the context.
+    DCHECK_EQ(sizeof(CONTEXT), spec.context_data.size());
+    Position pos = AppendBytes(spec.context_data);
+
+    // Write the MINIDUMP_EXCEPTION_STREAM.
     ULONG32 thread_id = spec.thread_id;
     Position rva = Append(thread_id);
     ULONG32 dummy_alignment = 0U;
@@ -256,7 +285,10 @@ bool MinidumpSerializer::SerializeExceptions(
     }
     Append(exception);
 
-    // TODO(manzagop): serialize a thread context and set thread_context.
+    MINIDUMP_LOCATION_DESCRIPTOR context_loc = {};
+    context_loc.DataSize = sizeof(CONTEXT);
+    context_loc.Rva = pos;
+    Append(context_loc);
 
     AddDirectoryEntry(ExceptionStream, rva, sizeof(MINIDUMP_EXCEPTION_STREAM));
   }
@@ -519,26 +551,7 @@ MinidumpSpecification::ThreadSpecification::ThreadSpecification(
   // Note: thread.Stack.Memory.Rva and thread.ThreadContext.Rva are set during
   // serialization.
 
-  // Generate the CONTEXT.
-  context_data.resize(sizeof(CONTEXT));
-  CONTEXT* ctx = reinterpret_cast<CONTEXT*>(&context_data.at(0));
-  ctx->ContextFlags = CONTEXT_SEGMENTS | CONTEXT_INTEGER | CONTEXT_CONTROL;
-  ctx->SegGs = 11;
-  ctx->SegFs = 12;
-  ctx->SegEs = 13;
-  ctx->SegDs = 14;
-  ctx->Edi = 21;
-  ctx->Esi = 22;
-  ctx->Ebx = 23;
-  ctx->Edx = 24;
-  ctx->Ecx = 25;
-  ctx->Eax = 26;
-  ctx->Ebp = 31;
-  ctx->Eip = 32;
-  ctx->SegCs = 33;
-  ctx->EFlags = 34;
-  ctx->Esp = 35;
-  ctx->SegSs = 36;
+  PopulateContext(&context_data, 0);
 }
 
 void MinidumpSpecification::ThreadSpecification::SetTebAddress(
@@ -575,6 +588,8 @@ MinidumpSpecification::ExceptionSpecification::ExceptionSpecification(
   exception_address = 1111ULL;
   exception_information.push_back(1);
   exception_information.push_back(2222ULL);
+
+  PopulateContext(&context_data, 100);
 }
 
 MinidumpSpecification::ModuleSpecification::ModuleSpecification() {
