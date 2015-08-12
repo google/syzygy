@@ -34,8 +34,7 @@ bool HeapDestroyEvent::PlayImpl(void* backdrop) {
   using bard::backdrops::HeapBackdrop;
   HeapBackdrop* heap_backdrop = reinterpret_cast<HeapBackdrop*>(backdrop);
 
-  HANDLE live_heap;
-
+  HANDLE live_heap = INVALID_HANDLE_VALUE;
   if (!heap_backdrop->heap_map().GetLiveFromTrace(trace_heap_, &live_heap))
     return false;
 

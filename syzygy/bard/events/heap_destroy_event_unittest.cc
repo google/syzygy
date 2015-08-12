@@ -14,7 +14,6 @@
 
 #include "syzygy/bard/events/heap_destroy_event.h"
 
-#include "base/files/file_path.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/bard/unittest_util.h"
@@ -34,11 +33,14 @@ const HANDLE kTraceHeap = reinterpret_cast<HANDLE>(0xAB12CD34);
 
 class HeapDestroyEventTest : public testing::Test {
  public:
+  MOCK_METHOD1(FakeCall, BOOL(HANDLE));
+
   void SetUp() override {
     backdrop_.heap_map().AddMapping(kTraceHeap, kLiveHeap);
-  }
 
-  MOCK_METHOD1(FakeCall, BOOL(HANDLE));
+    backdrop_.set_heap_destroy(
+        base::Bind(&HeapDestroyEventTest::FakeCall, base::Unretained(this)));
+  }
 
  protected:
   HeapBackdrop backdrop_;
@@ -49,8 +51,6 @@ class HeapDestroyEventTest : public testing::Test {
 TEST_F(HeapDestroyEventTest, TestSuccessCall) {
   HeapDestroyEvent heap_destroy_event_(kTraceHeap, true);
 
-  backdrop_.set_heap_destroy(base::Bind(&HeapDestroyEventTest::FakeCall,
-                                       base::Unretained(this)));
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(true));
 
   EXPECT_TRUE(heap_destroy_event_.Play(reinterpret_cast<void*>(&backdrop_)));
@@ -63,8 +63,6 @@ TEST_F(HeapDestroyEventTest, TestSuccessCall) {
 TEST_F(HeapDestroyEventTest, TestFailCall) {
   HeapDestroyEvent heap_destroy_event_(kTraceHeap, false);
 
-  backdrop_.set_heap_destroy(base::Bind(&HeapDestroyEventTest::FakeCall,
-                                       base::Unretained(this)));
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(false));
 
   EXPECT_TRUE(heap_destroy_event_.Play(reinterpret_cast<void*>(&backdrop_)));
@@ -77,8 +75,6 @@ TEST_F(HeapDestroyEventTest, TestFailCall) {
 TEST_F(HeapDestroyEventTest, TestInconsistentReturn) {
   HeapDestroyEvent heap_destroy_event_(kTraceHeap, false);
 
-  backdrop_.set_heap_destroy(base::Bind(&HeapDestroyEventTest::FakeCall,
-                                       base::Unretained(this)));
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(true));
 
   EXPECT_FALSE(heap_destroy_event_.Play(reinterpret_cast<void*>(&backdrop_)));

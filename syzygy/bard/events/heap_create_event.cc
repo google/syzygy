@@ -45,13 +45,19 @@ bool HeapCreateEvent::PlayImpl(void* backdrop) {
       heap_backdrop->HeapCreate(options_, initial_size_, maximum_size_);
   uint64_t t1 = ::trace::common::GetTsc();
 
-  if (!live_heap) {
+  if (!live_heap && trace_heap_) {
     LOG(ERROR) << "HeapCreate failed to create a new heap.";
     return false;
   }
 
-  if (!heap_backdrop->heap_map().AddMapping(trace_heap_, live_heap))
-    return false;
+  if (live_heap) {
+    if (!trace_heap_) {
+      // No need to keep this heap.
+      heap_backdrop->HeapDestroy(live_heap);
+    } else if (!heap_backdrop->heap_map().AddMapping(trace_heap_, live_heap)) {
+      return false;
+    }
+  }
 
   heap_backdrop->UpdateStats(name(), t1 - t0);
 

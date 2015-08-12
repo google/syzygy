@@ -36,14 +36,15 @@ const SIZE_T kMaximumSize = 1000;
 
 class HeapCreateEventTest : public testing::Test {
  public:
-  HeapCreateEventTest() : heap_create_event_(kOptions,
-                                             kInitialSize,
-                                             kMaximumSize,
-                                             kTraceHeap) {}
+  HeapCreateEventTest()
+      : heap_create_event_(kOptions, kInitialSize, kMaximumSize, kTraceHeap) {}
 
-  MOCK_METHOD3(FakeCall, HANDLE(DWORD options,
-                                SIZE_T initial_size,
-                                SIZE_T maximum_size));
+  MOCK_METHOD3(FakeCall, HANDLE(DWORD, SIZE_T, SIZE_T));
+
+  void SetUp() override {
+    backdrop_.set_heap_create(
+        base::Bind(&HeapCreateEventTest::FakeCall, base::Unretained(this)));
+  }
 
  protected:
   HeapCreateEvent heap_create_event_;
@@ -53,9 +54,6 @@ class HeapCreateEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(HeapCreateEventTest, TestSuccessCall) {
-  backdrop_.set_heap_create(base::Bind(&HeapCreateEventTest::FakeCall,
-                                       base::Unretained(this)));
-
   EXPECT_CALL(*this, FakeCall(kOptions, kInitialSize, kMaximumSize))
       .WillOnce(Return(kLiveHeap));
 
@@ -67,9 +65,6 @@ TEST_F(HeapCreateEventTest, TestSuccessCall) {
 }
 
 TEST_F(HeapCreateEventTest, TestFailCall) {
-  backdrop_.set_heap_create(base::Bind(&HeapCreateEventTest::FakeCall,
-                                       base::Unretained(this)));
-
   EXPECT_CALL(*this, FakeCall(kOptions, kInitialSize, kMaximumSize))
       .WillOnce(Return(nullptr));
 
