@@ -141,6 +141,11 @@ void ValidatePointerType(TypePtr type,
   EXPECT_EQ(name, type->name());
 }
 
+const size_t kBitPosZero = 0;
+const size_t kBitLenZero = 0;
+const bool kIsConst = true;
+const bool kIsVolatile = true;
+
 }  // namespace
 
 TEST_F(PdbCrawlerTest, TestSimpleUDT) {
@@ -149,11 +154,6 @@ TEST_F(PdbCrawlerTest, TestSimpleUDT) {
   ASSERT_EQ(1U, simple_udt.size());
 
   TypePtr type = simple_udt[0];
-
-  const size_t kBitPosZero = 0;
-  const size_t kBitLenZero = 0;
-  const bool kIsConst = true;
-  const bool kIsVolatile = true;
 
   ASSERT_TRUE(type);
 
@@ -205,6 +205,33 @@ TEST_F(PdbCrawlerTest, TestSimpleUDT) {
   // Test field: unsigned short six : 5.
   ValidateField(fields[5], 14, 3, 5, !kIsConst, !kIsVolatile, L"six");
   ValidateBasicType(udt->GetFieldType(5), 2, L"uint16_t");
+}
+
+TEST_F(PdbCrawlerTest, TestUDTWithStaticMembers) {
+  std::vector<TypePtr> test_udt = FindTypesBySuffix(L"::TestAllInOneUDT");
+
+  ASSERT_EQ(1U, test_udt.size());
+
+  TypePtr type = test_udt[0];
+
+  ASSERT_TRUE(type);
+
+  EXPECT_EQ(12, type->size());
+  EXPECT_TRUE(EndsWith(type->name(), L"::TestAllInOneUDT",
+                       base::CompareCase::SENSITIVE));
+  EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  const UserDefinedType::Fields& fields = udt->fields();
+  ASSERT_EQ(1U, fields.size());
+
+  // Test field hidden behind static member.
+  ValidateField(fields[0], 8, kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile,
+                L"regular_member");
+  ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
 }
 
 TEST_F(PdbCrawlerTest, TestCollidingUDTs) {

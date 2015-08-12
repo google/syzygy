@@ -130,9 +130,12 @@ class TypeCreator {
   // @returns size for a basic type specified by its @ type.
   static size_t BasicTypeSize(uint32 type);
 
+  // @returns size of a pointer given its @p ptr type info record.
+  static size_t PointerSize(const pdb::LeafPointer& ptr);
+
   // @returns size of a member field pointer given its @p ptrmode and @p
   // ptrtype.
-  static size_t MemberPointerSize(cci::CV_pmtype ptrmode,
+  static size_t MemberPointerSize(cci::CV_pmtype pmtype,
                                   cci::CV_ptrtype ptrtype);
 
   // @returns the string of CV modifiers.
@@ -146,6 +149,9 @@ class TypeCreator {
 
   // Type info enumerator used to transverse the stream.
   pdb::TypeInfoEnumerator type_info_enum_;
+
+  // Direct access to the Pdb stream inside the type info enumerator.
+  scoped_refptr<pdb::PdbStream> stream_;
 
   // Temporary types hash.
   base::hash_map<TypeId, TempType*> temp_stash_;
@@ -163,44 +169,12 @@ class TypeCreator {
 template <>
 bool TypeCreator::ReadType<cci::LeafPointer>() {
   pdb::LeafPointer type_info;
-  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
-
-  if (!type_info.Initialize(stream.get())) {
+  if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
 
-  const cci::CV_ptrtype ptrtype =
-      static_cast<cci::CV_ptrtype>(type_info.attr().ptrtype);
-
-  size_t size = 0;
-  // Set the size of the pointer.
-  switch (type_info.attr().ptrmode) {
-    // The size of a regular pointer or reference can be deduced from its type.
-    // TODO(mopler): Investigate references.
-    case cci::CV_PTR_MODE_PTR:
-    case cci::CV_PTR_MODE_REF: {
-      if (ptrtype == cci::CV_PTR_NEAR32)
-        size = 4;
-      else if (ptrtype == cci::CV_PTR_64)
-        size = 8;
-      break;
-    }
-    // However in case of a member field pointer, its size depends on the
-    // properties of the containing class. The pointer contains extra
-    // information about the containing class.
-    case cci::CV_PTR_MODE_PMFUNC:
-    case cci::CV_PTR_MODE_PMEM: {
-      const cci::CV_pmtype pmtype =
-          static_cast<cci::CV_pmtype>(type_info.pmtype());
-      size = MemberPointerSize(pmtype, ptrtype);
-      break;
-    }
-    case cci::CV_PTR_MODE_RESERVED: {
-      // We shouldn't encounter reserved pointer mode.
-      return false;
-    }
-  }
+  size_t size = PointerSize(type_info);
 
   // Try to find the object in the repository.
   TempType* child = FindOrCreateTempType(type_info.body().utype);
@@ -241,8 +215,7 @@ bool TypeCreator::ReadType<cci::LeafPointer>() {
 template <>
 bool TypeCreator::ReadType<cci::LeafModifier>() {
   pdb::LeafModifier type_info;
-  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
-  if (!type_info.Initialize(stream.get())) {
+  if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -265,38 +238,96 @@ bool TypeCreator::ReadType<cci::LeafModifier>() {
 // Parses fieldlist from the type info stream.
 template <>
 bool TypeCreator::ReadType<cci::LeafFieldList>() {
-  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
-  size_t leaf_end = stream->pos() + type_info_enum_.len();
-
+  size_t leaf_end = stream_->pos() + type_info_enum_.len();
   UserDefinedType::Fields fieldlist;
 
-  while (stream->pos() < leaf_end) {
+  while (stream_->pos() < leaf_end) {
     uint16 leaf_type = 0;
-    if (!stream->Read(&leaf_type, 1)) {
+    if (!stream_->Read(&leaf_type, 1)) {
       LOG(ERROR) << "Unable to read the type of a list field.";
       return false;
     }
 
-    bool unsupported_field = false;
     switch (leaf_type) {
       case cci::LF_MEMBER: {
         if (!ReadMember(&fieldlist))
           return false;
         break;
       }
-      // TODO(mopler): Parse other types and remove the default.
+      // TODO(mopler): Parse these other types.
+      case cci::LF_BCLASS: {
+        pdb::LeafBClass type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_VBCLASS:
+      case cci::LF_IVBCLASS: {
+        pdb::LeafVBClass type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_ENUMERATE: {
+        pdb::LeafEnumerate type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_FRIENDFCN: {
+        pdb::LeafFriendFcn type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_STMEMBER: {
+        pdb::LeafSTMember type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_METHOD: {
+        pdb::LeafMethod type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_NESTTYPE: {
+        pdb::LeafNestType type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_VFUNCTAB: {
+        pdb::LeafVFuncTab type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_FRIENDCLS: {
+        pdb::LeafFriendCls type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_ONEMETHOD: {
+        pdb::LeafOneMethod type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
+      case cci::LF_VFUNCOFF: {
+        pdb::LeafVFuncOff type_info;
+        if (!type_info.Initialize(stream_.get()))
+          return false;
+        break;
+      }
       default: {
-        // Because we don't know the length of this member we simply insert an
-        // *ERROR* field and skip the rest of the fieldlist.
-        UserDefinedType::Field field(L"*ERROR*", 0, 0, 0, 0, 0);
-        fieldlist.push_back(field);
-        unsupported_field = true;
+        NOTREACHED();
         break;
       }
     }
-    if (unsupported_field)
-      break;
-    stream->Seek(common::AlignUp(stream->pos(), 4));
+    stream_->Seek(common::AlignUp(stream_->pos(), 4));
   }
 
   // Store fieldlist so we can use it when we stumble upon the UDT.
@@ -307,10 +338,8 @@ bool TypeCreator::ReadType<cci::LeafFieldList>() {
 // Parses classes(UDT) from the type info stream.
 template <>
 bool TypeCreator::ReadType<cci::LeafClass>() {
-  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
-
   pdb::LeafClass type_info;
-  if (!type_info.Initialize(stream.get())) {
+  if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -360,8 +389,7 @@ bool TypeCreator::ReadType<cci::LeafClass>() {
 template <>
 bool TypeCreator::ReadType<cci::LeafBitfield>() {
   pdb::LeafBitfield type_info;
-  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
-  if (!type_info.Initialize(stream.get())) {
+  if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -397,11 +425,8 @@ TypeCreator::~TypeCreator() {
 
 bool TypeCreator::ReadMember(UserDefinedType::Fields* fields) {
   DCHECK(fields);
-
-  scoped_refptr<pdb::PdbStream> stream = type_info_enum_.GetDataStream();
   pdb::LeafMember type_info;
-
-  if (!type_info.Initialize(stream.get())) {
+  if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -442,7 +467,36 @@ size_t TypeCreator::BasicTypeSize(uint32 type) {
   return 0;
 }
 
-size_t TypeCreator::MemberPointerSize(cci::CV_pmtype ptrmode,
+size_t TypeCreator::PointerSize(const pdb::LeafPointer& ptr) {
+  size_t size = 0;
+  const cci::CV_ptrtype ptrtype =
+      static_cast<cci::CV_ptrtype>(ptr.attr().ptrtype);
+  // Set the size of the pointer.
+  switch (ptr.attr().ptrmode) {
+    // The size of a regular pointer or reference can be deduced from its type.
+    // TODO(mopler): Investigate references.
+    case cci::CV_PTR_MODE_PTR:
+    case cci::CV_PTR_MODE_REF: {
+      if (ptrtype == cci::CV_PTR_NEAR32)
+        size = 4;
+      else if (ptrtype == cci::CV_PTR_64)
+        size = 8;
+      break;
+    }
+    // However in case of a member field pointer, its size depends on the
+    // properties of the containing class. The pointer contains extra
+    // information about the containing class.
+    case cci::CV_PTR_MODE_PMFUNC:
+    case cci::CV_PTR_MODE_PMEM: {
+      const cci::CV_pmtype pmtype = static_cast<cci::CV_pmtype>(ptr.pmtype());
+      size = MemberPointerSize(pmtype, ptrtype);
+      break;
+    }
+  }
+  return size;
+}
+
+size_t TypeCreator::MemberPointerSize(cci::CV_pmtype pmtype,
                                       cci::CV_ptrtype ptrtype) {
   DCHECK(ptrtype == cci::CV_PTR_NEAR32 || ptrtype == cci::CV_PTR_64);
 
@@ -450,7 +504,7 @@ size_t TypeCreator::MemberPointerSize(cci::CV_pmtype ptrmode,
   // following values have been determined experimentally. For details see
   // https://github.com/google/syzygy/wiki/MemberPointersInPdbFiles.
   if (ptrtype == cci::CV_PTR_NEAR32) {
-    switch (ptrmode) {
+    switch (pmtype) {
       case cci::CV_PMTYPE_Undef:
         return 0;
       case cci::CV_PMTYPE_D_Single:
@@ -471,7 +525,7 @@ size_t TypeCreator::MemberPointerSize(cci::CV_pmtype ptrmode,
         return 16;
     }
   } else if (ptrtype == cci::CV_PTR_64) {
-    switch (ptrmode) {
+    switch (pmtype) {
       case cci::CV_PMTYPE_Undef:
         return 0;
       case cci::CV_PMTYPE_D_Single:
@@ -493,6 +547,7 @@ size_t TypeCreator::MemberPointerSize(cci::CV_pmtype ptrmode,
     }
   }
   // It seems that VS doesn't use the other pointer types in PDB files.
+  NOTREACHED();
   return 0;
 }
 
@@ -619,6 +674,8 @@ bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
     LOG(ERROR) << "Degenerate stream with type indices in the reserved range.";
     return false;
   }
+
+  stream_ = type_info_enum_.GetDataStream();
 
   while (!type_info_enum_.EndOfStream()) {
     if (!type_info_enum_.NextTypeInfoRecord()) {

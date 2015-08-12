@@ -87,6 +87,20 @@ struct TestMemberPointersUDT {
   UnknownFunc testUnknownFuncSize;
 };
 
+struct TestAllInOneUDT : public A, virtual public B {
+  static int static_member;
+  void NonOverloadedMethod() {}
+  void OverloadedMethod() {}
+  void OverloadedMethod(int arg) {}
+  virtual void VirtualMethod() {}
+
+  struct NestedType {
+    int inner_member;
+  };
+
+  int regular_member;
+};
+
 void AliasTypesOne() {
   // Make sure the types are used in the file.
   TestCollidingUDT colliding = {};
@@ -100,6 +114,9 @@ void AliasTypesOne() {
 
   TestMemberPointersUDT member_data = {};
   Alias(&member_data);
+
+  TestAllInOneUDT all_in_one = {};
+  Alias(&all_in_one);
 }
 
 }  // namespace testing
