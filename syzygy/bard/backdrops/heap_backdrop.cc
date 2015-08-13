@@ -44,6 +44,14 @@ BOOL HeapBackdrop::HeapFree(HANDLE heap, DWORD flags, LPVOID mem) {
   return heap_free_.Run(heap, flags, mem);
 }
 
+LPVOID HeapBackdrop::HeapReAlloc(HANDLE heap,
+                                 DWORD flags,
+                                 LPVOID mem,
+                                 SIZE_T bytes) {
+  DCHECK(!heap_realloc_.is_null());
+  return heap_realloc_.Run(heap, flags, mem, bytes);
+}
+
 void HeapBackdrop::UpdateStats(std::string name, uint64_t time) {
   base::AutoLock auto_lock(lock_);
 
