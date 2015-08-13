@@ -41,7 +41,7 @@ bool HeapFreeEvent::PlayImpl(void* backdrop) {
   HeapBackdrop* heap_backdrop = reinterpret_cast<HeapBackdrop*>(backdrop);
 
   HANDLE live_heap = INVALID_HANDLE_VALUE;
-  LPVOID live_alloc = INVALID_HANDLE_VALUE;
+  LPVOID live_alloc = nullptr;
 
   if (!heap_backdrop->heap_map().GetLiveFromTrace(trace_heap_, &live_heap) ||
       !heap_backdrop->alloc_map().GetLiveFromTrace(trace_alloc_, &live_alloc)) {
