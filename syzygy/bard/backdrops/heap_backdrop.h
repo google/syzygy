@@ -45,6 +45,7 @@ class HeapBackdrop {
   using HeapDestroyCallback = Callback<BOOL(HANDLE)>;
   using HeapFreeCallback = Callback<BOOL(HANDLE, DWORD, LPVOID)>;
   using HeapReAllocCallback = Callback<LPVOID(HANDLE, DWORD, LPVOID, SIZE_T)>;
+  using HeapSizeCallback = Callback<SIZE_T(HANDLE, DWORD, LPCVOID)>;
   // @}
 
   HeapBackdrop();
@@ -65,6 +66,7 @@ class HeapBackdrop {
   BOOL HeapDestroy(HANDLE heap);
   BOOL HeapFree(HANDLE heap, DWORD flags, LPVOID mem);
   LPVOID HeapReAlloc(HANDLE heap, DWORD flags, LPVOID mem, SIZE_T bytes);
+  SIZE_T HeapSize(HANDLE heap, DWORD flags, LPCVOID mem);
   // @}
 
   // @name Heap API callback mutators.
@@ -83,6 +85,9 @@ class HeapBackdrop {
   }
   void set_heap_realloc(const HeapReAllocCallback& heap_realloc) {
     heap_realloc_ = heap_realloc;
+  }
+  void set_heap_size(const HeapSizeCallback& heap_size) {
+    heap_size_ = heap_size;
   }
   // @}
 
@@ -108,6 +113,7 @@ class HeapBackdrop {
   HeapDestroyCallback heap_destroy_;
   HeapFreeCallback heap_free_;
   HeapReAllocCallback heap_realloc_;
+  HeapSizeCallback heap_size_;
 
   TraceLiveMap<HANDLE> heap_map_;
   TraceLiveMap<LPVOID> alloc_map_;

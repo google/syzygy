@@ -52,6 +52,11 @@ LPVOID HeapBackdrop::HeapReAlloc(HANDLE heap,
   return heap_realloc_.Run(heap, flags, mem, bytes);
 }
 
+SIZE_T HeapBackdrop::HeapSize(HANDLE heap, DWORD flags, LPCVOID mem) {
+  DCHECK(!heap_size_.is_null());
+  return heap_size_.Run(heap, flags, mem);
+}
+
 void HeapBackdrop::UpdateStats(std::string name, uint64_t time) {
   base::AutoLock auto_lock(lock_);
 
