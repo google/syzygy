@@ -40,6 +40,7 @@ class HeapBackdrop {
  public:
   // @name Heap API callback signatures.
   // @{
+  using GetProcessHeapCallback = Callback<HANDLE(void)>;
   using HeapAllocCallback = Callback<LPVOID(HANDLE, DWORD, SIZE_T)>;
   using HeapCreateCallback = Callback<HANDLE(DWORD, SIZE_T, SIZE_T)>;
   using HeapDestroyCallback = Callback<BOOL(HANDLE)>;
@@ -61,6 +62,7 @@ class HeapBackdrop {
 
   // @name Heap API functions.
   // @{
+  HANDLE GetProcessHeap();
   LPVOID HeapAlloc(HANDLE heap, DWORD flags, SIZE_T bytes);
   HANDLE HeapCreate(DWORD options, SIZE_T initial_size, SIZE_T maximum_size);
   BOOL HeapDestroy(HANDLE heap);
@@ -71,6 +73,9 @@ class HeapBackdrop {
 
   // @name Heap API callback mutators.
   // @{
+  void set_get_process_heap(const GetProcessHeapCallback& get_process_heap) {
+    get_process_heap_ = get_process_heap;
+  }
   void set_heap_alloc(const HeapAllocCallback& heap_alloc) {
     heap_alloc_ = heap_alloc;
   }
@@ -108,6 +113,7 @@ class HeapBackdrop {
   };
 
   // Pointers to heap API implementation that is being evaluated.
+  GetProcessHeapCallback get_process_heap_;
   HeapAllocCallback heap_alloc_;
   HeapCreateCallback heap_create_;
   HeapDestroyCallback heap_destroy_;
