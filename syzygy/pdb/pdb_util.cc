@@ -257,16 +257,24 @@ uint16 HashString(const base::StringPiece& string) {
 }
 
 bool ReadString(PdbStream* stream, std::string* out) {
+  DCHECK(stream != NULL);
   DCHECK(out != NULL);
 
   std::string result;
-  char c = 0;
-  while (stream->Read(&c, 1)) {
-    if (c == '\0') {
-      out->swap(result);
-      return true;
+  size_t start_pos = stream->pos();
+  const size_t kBufferSize = 1024;
+  char buffer[kBufferSize];
+
+  size_t read_count = 0;
+  while (stream->Read(buffer, kBufferSize, &read_count) || read_count > 0) {
+    for (size_t i = 0; i < read_count; ++i) {
+      if (buffer[i] == '\0') {
+        out->swap(result);
+        stream->Seek(start_pos + out->size() + 1);
+        return true;
+      }
+      result.push_back(buffer[i]);
     }
-    result.push_back(c);
   }
 
   return false;

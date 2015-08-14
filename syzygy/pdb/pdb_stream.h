@@ -43,7 +43,7 @@ class PdbStream : public base::RefCounted<PdbStream> {
   // @param dest the destination array.
   // @param count the number of elements to read.
   // @param items_read pointer to receive the number of items successfully read.
-  // @returns true on success.
+  // @returns true if all @p count items are read, false otherwise.
   template <typename ItemType>
   bool Read(ItemType* dest, size_t count, size_t* items_read);
 
@@ -181,12 +181,23 @@ bool PdbStream::Read(ItemType* dest, size_t count, size_t* items_read) {
   DCHECK(dest != NULL);
   DCHECK(items_read != NULL);
 
-  size_t byte_size = sizeof(ItemType) * count;
-  if (byte_size > bytes_left())
+  size_t requested_bytes = sizeof(ItemType) * count;
+  if (requested_bytes == 0) {
+    *items_read = count;
+    return true;
+  }
+
+  size_t seviceable_bytes = requested_bytes;
+  if (requested_bytes > bytes_left()) {
+    seviceable_bytes = bytes_left() - bytes_left() % sizeof(ItemType);
+  }
+  if (seviceable_bytes == 0) {
+    *items_read = 0;
     return false;
+  }
 
   size_t bytes_read = 0;
-  bool result = ReadBytes(dest, byte_size, &bytes_read);
+  bool result = ReadBytes(dest, seviceable_bytes, &bytes_read);
   *items_read = bytes_read / sizeof(ItemType);
   return result && *items_read == count;
 }
