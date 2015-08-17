@@ -21,8 +21,6 @@
       'target_name': 'bard_lib',
       'type': 'static_library',
       'sources': [
-        'causal_link.cc',
-        'causal_link.h',
         'event.h',
         'trace_live_map.h',
         'trace_live_map_impl.h',
@@ -68,7 +66,6 @@
       'target_name': 'bard_unittests',
       'type': 'executable',
       'sources': [
-        'causal_link_unittest.cc',
         'trace_live_map_unittest.cc',
         'backdrops/heap_backdrop_unittest.cc',
         'events/get_process_heap_event_unittest.cc',

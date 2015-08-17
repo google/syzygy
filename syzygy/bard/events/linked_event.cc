@@ -17,18 +17,24 @@
 namespace bard {
 namespace events {
 
+LinkedEvent::LinkedEvent() : waitable_event_(true, false) {
+}
+
+void LinkedEvent::AddPrequel(LinkedEvent* prequel) {
+  DCHECK_NE(static_cast<LinkedEvent*>(nullptr), prequel);
+  prequels_.insert(prequel);
+}
+
 bool LinkedEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
-  for (auto& link : prequels_)
-    link->Wait();
+  for (auto& event : prequels_)
+    event->waitable_event_.Wait();
 
   if (!PlayImpl(backdrop))
     return false;
 
-  for (auto& link : sequels_)
-    link->Signal();
-
+  waitable_event_.Signal();
   return true;
 }
 

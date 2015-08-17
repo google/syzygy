@@ -19,7 +19,7 @@
 
 #include <set>
 
-#include "syzygy/bard/causal_link.h"
+#include "base/synchronization/waitable_event.h"
 #include "syzygy/bard/event.h"
 
 namespace bard {
@@ -30,25 +30,26 @@ namespace events {
 // that needs extension and implementation of PlayImpl.
 class LinkedEvent : public EventInterface {
  public:
-  LinkedEvent() {}
+  LinkedEvent();
+
+  // LinkedEvent dependencies setter.
+  void AddPrequel(LinkedEvent* prequel);
 
   // @name EventInterface implementation.
   // @{
   bool Play(void* backdrop) override;
   // @}
 
-  // Exposed for unittesting.
  protected:
   // Play method to be implemented by classes who inherit a LinkedEvent.
   virtual bool PlayImpl(void* backdrop) = 0;
 
-  // Causal links for dependency relations.
-  // The events linked by prequels must be played before this one.
-  std::set<CausalLink*> prequels_;
-  // The events linked by sequels must be played after this one.
-  std::set<CausalLink*> sequels_;
-
  private:
+  base::WaitableEvent waitable_event_;
+
+  // The prequel events must be played before this one.
+  std::set<LinkedEvent*> prequels_;
+
   DISALLOW_COPY_AND_ASSIGN(LinkedEvent);
 };
 

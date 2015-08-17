@@ -26,9 +26,6 @@ namespace {
 
 class TestLinkedEvent : public LinkedEvent {
  public:
-  using LinkedEvent::prequels_;
-  using LinkedEvent::sequels_;
-
   TestLinkedEvent() : played_(false) {}
 
   const char* name() const override { return "TestLinkedEvent"; }
@@ -83,13 +80,10 @@ class LinkedEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(LinkedEventTest, TestOneLink) {
-  CausalLink link;
-
   base::DelegateSimpleThread thread1(&runner1_, "First Thread");
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
 
-  event1_.sequels_.insert(&link);
-  event2_.prequels_.insert(&link);
+  event2_.AddPrequel(&event1_);
 
   thread2.Start();
 
@@ -98,6 +92,7 @@ TEST_F(LinkedEventTest, TestOneLink) {
 
   thread1.Start();
   thread1.Join();
+
   thread2.Join();
 
   EXPECT_TRUE(event1_.played());
@@ -105,18 +100,12 @@ TEST_F(LinkedEventTest, TestOneLink) {
 }
 
 TEST_F(LinkedEventTest, TestChainLink) {
-  CausalLink link1_2;
-  CausalLink link2_3;
-
   base::DelegateSimpleThread thread1(&runner1_, "First Thread");
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
   base::DelegateSimpleThread thread3(&runner3_, "Third Thread");
 
-  event1_.sequels_.insert(&link1_2);
-  event2_.prequels_.insert(&link1_2);
-
-  event2_.sequels_.insert(&link2_3);
-  event3_.prequels_.insert(&link2_3);
+  event2_.AddPrequel(&event1_);
+  event3_.AddPrequel(&event2_);
 
   thread3.Start();
 
@@ -141,18 +130,12 @@ TEST_F(LinkedEventTest, TestChainLink) {
 }
 
 TEST_F(LinkedEventTest, TestMultipleDependency) {
-  CausalLink link1_3;
-  CausalLink link2_3;
-
   base::DelegateSimpleThread thread1(&runner1_, "First Thread");
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
   base::DelegateSimpleThread thread3(&runner3_, "Third Thread");
 
-  event1_.sequels_.insert(&link1_3);
-  event3_.prequels_.insert(&link1_3);
-
-  event2_.sequels_.insert(&link2_3);
-  event3_.prequels_.insert(&link2_3);
+  event3_.AddPrequel(&event1_);
+  event3_.AddPrequel(&event2_);
 
   thread3.Start();
 
