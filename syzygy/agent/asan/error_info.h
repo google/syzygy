@@ -18,6 +18,9 @@
 #ifndef SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 #define SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 
+#include <utility>
+#include <vector>
+
 #include "base/callback.h"
 #include "syzygy/agent/asan/block.h"
 #include "syzygy/agent/asan/heap.h"
@@ -178,6 +181,14 @@ struct AsanErrorInfo {
   AsanFeatureSet feature_set;
 };
 
+// Helper struct that is used when calculating the range of the shadow memory
+// surrounding a point of invalid access.
+struct AsanErrorShadowMemory {
+  uintptr_t index;
+  uintptr_t address;
+  uintptr_t length;
+};
+
 // This callback allows a heap manager to report heap consistency problems that
 // it encounters during its operation. This is usually plumbed into the Asan
 // runtime so that the errors may be appropriately reported.
@@ -186,6 +197,10 @@ struct AsanErrorInfo {
 // was encountered. It is guaranteed to be on the stack.
 typedef base::Callback<void(AsanErrorInfo* asan_error_info)>
     HeapErrorCallback;
+
+// Contains pairs of address/size of data to be reported to Kasko during a
+// crash.
+typedef std::vector<std::pair<const char*, size_t>> MemoryRanges;
 
 // Returns a string describing a bad access kind.
 // @param bad_access_kind The bad access kind for which we want a textual
@@ -224,6 +239,15 @@ void ErrorInfoGetAsanBlockInfo(const Shadow* shadow,
                                StackCaptureCache* stack_cache,
                                AsanBlockInfo* asan_block_info);
 
+// Computes the range of the shadow memory surrounding the point of invalid
+// access.
+// @param shadow The shadow memory to query.
+// @param error_location The memory location where the error occured.
+// @param shadow_memory Will receive the shadow memory surrounding the error.
+void GetAsanErrorShadowMemory(const Shadow* shadow,
+                              const void* error_location,
+                              AsanErrorShadowMemory* shadow_memory);
+
 // Given a populated AsanBlockInfo struct, fills out a corresponding crashdata
 // protobuf.
 // @param shadow The shadow memory to query.
@@ -231,28 +255,37 @@ void ErrorInfoGetAsanBlockInfo(const Shadow* shadow,
 // @param include_block_contents If this is true the block contents will be
 //     explicitly included in the protobuf.
 // @param value The uninitialized protobuf value to be populated.
+// @param memory_ranges If its value is not nullptr, the address/size of
+//     relevant memory content will be appended to this variable.
 void PopulateBlockInfo(const Shadow* shadow,
                        const AsanBlockInfo& block_info,
                        bool include_block_contents,
-                       crashdata::Value* value);
+                       crashdata::Value* value,
+                       MemoryRanges* memory_ranges);
 
 // Given a populated AsanCorruptBlockRange struct, fills out a corresponding
 // crashdata protobuf.
 // @param shadow The shadow memory to query.
 // @param range The corrupt block range information.
 // @param value The uninitialized protobuf value to be populated.
+// @param memory_ranges If its value is not nullptr, the address/size of
+//     relevant memory content will be appended to this variable.
 void PopulateCorruptBlockRange(const Shadow* shadow,
                                const AsanCorruptBlockRange& range,
-                               crashdata::Value* value);
+                               crashdata::Value* value,
+                               MemoryRanges* memory_ranges);
 
 // Given a populated AsanErrorInfo struct, fills out a corresponding crashdata
 // protobuf.
 // @param shadow The shadow memory to query.
 // @param error_info The filled in error information.
 // @param value The uninitialized protobuf value to be populated.
+// @param memory_ranges If its value is not nullptr, the address/size of
+//     relevant memory content will be appended to this variable.
 void PopulateErrorInfo(const Shadow* shadow,
                        const AsanErrorInfo& error_info,
-                       crashdata::Value* value);
+                       crashdata::Value* value,
+                       MemoryRanges* memory_ranges);
 
 }  // namespace asan
 }  // namespace agent

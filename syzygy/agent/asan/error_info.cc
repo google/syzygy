@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/error_info.h"
 
+#include <string>
+
 #include "base/strings/string_util.h"
 #include "syzygy/agent/asan/block_utils.h"
 #include "syzygy/agent/asan/runtime.h"
@@ -263,6 +265,32 @@ void ErrorInfoGetAsanBlockInfo(const Shadow* shadow,
   }
 }
 
+void GetAsanErrorShadowMemory(const Shadow* shadow,
+                              const void* error_location,
+                              AsanErrorShadowMemory* shadow_memory) {
+  DCHECK_NE(static_cast<AsanErrorShadowMemory*>(nullptr), shadow_memory);
+
+  shadow_memory->index = reinterpret_cast<uintptr_t>(error_location);
+  shadow_memory->index >>= kShadowRatioLog;
+  shadow_memory->index = (shadow_memory->index / shadow->kShadowBytesPerLine) *
+                         Shadow::kShadowBytesPerLine;
+
+  uintptr_t index_min =
+      shadow_memory->index -
+      Shadow::kShadowContextLines * Shadow::kShadowBytesPerLine;
+  if (index_min > shadow_memory->index)
+    index_min = 0;
+  uintptr_t index_max =
+      shadow_memory->index +
+      Shadow::kShadowContextLines * Shadow::kShadowBytesPerLine;
+  if (index_max < shadow_memory->index)
+    index_max = 0;
+
+  shadow_memory->address =
+      reinterpret_cast<uintptr_t>(shadow->shadow() + index_min);
+  shadow_memory->length = index_max - index_min;
+}
+
 namespace {
 
 // Converts an access mode to a string.
@@ -332,7 +360,8 @@ void PopulateBlockAnalysisResult(const BlockAnalysisResult& analysis,
 void PopulateBlockInfo(const Shadow* shadow,
                        const AsanBlockInfo& block_info,
                        bool include_block_contents,
-                       crashdata::Value* value) {
+                       crashdata::Value* value,
+                       MemoryRanges* memory_ranges) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
 
@@ -387,9 +416,19 @@ void PopulateBlockInfo(const Shadow* shadow,
     crashdata::Blob* blob = crashdata::LeafGetBlob(
         crashdata::DictAddLeaf("contents", dict));
     blob->mutable_address()->set_address(CastAddress(block_info.header));
-    blob->mutable_data()->assign(
-        reinterpret_cast<const char*>(block_info.header),
-        full_block_info.block_size);
+
+    // Use memory range feature if available. Fallback on blob data.
+    if (memory_ranges) {
+      blob->set_size(full_block_info.block_size);
+
+      memory_ranges->push_back(std::pair<const char*, size_t>(
+          static_cast<const char*>(block_info.header),
+          full_block_info.block_size));
+    } else {
+      blob->mutable_data()->assign(
+          reinterpret_cast<const char*>(block_info.header),
+          full_block_info.block_size);
+    }
 
     // Copy the associated shadow memory.
     size_t shadow_index =
@@ -401,13 +440,23 @@ void PopulateBlockInfo(const Shadow* shadow,
     blob = crashdata::LeafGetBlob(
         crashdata::DictAddLeaf("shadow", dict));
     blob->mutable_address()->set_address(CastAddress(shadow_data));
-    blob->mutable_data()->assign(shadow_data, shadow_length);
+
+    // Use memory range feature if available. Fallback on blob data.
+    if (memory_ranges) {
+      blob->set_size(shadow_length);
+
+      memory_ranges->push_back(
+          std::pair<const char*, size_t>(shadow_data, shadow_length));
+    } else {
+      blob->mutable_data()->assign(shadow_data, shadow_length);
+    }
   }
 }
 
 void PopulateCorruptBlockRange(const Shadow* shadow,
                                const AsanCorruptBlockRange& range,
-                               crashdata::Value* value) {
+                               crashdata::Value* value,
+                               MemoryRanges* memory_ranges) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
 
@@ -427,8 +476,8 @@ void PopulateCorruptBlockRange(const Shadow* shadow,
     for (size_t i = 0; i < range.block_info_count; ++i) {
       if (range.block_info[i].header != nullptr)
         // Emit the block info but don't explicitly include the contents.
-        PopulateBlockInfo(
-            shadow, range.block_info[i], false, list->add_values());
+        PopulateBlockInfo(shadow, range.block_info[i], false,
+                          list->add_values(), memory_ranges);
     }
   }
 }
@@ -437,38 +486,42 @@ namespace {
 
 void PopulateShadowMemoryBlob(const Shadow* shadow,
                               const AsanErrorInfo& error_info,
-                              crashdata::Dictionary* dict) {
+                              crashdata::Dictionary* dict,
+                              MemoryRanges* memory_ranges) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
 
   // The shadow-info string can be reconstructed from information already in
   // the crash (location, block-info, access-mode, access-size), so there's no
   // need to send it. This is emitted as a blob.
-  uintptr_t index = reinterpret_cast<uintptr_t>(error_info.location);
-  index >>= kShadowRatioLog;
-  index = (index / shadow->kShadowBytesPerLine) *
-      Shadow::kShadowBytesPerLine;
-  uintptr_t index_min = index -
-      Shadow::kShadowContextLines * Shadow::kShadowBytesPerLine;
-  if (index_min > index)
-    index_min = 0;
-  uintptr_t index_max = index +
-      Shadow::kShadowContextLines * Shadow::kShadowBytesPerLine;
-  if (index_max < index)
-    index_max = 0;
-  uintptr_t length = index_max - index_min;
-  crashdata::LeafSetUInt(
-      index, crashdata::DictAddLeaf("shadow-memory-index", dict));
+  AsanErrorShadowMemory shadow_memory = {};
+  GetAsanErrorShadowMemory(shadow, error_info.location, &shadow_memory);
+
+  crashdata::LeafSetUInt(shadow_memory.index,
+                         crashdata::DictAddLeaf("shadow-memory-index", dict));
   crashdata::Blob* blob = crashdata::LeafGetBlob(
       crashdata::DictAddLeaf("shadow-memory", dict));
-  blob->mutable_data()->assign(
-      reinterpret_cast<const char*>(shadow->shadow() + index_min),
-      length);
+  blob->mutable_address()->set_address(shadow_memory.address);
+
+  // Use memory range feature if available. Fallback on blob data.
+  if (memory_ranges) {
+    blob->set_size(shadow_memory.length);
+
+    const char* data = reinterpret_cast<const char*>(shadow_memory.address);
+    memory_ranges->push_back(
+        std::pair<const char*, size_t>(data, shadow_memory.length));
+  } else {
+    blob->mutable_data()->assign(
+        reinterpret_cast<const char*>(shadow_memory.address),
+        shadow_memory.length);
+  }
 }
 
-void PopulatePageBitsBlob(const Shadow* shadow,
-                          const AsanErrorInfo& error_info,
-                          crashdata::Dictionary* dict) {
+void PopulatePageBitsBlob(
+    const Shadow* shadow,
+    const AsanErrorInfo& error_info,
+    crashdata::Dictionary* dict,
+    std::vector<std::pair<const char*, size_t>>* memory_ranges) {
   DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
 
   // Emit information about page protections surround the address in question.
@@ -483,13 +536,25 @@ void PopulatePageBitsBlob(const Shadow* shadow,
   if (index_max < index)
     index_max = 0;
   uintptr_t length = index_max - index_min;
+
   crashdata::LeafSetUInt(
       index, crashdata::DictAddLeaf("page-bits-index", dict));
-  crashdata::Blob* blob = crashdata::LeafGetBlob(
-      crashdata::DictAddLeaf("page-bits", dict));
-  blob->mutable_data()->assign(
-      reinterpret_cast<const char*>(shadow->page_bits() + index_min),
-      length);
+  crashdata::Blob* blob =
+      crashdata::LeafGetBlob(crashdata::DictAddLeaf("page-bits", dict));
+  blob->mutable_address()->set_address(
+      CastAddress(shadow->page_bits() + index_min));
+
+  // Use memory range feature if available. Fallback on blob data.
+  if (memory_ranges) {
+    blob->set_size(length);
+
+    const char* data =
+        reinterpret_cast<const char*>(shadow->page_bits() + index_min);
+    memory_ranges->push_back(std::pair<const char*, size_t>(data, length));
+  } else {
+    blob->mutable_data()->assign(
+        reinterpret_cast<const char*>(shadow->page_bits() + index_min), length);
+  }
 }
 
 void PopulateAsanParameters(const AsanErrorInfo& error_info,
@@ -548,9 +613,11 @@ void PopulateAsanParameters(const AsanErrorInfo& error_info,
 // TODO(chrisha): Only emit information that makes sense for the given error
 //                type. For example, wild-access errors have no associated
 //                block information.
-void PopulateErrorInfo(const Shadow* shadow,
-                       const AsanErrorInfo& error_info,
-                       crashdata::Value* value) {
+void PopulateErrorInfo(
+    const Shadow* shadow,
+    const AsanErrorInfo& error_info,
+    crashdata::Value* value,
+    std::vector<std::pair<const char*, size_t>>* memory_ranges) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
 
@@ -568,10 +635,9 @@ void PopulateErrorInfo(const Shadow* shadow,
     // TODO(chrisha): This decision should be made higher up the stack, and not
     // here.
     bool include_block_info = error_info.block_info.user_size < 100 * 1024;
-    PopulateBlockInfo(shadow,
-                      error_info.block_info,
-                      include_block_info,
-                      crashdata::DictAddValue("block-info", dict));
+    PopulateBlockInfo(shadow, error_info.block_info, include_block_info,
+                      crashdata::DictAddValue("block-info", dict),
+                      memory_ranges);
   }
   crashdata::LeafGetString(crashdata::DictAddLeaf("error-type", dict))
       ->assign(ErrorInfoAccessTypeToStr(error_info.error_type));
@@ -581,8 +647,8 @@ void PopulateErrorInfo(const Shadow* shadow,
   crashdata::LeafSetUInt(error_info.access_size,
                          crashdata::DictAddLeaf("access-size", dict));
 
-  PopulateShadowMemoryBlob(shadow, error_info, dict);
-  PopulatePageBitsBlob(shadow, error_info, dict);
+  PopulateShadowMemoryBlob(shadow, error_info, dict, memory_ranges);
+  PopulatePageBitsBlob(shadow, error_info, dict, memory_ranges);
 
   // Send information about corruption.
   crashdata::LeafSetUInt(error_info.heap_is_corrupt,
@@ -595,9 +661,8 @@ void PopulateErrorInfo(const Shadow* shadow,
     crashdata::List* list = crashdata::ValueGetList(
         crashdata::DictAddValue("corrupt-ranges", dict));
     for (size_t i = 0; i < error_info.corrupt_ranges_reported; ++i) {
-      PopulateCorruptBlockRange(shadow,
-                                error_info.corrupt_ranges[i],
-                                list->add_values());
+      PopulateCorruptBlockRange(shadow, error_info.corrupt_ranges[i],
+                                list->add_values(), memory_ranges);
     }
   }
   PopulateAsanParameters(error_info, dict);

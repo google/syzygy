@@ -15,6 +15,7 @@
 #include "syzygy/agent/asan/runtime.h"
 
 #include <algorithm>
+#include <utility>
 #include <vector>
 
 #include "base/bind.h"
@@ -276,23 +277,19 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
   pointers->ContextRecord = const_cast<CONTEXT*>(&error_info->context);
 }
 
-// Creates a serialized protobuf representing crash data.
-bool PopulateProtobuf(const AsanErrorInfo& error_info, std::string* protobuf) {
+// Creates a serialized protobuf representing crash data. Also populates
+// |memory_ranges| with memory contents related to the crash.
+bool PopulateProtobufAndMemoryRanges(
+    const AsanErrorInfo& error_info,
+    std::string* protobuf,
+    std::vector<std::pair<const char*, size_t>>* memory_ranges) {
   DCHECK_NE(static_cast<std::string*>(nullptr), protobuf);
   crashdata::Value value;
-  PopulateErrorInfo(AsanRuntime::runtime()->shadow(), error_info, &value);
+  PopulateErrorInfo(AsanRuntime::runtime()->shadow(), error_info, &value,
+                    memory_ranges);
   if (!value.SerializeToString(protobuf))
     return false;
   return true;
-}
-
-// This is for illustrative purposes only.
-// TODO(chrisha): Replace with real useful memory ranges.
-void GetMemoryRanges(std::vector<const void*>* base_addresses,
-                     std::vector<size_t>* range_lengths) {
-  static const char kGlobalString[] = "This is a global string.";
-  base_addresses->push_back(reinterpret_cast<const void*>(kGlobalString));
-  range_lengths->push_back(sizeof(kGlobalString));
 }
 
 // The breakpad error handler. It is expected that this will be bound in a
@@ -316,13 +313,16 @@ void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
 
   if (breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr) {
     std::string protobuf;
-    PopulateProtobuf(*error_info, &protobuf);
+    std::vector<std::pair<const char*, size_t>> memory_ranges;
+    PopulateProtobufAndMemoryRanges(*error_info, &protobuf, &memory_ranges);
+
+    // Convert the memory ranges to arrays.
     std::vector<const void*> base_addresses;
     std::vector<size_t> range_lengths;
-
-    // TODO(chrisha): insert desired ranges here.
-    GetMemoryRanges(&base_addresses, &range_lengths);
-
+    for (const auto& val : memory_ranges) {
+      base_addresses.push_back(val.first);
+      range_lengths.push_back(val.second);
+    }
     // Null-terminate these two arrays.
     base_addresses.push_back(nullptr);
     range_lengths.push_back(0);
@@ -332,7 +332,7 @@ void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
         range_lengths.data());
   } else if (breakpad_functions.report_crash_with_protobuf_ptr) {
     std::string protobuf;
-    PopulateProtobuf(*error_info, &protobuf);
+    PopulateProtobufAndMemoryRanges(*error_info, &protobuf, nullptr);
     breakpad_functions.report_crash_with_protobuf_ptr(
         &pointers, protobuf.data(), protobuf.length());
   } else {
@@ -1172,7 +1172,7 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
   if (breakpad_functions.report_crash_with_protobuf_ptr) {
     // This method is expected to terminate the process.
     std::string protobuf;
-    PopulateProtobuf(error_info, &protobuf);
+    PopulateProtobufAndMemoryRanges(error_info, &protobuf, nullptr);
     breakpad_functions.report_crash_with_protobuf_ptr(
         exception, protobuf.data(), protobuf.length());
     return EXCEPTION_CONTINUE_SEARCH;
