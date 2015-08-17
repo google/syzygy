@@ -57,6 +57,14 @@ LPVOID HeapBackdrop::HeapReAlloc(HANDLE heap,
   return heap_realloc_.Run(heap, flags, mem, bytes);
 }
 
+BOOL HeapBackdrop::HeapSetInformation(HANDLE heap,
+                                      HEAP_INFORMATION_CLASS info_class,
+                                      PVOID info,
+                                      SIZE_T info_length) {
+  DCHECK(!heap_set_information_.is_null());
+  return heap_set_information_.Run(heap, info_class, info, info_length);
+}
+
 SIZE_T HeapBackdrop::HeapSize(HANDLE heap, DWORD flags, LPCVOID mem) {
   DCHECK(!heap_size_.is_null());
   return heap_size_.Run(heap, flags, mem);
