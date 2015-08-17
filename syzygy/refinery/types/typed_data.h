@@ -42,6 +42,9 @@ class TypedData {
   // Returns true if type() a pointer.
   bool IsPointerType() const;
 
+  // Returns true if type() a pointer.
+  bool IsArrayType() const;
+
   // Retrieves a named field of the UDT.
   // @pre IsPrimitiveType() == false.
   // @param name the name of the field to retrieve.
@@ -82,6 +85,13 @@ class TypedData {
   // @param referenced_data on success contains the pointed-to data.
   // @returns true on success.
   bool Dereference(TypedData* referenced_data);
+
+  // Retrieves an array element.
+  // @pre IsArrayType() == true.
+  // @param index the zero-based index of the requested element.
+  // @param element_data on success contains the pointed-to data.
+  // @returns true on success.
+  bool GetArrayElement(size_t index, TypedData* element_data);
 
   // @name Accessors
   // @{

@@ -70,12 +70,24 @@ TypedData::TypedData(BitSource* bit_source,
 
 bool TypedData::IsPrimitiveType() const {
   DCHECK(type_);
-  return type_->kind() != Type::USER_DEFINED_TYPE_KIND;
+  switch (type_->kind()) {
+    case Type::BASIC_TYPE_KIND:
+    case Type::POINTER_TYPE_KIND:
+      return true;
+
+    default:
+      return false;
+  }
 }
 
 bool TypedData::IsPointerType() const {
   DCHECK(type_);
   return type_->kind() == Type::POINTER_TYPE_KIND;
+}
+
+bool TypedData::IsArrayType() const {
+  DCHECK(type_);
+  return type_->kind() == Type::ARRAY_TYPE_KIND;
 }
 
 bool TypedData::GetNamedField(const base::StringPiece16& name, TypedData* out) {
@@ -290,6 +302,29 @@ bool TypedData::Dereference(TypedData* referenced_data) {
 
   *referenced_data = TypedData(bit_source_, content_type,
                                AddressRange(addr, content_type->size()));
+
+  return true;
+}
+
+bool TypedData::GetArrayElement(size_t index, TypedData* element_data) {
+  DCHECK(element_data);
+  DCHECK(IsArrayType());
+  DCHECK(bit_source_);
+
+  ArrayTypePtr array_ptr;
+  if (!type_->CastTo(&array_ptr))
+    return false;
+
+  if (index >= array_ptr->num_elements())
+    return false;
+
+  TypePtr element_type = array_ptr->GetElementType();
+  if (!element_type)
+    return false;
+
+  Address element_addr = range_.addr() + index * element_type->size();
+  *element_data = TypedData(bit_source_, element_type,
+                            AddressRange(element_addr, element_type->size()));
 
   return true;
 }

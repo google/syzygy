@@ -35,9 +35,11 @@ struct TestUDT {
   const TestUDT* three;
   int32_t four : 10;
   int32_t five : 10;
+  int32_t six[10];
 };
 
-const TestUDT test_instance = {1, {2, 3}, &test_instance, 4, -5};
+const TestUDT test_instance =
+    {1, {2, 3}, &test_instance, 4, -5, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}};
 
 // A bit source that reflects the process' own memory.
 class TestBitSource : public BitSource {
@@ -146,6 +148,15 @@ class TypedDataTest : public testing::Test {
     fields.push_back(UserDefinedType::Field(
         L"five", offsetof(TestUDT, three) + sizeof(test_instance.three), 0, 10,
         10, int32_type->type_id()));
+
+    ArrayTypePtr array_type = new ArrayType(sizeof(test_instance.six));
+    array_type->Finalize(kNoTypeFlags, uint32_type->type_id(),
+                         arraysize(test_instance.six), int32_type->type_id());
+    repo_.AddType(array_type);
+
+    fields.push_back(UserDefinedType::Field(L"six", offsetof(TestUDT, six),
+                                            kNoTypeFlags, 0, 0,
+                                            array_type->type_id()));
     outer->Finalize(fields);
     repo_.AddType(outer);
 
@@ -195,6 +206,10 @@ TEST_F(TypedDataTest, GetNamedField) {
   ASSERT_TRUE(data.GetNamedField(L"five", &five));
   ASSERT_EQ(10, five.bit_pos());
   ASSERT_EQ(10, five.bit_len());
+
+  TypedData six;
+  ASSERT_TRUE(data.GetNamedField(L"six", &six));
+  ASSERT_TRUE(six.IsArrayType());
 }
 
 TEST_F(TypedDataTest, GetField) {
@@ -280,6 +295,23 @@ TEST_F(TypedDataTest, Dereference) {
   ASSERT_TRUE(derefenced.bit_source() == data.bit_source());
   ASSERT_TRUE(derefenced.type() == data.type());
   ASSERT_TRUE(derefenced.range() == data.range());
+}
+
+TEST_F(TypedDataTest, GetArrayElement) {
+  TypedData data(GetTestInstance());
+
+  TypedData array;
+  ASSERT_TRUE(data.GetNamedField(L"six", &array));
+
+  int64_t value = 0;
+  TypedData element;
+  for (size_t i = 0; i < arraysize(test_instance.six); ++i) {
+    ASSERT_TRUE(array.GetArrayElement(i, &element));
+    ASSERT_TRUE(element.GetSignedValue(&value));
+    ASSERT_EQ(test_instance.six[i], value);
+  }
+
+  ASSERT_FALSE(array.GetArrayElement(arraysize(test_instance.six), &element));
 }
 
 }  // namespace refinery
