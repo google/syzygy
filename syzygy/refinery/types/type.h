@@ -241,7 +241,7 @@ class PointerType : public Type {
   // Set the name of the pointer type.
   void SetName(const base::string16& name);
 
-  // Set the name of the pointer type.
+  // Set the decorated name of the pointer type.
   void SetDecoratedName(const base::string16& decorated_name);
 
  private:
@@ -284,6 +284,9 @@ class ArrayType : public Type {
                 TypeId element_type_id);
   // Set the name of the array type.
   void SetName(const base::string16& name);
+
+  // Set the decorated name of the array type.
+  void SetDecoratedName(const base::string16& decorated_name);
 
  private:
   // The CV qualifiers for the elements.

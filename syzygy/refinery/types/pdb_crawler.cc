@@ -14,6 +14,7 @@
 
 #include "syzygy/refinery/types/pdb_crawler.h"
 
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
@@ -62,6 +63,10 @@ class TypeCreator {
   // Parses pointer from the data stream.
   // @returns pointer to the created object.
   TypePtr ReadPointer();
+
+  // Parses array from the data stream.
+  // @returns pointer to the created object.
+  TypePtr ReadArray();
 
   // Parses modifier from the data stream.
   // @returns pointer to the object it modifies.
@@ -378,6 +383,44 @@ TypePtr TypeCreator::ReadClass() {
     udt->Finalize(fieldlist);
     return udt;
   }
+}
+
+TypePtr TypeCreator::ReadArray() {
+  pdb::LeafArray type_info;
+  if (!type_info.Initialize(stream_.get())) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return nullptr;
+  }
+
+  // Save type information.
+  TypeId type_id = type_info_enum_.type_id();
+  ArrayTypePtr array_type = new ArrayType(type_info.size());
+
+  if (!repository_->AddTypeWithId(array_type, type_id))
+    return false;
+
+  // Find the types in the repository.
+  TypePtr index_type = FindOrCreateType(type_info.body().idxtype);
+  TypePtr elem_type = FindOrCreateType(type_info.body().elemtype);
+  if (index_type == nullptr || elem_type == nullptr)
+    return false;
+
+  size_t num_elements = 0;
+  // TODO(mopler): Once we load everything test against the size not being zero.
+  if (elem_type->size() != 0)
+    num_elements = type_info.size() / elem_type->size();
+
+  base::string16 name = GetName(type_info.body().elemtype);
+  base::string16 decorated_name = GetDecoratedName(type_info.body().elemtype);
+  base::StringAppendF(&name, L"[%d]", num_elements);
+  base::StringAppendF(&decorated_name, L"[%d]", num_elements);
+
+  array_type->SetName(name);
+  array_type->SetDecoratedName(decorated_name);
+  array_type->Finalize(GetFlags(type_info.body().elemtype),
+                       index_type->type_id(), num_elements,
+                       elem_type->type_id());
+  return array_type;
 }
 
 TypePtr TypeCreator::ReadBitfield() {
@@ -734,6 +777,9 @@ TypePtr TypeCreator::CreateType(TypeId type_index) {
     }
     case cci::LF_POINTER: {
       return ReadPointer();
+    }
+    case cci::LF_ARRAY: {
+      return ReadArray();
     }
     case cci::LF_MODIFIER: {
       return ReadModifier();

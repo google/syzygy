@@ -69,6 +69,31 @@ class PdbTypeInfoRecordsTest : public testing::Test {
 
 }  // namespace
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafArray) {
+  const uint32_t kElemType = 0x1918;
+  const uint32_t kIndexType = 0x1989;
+  const uint64_t kSize = 0x101101;
+  const wchar_t kName[] = L"TestArrayName";
+
+  LeafArray type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kElemType);
+  WriteData(kIndexType);
+  WriteUnsignedNumeric(kSize);
+  WriteWideString(kName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kElemType, type_record.body().elemtype);
+  EXPECT_EQ(kIndexType, type_record.body().idxtype);
+  EXPECT_EQ(kSize, type_record.size());
+  EXPECT_EQ(kName, type_record.name());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafBClass) {
   const uint32_t kType = 0x1492;
   const LeafMemberAttributeField kAttr = {0xABBA};
@@ -121,8 +146,8 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
   const uint32_t kDerived = 0x65A2;
   const uint32_t kVshape = 0x1234AB;
   const uint64_t kSize = 0xA0;
-  const base::string16 kName = L"TestClassName";
-  const base::string16 kDecoratedName = L"TestClassName@@decoration";
+  const wchar_t kName[] = L"TestClassName";
+  const wchar_t kDecoratedName[] = L"TestClassName@@decoration";
 
   LeafClass type_record;
 
@@ -155,7 +180,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafEnumerate) {
   const LeafMemberAttributeField kAttr = {0x1989};
   const uint64_t kValue = 0x8BADF00D;
-  const base::string16 kName = L"enumName@@test";
+  const wchar_t kName[] = L"enumName@@test";
 
   LeafEnumerate type_record;
 
@@ -196,7 +221,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafFriendCls) {
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafFriendFcn) {
   const uint16_t kPad = 0x0000;
   const uint32_t kType = 0x1918;
-  const base::string16 kName = L"friendFunctionName@@test";
+  const wchar_t kName[] = L"friendFunctionName@@test";
 
   LeafFriendFcn type_record;
 
@@ -219,7 +244,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
   const uint32_t kType = 0x1993;
   const LeafMemberAttributeField kAttr = {0x12A5};
   const uint64_t kOffset = 0xA205B064;
-  const base::string16 kName = L"memberName@@test";
+  const wchar_t kName[] = L"memberName@@test";
 
   LeafMember type_record;
 
@@ -243,7 +268,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafMethod) {
   const uint16_t kCount = 1348;
   const uint32_t kMlist = 0xBADDCAFE;
-  const base::string16 kName = L"methodName@@test";
+  const wchar_t kName[] = L"methodName@@test";
 
   LeafMethod type_record;
 
@@ -284,7 +309,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafModifier) {
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafNestType) {
   const LeafMemberAttributeField kAttr = {0xAC1D};
   const uint32_t kType = 0x1A11;
-  const base::string16 kName = L"nestTypeName@@test";
+  const wchar_t kName[] = L"nestTypeName@@test";
 
   LeafNestType type_record;
 
@@ -307,7 +332,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafOneMethod) {
   const LeafMemberAttributeField kAttr = {0x1212};
   const uint32_t kType = 0xD15EA5E;
   const uint32_t kVbaseOff = 0x10051936;
-  const base::string16 kName = L"oneMethodName@@test";
+  const wchar_t kName[] = L"oneMethodName@@test";
 
   EXPECT_EQ(kAttr.mprop, Microsoft_Cci_Pdb::CV_MTintro);
 
@@ -382,7 +407,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMemberPointer) {
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafSTMember) {
   const uint32_t kType = 0xD15EA5E0;
   const LeafMemberAttributeField kAttr = {0x12A5};
-  const base::string16 kName = L"staticMemberName@@test";
+  const wchar_t kName[] = L"staticMemberName@@test";
 
   LeafSTMember type_record;
 

@@ -257,6 +257,7 @@ TEST_F(TypesTest, ArrayType) {
   array->Finalize(Type::FLAG_CONST, kIntTypeId, 10, kPtrTypeId);
   ASSERT_EQ(L"", array->name());
   array->SetName(L"ArrayName");
+  array->SetDecoratedName(L"decorated@@ArrayName");
 
   ASSERT_EQ(kIntTypeId, array->index_type_id());
   ASSERT_EQ(10, array->num_elements());
@@ -265,6 +266,7 @@ TEST_F(TypesTest, ArrayType) {
   ASSERT_EQ(ptr_type, array->GetElementType());
   ASSERT_EQ(ptr_type, array->GetElementType());
   ASSERT_EQ(L"ArrayName", array->name());
+  ASSERT_EQ(L"decorated@@ArrayName", array->decorated_name());
   ASSERT_FALSE(array->is_volatile());
 }
 

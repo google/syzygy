@@ -171,7 +171,13 @@ void ArrayType::Finalize(Flags flags,
 }
 
 void ArrayType::SetName(const base::string16& name) {
+  DCHECK_EQ(L"", name_);
   name_ = name;
+}
+
+void ArrayType::SetDecoratedName(const base::string16& decorated_name) {
+  DCHECK_EQ(L"", decorated_name_);
+  decorated_name_ = decorated_name;
 }
 
 WildcardType::WildcardType(const base::string16& name, size_t size)

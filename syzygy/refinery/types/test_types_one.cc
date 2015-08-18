@@ -22,6 +22,7 @@ namespace {
 
 // Set the important sizes.
 REGISTER_SIZEOF(Pointer, void*);
+REGISTER_SIZEOF(IndexingType, size_t);
 
 // This type is declared in the anonymous namespace to allow "colliding" on
 // the type name from another compilation unit.

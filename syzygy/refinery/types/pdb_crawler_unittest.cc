@@ -18,6 +18,7 @@
 #include "base/debug/alias.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_util.h"
+#include "base/strings/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
@@ -173,6 +174,22 @@ void ValidatePointerType(TypePtr type,
   EXPECT_EQ(is_const, ptr->is_const());
   EXPECT_EQ(is_volatile, ptr->is_volatile());
   EXPECT_EQ(size, type->size());
+  EXPECT_EQ(name, type->name());
+}
+
+void ValidateArrayType(TypePtr type,
+                       bool is_const,
+                       bool is_volatile,
+                       size_t size,
+                       size_t num_elements,
+                       const base::string16& name) {
+  EXPECT_EQ(Type::ARRAY_TYPE_KIND, type->kind());
+  ArrayTypePtr array_type;
+  ASSERT_TRUE(type->CastTo(&array_type));
+  EXPECT_EQ(is_const, array_type->is_const());
+  EXPECT_EQ(is_volatile, array_type->is_volatile());
+  EXPECT_EQ(size, type->size());
+  EXPECT_EQ(num_elements, array_type->num_elements());
   EXPECT_EQ(name, type->name());
 }
 
@@ -365,6 +382,56 @@ TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
         LookupSizeOf(member_name.substr(strlen("test"), base::string16::npos)),
         pointer->size());
   }
+}
+
+TEST_P(PdbCrawlerTest, TestArray) {
+  std::vector<TypePtr> type_vector = FindTypesBySuffix(L"::TestArrays");
+  ASSERT_EQ(1U, type_vector.size());
+
+  TypePtr type = type_vector[0];
+  ASSERT_TRUE(type);
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  ASSERT_EQ(2U, udt->fields().size());
+
+  ArrayTypePtr int_array;
+  ASSERT_TRUE(udt->GetFieldType(0)->CastTo(&int_array));
+  ASSERT_TRUE(int_array);
+
+  ValidateArrayType(int_array, kIsConst, !kIsVolatile, sizeof(int32_t) * 30, 30,
+                    L"int32_t const[30]");
+
+  TypePtr index_type = int_array->GetIndexType();
+
+  const size_t kIndexTypeSize = LookupSizeOf(L"IndexingType");
+  const base::string16 kIndexTypeName =
+      base::StringPrintf(L"uint%d_t", kIndexTypeSize * 8);
+
+  ValidateBasicType(index_type, kIndexTypeSize, kIndexTypeName);
+
+  TypePtr element_type = int_array->GetElementType();
+  ValidateBasicType(element_type, sizeof(int32_t), L"int32_t");
+
+  PointerTypePtr array_ptr;
+  ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&array_ptr));
+
+  ArrayTypePtr ptr_array;
+  ASSERT_TRUE(array_ptr->GetContentType()->CastTo(&ptr_array));
+
+  ValidateArrayType(ptr_array, !kIsConst, kIsVolatile,
+                    LookupSizeOf(L"Pointer") * 32, 32,
+                    L"testing::TestRecursiveUDT* volatile[32]");
+
+  index_type = ptr_array->GetIndexType();
+  ValidateBasicType(index_type, kIndexTypeSize, kIndexTypeName);
+
+  element_type = ptr_array->GetElementType();
+  ValidatePointerType(element_type, !kIsConst, !kIsVolatile,
+                      LookupSizeOf(L"Pointer"), L"testing::TestRecursiveUDT*");
+  EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
 }
 
 // Run both the 32-bit and 64-bit tests.

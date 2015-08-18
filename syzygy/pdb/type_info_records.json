@@ -1,6 +1,20 @@
 {
   "structs": [
     {
+      "name": "LeafArray",
+      "first_extra_field": "data",
+      "extra_fields": [
+        {
+          "name": "size",
+          "type_name": "UnsignedNumeric"
+        },
+        {
+          "name": "name",
+          "type_name": "WideString"
+        }
+      ]
+    },
+    {
       "name": "LeafBClass",
       "first_extra_field": "offset",
       "extra_fields": [

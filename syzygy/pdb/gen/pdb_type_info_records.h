@@ -26,6 +26,31 @@ namespace pdb {
 // Forward declaration.
 class PdbStream;
 
+class LeafArray {
+ public:
+  LeafArray();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafArray& body() const { return body_; }
+  uint64_t size() const { return size_; }
+  const base::string16& name() const { return name_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafArray body_;
+
+  // Additional fields parsed from the pdb stream.
+  uint64_t size_;
+  base::string16 name_;
+};
+
 class LeafBClass {
  public:
   LeafBClass();
