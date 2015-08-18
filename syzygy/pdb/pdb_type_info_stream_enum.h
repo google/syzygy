@@ -46,9 +46,18 @@ class TypeInfoEnumerator {
   // @returns true on success, false on failure.
   bool NextTypeInfoRecord();
 
+  // Moves position to the desired type id.
+  // @param type index of the desired record.
+  // @returns true on success, false on failure.
+  bool SeekRecord(uint32_t type_id);
+
   // Checks if the end of stream was reached.
   // @returns true at the end of the stream, false otherwise.
   bool EndOfStream();
+
+  // Resets stream to its beginning.
+  // @returns true on success, false on failure.
+  bool ResetStream();
 
   // @returns the data stream for the current type record. After calling
   // NextTypeInfoRecord the stream gets populated with the data of the next
@@ -79,6 +88,14 @@ class TypeInfoEnumerator {
 
   // Header of the type info stream.
   TypeInfoHeader type_info_header_;
+
+  // Map of the positions of records.
+  base::hash_map<uint32_t, size_t> start_positions_;
+
+  // The largest type index we already saved in the start_positions_ map. Every
+  // time we seek beyond this record we simply load records one by one and save
+  // their starting positions in the map.
+  uint32_t largest_encountered_id_;
 
   // Stream containing data of the current type info record.
   scoped_refptr<PdbByteStream> data_stream_;

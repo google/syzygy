@@ -22,51 +22,19 @@
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/type_repository.h"
 
-// Declaration of struct used for the unknown records. This is needed because
-// the macro LEAF_CASE_TABLE in ParseType generates call to Reader<UnknownLeaf>
-// in some cases. But the CVInfo.h header has no declaration of this struct
-// which would prevent the compilation.
-namespace Microsoft_Cci_Pdb {
-struct UnknownLeaf;
-}
-
 namespace refinery {
 
 namespace {
 
 namespace cci = Microsoft_Cci_Pdb;
 
-struct TempType {
-  TempType(const base::string16& name_in,
-           const base::string16& decorated_name_in,
-           TypeId type_id_in,
-           Type::Flags flags_in)
-      : name(name_in),
-        decorated_name(decorated_name_in),
-        type_id(type_id_in),
-        flags(flags_in),
-        bit_pos(0),
-        bit_len(0) {}
-
-  // Sets the bitfield properties if the type is a bitfield.
-  // @p bit_pos_in if this field is a bitfield, this is the bit position.
-  // @p bit_len_in if this field is a bitfield, this is the bit length.
-  void FinalizeBitfield(size_t bit_pos_in, size_t bit_len_in) {
-    bit_pos = bit_pos_in;
-    bit_len = bit_len_in;
-  }
-
-  bool is_const() const { return (flags & Type::FLAG_CONST) != 0; }
-  bool is_volatile() const { return (flags & Type::FLAG_VOLATILE) != 0; }
-
+// This struct is used to store and pass around additional information that
+// cannot be put straight in the type repository. Main two purposes are to
+// propagate CV modifiers from children to parents and to store information from
+// records that do not get translated to the type repository (e.g. LF_MODIFIER).
+struct ExtraTypeProperties {
   // CV flags.
   Type::Flags flags;
-
-  // Name of the type.
-  base::string16 name;
-
-  // Decorated name of the type.
-  base::string16 decorated_name;
 
   // If this type is a bitfield, this is the bit position.
   size_t bit_pos : 6;
@@ -87,48 +55,93 @@ class TypeCreator {
   bool CreateTypes(scoped_refptr<pdb::PdbStream> stream);
 
  private:
-  // Parses current type info record given its type.
-  // @param type_creator pointer to the TypeCreator object which called this
-  //   function.
-  // @returns true on success, false on failure.
-  template <typename T>
-  bool ReadType() {
-    return true;
-  }
+  // Parses class from the data stream.
+  // @returns pointer to the created object.
+  TypePtr ReadClass();
 
-  // Parses a member field from the data stream and inserts it into the @p
-  // fields vector.
+  // Parses pointer from the data stream.
+  // @returns pointer to the created object.
+  TypePtr ReadPointer();
+
+  // Parses modifier from the data stream.
+  // @returns pointer to the object it modifies.
+  TypePtr ReadModifier();
+
+  // Parses bitfield from the data stream.
+  // @returns pointer to the underlying object type.
+  TypePtr ReadBitfield();
+
+  // Parses a member field from the @p stream and inserts it into the @p fields
+  // vector.
   // @returns true on success, false on failure.
-  bool ReadMember(UserDefinedType::Fields* fields);
+  bool ReadMember(pdb::PdbStream* stream, UserDefinedType::Fields* fields);
+
+  // Parses fieldlist from the data stream and populates the given @p object.
+  // @returns true on success, false on failure.
+  bool ReadFieldlist(UserDefinedType::Fields* fields);
 
   // Parses type given by a type from the PDB type info stream.
+  // @returns pointer to the created object.
+  TypePtr CreateType(TypeId type_index);
+
+  // Creates a basic type object given its @p type_index.
+  // @returns pointer to the created object.
+  TypePtr CreateBasicType(TypeId type_index);
+
+  // The following functions return values of the record with the given type id.
+  // In case the temporary record is missing we assume identity mapping and no
+  // flags.
+
+  // @returns CV flags of the record with @p type index.
+  Type::Flags GetFlags(TypeId type_index);
+
+  // @returns bit position of the record with @p type index.
+  size_t GetBitPosition(TypeId type_index);
+
+  // @returns bit length of the record with @p type index.
+  size_t GetBitLength(TypeId type_index);
+
+  // @returns name of the record with @p type index.
+  base::string16 GetName(TypeId type_index);
+
+  // @returns name of the record with @p type index.
+  base::string16 GetDecoratedName(TypeId type_index);
+
+  // @returns type index of the first type record in the repository lying under
+  // the record with @p type index.
+  size_t GetTypeId(TypeId type_index);
+
+  // Does a first pass through the stream making the map of type indices for
+  // UDT and saves indices of all types that will get translated to the type
+  // repo.
   // @returns true on success, false on failure.
-  bool ParseType(uint16_t type);
+  bool PrepareData();
 
   // Checks if type object referenced by @p type_index exists. If it references
   // a basic type it creates one when needed.
   // @returns pointer to the type object.
-  TempType* FindOrCreateTempType(TypeId type_index);
+  TypePtr FindOrCreateType(TypeId type_index);
 
-  // Creates a basic type object given its @p type_index (when needed).
-  // @returns pointer to the type object.
-  TempType* CreateBasicType(TypeId type_index);
+  // Saves additional type info in the temporary stash.
+  // @p type_index of the type, @p type index of the underlying type and @p
+  // flags.
+  void SaveTypeInfo(TypeId type_index, TypeId type_id, Type::Flags flags);
 
-  // Adds temporary type to the temporary hash.
-  // @p type_index of the type, @p its name, @p decorated_name, @p type index
-  // of the underlying type and @p flags.
-  // @returns pointer to the created object.
-  TempType* AddTempType(TypeId type_index,
-                        const base::string16& name,
-                        const base::string16& decorated_name,
-                        TypeId type_id,
-                        Type::Flags flags);
+  // Saves additional bitfield type info in the temporary stash.
+  // @p bit_pos_in if this field is a bitfield, this is the bit position.
+  // @p bit_len_in if this field is a bitfield, this is the bit length.
+  void SaveBitfieldInfo(TypeId type_index,
+                        size_t bit_pos_in,
+                        size_t bit_len_in);
 
-  // @returns name for a basic type specified by its @ type.
-  static base::string16 BasicTypeName(uint32 type);
+  // @returns name for a basic type specified by its @p type.
+  static base::string16 BasicTypeName(uint32_t type);
 
-  // @returns size for a basic type specified by its @ type.
-  static size_t BasicTypeSize(uint32 type);
+  // @returns size for a basic type specified by its @p type.
+  static size_t BasicTypeSize(uint32_t type);
+
+  // @returns name for a leaf specified by its @p type.
+  static base::string16 LeafTypeName(uint16_t type);
 
   // @returns size of a pointer given its @p ptr type info record.
   static size_t PointerSize(const pdb::LeafPointer& ptr);
@@ -144,6 +157,14 @@ class TypeCreator {
   // @returns the CV_prmode of the given basic type index.
   static cci::CV_prmode TypeIndexToPrMode(TypeId type_index);
 
+  // @returns type flags given if the type @p is_const or @p is_volatile.
+  static Type::Flags CreateTypeFlags(bool is_const, bool is_volatile);
+
+  // @returns true if this type gets directly translated to type repository.
+  // We use this function from the outer loop to check whether to launch
+  // recursion on this type.
+  static bool IsImportantType(uint32_t type);
+
   // Pointer to a type info repository.
   TypeRepository* repository_;
 
@@ -153,172 +174,155 @@ class TypeCreator {
   // Direct access to the Pdb stream inside the type info enumerator.
   scoped_refptr<pdb::PdbStream> stream_;
 
-  // Temporary types hash.
-  base::hash_map<TypeId, TempType*> temp_stash_;
+  // Hash to store the additional type information. Indexed by the type index
+  // from the PDB stream.
+  base::hash_map<TypeId, ExtraTypeProperties> temp_stash_;
 
-  // Temporary fieldlist hash.
-  base::hash_map<TypeId, UserDefinedType::Fields> fieldlists_;
-
-  // Hash to find the forward declaration for UDT. Key is the decorated name
-  // and value is type index of the forward declaration. The UDT type is then
-  // created with the forward declaration index.
+  // Hash to map forward references to the right UDT records. For each unique
+  // decorated name of an UDT, it contains type index of the class definition.
   base::hash_map<base::string16, TypeId> udt_map;
+
+  // Vector of records to process.
+  std::vector<TypeId> records_to_process_;
 };
 
-// Parses pointers from the type info stream.
-template <>
-bool TypeCreator::ReadType<cci::LeafPointer>() {
+TypePtr TypeCreator::ReadPointer() {
   pdb::LeafPointer type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
-    return false;
+    return nullptr;
   }
 
+  // Save type information.
+  TypeId type_id = type_info_enum_.type_id();
   size_t size = PointerSize(type_info);
+  PointerTypePtr created = new PointerType(size);
+  Type::Flags flags =
+      CreateTypeFlags(type_info.attr().isconst, type_info.attr().isvolatile);
+
+  SaveTypeInfo(type_id, type_id, flags);
+  if (!repository_->AddTypeWithId(created, type_id))
+    return nullptr;
 
   // Try to find the object in the repository.
-  TempType* child = FindOrCreateTempType(type_info.body().utype);
-  if (child == nullptr)
-    return false;
+  TypePtr pointee = FindOrCreateType(type_info.body().utype);
+  if (pointee == nullptr)
+    return nullptr;
 
   // TODO(mopler): Different names for member data and member function pointers.
-  base::string16 name = child->name + L"*";
-  base::string16 decorated_name = child->decorated_name + L"*";
-  TypeId type_id = type_info_enum_.type_id();
-
-  Type::Flags flags = kNoTypeFlags;
-  if (type_info.attr().isconst)
-    flags |= Type::FLAG_CONST;
-  if (type_info.attr().isvolatile)
-    flags |= Type::FLAG_VOLATILE;
-
-  name += GetCVMod(flags);
-  decorated_name += GetCVMod(flags);
-
-  PointerTypePtr created =
-      new PointerType(child->name + L"*", child->decorated_name + L"*", size);
+  created->SetName(GetName(type_info.body().utype) + L"*");
+  created->SetDecoratedName(GetDecoratedName(type_info.body().utype) + L"*");
 
   // Setting the flags from the child node - this is needed because of
   // different semantics between PDB file and Type interface. In PDB pointer
   // has a const flag when it's const, while here pointer has a const flag if
   // it points to a const type.
-  created->Finalize(child->flags, child->type_id);
-
-  repository_->AddTypeWithId(created, type_id);
-
-  // Add to temporary stash
-  AddTempType(type_info_enum_.type_id(), name, decorated_name, type_id, flags);
-  return true;
+  created->Finalize(GetFlags(type_info.body().utype), pointee->type_id());
+  return created;
 }
 
-// Parses modifiers from the type info stream.
-template <>
-bool TypeCreator::ReadType<cci::LeafModifier>() {
+TypePtr TypeCreator::ReadModifier() {
   pdb::LeafModifier type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
-    return false;
+    return nullptr;
   }
 
-  TempType* child = FindOrCreateTempType(type_info.body().type);
+  TypePtr child = FindOrCreateType(type_info.body().type);
   if (child == nullptr)
-    return false;
+    return nullptr;
 
-  Type::Flags flags = kNoTypeFlags;
-  if (type_info.attr().mod_const)
-    flags |= Type::FLAG_CONST;
-  if (type_info.attr().mod_volatile)
-    flags |= Type::FLAG_VOLATILE;
-
-  AddTempType(type_info_enum_.type_id(), child->name + GetCVMod(flags),
-              child->decorated_name + GetCVMod(flags), child->type_id, flags);
-  return true;
+  SaveTypeInfo(type_info_enum_.type_id(), child->type_id(),
+               CreateTypeFlags(type_info.attr().mod_const,
+                               type_info.attr().mod_volatile));
+  return child;
 }
 
-// Parses fieldlist from the type info stream.
-template <>
-bool TypeCreator::ReadType<cci::LeafFieldList>() {
+bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fieldlist) {
   size_t leaf_end = stream_->pos() + type_info_enum_.len();
-  UserDefinedType::Fields fieldlist;
 
-  while (stream_->pos() < leaf_end) {
+  // Make our local copy of the data. This is necessary to avoid clutter with
+  // deeper levels of recursion.
+  scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream());
+  stream->Init(stream_.get());
+
+  while (stream->pos() < leaf_end) {
     uint16 leaf_type = 0;
-    if (!stream_->Read(&leaf_type, 1)) {
+    if (!stream->Read(&leaf_type, 1)) {
       LOG(ERROR) << "Unable to read the type of a list field.";
       return false;
     }
 
     switch (leaf_type) {
       case cci::LF_MEMBER: {
-        if (!ReadMember(&fieldlist))
+        if (!ReadMember(stream.get(), fieldlist))
           return false;
         break;
       }
-      // TODO(mopler): Parse these other types.
       case cci::LF_BCLASS: {
         pdb::LeafBClass type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_VBCLASS:
       case cci::LF_IVBCLASS: {
         pdb::LeafVBClass type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_ENUMERATE: {
         pdb::LeafEnumerate type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_FRIENDFCN: {
         pdb::LeafFriendFcn type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_STMEMBER: {
         pdb::LeafSTMember type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_METHOD: {
         pdb::LeafMethod type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_NESTTYPE: {
         pdb::LeafNestType type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_VFUNCTAB: {
         pdb::LeafVFuncTab type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_FRIENDCLS: {
         pdb::LeafFriendCls type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_ONEMETHOD: {
         pdb::LeafOneMethod type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
       case cci::LF_VFUNCOFF: {
         pdb::LeafVFuncOff type_info;
-        if (!type_info.Initialize(stream_.get()))
+        if (!type_info.Initialize(stream.get()))
           return false;
         break;
       }
@@ -327,121 +331,109 @@ bool TypeCreator::ReadType<cci::LeafFieldList>() {
         break;
       }
     }
-    stream_->Seek(common::AlignUp(stream_->pos(), 4));
+    // Find where we ended.
+    stream->Seek(common::AlignUp(stream->pos(), 4));
   }
-
-  // Store fieldlist so we can use it when we stumble upon the UDT.
-  fieldlists_.insert(std::make_pair(type_info_enum_.type_id(), fieldlist));
   return true;
 }
 
-// Parses classes(UDT) from the type info stream.
-template <>
-bool TypeCreator::ReadType<cci::LeafClass>() {
+TypePtr TypeCreator::ReadClass() {
   pdb::LeafClass type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
-    return false;
+    return nullptr;
   }
 
   TypeId type_id = type_info_enum_.type_id();
 
   if (type_info.property().fwdref) {
-    // Insert forward declaration in the hash.
-    if (!udt_map.insert(std::make_pair(type_info.decorated_name(), type_id))
-             .second) {
-      // Second forward declaration of the same type should not appear.
-      LOG(ERROR) << "Encountered second forward declaration of the same type";
-      return false;
+    // Find the type index of the class.
+    auto real_class_id = udt_map.find(type_info.decorated_name());
+    if (real_class_id == udt_map.end()) {
+      // This is a forward reference without real class record.
+      // TODO(mopler): Add forward declaration flag in the UDT type.
+      UserDefinedTypePtr udt = new UserDefinedType(
+          type_info.name(), type_info.decorated_name(), type_info.size());
+      if (!repository_->AddTypeWithId(udt, type_id))
+        return nullptr;
+      return udt;
     }
+
+    SaveTypeInfo(type_id, real_class_id->second, kNoTypeFlags);
+
+    // Force parsing of the class.
+    return FindOrCreateType(real_class_id->second);
   } else {
-    // Try to find a forward declaration of this class.
-    auto fwd = udt_map.find(type_info.decorated_name());
-    // If the forward declaration exists we want to use its type index so the
-    // structures referencing the declaration are pointing at the UDT itself.
-    if (fwd != udt_map.end())
-      type_id = fwd->second;
-
     // Create UDT of the class and find its fieldlist.
-    UserDefinedTypePtr created = new UserDefinedType(
+    UserDefinedTypePtr udt = new UserDefinedType(
         type_info.name(), type_info.decorated_name(), type_info.size());
+    if (!repository_->AddTypeWithId(udt, type_id))
+      return nullptr;
 
-    auto flist_it = fieldlists_.find(type_info.body().field);
-    if (flist_it == fieldlists_.end()) {
-      LOG(ERROR) << "Wrong reference to a field list.";
+    UserDefinedType::Fields fieldlist;
+    if (!type_info_enum_.SeekRecord(type_info.body().field) ||
+        !ReadFieldlist(&fieldlist))
       return false;
-    } else {
-      created->Finalize(flist_it->second);
 
-      // TODO(mopler): multiple definitions will cause trouble here. They
-      // should appear only when incrementally linking stuff.
-      bool inserted = repository_->AddTypeWithId(created, type_id);
-      DCHECK(inserted);
-    }
+    udt->Finalize(fieldlist);
+    return udt;
   }
-
-  AddTempType(type_info_enum_.type_id(), type_info.name(),
-              type_info.decorated_name(), type_id, kNoTypeFlags);
-  return true;
 }
 
-// Parses bitfields from the type info stream.
-template <>
-bool TypeCreator::ReadType<cci::LeafBitfield>() {
+TypePtr TypeCreator::ReadBitfield() {
   pdb::LeafBitfield type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
-    return false;
+    return nullptr;
   }
 
   const size_t kMaxBitfieldValue = 63;
   if (type_info.body().position > kMaxBitfieldValue ||
       type_info.body().length > kMaxBitfieldValue) {
     LOG(ERROR) << "The bit position or length of bitfield is too large.";
-    return false;
+    return nullptr;
   }
 
-  TempType* child = FindOrCreateTempType(type_info.body().type);
+  TypePtr child = FindOrCreateType(type_info.body().type);
   if (child == nullptr)
-    return false;
+    return nullptr;
 
-  TempType* inserted = AddTempType(type_info_enum_.type_id(), L"", L"",
-                                   child->type_id, child->flags);
-  inserted->FinalizeBitfield(type_info.body().position,
-                             type_info.body().length);
-  return true;
+  Type::Flags child_flags = GetFlags(type_info.body().type);
+  SaveTypeInfo(type_info_enum_.type_id(), child->type_id(), child_flags);
+  SaveBitfieldInfo(type_info_enum_.type_id(), type_info.body().position,
+                   type_info.body().length);
+  return child;
 }
-
-// TODO(mopler): Add template specialization for more leaves.
 
 TypeCreator::TypeCreator(TypeRepository* repository) : repository_(repository) {
   DCHECK(repository);
 }
 
 TypeCreator::~TypeCreator() {
-  for (auto it = temp_stash_.begin(); it != temp_stash_.end(); ++it)
-    delete it->second;
 }
 
-bool TypeCreator::ReadMember(UserDefinedType::Fields* fields) {
+bool TypeCreator::ReadMember(pdb::PdbStream* stream,
+                             UserDefinedType::Fields* fields) {
   DCHECK(fields);
   pdb::LeafMember type_info;
-  if (!type_info.Initialize(stream_.get())) {
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
 
   // TODO(mopler): Should we store the access protection and other info?
 
-  TempType* child = FindOrCreateTempType(type_info.body().index);
+  // Get the member info.
+  TypeId type_id = type_info.body().index;
+  TypePtr child = FindOrCreateType(type_id);
   if (child == nullptr) {
     LOG(ERROR) << "Found member referencing unknown type index.";
     return false;
   }
 
-  fields->push_back(UserDefinedType::Field(type_info.name(), type_info.offset(),
-                                           child->flags, child->bit_pos,
-                                           child->bit_len, child->type_id));
+  fields->push_back(UserDefinedType::Field(
+      type_info.name(), type_info.offset(), GetFlags(type_id),
+      GetBitPosition(type_id), GetBitLength(type_id), child->type_id()));
   return true;
 }
 
@@ -465,6 +457,20 @@ size_t TypeCreator::BasicTypeSize(uint32 type) {
 #undef SPECIAL_TYPE_NAME
   }
   return 0;
+}
+
+base::string16 TypeCreator::LeafTypeName(uint16_t leaf_type) {
+  switch (leaf_type) {
+// Just return the name of the enum.
+#define LEAF_TYPE_NAME(record_type, unused) \
+  case cci::record_type: {                  \
+    return L#record_type;                   \
+  }
+    LEAF_CASE_TABLE(LEAF_TYPE_NAME)
+#undef LEAF_TYPE_NAME
+    default:
+      return L"LeafUnknown";
+  }
 }
 
 size_t TypeCreator::PointerSize(const pdb::LeafPointer& ptr) {
@@ -551,6 +557,17 @@ size_t TypeCreator::MemberPointerSize(cci::CV_pmtype pmtype,
   return 0;
 }
 
+bool TypeCreator::IsImportantType(uint32_t type) {
+  switch (type) {
+    case cci::LF_CLASS:
+    case cci::LF_STRUCTURE:
+    case cci::LF_ARRAY:
+    case cci::LF_POINTER:
+      return true;
+  }
+  return false;
+}
+
 base::string16 TypeCreator::GetCVMod(Type::Flags flags) {
   base::string16 suffix;
   if (flags & Type::FLAG_CONST) {
@@ -563,17 +580,63 @@ base::string16 TypeCreator::GetCVMod(Type::Flags flags) {
   return suffix;
 }
 
-TempType* TypeCreator::AddTempType(TypeId type_index,
-                                   const base::string16& name,
-                                   const base::string16& decorated_name,
-                                   TypeId type_id,
-                                   Type::Flags flags) {
-  TempType* temp_pointer = new TempType(name, decorated_name, type_id, flags);
-  bool inserted =
-      temp_stash_.insert(std::make_pair(type_index, temp_pointer)).second;
-  DCHECK(inserted);
+Type::Flags TypeCreator::CreateTypeFlags(bool is_const, bool is_volatile) {
+  Type::Flags flags = kNoTypeFlags;
+  if (is_const)
+    flags |= Type::FLAG_CONST;
+  if (is_volatile)
+    flags |= Type::FLAG_VOLATILE;
+  return flags;
+}
 
-  return temp_pointer;
+Type::Flags TypeCreator::GetFlags(TypeId type_index) {
+  auto it = temp_stash_.find(type_index);
+  if (it == temp_stash_.end()) {
+    return kNoTypeFlags;
+  } else {
+    return it->second.flags;
+  }
+}
+
+size_t TypeCreator::GetBitPosition(TypeId type_index) {
+  auto it = temp_stash_.find(type_index);
+  if (it == temp_stash_.end()) {
+    return 0;
+  } else {
+    return it->second.bit_pos;
+  }
+}
+
+size_t TypeCreator::GetBitLength(TypeId type_index) {
+  auto it = temp_stash_.find(type_index);
+  if (it == temp_stash_.end()) {
+    return 0;
+  } else {
+    return it->second.bit_len;
+  }
+}
+
+size_t TypeCreator::GetTypeId(TypeId type_index) {
+  auto it = temp_stash_.find(type_index);
+  if (it == temp_stash_.end()) {
+    return type_index;
+  } else {
+    return it->second.type_id;
+  }
+}
+
+base::string16 TypeCreator::GetName(TypeId type_index) {
+  TypePtr type = repository_->GetType(GetTypeId(type_index));
+  if (type == nullptr)
+    return L"";
+  return type->name() + GetCVMod(GetFlags(type_index));
+}
+
+base::string16 TypeCreator::GetDecoratedName(TypeId type_index) {
+  TypePtr type = repository_->GetType(GetTypeId(type_index));
+  if (type == nullptr)
+    return L"";
+  return type->decorated_name() + GetCVMod(GetFlags(type_index));
 }
 
 cci::CV_prmode TypeCreator::TypeIndexToPrMode(TypeId type_index) {
@@ -582,25 +645,23 @@ cci::CV_prmode TypeCreator::TypeIndexToPrMode(TypeId type_index) {
       cci::CV_PRIMITIVE_TYPE::CV_MSHIFT);
 }
 
-TempType* TypeCreator::CreateBasicType(TypeId type_index) {
+TypePtr TypeCreator::CreateBasicType(TypeId type_index) {
   // Check if we are dealing with pointer.
   cci::CV_prmode prmode = TypeIndexToPrMode(type_index);
   if (prmode == cci::CV_TM_DIRECT) {
-    // Create and add type to the repository.
-    BasicTypePtr created =
+    BasicTypePtr basic_type =
         new BasicType(BasicTypeName(type_index), BasicTypeSize(type_index));
-    bool inserted = repository_->AddTypeWithId(created, type_index);
-    DCHECK(inserted);
 
-    // Create temporary type to temporary stash.
-    return AddTempType(type_index, BasicTypeName(type_index),
-                       BasicTypeName(type_index), type_index, kNoTypeFlags);
+    // Save type and additional info.
+    if (!repository_->AddTypeWithId(basic_type, type_index))
+      return nullptr;
+    return basic_type;
   } else {
     TypeId basic_index = type_index & (cci::CV_PRIMITIVE_TYPE::CV_TMASK |
                                        cci::CV_PRIMITIVE_TYPE::CV_SMASK);
-    TempType* child = FindOrCreateTempType(basic_index);
+    TypePtr child = FindOrCreateType(basic_index);
     if (child == nullptr)
-      return false;
+      return nullptr;
 
     // Get pointer size.
     size_t size = 0;
@@ -618,47 +679,109 @@ TempType* TypeCreator::CreateBasicType(TypeId type_index) {
         return nullptr;
     }
 
-    // Create and add type to the repository.
-    PointerTypePtr created = new PointerType(size);
-    created->Finalize(kNoTypeFlags, basic_index);
-    created->SetName(child->name + L"*");
-    bool inserted = repository_->AddTypeWithId(created, type_index);
-    DCHECK(inserted);
+    // Create and finalize type.
+    PointerTypePtr basic_type = new PointerType(size);
+    basic_type->Finalize(kNoTypeFlags, basic_index);
+    basic_type->SetName(GetName(basic_index) + L"*");
 
-    // Create temporary type to temporary stash.
-    return AddTempType(type_index, child->name + L"*",
-                       child->decorated_name + L"*", type_index, kNoTypeFlags);
+    if (!repository_->AddTypeWithId(basic_type, type_index))
+      return nullptr;
+    return basic_type;
   }
 }
 
-TempType* TypeCreator::FindOrCreateTempType(TypeId type_index) {
-  auto it = temp_stash_.find(type_index);
-  if (it != temp_stash_.end())
-    return it->second;
+void TypeCreator::SaveTypeInfo(TypeId type_index,
+                               TypeId type_id,
+                               Type::Flags flags) {
+  ExtraTypeProperties& prop = temp_stash_[type_index];
+  prop.type_id = type_id;
+  prop.flags = flags;
+  prop.bit_pos = 0;
+  prop.bit_len = 0;
+}
 
-  // Check if it is a special type index.
+void TypeCreator::SaveBitfieldInfo(TypeId type_index,
+                                   size_t bit_pos,
+                                   size_t bit_len) {
+  ExtraTypeProperties& prop = temp_stash_[type_index];
+  prop.bit_pos = bit_pos;
+  prop.bit_len = bit_len;
+}
+
+TypePtr TypeCreator::FindOrCreateType(TypeId type_index) {
+  TypePtr type = repository_->GetType(GetTypeId(type_index));
+  if (type != nullptr)
+    return type;
+
+  // We need to create new type object.
+  // Check if it is a regular type index.
   if (type_index >= type_info_enum_.type_info_header().type_min) {
-    // For now returning wildcard dummy.
-    // TODO(mopler): return nullptr here once we implement the other types.
-    return AddTempType(type_index, L"dummy", L"dummy", type_index,
-                       kNoTypeFlags);
+    return CreateType(type_index);
   } else {
-    // Construct the needed basic type.
+    // If it is a basic type, construct it.
     return CreateBasicType(type_index);
   }
 }
 
-bool TypeCreator::ParseType(uint16_t type) {
-  switch (type) {
-// Call the template reader to process the current record.
-#define LEAF_TYPE_DUMP(type_value, struct_type) \
-  case cci::type_value:                         \
-    return ReadType<cci::##struct_type>();
-    LEAF_CASE_TABLE(LEAF_TYPE_DUMP)
-#undef LEAF_TYPE_DUMP
-    default:
-      return false;
+TypePtr TypeCreator::CreateType(TypeId type_index) {
+  if (!type_info_enum_.SeekRecord(type_index))
+    return false;
+
+  switch (type_info_enum_.type()) {
+    case cci::LF_CLASS:
+    case cci::LF_STRUCTURE: {
+      return ReadClass();
+    }
+    case cci::LF_POINTER: {
+      return ReadPointer();
+    }
+    case cci::LF_MODIFIER: {
+      return ReadModifier();
+    }
+    case cci::LF_BITFIELD: {
+      return ReadBitfield();
+    }
+    default: {
+      // Default behavior is to create wildcard objects.
+      // TODO(mopler): Parse everything and delete this stub.
+      base::string16 name = LeafTypeName(type_info_enum_.type());
+      TypePtr wildcard_type = new WildcardType(name, name, 0);
+      SaveTypeInfo(type_index, type_index, kNoTypeFlags);
+      if (!repository_->AddTypeWithId(wildcard_type, type_index))
+        return nullptr;
+      return wildcard_type;
+    }
   }
+}
+
+bool TypeCreator::PrepareData() {
+  while (!type_info_enum_.EndOfStream()) {
+    if (!type_info_enum_.NextTypeInfoRecord())
+      return false;
+
+    // We remember ids of the types that we will later descend into.
+    if (IsImportantType(type_info_enum_.type()))
+      records_to_process_.push_back(type_info_enum_.type_id());
+
+    if (type_info_enum_.type() == cci::LF_CLASS ||
+        type_info_enum_.type() == cci::LF_STRUCTURE) {
+      pdb::LeafClass type_info;
+      if (!type_info.Initialize(stream_.get())) {
+        LOG(ERROR) << "Unable to read type info record.";
+        return false;
+      }
+
+      // Add the map from decorated name to type index. This overwrites any
+      // preceding records of the same name because we want to remember the
+      // last one. We can get multiple declarations of the same name, for
+      // example all the unnamed nested structures get assigned the name
+      // <unnamed-tag>.
+      if (!type_info.property().fwdref)
+        udt_map[type_info.decorated_name()] = type_info_enum_.type_id();
+    }
+  }
+
+  return type_info_enum_.ResetStream();
 }
 
 bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
@@ -677,16 +800,14 @@ bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
 
   stream_ = type_info_enum_.GetDataStream();
 
-  while (!type_info_enum_.EndOfStream()) {
-    if (!type_info_enum_.NextTypeInfoRecord()) {
-      LOG(ERROR) << "Unable to load next type info record.";
-      return false;
-    }
+  // Create the map of forward declarations and populate the process queue.
+  if (!PrepareData())
+    return false;
 
-    if (!ParseType(type_info_enum_.type())) {
-      LOG(ERROR) << "Unable to parse type info stream.";
+  // Process every important type.
+  for (TypeId type_id : records_to_process_) {
+    if (FindOrCreateType(type_id) == nullptr)
       return false;
-    }
   }
 
   return true;

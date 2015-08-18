@@ -29,7 +29,8 @@ TypeInfoEnumerator::TypeInfoEnumerator()
       type_(0),
       type_id_(0),
       type_id_max_(0),
-      type_id_min_(0) {
+      type_id_min_(0),
+      largest_encountered_id_(0) {
   memset(&type_info_header_, 0, sizeof(type_info_header_));
 }
 
@@ -42,7 +43,10 @@ bool TypeInfoEnumerator::Init(PdbStream* stream) {
   DCHECK(stream != nullptr);
   DCHECK(stream_ == nullptr);
 
-  stream_ = stream;
+  // We are making in memory copy of the whole stream.
+  scoped_refptr<PdbByteStream> byte_stream = new PdbByteStream();
+  byte_stream->Init(stream);
+  stream_ = byte_stream;
 
   // Reads the header of the stream.
   if (!stream_->Seek(0) || !stream_->Read(&type_info_header_, 1)) {
@@ -64,11 +68,15 @@ bool TypeInfoEnumerator::Init(PdbStream* stream) {
   }
 
   // The type ID of each entry is not present in the stream, instead of that we
-  // know the first and the last type ID and we know that the type records are
-  // ordered in increasing order in the stream.
+  // know the first and the last type ID and we know that the indices of all the
+  // records are consecutive numbers.
   type_id_ = type_info_header_.type_min - 1;
-  type_id_min_ = type_id_;
+  type_id_min_ = type_info_header_.type_min;
   type_id_max_ = type_info_header_.type_max;
+
+  // Save the location of the first type record in the map.
+  start_positions_.insert(std::make_pair(type_id_min_, stream_->pos()));
+  largest_encountered_id_ = type_id_min_;
   return true;
 }
 
@@ -77,6 +85,12 @@ bool TypeInfoEnumerator::NextTypeInfoRecord() {
 
   if (stream_->pos() >= data_end_)
     return false;
+
+  ++type_id_;
+  largest_encountered_id_ = std::max(largest_encountered_id_, type_id_);
+
+  // Save the location of this record in the map.
+  start_positions_.insert(std::make_pair(type_id_, stream_->pos()));
 
   // Right now we are interested only in the length, the starting position and
   // the type of the record.
@@ -98,14 +112,40 @@ bool TypeInfoEnumerator::NextTypeInfoRecord() {
   }
   data_stream_->Seek(0);
 
-  ++type_id_;
-  if (stream_->pos() >= data_end_ && (type_id_ + 1) != type_id_max_) {
+  if (stream_->pos() >= data_end_ && type_id_ >= type_id_max_) {
     LOG(ERROR) << "Unexpected number of type info records in the type info "
                << "stream (expected " << type_id_max_ - type_id_min_
                << ", read " << type_id_ - type_id_min_ + 1 << ").";
     return false;
   }
   return true;
+}
+
+bool TypeInfoEnumerator::SeekRecord(uint32_t type_id) {
+  DCHECK(stream_ != nullptr);
+
+  if (type_id >= type_id_max_ || type_id < type_id_min_)
+    return false;
+
+  if (type_id > largest_encountered_id_) {
+    stream_->Seek(start_positions_[largest_encountered_id_]);
+    type_id_ = largest_encountered_id_ - 1;
+    while (type_id_ < type_id) {
+      if (!NextTypeInfoRecord())
+        return false;
+    }
+    return type_id == type_id_;
+  } else {
+    stream_->Seek(start_positions_[type_id]);
+    type_id_ = type_id - 1;
+    return NextTypeInfoRecord();
+  }
+}
+
+bool TypeInfoEnumerator::ResetStream() {
+  DCHECK(stream_ != nullptr);
+
+  return SeekRecord(type_id_min_);
 }
 
 }  // namespace pdb

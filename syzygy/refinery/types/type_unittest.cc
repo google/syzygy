@@ -214,7 +214,9 @@ TEST_F(TypesTest, PointerType) {
 TEST_F(TypesTest, PointerTypeWithDecoratedName) {
   // Build a Pointer instance.
   const TypeId kPtrTypeId = repo_.AddType(new BasicType(L"void", 0));
-  PointerTypePtr ptr_type = new PointerType(L"void*", L"decorated_void*", 4);
+  PointerTypePtr ptr_type = new PointerType(4);
+  ptr_type->SetName(L"void*");
+  ptr_type->SetDecoratedName(L"decorated_void*");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kPtrTypeId);
 
   TypePtr type = ptr_type;

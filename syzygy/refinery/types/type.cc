@@ -132,6 +132,11 @@ void PointerType::SetName(const base::string16& name) {
   name_ = name;
 }
 
+void PointerType::SetDecoratedName(const base::string16& decorated_name) {
+  DCHECK_EQ(L"", decorated_name_);
+  decorated_name_ = decorated_name;
+}
+
 ArrayType::ArrayType(size_t size)
     : Type(ARRAY_TYPE_KIND, L"", L"", size),
       index_type_id_(kNoTypeId),

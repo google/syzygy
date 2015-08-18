@@ -86,6 +86,9 @@ class Type : public base::RefCounted<Type> {
   // post-construction.
   base::string16 name_;
 
+  // Decorated name of type.
+  base::string16 decorated_name_;
+
  private:
   friend class TypeRepository;
   void SetRepository(TypeRepository* repository, TypeId type_id);
@@ -94,8 +97,6 @@ class Type : public base::RefCounted<Type> {
   TypeRepository* repository_;
   TypeId type_id_;
 
-  // Decorated name of type.
-  base::string16 decorated_name_;
   // The kind of this type is, synonymous with its class.
   const TypeKind kind_;
   // Size of type.
@@ -218,8 +219,8 @@ class PointerType : public Type {
   // Creates a new (non-finalized) pointer type with size @p size.
   explicit PointerType(size_t size);
 
-  // Creates a new pointer type with name @p name, decorated name
-  // @p decorated_name and size @p size.
+  // Creates a new (non-finalized) pointer type with name @p name, decorated
+  // name @p decorated_name and size @p size.
   PointerType(const base::string16& name,
               const base::string16& decorated_name,
               size_t size);
@@ -239,6 +240,9 @@ class PointerType : public Type {
   void Finalize(Flags flags, TypeId content_type_id);
   // Set the name of the pointer type.
   void SetName(const base::string16& name);
+
+  // Set the name of the pointer type.
+  void SetDecoratedName(const base::string16& decorated_name);
 
  private:
   // Stores the CV qualifiers of the pointee.

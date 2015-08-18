@@ -57,6 +57,50 @@ TEST(PdbTypeInfoStreamEnumTest, ReadValidTypeInfoStream) {
             valid_type_info_stream->pos());
 }
 
+TEST(PdbTypeInfoStreamEnumTest, ReadValidTypeInfoStreamNonSequentially) {
+  base::FilePath valid_type_info_path =
+      testing::GetSrcRelativePath(testing::kValidPdbTypeInfoStreamPath);
+
+  scoped_refptr<pdb::PdbFileStream> valid_type_info_stream =
+      testing::GetStreamFromFile(valid_type_info_path);
+
+  TypeInfoEnumerator enumerator;
+
+  EXPECT_TRUE(enumerator.Init(valid_type_info_stream.get()));
+
+  const uint32_t kMinIndex = enumerator.type_info_header().type_min;
+  const uint32_t kMaxIndex = enumerator.type_info_header().type_max;
+
+  // Try to jump beyond the end of stream.
+  EXPECT_FALSE(enumerator.SeekRecord(kMaxIndex));
+
+  // And also below the beginning.
+  EXPECT_FALSE(enumerator.SeekRecord(kMinIndex - 1));
+
+  // Jump in the middle of the stream.
+  const uint32_t kTestRecord = (kMaxIndex + kMinIndex) / 2;
+  EXPECT_TRUE(enumerator.SeekRecord(kTestRecord));
+  EXPECT_EQ(kTestRecord, enumerator.type_id());
+
+  // Store the start_position to check later.
+  const size_t kTestPosition = enumerator.start_position();
+
+  // Jump back near to the beginning.
+  EXPECT_TRUE(enumerator.SeekRecord(kMinIndex + 5));
+  EXPECT_EQ(kMinIndex + 5, enumerator.type_id());
+
+  // Jump back and compare.
+  EXPECT_TRUE(enumerator.SeekRecord(kTestRecord));
+  EXPECT_EQ(kTestRecord, enumerator.type_id());
+  EXPECT_EQ(kTestPosition, enumerator.start_position());
+
+  // Jump ahead again.
+  const size_t kOffset = 13;
+  EXPECT_LT(kTestRecord + kOffset, kMaxIndex);
+  EXPECT_TRUE(enumerator.SeekRecord(kTestRecord + kOffset));
+  EXPECT_EQ(kTestRecord + kOffset, enumerator.type_id());
+}
+
 TEST(PdbTypeInfoStreamEnumTest, ReadInvalidDataTypeInfoStream) {
   base::FilePath invalid_type_info_path =
       testing::GetSrcRelativePath(testing::kInvalidDataPdbTypeInfoStreamPath);
