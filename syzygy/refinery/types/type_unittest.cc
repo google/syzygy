@@ -247,8 +247,9 @@ TEST_F(TypesTest, PointerTypeWithDecoratedName) {
 TEST_F(TypesTest, ArrayType) {
   TypePtr int_type = new BasicType(L"int32_t", 0);
   const TypeId kIntTypeId = repo_.AddType(int_type);
-  PointerTypePtr ptr_type =
-      new PointerType(L"aName", L"aDecoratedName", 4);
+  PointerTypePtr ptr_type = new PointerType(4);
+  ptr_type->SetName(L"aName");
+  ptr_type->SetDecoratedName(L"aDecoratedName");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kIntTypeId);
   const TypeId kPtrTypeId = repo_.AddType(ptr_type);
 
@@ -268,6 +269,83 @@ TEST_F(TypesTest, ArrayType) {
   ASSERT_EQ(L"ArrayName", array->name());
   ASSERT_EQ(L"decorated@@ArrayName", array->decorated_name());
   ASSERT_FALSE(array->is_volatile());
+}
+
+TEST_F(TypesTest, FunctionType) {
+  // Build a UDT instance.
+  FunctionType::Arguments args;
+  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"uint32_t", 4));
+  args.push_back(FunctionType::ArgumentType(Type::FLAG_CONST, kBasicTypeId));
+  args.push_back(FunctionType::ArgumentType(Type::FLAG_VOLATILE, kBasicTypeId));
+  const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
+  args.push_back(FunctionType::ArgumentType(kNoTypeFlags, kShortTypeId));
+
+  const TypeId kBoolTypeId = repo_.AddType(new BasicType(L"bool", 1));
+  FunctionType::ArgumentType ret_value(Type::FLAG_CONST, kBoolTypeId);
+
+  const TypeId kClassType =
+      repo_.AddType(new UserDefinedType(L"foo", L"decorated_foo", 10));
+
+  FunctionTypePtr function =
+      new FunctionType(FunctionType::CALL_NEAR_C, kClassType);
+  function->Finalize(ret_value, args);
+  function->SetName(L"FunctionName");
+  function->SetDecoratedName(L"decorated@@FunctionName");
+
+  repo_.AddType(function);
+
+  // Up-cast it.
+  TypePtr type(function);
+  function = nullptr;
+
+  ASSERT_EQ(Type::FUNCTION_TYPE_KIND, type->kind());
+  EXPECT_EQ(L"FunctionName", type->name());
+  EXPECT_EQ(L"decorated@@FunctionName", type->decorated_name());
+  EXPECT_EQ(0, type->size());
+
+  ASSERT_TRUE(type->CastTo(&function));
+  ASSERT_EQ(type.get(), function.get());
+
+  // Verify the arguments set up above.
+  ASSERT_EQ(3U, function->argument_types().size());
+
+  EXPECT_EQ(FunctionType::CALL_NEAR_C, function->call_convention());
+  EXPECT_TRUE(function->IsMemberFunction());
+  EXPECT_EQ(kClassType, function->containing_class_id());
+
+  UserDefinedTypePtr udt;
+  EXPECT_TRUE(function->GetContainingClassType()->CastTo(&udt));
+  EXPECT_EQ(L"foo", udt->name());
+  EXPECT_EQ(L"decorated_foo", udt->decorated_name());
+
+  EXPECT_TRUE(function->argument_types()[0].is_const());
+  EXPECT_FALSE(function->argument_types()[0].is_volatile());
+  EXPECT_EQ(kBasicTypeId, function->argument_types()[0].type_id());
+  BasicTypePtr basic_type;
+  ASSERT_TRUE(function->GetArgumentType(0)->CastTo(&basic_type));
+  EXPECT_EQ(L"uint32_t", basic_type->name());
+  EXPECT_EQ(4, basic_type->size());
+
+  EXPECT_FALSE(function->argument_types()[1].is_const());
+  EXPECT_TRUE(function->argument_types()[1].is_volatile());
+  EXPECT_EQ(kBasicTypeId, function->argument_types()[1].type_id());
+  ASSERT_TRUE(function->GetArgumentType(1)->CastTo(&basic_type));
+  EXPECT_EQ(L"uint32_t", basic_type->name());
+  EXPECT_EQ(4, basic_type->size());
+
+  EXPECT_FALSE(function->argument_types()[2].is_const());
+  EXPECT_FALSE(function->argument_types()[2].is_volatile());
+  EXPECT_EQ(kShortTypeId, function->argument_types()[2].type_id());
+  ASSERT_TRUE(function->GetArgumentType(2)->CastTo(&basic_type));
+  EXPECT_EQ(L"short", basic_type->name());
+  EXPECT_EQ(2, basic_type->size());
+
+  EXPECT_TRUE(function->return_type().is_const());
+  EXPECT_FALSE(function->return_type().is_volatile());
+  EXPECT_EQ(kBoolTypeId, function->return_type().type_id());
+  ASSERT_TRUE(function->GetReturnType()->CastTo(&basic_type));
+  EXPECT_EQ(L"bool", basic_type->name());
+  EXPECT_EQ(1, basic_type->size());
 }
 
 TEST_F(TypesTest, WildcardType) {

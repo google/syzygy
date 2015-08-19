@@ -45,6 +45,7 @@ class Type : public base::RefCounted<Type> {
     USER_DEFINED_TYPE_KIND,
     POINTER_TYPE_KIND,
     ARRAY_TYPE_KIND,
+    FUNCTION_TYPE_KIND,
     WILDCARD_TYPE_KIND,
   };
 
@@ -69,6 +70,12 @@ class Type : public base::RefCounted<Type> {
   template <class SubType>
   bool CastTo(scoped_refptr<SubType>* out);
 
+  // Set the name of the type.
+  void SetName(const base::string16& name);
+
+  // Set the decorated name of the type.
+  void SetDecoratedName(const base::string16& decorated_name);
+
  protected:
   friend class base::RefCounted<Type>;
 
@@ -80,14 +87,6 @@ class Type : public base::RefCounted<Type> {
        const base::string16& decorated_name,
        size_t size);
   virtual ~Type() = 0;
-
-  // Name of type.
-  // This is protected as opposed to private to allow setting it
-  // post-construction.
-  base::string16 name_;
-
-  // Decorated name of type.
-  base::string16 decorated_name_;
 
  private:
   friend class TypeRepository;
@@ -101,6 +100,10 @@ class Type : public base::RefCounted<Type> {
   const TypeKind kind_;
   // Size of type.
   const size_t size_;
+  // Name of type.
+  base::string16 name_;
+  // Decorated name of type.
+  base::string16 decorated_name_;
 
   DISALLOW_COPY_AND_ASSIGN(Type);
 };
@@ -219,12 +222,6 @@ class PointerType : public Type {
   // Creates a new (non-finalized) pointer type with size @p size.
   explicit PointerType(size_t size);
 
-  // Creates a new (non-finalized) pointer type with name @p name, decorated
-  // name @p decorated_name and size @p size.
-  PointerType(const base::string16& name,
-              const base::string16& decorated_name,
-              size_t size);
-
   // Accessors.
   // @{
   TypeId content_type_id() const { return content_type_id_; }
@@ -238,11 +235,6 @@ class PointerType : public Type {
 
   // Finalize the pointer type with @p flags and @p content_type_id.
   void Finalize(Flags flags, TypeId content_type_id);
-  // Set the name of the pointer type.
-  void SetName(const base::string16& name);
-
-  // Set the decorated name of the pointer type.
-  void SetDecoratedName(const base::string16& decorated_name);
 
  private:
   // Stores the CV qualifiers of the pointee.
@@ -282,11 +274,6 @@ class ArrayType : public Type {
                 TypeId index_type_id,
                 size_t num_elements,
                 TypeId element_type_id);
-  // Set the name of the array type.
-  void SetName(const base::string16& name);
-
-  // Set the decorated name of the array type.
-  void SetDecoratedName(const base::string16& decorated_name);
 
  private:
   // The CV qualifiers for the elements.
@@ -303,6 +290,114 @@ class ArrayType : public Type {
 };
 
 using ArrayTypePtr = scoped_refptr<ArrayType>;
+
+// Represents a function type.
+class FunctionType : public Type {
+ public:
+  class ArgumentType {
+   public:
+    // Creates a new argument.
+    // @param flags any combination of Flags, denoting properties of the
+    // argument.
+    // @param type_id the type ID of the argument.
+    ArgumentType(Flags flags, TypeId type_id);
+
+    // Default assignment operator.
+    ArgumentType& operator=(const ArgumentType&) = default;
+
+    // @name Accessors.
+    // @{
+    TypeId type_id() const { return type_id_; }
+    bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
+    bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
+    // @}
+
+    bool operator==(const ArgumentType& other) const;
+
+   private:
+    Flags flags_;
+    TypeId type_id_;
+  };
+
+  typedef std::vector<ArgumentType> Arguments;
+  enum CallConvention;
+
+  static const TypeKind ID = FUNCTION_TYPE_KIND;
+
+  // Creates a new (non-finalized) function type.
+  // @param call_convention calling convention of this function.
+  // @param containing_class_id type index of the containing class.
+  explicit FunctionType(CallConvention call_convention,
+                        TypeId containing_class_id);
+
+  // Retrieves the type associated with argument @p arg_no.
+  // @pre arg_no < arguments().size().
+  // @pre SetRepository has been called.
+  TypePtr GetArgumentType(size_t arg_no) const;
+
+  // Retrieves the type associated with the return value.
+  // @pre SetRepository has been called.
+  TypePtr GetReturnType() const;
+
+  // Retrieves the type associated with the containing class.
+  // @pre containing_class_ != kNoTypeId
+  // @pre SetRepository has been called.
+  TypePtr GetContainingClassType() const;
+
+  // @name Accessors.
+  // @{
+  const Arguments& argument_types() const { return arg_types_; }
+  const CallConvention call_convention() const { return call_convention_; }
+  const TypeId containing_class_id() const { return containing_class_id_; }
+  const ArgumentType& return_type() const { return return_type_; }
+  // @}
+
+  // @returns true if this is a member function.
+  bool IsMemberFunction() const { return containing_class_id_ != kNoTypeId; }
+
+  // Finalize the type by providing it with an argument list and return value.
+  // @param return_value the return value of the type.
+  // @param args the arguments for the type.
+  // @note this can only be called once per type instance.
+  void Finalize(const ArgumentType& return_type, const Arguments& arg_types);
+
+ private:
+  //  Stores the arguments.
+  Arguments arg_types_;
+
+  // The return value.
+  ArgumentType return_type_;
+
+  // The calling convention of this function.
+  CallConvention call_convention_;
+
+  // The type index of the containing class or KNoTypeId if this is not a member
+  // function.
+  TypeId containing_class_id_;
+
+  DISALLOW_COPY_AND_ASSIGN(FunctionType);
+};
+
+using FunctionTypePtr = scoped_refptr<FunctionType>;
+
+// Enum representing different calling conventions, the values are the same as
+// the ones used in the PDB stream.
+enum FunctionType::CallConvention {
+  CALL_NEAR_C = 0x00,
+  CALL_FAR_C = 0x01,
+  CALL_NEAR_PASCAL = 0x02,
+  CALL_FAR_PASCAL = 0x03,
+  CALL_NEAR_FASTCALL = 0x04,
+  CALL_FAR_FASTCALL = 0x05,
+  CALL_RESERVED = 0x06,
+  CALL_NEAR_STDCALL = 0x07,
+  CALL_FAR_STDCALL = 0x08,
+  CALL_NEAR_SYSCALL = 0x09,
+  CALL_FAR_SYSCALL = 0x0A,
+  CALL_THIS_CALL = 0x0B,
+  CALL_MIPS_CALL = 0x0C,
+  CALL_GENERIC = 0x0D
+};
 
 // Represents an otherwise unsupported type.
 // TODO(siggi): This is a stub, which needs to go away ASAP.

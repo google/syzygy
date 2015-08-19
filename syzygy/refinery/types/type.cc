@@ -48,6 +48,16 @@ void Type::SetRepository(TypeRepository* repository, TypeId type_id) {
   type_id_ = type_id;
 }
 
+void Type::SetName(const base::string16& name) {
+  DCHECK_EQ(L"", name_);
+  name_ = name;
+}
+
+void Type::SetDecoratedName(const base::string16& decorated_name) {
+  DCHECK_EQ(L"", decorated_name_);
+  decorated_name_ = decorated_name;
+}
+
 UserDefinedType::UserDefinedType(const base::string16& name, size_t size) :
     Type(USER_DEFINED_TYPE_KIND, name, size) {
 }
@@ -100,16 +110,8 @@ bool UserDefinedType::Field::operator==(const Field& o) const {
 
 PointerType::PointerType(size_t size)
     : Type(POINTER_TYPE_KIND, L"", size),
-      flags_(0),
+      flags_(kNoTypeFlags),
       content_type_id_(kNoTypeId) {
-}
-
-PointerType::PointerType(const base::string16& name,
-                         const base::string16& decorated_name,
-                         size_t size)
-    : flags_(0),
-      content_type_id_(kNoTypeId),
-      Type(POINTER_TYPE_KIND, name, decorated_name, size) {
 }
 
 TypePtr PointerType::GetContentType() const {
@@ -119,22 +121,12 @@ TypePtr PointerType::GetContentType() const {
 }
 
 void PointerType::Finalize(Flags flags, TypeId content_type_id) {
-  DCHECK_EQ(0, flags_);
+  DCHECK_EQ(kNoTypeFlags, flags_);
   DCHECK_EQ(kNoTypeId, content_type_id_);
   DCHECK_NE(kNoTypeId, content_type_id);
 
   flags_ = flags;
   content_type_id_ = content_type_id;
-}
-
-void PointerType::SetName(const base::string16& name) {
-  DCHECK_EQ(L"", name_);
-  name_ = name;
-}
-
-void PointerType::SetDecoratedName(const base::string16& decorated_name) {
-  DCHECK_EQ(L"", decorated_name_);
-  decorated_name_ = decorated_name;
 }
 
 ArrayType::ArrayType(size_t size)
@@ -170,14 +162,48 @@ void ArrayType::Finalize(Flags flags,
   element_type_id_ = element_type_id;
 }
 
-void ArrayType::SetName(const base::string16& name) {
-  DCHECK_EQ(L"", name_);
-  name_ = name;
+FunctionType::FunctionType(CallConvention call_convention,
+                           TypeId containing_class_id)
+    : Type(FUNCTION_TYPE_KIND, L"", 0),
+      call_convention_(call_convention),
+      containing_class_id_(containing_class_id),
+      return_type_(kNoTypeFlags, kNoTypeId) {
 }
 
-void ArrayType::SetDecoratedName(const base::string16& decorated_name) {
-  DCHECK_EQ(L"", decorated_name_);
-  decorated_name_ = decorated_name;
+FunctionType::ArgumentType::ArgumentType(Flags flags, TypeId type_id)
+    : flags_(flags), type_id_(type_id) {
+}
+
+bool FunctionType::ArgumentType::operator==(const ArgumentType& other) const {
+  return flags_ == other.flags_ && type_id_ == other.type_id_;
+}
+
+void FunctionType::Finalize(const ArgumentType& return_type,
+                            const Arguments& arg_types) {
+  DCHECK_EQ(0U, arg_types_.size());
+  DCHECK_EQ(kNoTypeId, return_type_.type_id());
+
+  return_type_ = return_type;
+  arg_types_ = arg_types;
+}
+
+TypePtr FunctionType::GetArgumentType(size_t arg_no) const {
+  DCHECK(repository());
+  DCHECK_GT(arg_types_.size(), arg_no);
+
+  return repository()->GetType(arg_types_[arg_no].type_id());
+}
+
+TypePtr FunctionType::GetReturnType() const {
+  DCHECK(repository());
+
+  return repository()->GetType(return_type_.type_id());
+}
+
+TypePtr FunctionType::GetContainingClassType() const {
+  DCHECK(repository());
+
+  return repository()->GetType(containing_class_id_);
 }
 
 WildcardType::WildcardType(const base::string16& name, size_t size)
