@@ -43,6 +43,12 @@ _DISABLED_CHECKS = {
 
 # A list of per-test Application Verifier exceptions.
 _EXCEPTIONS = {
+  'agent_logger_unittests.exe' : [
+    # Symsrv related errors.
+    ('Error', 'Leak', 2304, '.*SymGetFileLineOffsets'),
+    ('Error', 'Locks', 513, '.*SymGetFileLineOffsets'),
+    ('Error', 'Locks', 529, '.*SymGetFileLineOffsets'),
+  ],
   'basic_block_entry_unittests.exe': [
     # This leak occurs due to a leaky global variable in ScopedHandle.
     ('Error', 'Leak', 2304, '.*::BasicBlockEntryTest::UnloadDll'),
