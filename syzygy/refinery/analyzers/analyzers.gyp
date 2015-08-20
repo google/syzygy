@@ -21,6 +21,7 @@
       'target_name': 'analyzers_lib',
       'type': 'static_library',
       'dependencies': [
+        '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
         '<(src)/syzygy/'
             'refinery/process_state/process_state.gyp:process_state_lib',
@@ -37,6 +38,10 @@
         'memory_analyzer.h',
         'module_analyzer.cc',
         'module_analyzer.h',
+        'stack_analyzer.cc',
+        'stack_analyzer.h',
+        'stack_analyzer_impl.cc',
+        'stack_analyzer_impl.h',
         'thread_analyzer.cc',
         'thread_analyzer.h',
         'unloaded_module_analyzer.cc',

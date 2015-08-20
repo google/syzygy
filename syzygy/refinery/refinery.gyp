@@ -42,6 +42,19 @@
       ],
     },
     {
+      'target_name': 'symsrv_dll_copy',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)',
+          'files': [
+            '<(src)/third_party/debugging_tools/files/SymSrv.dll',
+          ],
+        },
+      ],
+    },
+    {
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
@@ -49,6 +62,7 @@
         'analyzers/exception_analyzer_unittest.cc',
         'analyzers/memory_analyzer_unittest.cc',
         'analyzers/module_analyzer_unittest.cc',
+        'analyzers/stack_analyzer_unittest.cc',
         'analyzers/thread_analyzer_unittest.cc',
         'analyzers/unloaded_module_analyzer_unittest.cc',
         'core/address_unittest.cc',
@@ -68,8 +82,9 @@
         'core/core.gyp:refinery_core_lib',
         'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
-        'types/types.gyp:types_lib',
         'refinery_unittest_utils',
+        'symsrv_dll_copy',
+        'types/types.gyp:types_lib',
         'validators/validators.gyp:validators_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
