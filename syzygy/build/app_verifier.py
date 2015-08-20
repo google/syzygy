@@ -43,76 +43,69 @@ _DISABLED_CHECKS = {
 
 # A list of per-test Application Verifier exceptions.
 _EXCEPTIONS = {
-  'agent_logger_unittests.exe' : [
-    # Symsrv related errors.
-    ('Error', 'Leak', 2304, '.*SymGetFileLineOffsets'),
-    ('Error', 'Locks', 513, '.*SymGetFileLineOffsets'),
-    ('Error', 'Locks', 529, '.*SymGetFileLineOffsets'),
-  ],
   'basic_block_entry_unittests.exe': [
     # This leak occurs due to a leaky global variable in ScopedHandle.
-    ('Error', 'Leak', 2304, '.*::BasicBlockEntryTest::UnloadDll'),
+    ('Error', 'Leak', 2304, '', '.*::BasicBlockEntryTest::UnloadDll'),
     # This leak occurs due to a leaky global lock in ScopedHandle.
-    ('Error', 'Locks', 513, '.*::BasicBlockEntryTest::UnloadDll'),
+    ('Error', 'Locks', 513, '', '.*::BasicBlockEntryTest::UnloadDll'),
     # This is a known (semi-intentional) leak of the TLS index and the last
     # active thread's TLS data on module unload.
-    ('Error', 'TLS', 848, '.*::BasicBlockEntryTest::UnloadDll'),
+    ('Error', 'TLS', 848, '', '.*::BasicBlockEntryTest::UnloadDll'),
   ],
   'coverage_unittests.exe': [
     # This leak occurs due to a leaky global variable in ScopedHandle.
-    ('Error', 'Leak', 2304, '.*::CoverageClientTest::UnloadDll'),
+    ('Error', 'Leak', 2304, '', '.*::CoverageClientTest::UnloadDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
-    ('Error', 'TLS', 848, '.*::CoverageClientTest::UnloadDll'),
-  ],
-  'genfilter_unittests.exe' : [
-    # Symsrv related errors.
-    ('Error', 'Locks', 513, '.*SymGetFileLineOffsets'),
-    ('Error', 'Locks', 529, '.*SymGetFileLineOffsets'),
-  ],
-  'grinder_unittests.exe' : [
-    # Symsrv related errors.
-    ('Error', 'Locks', 513, '.*SymGetFileLineOffsets'),
-    ('Error', 'Locks', 529, '.*SymGetFileLineOffsets'),
+    ('Error', 'TLS', 848, '', '.*::CoverageClientTest::UnloadDll'),
   ],
   'instrument_unittests.exe': [
     # The ASAN runtime ends up freeing a heap while holding it's critical
     # section.
-    ('Error', 'Locks', 513, '.*::PELibUnitTest::CheckTestDll'),
+    ('Error', 'Locks', 513, '', '.*::PELibUnitTest::CheckTestDll'),
     # This leak occurs due to a leaky global lock in ScopedHandle.
-    ('Error', 'Locks', 514, '.*::PELibUnitTest::CheckTestDll'),
+    ('Error', 'Locks', 514, '', '.*::PELibUnitTest::CheckTestDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
-    ('Error', 'TLS', 848, '.*::PELibUnitTest::CheckTestDll'),
-  ],
-  'parse_unittests.exe': [
-    # This leak occurs due to a leaky global variable in ScopedHandle.
-    ('Error', 'Leak', 2304, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
-    # This leak occurs only in Debug, which leaks a thread local variable
-    # used to check thread restrictions.
-    ('Error', 'TLS', 848, '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
-  ],
-  'profile_unittests.exe': [
-    # This leak occurs due to a leaky global variable in ScopedHandle.
-    ('Error', 'Leak', 2304, '.*::ProfilerTest::UnloadDll'),
-    ('Error', 'Leak', 2305, '.*::ProfilerTest::UnloadDll'),
-    # This leak occurs due to a leaky global lock in ScopedHandle.
-    ('Error', 'Locks', 513, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
-    # This leak occurs only in Debug, which leaks a thread local variable
-    # used to check thread restrictions.
-    ('Error', 'TLS', 848, 'agent::profiler::.*::ProfilerTest::UnloadDll'),
+    ('Error', 'TLS', 848, '', '.*::PELibUnitTest::CheckTestDll'),
   ],
   'memprof_unittests.exe': [
     # This leak occurs due to a leaky global variable in ScopedHandle.
-    ('Error', 'Leak', 2304, '.*::MemoryProfilerTest::UnloadDll'),
+    ('Error', 'Leak', 2304, '', '.*::MemoryProfilerTest::UnloadDll'),
     # This leak occurs due to a leaky global lock in ScopedHandle.
-    ('Error', 'Locks', 513, '.*::MemoryProfilerTest::UnloadDll'),
+    ('Error', 'Locks', 513, '', '.*::MemoryProfilerTest::UnloadDll'),
     # This leak occurs only in Debug, which leaks a thread local variable
     # used to check thread restrictions.
-    ('Error', 'TLS', 848, '.*::MemoryProfilerTest::UnloadDll'),
+    ('Error', 'TLS', 848, '', '.*::MemoryProfilerTest::UnloadDll'),
   ],
+  'parse_unittests.exe': [
+    # This leak occurs due to a leaky global variable in ScopedHandle.
+    ('Error', 'Leak', 2304, '', '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, '', '.*::ParseEngineRpcTest::UnloadCallTraceDll'),
+  ],
+  'profile_unittests.exe': [
+    # This leak occurs due to a leaky global variable in ScopedHandle.
+    ('Error', 'Leak', 2304, '', '.*::ProfilerTest::UnloadDll'),
+    ('Error', 'Leak', 2305, '', '.*::ProfilerTest::UnloadDll'),
+    # This leak occurs due to a leaky global lock in ScopedHandle.
+    ('Error', 'Locks', 513, '', 'agent::profiler::.*::ProfilerTest::UnloadDll'),
+    # This leak occurs only in Debug, which leaks a thread local variable
+    # used to check thread restrictions.
+    ('Error', 'TLS', 848, '', 'agent::profiler::.*::ProfilerTest::UnloadDll'),
+  ],
+
+
 }
 
+# A list of Application Verifier exceptions applicable to all tests.
+_GLOBAL_EXCEPTIONS = [
+  # Symsrv related errors.
+  ('Error', 'Leak', 2304, 'dbghelp', '^SymGetFileLineOffsets64$'),
+  ('Error', 'Locks', 513, 'dbghelp', '^SymGetFileLineOffsets64$'),
+  ('Error', 'Locks', 529, 'dbghelp', '^SymGetFileLineOffsets64$'),
+]
 
 # A list of unittests that should not be run under the application verifier at
 # all.
@@ -150,17 +143,28 @@ def Colorize(text):
 def FilterExceptions(image_name, errors):
   """Filter out the Application Verifier errors that have exceptions."""
   exceptions = _EXCEPTIONS.get(image_name, [])
+  exceptions.extend(_GLOBAL_EXCEPTIONS)
 
   def _HasNoException(error):
     # Iterate over all the exceptions.
-    for (severity, layer, stopcode, regexp) in exceptions:
+    for (severity, layer, stopcode, module_regexp, symbol_regexp) in exceptions:
       # And see if they match, first by type.
       if (error.severity == severity and
           error.layer == layer and
           error.stopcode == stopcode):
         # And then by regexpr match to the trace symbols.
         for trace in error.trace:
-          if trace.symbol and re.match(regexp, trace.symbol):
+          module_matches = True
+          if module_regexp:
+            module_matches = (
+                trace.module and re.match(module_regexp, trace.module))
+
+          symbol_matches = True
+          if symbol_regexp:
+            symbol_matches = (
+                trace.symbol and re.match(symbol_regexp, trace.symbol))
+
+          if module_matches and symbol_matches:
             return False
 
     return True
