@@ -22,6 +22,8 @@
       'type': 'static_library',
       'sources': [
         'event.h',
+        'raw_argument_converter.cc',
+        'raw_argument_converter.h',
         'trace_live_map.h',
         'trace_live_map_impl.h',
         'backdrops/heap_backdrop.cc',
@@ -66,6 +68,7 @@
       'target_name': 'bard_unittests',
       'type': 'executable',
       'sources': [
+        'raw_argument_converter_unittest.cc',
         'trace_live_map_unittest.cc',
         'backdrops/heap_backdrop_unittest.cc',
         'events/get_process_heap_event_unittest.cc',
