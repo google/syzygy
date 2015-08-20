@@ -70,6 +70,11 @@ _EXCEPTIONS = {
     ('Error', 'Locks', 513, '.*SymGetFileLineOffsets'),
     ('Error', 'Locks', 529, '.*SymGetFileLineOffsets'),
   ],
+  'grinder_unittests.exe' : [
+    # Symsrv related errors.
+    ('Error', 'Locks', 513, '.*SymGetFileLineOffsets'),
+    ('Error', 'Locks', 529, '.*SymGetFileLineOffsets'),
+  ],
   'instrument_unittests.exe': [
     # The ASAN runtime ends up freeing a heap while holding it's critical
     # section.
