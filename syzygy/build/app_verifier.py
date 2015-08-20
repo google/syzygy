@@ -65,6 +65,11 @@ _EXCEPTIONS = {
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '.*::CoverageClientTest::UnloadDll'),
   ],
+  'genfilter_unittests.exe' : [
+    # Symsrv related errors.
+    ('Error', 'Locks', 513, '.*SymGetFileLineOffsets'),
+    ('Error', 'Locks', 529, '.*SymGetFileLineOffsets'),
+  ],
   'instrument_unittests.exe': [
     # The ASAN runtime ends up freeing a heap while holding it's critical
     # section.
