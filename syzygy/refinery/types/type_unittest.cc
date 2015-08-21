@@ -33,9 +33,10 @@ class TypesTest : public testing::Test {
 
   TypePtr CreatePointerType(const wchar_t* name,
                             size_t size,
+                            PointerType::Mode ptr_mode,
                             Type::Flags flags,
                             TypeId content_type_id) {
-    PointerTypePtr ptr = new PointerType(size);
+    PointerTypePtr ptr = new PointerType(size, ptr_mode);
     ptr->Finalize(flags, content_type_id);
     ptr->SetName(name);
     return ptr;
@@ -187,8 +188,8 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
 TEST_F(TypesTest, PointerType) {
   // Build a Pointer instance.
   const TypeId kPtrTypeId = repo_.AddType(new BasicType(L"void", 0));
-  TypePtr type =
-      CreatePointerType(L"void*", 4, Type::FLAG_VOLATILE, kPtrTypeId);
+  TypePtr type = CreatePointerType(L"void*", 4, PointerType::PTR_MODE_PTR,
+                                   Type::FLAG_VOLATILE, kPtrTypeId);
   repo_.AddType(type);
 
   // Test the basic properties.
@@ -204,6 +205,7 @@ TEST_F(TypesTest, PointerType) {
   ASSERT_TRUE(pointer);
   EXPECT_FALSE(pointer->is_const());
   EXPECT_TRUE(pointer->is_volatile());
+  EXPECT_EQ(PointerType::PTR_MODE_PTR, pointer->ptr_mode());
   ASSERT_EQ(kPtrTypeId, pointer->content_type_id());
 
   ASSERT_TRUE(pointer->GetContentType());
@@ -214,7 +216,7 @@ TEST_F(TypesTest, PointerType) {
 TEST_F(TypesTest, PointerTypeWithDecoratedName) {
   // Build a Pointer instance.
   const TypeId kPtrTypeId = repo_.AddType(new BasicType(L"void", 0));
-  PointerTypePtr ptr_type = new PointerType(4);
+  PointerTypePtr ptr_type = new PointerType(4, PointerType::PTR_MODE_PTR);
   ptr_type->SetName(L"void*");
   ptr_type->SetDecoratedName(L"decorated_void*");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kPtrTypeId);
@@ -236,6 +238,7 @@ TEST_F(TypesTest, PointerTypeWithDecoratedName) {
   ASSERT_TRUE(pointer);
   EXPECT_FALSE(pointer->is_const());
   EXPECT_TRUE(pointer->is_volatile());
+  EXPECT_EQ(PointerType::PTR_MODE_PTR, pointer->ptr_mode());
   ASSERT_EQ(kPtrTypeId, pointer->content_type_id());
 
   ASSERT_TRUE(pointer->GetContentType());
@@ -247,7 +250,7 @@ TEST_F(TypesTest, PointerTypeWithDecoratedName) {
 TEST_F(TypesTest, ArrayType) {
   TypePtr int_type = new BasicType(L"int32_t", 0);
   const TypeId kIntTypeId = repo_.AddType(int_type);
-  PointerTypePtr ptr_type = new PointerType(4);
+  PointerTypePtr ptr_type = new PointerType(4, PointerType::PTR_MODE_PTR);
   ptr_type->SetName(L"aName");
   ptr_type->SetDecoratedName(L"aDecoratedName");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kIntTypeId);

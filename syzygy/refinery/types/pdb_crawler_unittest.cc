@@ -164,6 +164,7 @@ void ValidateBasicType(TypePtr type, size_t size, const base::string16& name) {
 }
 
 void ValidatePointerType(TypePtr type,
+                         PointerType::Mode ptrmode,
                          bool is_const,
                          bool is_volatile,
                          size_t size,
@@ -173,6 +174,7 @@ void ValidatePointerType(TypePtr type,
   ASSERT_TRUE(type->CastTo(&ptr));
   EXPECT_EQ(is_const, ptr->is_const());
   EXPECT_EQ(is_volatile, ptr->is_volatile());
+  EXPECT_EQ(ptrmode, ptr->ptr_mode());
   EXPECT_EQ(size, type->size());
   EXPECT_EQ(name, type->name());
 }
@@ -238,13 +240,15 @@ TEST_P(PdbCrawlerTest, TestSimpleUDT) {
   // Test field: short const* volatile* three.
   ValidateField(fields[2], offset, kBitPosZero, kBitLenZero, !kIsConst,
                 !kIsVolatile, L"three");
-  ValidatePointerType(udt->GetFieldType(2), !kIsConst, kIsVolatile,
-                      LookupSizeOf(L"Pointer"), L"int16_t const* volatile*");
+  ValidatePointerType(udt->GetFieldType(2), PointerType::PTR_MODE_PTR,
+                      !kIsConst, kIsVolatile, LookupSizeOf(L"Pointer"),
+                      L"int16_t const* volatile*");
 
   PointerTypePtr ptr;
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&ptr));
-  ValidatePointerType(ptr->GetContentType(), kIsConst, !kIsVolatile,
-                      LookupSizeOf(L"Pointer"), L"int16_t const*");
+  ValidatePointerType(ptr->GetContentType(), PointerType::PTR_MODE_PTR,
+                      kIsConst, !kIsVolatile, LookupSizeOf(L"Pointer"),
+                      L"int16_t const*");
   offset += LookupSizeOf(L"Pointer");
 
   ASSERT_TRUE(ptr->GetContentType()->CastTo(&ptr));
@@ -384,6 +388,35 @@ TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
   }
 }
 
+TEST_P(PdbCrawlerTest, TestReference) {
+  std::vector<TypePtr> types = FindTypesBySuffix(L"::TestReference");
+
+  ASSERT_EQ(1U, types.size());
+
+  TypePtr type = types[0];
+  ASSERT_TRUE(type);
+  EXPECT_TRUE(
+      EndsWith(type->name(), L"::TestReference", base::CompareCase::SENSITIVE));
+  EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  const UserDefinedType::Fields& fields = udt->fields();
+  ASSERT_EQ(2U, fields.size());
+
+  EXPECT_EQ(L"value", fields[0].name());
+  ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
+
+  EXPECT_EQ(L"reference", fields[1].name());
+  EXPECT_FALSE(fields[1].is_const());
+  EXPECT_FALSE(fields[1].is_volatile());
+  ValidatePointerType(udt->GetFieldType(1), PointerType::PTR_MODE_REF, kIsConst,
+                      !kIsVolatile, LookupSizeOf(L"Pointer"),
+                      L"int32_t const&");
+}
+
 TEST_P(PdbCrawlerTest, TestArray) {
   std::vector<TypePtr> type_vector = FindTypesBySuffix(L"::TestArrays");
   ASSERT_EQ(1U, type_vector.size());
@@ -429,8 +462,9 @@ TEST_P(PdbCrawlerTest, TestArray) {
   ValidateBasicType(index_type, kIndexTypeSize, kIndexTypeName);
 
   element_type = ptr_array->GetElementType();
-  ValidatePointerType(element_type, !kIsConst, !kIsVolatile,
-                      LookupSizeOf(L"Pointer"), L"testing::TestRecursiveUDT*");
+  ValidatePointerType(element_type, PointerType::PTR_MODE_PTR, !kIsConst,
+                      !kIsVolatile, LookupSizeOf(L"Pointer"),
+                      L"testing::TestRecursiveUDT*");
   EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
 }
 

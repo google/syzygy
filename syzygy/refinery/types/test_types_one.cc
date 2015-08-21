@@ -52,6 +52,15 @@ struct TestRecursiveUDT {
 
 REGISTER_SIZEOF_TYPE(TestRecursiveUDT);
 
+// Struct to test references, constructor is needed because references cannot be
+// default-initialized.
+struct TestReference {
+  TestReference() : value(42), reference(value) {}
+
+  int value;
+  const int& reference;
+};
+
 struct TestArrays {
   const int int_array[30];
   TestRecursiveUDT* volatile (*array_ptr)[32];
@@ -129,6 +138,9 @@ void AliasTypesOne() {
 
   TestRecursiveUDT recursive = {};
   Alias(&recursive);
+
+  TestReference references = {};
+  Alias(&references);
 
   TestArrays arrays = {{0}};
   Alias(&arrays);

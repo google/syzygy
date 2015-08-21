@@ -219,14 +219,22 @@ class PointerType : public Type {
  public:
   static const TypeKind ID = POINTER_TYPE_KIND;
 
-  // Creates a new (non-finalized) pointer type with size @p size.
-  explicit PointerType(size_t size);
+  // Enum describing two pointer modes - regular pointer or reference.
+  enum Mode {
+    PTR_MODE_PTR = 0x00,
+    PTR_MODE_REF = 0x01,
+  };
+
+  // Creates a new (non-finalized) pointer type with size @p size and value @p
+  // ptr_mode which determines whether this is actually pointer or reference.
+  explicit PointerType(size_t size, Mode ptr_mode);
 
   // Accessors.
   // @{
   TypeId content_type_id() const { return content_type_id_; }
   bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
   bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
+  Mode ptr_mode() const { return ptr_mode_; }
   // @}
 
   // Retrieves the type this pointer refers to.
@@ -241,6 +249,9 @@ class PointerType : public Type {
   Flags flags_;
   // Stores the type this pointer points to.
   TypeId content_type_id_;
+
+  // Determines whether this is a reference or an actual pointer.
+  Mode ptr_mode_;
 };
 
 using PointerTypePtr = scoped_refptr<PointerType>;

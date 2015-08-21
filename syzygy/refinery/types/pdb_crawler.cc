@@ -201,7 +201,11 @@ TypePtr TypeCreator::ReadPointer() {
   // Save type information.
   TypeId type_id = type_info_enum_.type_id();
   size_t size = PointerSize(type_info);
-  PointerTypePtr created = new PointerType(size);
+  PointerType::Mode ptr_mode = PointerType::PTR_MODE_PTR;
+  if (type_info.attr().ptrmode == cci::CV_PTR_MODE_REF)
+    ptr_mode = PointerType::PTR_MODE_REF;
+
+  PointerTypePtr created = new PointerType(size, ptr_mode);
   Type::Flags flags =
       CreateTypeFlags(type_info.attr().isconst, type_info.attr().isvolatile);
 
@@ -214,9 +218,13 @@ TypePtr TypeCreator::ReadPointer() {
   if (pointee == nullptr)
     return nullptr;
 
-  // TODO(mopler): Different names for member data and member function pointers.
-  created->SetName(GetName(type_info.body().utype) + L"*");
-  created->SetDecoratedName(GetDecoratedName(type_info.body().utype) + L"*");
+  // Set correct name depending whether this is reference or not.
+  wchar_t suffix = L'*';
+  if (ptr_mode == PointerType::PTR_MODE_REF)
+    suffix = L'&';
+
+  created->SetName(GetName(type_info.body().utype) + suffix);
+  created->SetDecoratedName(GetDecoratedName(type_info.body().utype) + suffix);
 
   // Setting the flags from the child node - this is needed because of
   // different semantics between PDB file and Type interface. In PDB pointer
@@ -723,7 +731,8 @@ TypePtr TypeCreator::CreateBasicType(TypeId type_index) {
     }
 
     // Create and finalize type.
-    PointerTypePtr basic_type = new PointerType(size);
+    PointerTypePtr basic_type =
+        new PointerType(size, PointerType::PTR_MODE_PTR);
     basic_type->Finalize(kNoTypeFlags, basic_index);
     basic_type->SetName(GetName(basic_index) + L"*");
 

@@ -103,6 +103,7 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   EXPECT_FALSE(ptr->is_const());
   EXPECT_TRUE(ptr->is_volatile());
   ASSERT_TRUE(ptr->GetContentType());
+  ASSERT_EQ(PointerType::PTR_MODE_PTR, ptr->ptr_mode());
   EXPECT_EQ(Type::POINTER_TYPE_KIND, ptr->GetContentType()->kind());
   EXPECT_EQ(L"int16_t const* volatile*", ptr->name());
 
@@ -111,6 +112,7 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   EXPECT_EQ(4, ptr->size());
   EXPECT_TRUE(ptr->is_const());
   EXPECT_FALSE(ptr->is_volatile());
+  ASSERT_EQ(PointerType::PTR_MODE_PTR, ptr->ptr_mode());
   ASSERT_TRUE(ptr->GetContentType());
   EXPECT_EQ(L"int16_t const*", ptr->name());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, ptr->GetContentType()->kind());
@@ -147,6 +149,36 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(5)->kind());
   EXPECT_EQ(2, udt->GetFieldType(5)->size());
   EXPECT_EQ(L"uint16_t", udt->GetFieldType(5)->name());
+}
+
+TEST_F(DiaCrawlerTest, TestReference) {
+  TypePtr type = FindTypeEndingWith(L"::TestReference");
+  ASSERT_TRUE(type);
+  EXPECT_TRUE(
+      EndsWith(type->name(), L"::TestReference", base::CompareCase::SENSITIVE));
+  EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  const UserDefinedType::Fields& fields = udt->fields();
+  ASSERT_EQ(2U, fields.size());
+
+  EXPECT_EQ(L"value", fields[0].name());
+
+  EXPECT_EQ(L"reference", fields[1].name());
+  EXPECT_FALSE(fields[1].is_const());
+  EXPECT_FALSE(fields[1].is_volatile());
+  ASSERT_EQ(Type::POINTER_TYPE_KIND, udt->GetFieldType(1)->kind());
+  PointerTypePtr ptr;
+  ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&ptr));
+  ASSERT_TRUE(ptr);
+  EXPECT_EQ(4, ptr->size());
+  EXPECT_TRUE(ptr->is_const());
+  EXPECT_FALSE(ptr->is_volatile());
+  ASSERT_EQ(PointerType::PTR_MODE_REF, ptr->ptr_mode());
+  EXPECT_EQ(L"int32_t const&", ptr->name());
 }
 
 TEST_F(DiaCrawlerTest, TestArray) {

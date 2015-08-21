@@ -133,7 +133,8 @@ class TypedDataTest : public testing::Test {
 
     fields.clear();
     UserDefinedTypePtr outer(new UserDefinedType(L"TestUDT", sizeof(TestUDT)));
-    PointerTypePtr ptr_type(new PointerType(sizeof(TestUDT*)));
+    PointerTypePtr ptr_type(
+        new PointerType(sizeof(TestUDT*), PointerType::PTR_MODE_PTR));
     repo_.AddType(ptr_type);
 
     fields.push_back(UserDefinedType::Field(L"one", offsetof(TestUDT, one), 0,

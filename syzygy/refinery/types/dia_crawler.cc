@@ -289,6 +289,19 @@ bool GetSymCount(IDiaSymbol* symbol, size_t* count) {
   return true;
 }
 
+bool GetSymPtrMode(IDiaSymbol* symbol, PointerType::Mode* is_reference) {
+  DCHECK(symbol);
+  DCHECK(is_reference);
+  BOOL is_ref;
+  HRESULT hr = symbol->get_reference(&is_ref);
+  if (hr != S_OK)
+    return false;
+  *is_reference = PointerType::PTR_MODE_PTR;
+  if (is_ref)
+    *is_reference = PointerType::PTR_MODE_REF;
+  return true;
+}
+
 class TypeCreator {
  public:
   explicit TypeCreator(TypeRepository* repository);
@@ -500,7 +513,12 @@ bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
     name.append(L" const");
   if (ptr->is_volatile())
     name.append(L" volatile");
-  name.append(L"*");
+
+  if (ptr->ptr_mode() == PointerType::PTR_MODE_PTR) {
+    name.append(L"*");
+  } else {
+    name.append(L"&");
+  }
 
   ptr->SetName(name);
   return true;
@@ -755,10 +773,11 @@ TypePtr TypeCreator::CreatePointerType(IDiaSymbol* symbol) {
   DCHECK(IsSymTag(symbol, SymTagPointerType));
 
   size_t size = 0;
-  if (!GetSymSize(symbol, &size))
+  PointerType::Mode ptr_mode = PointerType::PTR_MODE_PTR;
+  if (!GetSymSize(symbol, &size) || !GetSymPtrMode(symbol, &ptr_mode))
     return nullptr;
 
-  return new PointerType(size);
+  return new PointerType(size, ptr_mode);
 }
 
 TypePtr TypeCreator::CreateTypedefType(IDiaSymbol* symbol) {

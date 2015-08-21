@@ -108,10 +108,11 @@ bool UserDefinedType::Field::operator==(const Field& o) const {
          type_id_ == o.type_id_;
 }
 
-PointerType::PointerType(size_t size)
+PointerType::PointerType(size_t size, Mode ptr_mode)
     : Type(POINTER_TYPE_KIND, L"", size),
       flags_(kNoTypeFlags),
-      content_type_id_(kNoTypeId) {
+      content_type_id_(kNoTypeId),
+      ptr_mode_(ptr_mode) {
 }
 
 TypePtr PointerType::GetContentType() const {
