@@ -50,6 +50,7 @@
           'destination': '<(PRODUCT_DIR)',
           'files': [
             '<(src)/third_party/debugging_tools/files/SymSrv.dll',
+            '<(src)/third_party/debugging_tools/files/symsrv.yes',
           ],
         },
       ],
