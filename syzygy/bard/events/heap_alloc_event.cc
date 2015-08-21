@@ -30,10 +30,6 @@ HeapAllocEvent::HeapAllocEvent(HANDLE trace_heap,
       trace_alloc_(trace_alloc) {
 }
 
-const char* HeapAllocEvent::name() const {
-  return "HeapAllocEvent";
-}
-
 bool HeapAllocEvent::PlayImpl(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
@@ -64,7 +60,7 @@ bool HeapAllocEvent::PlayImpl(void* backdrop) {
     }
   }
 
-  heap_backdrop->UpdateStats(name(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), t1 - t0);
 
   return true;
 }

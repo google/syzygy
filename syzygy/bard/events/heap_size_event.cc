@@ -30,10 +30,6 @@ HeapSizeEvent::HeapSizeEvent(HANDLE trace_heap,
       trace_size_(trace_size) {
 }
 
-const char* HeapSizeEvent::name() const {
-  return "HeapSizeEvent";
-}
-
 bool HeapSizeEvent::PlayImpl(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
@@ -58,7 +54,7 @@ bool HeapSizeEvent::PlayImpl(void* backdrop) {
     return false;
   }
 
-  heap_backdrop->UpdateStats(name(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), t1 - t0);
 
   return true;
 }

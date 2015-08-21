@@ -24,6 +24,7 @@
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/synchronization/lock.h"
+#include "syzygy/bard/event.h"
 #include "syzygy/bard/trace_live_map.h"
 
 namespace bard {
@@ -38,6 +39,7 @@ using base::Callback;
 // The class is thread safe for simultaneous access across multiple threads.
 class HeapBackdrop {
  public:
+  using EventType = EventInterface::EventType;
   // @name Heap API callback signatures.
   // @{
   using GetProcessHeapCallback = Callback<HANDLE(void)>;
@@ -106,11 +108,11 @@ class HeapBackdrop {
   }
   // @}
 
-  // Update the total time taken by a event with name @p name.
-  // @param name the name of the heap function call.
+  // Update the total time taken by a event with type @p type.
+  // @param type the type of the heap event.
   // @param time the time the heap call took to run, in cycles as
   //     measured by rdtsc.
-  void UpdateStats(std::string name, uint64_t time);
+  void UpdateStats(EventType type, uint64_t time);
 
   // Exposed for unittesting.
  protected:
@@ -135,7 +137,7 @@ class HeapBackdrop {
   TraceLiveMap<HANDLE> heap_map_;
   TraceLiveMap<LPVOID> alloc_map_;
 
-  std::map<std::string, struct Stats> total_stats_;
+  std::map<EventType, struct Stats> total_stats_;
 
   base::Lock lock_;
 

@@ -24,10 +24,6 @@ HeapDestroyEvent::HeapDestroyEvent(HANDLE trace_heap, BOOL trace_succeeded)
     : trace_heap_(trace_heap), trace_succeeded_(trace_succeeded) {
 }
 
-const char* HeapDestroyEvent::name() const {
-  return "HeapDestroyEvent";
-}
-
 bool HeapDestroyEvent::PlayImpl(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
@@ -55,7 +51,7 @@ bool HeapDestroyEvent::PlayImpl(void* backdrop) {
     return false;
   }
 
-  heap_backdrop->UpdateStats(name(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), t1 - t0);
 
   return true;
 }

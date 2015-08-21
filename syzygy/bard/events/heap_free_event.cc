@@ -30,10 +30,6 @@ HeapFreeEvent::HeapFreeEvent(HANDLE trace_heap,
       trace_succeeded_(trace_succeeded) {
 }
 
-const char* HeapFreeEvent::name() const {
-  return "HeapFreeEvent";
-}
-
 bool HeapFreeEvent::PlayImpl(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
@@ -64,7 +60,7 @@ bool HeapFreeEvent::PlayImpl(void* backdrop) {
     return false;
   }
 
-  heap_backdrop->UpdateStats(name(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), t1 - t0);
 
   return true;
 }

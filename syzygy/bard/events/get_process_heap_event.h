@@ -27,8 +27,10 @@ class GetProcessHeapEvent : public LinkedEvent {
  public:
   explicit GetProcessHeapEvent(HANDLE trace_heap);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kGetProcessHeapEvent; }
+  // @}
 
   // @name Accessors.
   // @{

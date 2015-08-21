@@ -30,8 +30,10 @@ class HeapCreateEvent : public LinkedEvent {
                   SIZE_T maximum_size,
                   HANDLE trace_heap);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kHeapCreateEvent; }
+  // @}
 
   // @name Accessors.
   // @{

@@ -24,10 +24,6 @@ GetProcessHeapEvent::GetProcessHeapEvent(HANDLE trace_heap)
     : trace_heap_(trace_heap) {
 }
 
-const char* GetProcessHeapEvent::name() const {
-  return "GetProcessHeapEvent";
-}
-
 bool GetProcessHeapEvent::PlayImpl(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
@@ -48,7 +44,7 @@ bool GetProcessHeapEvent::PlayImpl(void* backdrop) {
     return false;
   }
 
-  heap_backdrop->UpdateStats(name(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), t1 - t0);
 
   return true;
 }

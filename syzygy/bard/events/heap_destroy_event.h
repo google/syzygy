@@ -27,8 +27,10 @@ class HeapDestroyEvent : public LinkedEvent {
  public:
   HeapDestroyEvent(HANDLE trace_heap, BOOL trace_succeeded);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kHeapDestroyEvent; }
+  // @}
 
   // @name Accessors.
   // @{

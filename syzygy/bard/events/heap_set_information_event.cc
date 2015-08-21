@@ -33,10 +33,6 @@ HeapSetInformationEvent::HeapSetInformationEvent(
       trace_succeeded_(trace_succeeded) {
 }
 
-const char* HeapSetInformationEvent::name() const {
-  return "HeapSetInformationEvent";
-}
-
 bool HeapSetInformationEvent::PlayImpl(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
@@ -61,7 +57,7 @@ bool HeapSetInformationEvent::PlayImpl(void* backdrop) {
     return false;
   }
 
-  heap_backdrop->UpdateStats(name(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), t1 - t0);
 
   return true;
 }

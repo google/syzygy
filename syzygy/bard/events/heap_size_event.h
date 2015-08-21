@@ -30,8 +30,10 @@ class HeapSizeEvent : public LinkedEvent {
                 LPCVOID trace_alloc,
                 SIZE_T trace_size);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kHeapSizeEvent; }
+  // @}
 
   // @name Accessors.
   // @{

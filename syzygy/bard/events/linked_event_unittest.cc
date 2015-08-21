@@ -28,7 +28,7 @@ class TestLinkedEvent : public LinkedEvent {
  public:
   TestLinkedEvent() : played_(false) {}
 
-  const char* name() const override { return "TestLinkedEvent"; }
+  EventType type() const override { return static_cast<EventType>(0); }
 
   bool PlayImpl(void* backdrop) override {
     base::AutoLock auto_lock(lock_);

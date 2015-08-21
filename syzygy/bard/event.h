@@ -23,11 +23,28 @@ namespace bard {
 // Interface for storing and replaying events.
 class EventInterface {
  public:
+  // Enum of all non-abstract classes that extend the EventInterface.
+  // New events should only be added at the end of the Enum (but before
+  // kMaxEventType), to maintain backwards compatibility for
+  // serialization/deserialization.
+  enum EventType {
+    kGetProcessHeapEvent,
+    kHeapAllocEvent,
+    kHeapCreateEvent,
+    kHeapDestroyEvent,
+    kHeapFreeEvent,
+    kHeapReAllocEvent,
+    kHeapSetInformationEvent,
+    kHeapSizeEvent,
+    // This must come last.
+    kMaxEventType
+  };
+
   virtual ~EventInterface() { }
 
-  // Event name.
-  // @returns the name of this event.
-  virtual const char* name() const = 0;
+  // This event's EventType.
+  // @returns the EventType enum representing this event.
+  virtual EventType type() const = 0;
 
   // Replays the recorded function call, possibly modifying the current
   // backdrop.

@@ -31,8 +31,10 @@ class HeapSetInformationEvent : public LinkedEvent {
                           SIZE_T info_length,
                           BOOL trace_succeeded);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kHeapSetInformationEvent; }
+  // @}
 
   // @name Accessors.
   // @{

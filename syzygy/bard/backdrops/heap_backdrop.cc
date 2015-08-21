@@ -70,10 +70,10 @@ SIZE_T HeapBackdrop::HeapSize(HANDLE heap, DWORD flags, LPCVOID mem) {
   return heap_size_.Run(heap, flags, mem);
 }
 
-void HeapBackdrop::UpdateStats(std::string name, uint64_t time) {
+void HeapBackdrop::UpdateStats(EventType type, uint64_t time) {
   base::AutoLock auto_lock(lock_);
 
-  auto stats = total_stats_.insert(std::make_pair(name, struct Stats())).first;
+  auto stats = total_stats_.insert(std::make_pair(type, struct Stats())).first;
   stats->second.calls++;
   stats->second.time += time;
 }

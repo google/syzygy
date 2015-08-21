@@ -29,34 +29,35 @@ class TestHeapBackdrop : public HeapBackdrop {
 }  // namespace
 
 TEST(HeapBackdropTest, StatsTest) {
-  const char* kFuncName1 = "Func1";
-  const char* kFuncName2 = "Func2";
+  using EventType = EventInterface::EventType;
+  const EventType kFuncType1 = static_cast<EventType>(0);
+  const EventType kFuncType2 = static_cast<EventType>(1);
 
   TestHeapBackdrop backdrop;
 
-  backdrop.UpdateStats(kFuncName1, 0);
-  backdrop.UpdateStats(kFuncName2, 0);
+  backdrop.UpdateStats(kFuncType1, 0);
+  backdrop.UpdateStats(kFuncType2, 0);
 
-  auto func1 = backdrop.total_stats_.find(kFuncName1);
-  auto func2 = backdrop.total_stats_.find(kFuncName2);
+  auto func1 = backdrop.total_stats_.find(kFuncType1);
+  auto func2 = backdrop.total_stats_.find(kFuncType2);
 
-  backdrop.UpdateStats(kFuncName1, 100);
+  backdrop.UpdateStats(kFuncType1, 100);
   EXPECT_EQ(2, func1->second.calls);
   EXPECT_EQ(100, func1->second.time);
 
-  backdrop.UpdateStats(kFuncName1, 9);
+  backdrop.UpdateStats(kFuncType1, 9);
   EXPECT_EQ(3, func1->second.calls);
   EXPECT_EQ(100 + 9, func1->second.time);
 
-  backdrop.UpdateStats(kFuncName2, 166);
+  backdrop.UpdateStats(kFuncType2, 166);
   EXPECT_EQ(2, func2->second.calls);
   EXPECT_EQ(166, func2->second.time);
 
-  backdrop.UpdateStats(kFuncName1, 34);
+  backdrop.UpdateStats(kFuncType1, 34);
   EXPECT_EQ(4, func1->second.calls);
   EXPECT_EQ(100 + 9 + 34, func1->second.time);
 
-  backdrop.UpdateStats(kFuncName2, 72);
+  backdrop.UpdateStats(kFuncType2, 72);
   EXPECT_EQ(3, func2->second.calls);
   EXPECT_EQ(166 + 72, func2->second.time);
 }

@@ -30,10 +30,6 @@ HeapCreateEvent::HeapCreateEvent(DWORD options,
       trace_heap_(trace_heap) {
 }
 
-const char* HeapCreateEvent::name() const {
-  return "HeapCreateEvent";
-}
-
 bool HeapCreateEvent::PlayImpl(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
@@ -59,7 +55,7 @@ bool HeapCreateEvent::PlayImpl(void* backdrop) {
     }
   }
 
-  heap_backdrop->UpdateStats(name(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), t1 - t0);
 
   return true;
 }

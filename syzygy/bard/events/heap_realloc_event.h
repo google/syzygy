@@ -31,8 +31,10 @@ class HeapReAllocEvent : public LinkedEvent {
                    SIZE_T bytes,
                    LPVOID trace_realloc);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kHeapReAllocEvent; }
+  // @}
 
   // @name Accessors.
   // @{

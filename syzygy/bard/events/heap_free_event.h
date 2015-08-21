@@ -30,8 +30,10 @@ class HeapFreeEvent : public LinkedEvent {
                 LPVOID trace_alloc,
                 BOOL trace_succeeded);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kHeapFreeEvent; }
+  // @}
 
   // @name Accessors.
   // @{

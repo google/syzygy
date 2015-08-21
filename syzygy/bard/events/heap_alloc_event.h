@@ -30,8 +30,10 @@ class HeapAllocEvent : public LinkedEvent {
                  SIZE_T bytes,
                  LPVOID trace_alloc);
 
-  // Event implementation.
-  const char* name() const override;
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kHeapAllocEvent; }
+  // @}
 
   // @name Accessors.
   // @{
