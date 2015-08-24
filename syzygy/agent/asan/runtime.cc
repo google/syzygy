@@ -1075,9 +1075,10 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
 
   // If this is set to true then an Asan error will be emitted.
   bool emit_asan_error = false;
+  // Will be set to true if a near-nullptr access is detected.
+  bool near_nullptr_access = false;
 
   Shadow* shadow = runtime_->shadow();
-
   // If this is an exception that we launched then extract the original
   // exception data and continue processing it.
   if (exception->ExceptionRecord->ExceptionCode == kAsanException) {
@@ -1112,8 +1113,14 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
         exception->ExceptionRecord->ExceptionInformation[0] <= 1) {
       void* address = reinterpret_cast<void*>(
           exception->ExceptionRecord->ExceptionInformation[1]);
+
+      // The first 64k of user memory is unmapped in Windows, we treat those as
+      // near-nullptr accesses.
+      near_nullptr_access =
+          address < reinterpret_cast<void*>(Shadow::kAddressLowerBound);
+
       ShadowMarker marker = shadow->GetShadowMarkerForAddress(address);
-      if (ShadowMarkerHelper::IsRedzone(marker) &&
+      if (!near_nullptr_access && ShadowMarkerHelper::IsRedzone(marker) &&
           ShadowMarkerHelper::IsActiveBlock(marker)) {
         BlockInfo block_info = {};
         if (shadow->BlockInfoFromShadow(address, &block_info)) {
@@ -1154,6 +1161,11 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
   // the exception record.
   EXCEPTION_RECORD record = {};
   if (emit_asan_error) {
+    if (near_nullptr_access) {
+      runtime_->logger_->Write(
+          "SyzyASAN: Caught a near-nullptr access with heap corruption.");
+    }
+
     // Log the error via the usual means.
     runtime_->OnErrorImpl(&error_info);
 
@@ -1167,9 +1179,13 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
     // Initialize the exception record and chain the original exception to it.
     InitializeExceptionRecord(&error_info, &record, exception);
     record.ExceptionRecord = old_record;
+  } else if (near_nullptr_access) {
+    // For unit testing. Record that we ignored a near-nullptr access.
+    runtime_->logger_->Write(
+        "SyzyASAN: Ignoring a near-nullptr access without heap corruption.");
   }
 
-  if (breakpad_functions.report_crash_with_protobuf_ptr) {
+  if (emit_asan_error && breakpad_functions.report_crash_with_protobuf_ptr) {
     // This method is expected to terminate the process.
     std::string protobuf;
     PopulateProtobufAndMemoryRanges(error_info, &protobuf, nullptr);

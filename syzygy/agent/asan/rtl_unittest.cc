@@ -198,15 +198,18 @@ TEST_F(AsanRtlTest, AsanCheckWildAccess) {
   EXPECT_TRUE(LogContains(kWildAccess));
 }
 
+// It is not possible to test the near-nullptr access with heap corruption
+// execution path since it depends on the unhandled exception filter which is
+// not installed in the rtl library.
 TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
   FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
+  // A near-nullptr access should not be reported by SyzyASAN.
   MemoryAccessorTester tester;
-  tester.AssertMemoryErrorIsDetected(
-      check_access_fn, reinterpret_cast<void*>(0x00000000), INVALID_ADDRESS);
-  EXPECT_TRUE(LogContains(kInvalidAddress));
+  tester.CheckAccessAndCompareContexts(check_access_fn, nullptr);
+  EXPECT_FALSE(LogContains(kInvalidAddress));
 }
 
 TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {

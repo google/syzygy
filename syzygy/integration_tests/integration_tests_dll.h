@@ -158,7 +158,17 @@ namespace testing {
          testing::AsanWritePageAllocationBodyAfterFree)  \
     decl(kAsanMemcmpAccessViolation, testing::AsanMemcmpAccessViolation)  \
     decl(kAsanCorruptBlockWithPageProtections,  \
-         testing::AsanCorruptBlockWithPageProtections)
+         testing::AsanCorruptBlockWithPageProtections) \
+    decl(kAsanNearNullptrAccessHeapCorruptionInstrumented, \
+         testing::AsanNearNullptrAccessHeapCorruptionInstrumented) \
+    decl(kAsanNearNullptrAccessHeapCorruptionUninstrumented, \
+         testing::AsanNearNullptrAccessHeapCorruptionUninstrumented) \
+    decl(kAsanNearNullptrAccessNoHeapCorruptionInstrumented, \
+         testing::AsanNearNullptrAccessNoHeapCorruptionInstrumented) \
+    decl(kAsanNearNullptrAccessNoHeapCorruptionUninstrumented, \
+         testing::AsanNearNullptrAccessNoHeapCorruptionUninstrumented) \
+    decl(kAsanNullptrAccessNoHeapCorruptionUninstrumented, \
+         testing::AsanNullptrAccessNoHeapCorruptionUninstrumented)
 
 // This enumeration contains an unique id for each end to end test. It is used
 // to perform an indirect call through the DLL entry point 'EndToEndTest'.

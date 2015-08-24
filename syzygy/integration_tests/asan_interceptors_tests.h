@@ -442,6 +442,16 @@ size_t AsanInvalidAccessWithCorruptFreedBlock();
 // instrumented, this should be caught by the SyzyAsan exception handler.
 size_t AsanMemcmpAccessViolation();
 
+// Null and near-null pointers access exceptions should not be reported by
+// SyzyASAN unless we detect heap corruption. In the "instrumented" tests, the
+// invalid accesses will be caught by the Shadow memory and the RTL, whereas the
+// "uninstrumented" tests will cause an access violation exception to be thrown.
+size_t AsanNearNullptrAccessHeapCorruptionInstrumented();
+size_t AsanNearNullptrAccessHeapCorruptionUninstrumented();
+size_t AsanNearNullptrAccessNoHeapCorruptionInstrumented();
+size_t AsanNearNullptrAccessNoHeapCorruptionUninstrumented();
+size_t AsanNullptrAccessNoHeapCorruptionUninstrumented();
+
 }  // namespace testing
 
 #endif  // SYZYGY_INTEGRATION_TESTS_ASAN_INTERCEPTORS_TESTS_H_

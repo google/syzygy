@@ -86,6 +86,10 @@ const char kAsanHandlingException[] = "SyzyASAN: Handling an exception.";
 const char kAsanHeapBufferOverflow[] = "SyzyASAN error: heap-buffer-overflow ";
 const char kAsanCorruptHeap[] = "SyzyASAN error: corrupt-heap ";
 const char kAsanHeapUseAfterFree[] = "SyzyASAN error: heap-use-after-free ";
+const char kAsanNearNullptrAccessHeapCorruption[] =
+    "SyzyASAN: Caught a near-nullptr access with heap corruption.";
+const char kAsanNearNullptrAccessNoHeapCorruption[] =
+    "SyzyASAN: Ignoring a near-nullptr access without heap corruption.";
 
 // A convenience class for controlling an out of process agent_logger instance,
 // and getting the contents of its log file. Not thread safe.
@@ -1697,6 +1701,29 @@ TEST_F_2G(InstrumentAppIntegrationTest,
                      STRINGIFY(ASAN_UNKNOWN_ACCESS),
                      0,
                      true);
+}
+
+// These tests require corrupt heap checking to be enabled.
+TEST_F_2G(InstrumentAppIntegrationTest, AsanNearNullptrAccess) {
+  TEST_ONLY_SUPPORTS_2G();
+
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanNearNullptrAccessHeapCorruptionInstrumented, true,
+      kAsanHandlingException, kAsanNearNullptrAccessHeapCorruption);
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanNearNullptrAccessHeapCorruptionUninstrumented, true,
+      kAsanHandlingException, kAsanNearNullptrAccessHeapCorruption);
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanNearNullptrAccessNoHeapCorruptionInstrumented, true,
+      kAsanHandlingException, kAsanNearNullptrAccessNoHeapCorruption);
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanNearNullptrAccessNoHeapCorruptionUninstrumented, true,
+      kAsanHandlingException, kAsanNearNullptrAccessNoHeapCorruption);
+  OutOfProcessAsanErrorCheckAndValidateLog(
+      testing::kAsanNullptrAccessNoHeapCorruptionUninstrumented, true,
+      kAsanHandlingException, kAsanNearNullptrAccessNoHeapCorruption);
 }
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {

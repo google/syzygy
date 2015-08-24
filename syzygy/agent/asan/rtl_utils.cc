@@ -103,6 +103,15 @@ void ReportBadMemoryAccess(void* location,
 
   asan_runtime->GetBadAccessInformation(&bad_access_info);
 
+  // Accesses to the first 64k of the memory (invalid address) should not be
+  // reported by SyzyASAN unless we detect a heap corruption. By returning
+  // early, we let the unhandled exception filter do the heap corruption check.
+  // The check is not done here because we don't want to duplicate the work.
+  if (bad_access_info.location <
+      reinterpret_cast<void*>(Shadow::kAddressLowerBound)) {
+    return;
+  }
+
   // Report this error.
   asan_runtime->OnError(&bad_access_info);
 }

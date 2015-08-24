@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <string>
 
+#include "syzygy/agent/asan/shadow.h"
+
 namespace testing {
 
 namespace {
@@ -1148,6 +1150,65 @@ size_t AsanMemcmpAccessViolation() {
   }
 
   return result;
+}
+
+size_t AsanNearNullptrAccessHeapCorruptionInstrumented() {
+  size_t value = 0;
+  size_t* ptr =
+      reinterpret_cast<size_t*>(agent::asan::Shadow::kAddressLowerBound / 2);
+
+  // Simulate heap corruption with a large allocation.
+  char* large_alloc = reinterpret_cast<char*>(::calloc(256u, 1));
+  ::free(large_alloc);
+  NonInterceptedWrite<char>(large_alloc + 10, 'c');
+
+  value = *ptr;
+
+  return value;
+}
+
+size_t AsanNearNullptrAccessHeapCorruptionUninstrumented() {
+  size_t value = 0;
+  size_t* ptr =
+      reinterpret_cast<size_t*>(agent::asan::Shadow::kAddressLowerBound / 2);
+
+  // Simulate heap corruption with a large allocation.
+  char* large_alloc = reinterpret_cast<char*>(::calloc(256u, 1));
+  ::free(large_alloc);
+  NonInterceptedWrite<char>(large_alloc + 10, 'c');
+
+  value = NonInterceptedRead<size_t>(ptr);
+
+  return value;
+}
+
+size_t AsanNearNullptrAccessNoHeapCorruptionInstrumented() {
+  size_t value = 0;
+  size_t* ptr =
+      reinterpret_cast<size_t*>(agent::asan::Shadow::kAddressLowerBound / 2);
+
+  value = *ptr;
+
+  return value;
+}
+
+size_t AsanNearNullptrAccessNoHeapCorruptionUninstrumented() {
+  size_t value = 0;
+  size_t* ptr =
+      reinterpret_cast<size_t*>(agent::asan::Shadow::kAddressLowerBound / 2);
+
+  value = NonInterceptedRead<size_t>(ptr);
+
+  return value;
+}
+
+size_t AsanNullptrAccessNoHeapCorruptionUninstrumented() {
+  size_t value = 0;
+  size_t* ptr = nullptr;
+
+  value = NonInterceptedRead<size_t>(ptr);
+
+  return value;
 }
 
 }  // namespace testing
