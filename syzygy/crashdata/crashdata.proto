@@ -141,6 +141,12 @@ message Leaf {
     ADDRESS = 5;
     STACK_TRACE = 6;
     BLOB = 7;
+    // These fields should be implemented on the crash processing server.
+    //
+    // The goal of these fields is to allow the crash processor to provide an
+    // augmented (symbolized) version of a given leaf.
+    RESERVED_FOR_SYMBOLIZED_STACK_TRACE = 8;
+    RESERVED_FOR_SYMBOLIZED_ADDRESS = 9;
   }
 
   // The type of value stored in this union.
