@@ -68,6 +68,14 @@ class TypeCreator {
   // @returns pointer to the created object.
   TypePtr ReadArray();
 
+  // Parses procedure from the data stream.
+  // @returns pointer to the created object.
+  TypePtr ReadProcedure();
+
+  // Parses member function from the data stream.
+  // @returns pointer to the created object.
+  TypePtr ReadMFunction();
+
   // Parses modifier from the data stream.
   // @returns pointer to the object it modifies.
   TypePtr ReadModifier();
@@ -84,6 +92,28 @@ class TypeCreator {
   // Parses fieldlist from the data stream and populates the given @p object.
   // @returns true on success, false on failure.
   bool ReadFieldlist(UserDefinedType::Fields* fields);
+
+  // Parses arglist from the data stream and populates the given @p object. At
+  // the same time it appends comma separated list of (decorated) names of the
+  // argument types to the strings passed as pointers @p name and @p
+  // decorated_name.
+  // @returns true on success, false on failure.
+  bool ReadArglist(FunctionType::Arguments* args,
+                   base::string16* name,
+                   base::string16* decorated_name);
+
+  // Creates function type from the given parameters.
+  // @p type_id type index of the function type.
+  // @p call_type calling convention of the function.
+  // @p return_type_id type of the return value.
+  // @p containing_class_id type index of the containing class. kNoTypeId means
+  //    that this function isn't a member function.
+  // @p arglist_id type index of the argument list.
+  TypePtr CreateFunctionType(TypeId type_id,
+                             uint8_t call_type,
+                             TypeId return_type_id,
+                             TypeId containing_class_id,
+                             TypeId arglist_id);
 
   // Parses type given by a type from the PDB type info stream.
   // @returns pointer to the created object.
@@ -252,6 +282,7 @@ TypePtr TypeCreator::ReadModifier() {
 }
 
 bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fieldlist) {
+  DCHECK(fieldlist);
   size_t leaf_end = stream_->pos() + type_info_enum_.len();
 
   // Make our local copy of the data. This is necessary to avoid clutter with
@@ -350,6 +381,53 @@ bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fieldlist) {
   return true;
 }
 
+bool TypeCreator::ReadArglist(FunctionType::Arguments* arglist,
+                              base::string16* name,
+                              base::string16* decorated_name) {
+  DCHECK(arglist);
+  DCHECK(name);
+  DCHECK(decorated_name);
+  // Make our local copy of the data. This is necessary to avoid clutter with
+  // deeper levels of recursion.
+  scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream());
+  stream->Init(stream_.get());
+
+  uint32_t num_args = 0;
+  if (!stream->Read(&num_args, 1))
+    return false;
+
+  while (arglist->size() < num_args) {
+    uint32_t arg_type_index = 0;
+    if (!stream->Read(&arg_type_index, 1)) {
+      LOG(ERROR) << "Unable to read the type index of an argument.";
+      return false;
+    }
+
+    if (arglist->size() != 0) {
+      name->append(L", ");
+      decorated_name->append(L", ");
+    }
+
+    // Parse the underlying type.
+    if (FindOrCreateType(arg_type_index) == nullptr)
+      return false;
+
+    // Append the names, if the argument type is T_NOTYPE then this is a C-style
+    // variadic function like printf and we append "..." instead.
+    if (GetTypeId(arg_type_index) == cci::T_NOTYPE) {
+      name->append(L"...");
+      decorated_name->append(L"...");
+    } else {
+      name->append(GetName(arg_type_index));
+      decorated_name->append(GetDecoratedName(arg_type_index));
+    }
+
+    arglist->push_back(FunctionType::ArgumentType(GetFlags(arg_type_index),
+                                                  GetTypeId(arg_type_index)));
+  }
+  return true;
+}
+
 TypePtr TypeCreator::ReadClass() {
   pdb::LeafClass type_info;
   if (!type_info.Initialize(stream_.get())) {
@@ -429,6 +507,82 @@ TypePtr TypeCreator::ReadArray() {
                        index_type->type_id(), num_elements,
                        elem_type->type_id());
   return array_type;
+}
+
+TypePtr TypeCreator::ReadProcedure() {
+  pdb::LeafProcedure type_info;
+  if (!type_info.Initialize(stream_.get())) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return nullptr;
+  }
+
+  return CreateFunctionType(type_info_enum_.type_id(),
+                            type_info.body().calltype, type_info.body().rvtype,
+                            kNoTypeId, type_info.body().arglist);
+}
+
+TypePtr TypeCreator::ReadMFunction() {
+  pdb::LeafMFunction type_info;
+  if (!type_info.Initialize(stream_.get())) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return nullptr;
+  }
+
+  return CreateFunctionType(type_info_enum_.type_id(),
+                            type_info.body().calltype, type_info.body().rvtype,
+                            type_info.body().classtype,
+                            type_info.body().arglist);
+}
+
+TypePtr TypeCreator::CreateFunctionType(TypeId type_id,
+                                        uint8_t call_type,
+                                        TypeId return_type_id,
+                                        TypeId containing_class_id,
+                                        TypeId arglist_id) {
+  FunctionType::CallConvention call_convention =
+      static_cast<FunctionType::CallConvention>(call_type);
+  FunctionTypePtr function_type = new FunctionType(call_convention);
+
+  if (!repository_->AddTypeWithId(function_type, type_id))
+    return false;
+
+  FunctionType::Arguments arglist;
+
+  if (FindOrCreateType(return_type_id) == nullptr)
+    return false;
+
+  // If this is a member function parse the containing class.
+  if (containing_class_id != kNoTypeId &&
+      FindOrCreateType(containing_class_id) == nullptr) {
+    return false;
+  }
+
+  // Update the containing class id to skip over forward declarations.
+  if (containing_class_id != kNoTypeId)
+    containing_class_id = GetTypeId(containing_class_id);
+
+  base::string16 name = GetName(return_type_id) + L" (";
+  base::string16 decorated_name = GetDecoratedName(return_type_id) + L" (";
+
+  if (containing_class_id != kNoTypeId) {
+    name += GetName(containing_class_id) + L"::)(";
+    decorated_name += GetDecoratedName(containing_class_id) + L"::)(";
+  }
+
+  // Parse the argument list and finish the names.
+  if (!type_info_enum_.SeekRecord(arglist_id) ||
+      !ReadArglist(&arglist, &name, &decorated_name))
+    return false;
+
+  function_type->Finalize(FunctionType::ArgumentType(GetFlags(return_type_id),
+                                                     GetTypeId(return_type_id)),
+                          arglist, containing_class_id);
+  name.append(L")");
+  decorated_name.append(L")");
+
+  function_type->SetName(name);
+  function_type->SetDecoratedName(decorated_name);
+  return function_type;
 }
 
 TypePtr TypeCreator::ReadBitfield() {
@@ -614,6 +768,8 @@ bool TypeCreator::IsImportantType(uint32_t type) {
     case cci::LF_STRUCTURE:
     case cci::LF_ARRAY:
     case cci::LF_POINTER:
+    case cci::LF_PROCEDURE:
+    case cci::LF_MFUNCTION:
       return true;
   }
   return false;
@@ -735,6 +891,7 @@ TypePtr TypeCreator::CreateBasicType(TypeId type_index) {
         new PointerType(size, PointerType::PTR_MODE_PTR);
     basic_type->Finalize(kNoTypeFlags, basic_index);
     basic_type->SetName(GetName(basic_index) + L"*");
+    basic_type->SetDecoratedName(GetDecoratedName(basic_index) + L"*");
 
     if (!repository_->AddTypeWithId(basic_type, type_index))
       return nullptr;
@@ -790,6 +947,12 @@ TypePtr TypeCreator::CreateType(TypeId type_index) {
     case cci::LF_ARRAY: {
       return ReadArray();
     }
+    case cci::LF_PROCEDURE: {
+      return ReadProcedure();
+    }
+    case cci::LF_MFUNCTION: {
+      return ReadMFunction();
+    }
     case cci::LF_MODIFIER: {
       return ReadModifier();
     }
@@ -801,7 +964,6 @@ TypePtr TypeCreator::CreateType(TypeId type_index) {
       // TODO(mopler): Parse everything and delete this stub.
       base::string16 name = LeafTypeName(type_info_enum_.type());
       TypePtr wildcard_type = new WildcardType(name, name, 0);
-      SaveTypeInfo(type_index, type_index, kNoTypeFlags);
       if (!repository_->AddTypeWithId(wildcard_type, type_index))
         return nullptr;
       return wildcard_type;

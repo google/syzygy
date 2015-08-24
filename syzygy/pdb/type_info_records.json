@@ -122,6 +122,10 @@
       ]
     },
     {
+      "original_name": "LeafMFunc",
+      "name": "LeafMFunction"
+    },
+    {
       "name": "LeafModifier",
       "first_extra_field": "attr",
       "extra_fields": [
@@ -189,6 +193,10 @@
           "condition": "attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||\n attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC"
         }
       ]
+    },
+    {
+      "original_name": "LeafProc",
+      "name": "LeafProcedure"
     },
     {
       "name": "LeafSTMember",

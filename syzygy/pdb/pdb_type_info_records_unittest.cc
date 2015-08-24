@@ -287,6 +287,43 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMethod) {
   EXPECT_EQ(kName, type_record.name());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafMFunction) {
+  const uint32_t kReturnType = 0x013243546;
+  const uint32_t kClassType = 0xAABB;
+  const uint32_t kThisType = 0xFADE;
+  const uint8_t kCallConvention = 0x05;
+  const uint8_t kPad = 0x00;
+  const uint16_t kParamCount = 12;
+  const uint32_t kArglistType = 0xA8F115CD;
+  const uint32_t kThisAdjust = 0x1011AABB;
+
+  LeafMFunction type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kReturnType);
+  WriteData(kClassType);
+  WriteData(kThisType);
+  WriteData(kCallConvention);
+  WriteData(kPad);
+  WriteData(kParamCount);
+  WriteData(kArglistType);
+  WriteData(kThisAdjust);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kReturnType, type_record.body().rvtype);
+  EXPECT_EQ(kClassType, type_record.body().classtype);
+  EXPECT_EQ(kThisType, type_record.body().thistype);
+  EXPECT_EQ(kCallConvention, type_record.body().calltype);
+  EXPECT_EQ(kPad, type_record.body().reserved);
+  EXPECT_EQ(kParamCount, type_record.body().parmcount);
+  EXPECT_EQ(kArglistType, type_record.body().arglist);
+  EXPECT_EQ(kThisAdjust, type_record.body().thisadjust);
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafModifier) {
   const uint32_t kType = 0x2008;
   const LeafModifierAttribute kAttr = {0x0001};
@@ -402,6 +439,34 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMemberPointer) {
   EXPECT_TRUE(type_record.has_pmtype());
   EXPECT_EQ(kContainingClass, type_record.containing_class());
   EXPECT_EQ(kPmtype, type_record.pmtype());
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafProcedure) {
+  const uint32_t kReturnType = 0xFF00FF00;
+  const uint8_t kCallConvention = 0xFF;
+  const uint8_t kPad = 0x00;
+  const uint16_t kParamCount = 255;
+  const uint32_t kArglistType = 0xA8F115CD;
+
+  LeafProcedure type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kReturnType);
+  WriteData(kCallConvention);
+  WriteData(kPad);
+  WriteData(kParamCount);
+  WriteData(kArglistType);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kReturnType, type_record.body().rvtype);
+  EXPECT_EQ(kCallConvention, type_record.body().calltype);
+  EXPECT_EQ(kPad, type_record.body().reserved);
+  EXPECT_EQ(kParamCount, type_record.body().parmcount);
+  EXPECT_EQ(kArglistType, type_record.body().arglist);
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafSTMember) {

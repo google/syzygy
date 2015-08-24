@@ -289,9 +289,8 @@ TEST_F(TypesTest, FunctionType) {
   const TypeId kClassType =
       repo_.AddType(new UserDefinedType(L"foo", L"decorated_foo", 10));
 
-  FunctionTypePtr function =
-      new FunctionType(FunctionType::CALL_NEAR_C, kClassType);
-  function->Finalize(ret_value, args);
+  FunctionTypePtr function = new FunctionType(FunctionType::CALL_NEAR_C);
+  function->Finalize(ret_value, args, kClassType);
   function->SetName(L"FunctionName");
   function->SetDecoratedName(L"decorated@@FunctionName");
 

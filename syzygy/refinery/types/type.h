@@ -337,9 +337,7 @@ class FunctionType : public Type {
 
   // Creates a new (non-finalized) function type.
   // @param call_convention calling convention of this function.
-  // @param containing_class_id type index of the containing class.
-  explicit FunctionType(CallConvention call_convention,
-                        TypeId containing_class_id);
+  explicit FunctionType(CallConvention call_convention);
 
   // Retrieves the type associated with argument @p arg_no.
   // @pre arg_no < arguments().size().
@@ -369,8 +367,11 @@ class FunctionType : public Type {
   // Finalize the type by providing it with an argument list and return value.
   // @param return_value the return value of the type.
   // @param args the arguments for the type.
+  // @param containing_class_id type index of the containing class.
   // @note this can only be called once per type instance.
-  void Finalize(const ArgumentType& return_type, const Arguments& arg_types);
+  void Finalize(const ArgumentType& return_type,
+                const Arguments& arg_types,
+                TypeId containing_class_id);
 
  private:
   //  Stores the arguments.

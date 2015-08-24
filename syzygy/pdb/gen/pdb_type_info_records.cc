@@ -174,6 +174,19 @@ bool LeafMethod::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafMFunction::LeafMFunction() : body_{} {}
+
+bool LeafMFunction::Initialize(PdbStream* stream) {
+  size_t to_read = sizeof(body_);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+
+  return true;
+}
+
 LeafModifier::LeafModifier() : body_{},
                                attr_{} {}
 
@@ -249,6 +262,19 @@ bool LeafPointer::Initialize(PdbStream* stream) {
   if ((attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMEM ||
        attr().ptrmode == Microsoft_Cci_Pdb::CV_PTR_MODE_PMFUNC) &&
       !ReadBasicType(stream, &pmtype_)) {
+    return false;
+  }
+
+  return true;
+}
+
+LeafProcedure::LeafProcedure() : body_{} {}
+
+bool LeafProcedure::Initialize(PdbStream* stream) {
+  size_t to_read = sizeof(body_);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
     return false;
   }
 

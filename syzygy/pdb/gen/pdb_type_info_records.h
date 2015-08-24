@@ -243,6 +243,25 @@ class LeafMethod {
   base::string16 name_;
 };
 
+class LeafMFunction {
+ public:
+  LeafMFunction();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafMFunc& body() const { return body_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafMFunc body_;
+};
+
 class LeafModifier {
  public:
   LeafModifier();
@@ -355,6 +374,25 @@ class LeafPointer {
   LeafPointerAttribute attr_;
   uint32_t containing_class_;
   uint16_t pmtype_;
+};
+
+class LeafProcedure {
+ public:
+  LeafProcedure();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafProc& body() const { return body_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafProc body_;
 };
 
 class LeafSTMember {

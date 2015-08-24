@@ -388,6 +388,68 @@ TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
   }
 }
 
+TEST_P(PdbCrawlerTest, TestMFunction) {
+  std::vector<TypePtr> type_vector =
+      FindTypesBySuffix(L"void (testing::TestAllInOneUDT::)(int32_t)");
+  ASSERT_EQ(1U, type_vector.size());
+
+  TypePtr type = type_vector[0];
+  ASSERT_TRUE(type);
+
+  FunctionTypePtr function;
+  ASSERT_EQ(Type::FUNCTION_TYPE_KIND, type->kind());
+  ASSERT_TRUE(type->CastTo(&function));
+  ASSERT_TRUE(function);
+
+  const FunctionType::Arguments& args = function->argument_types();
+
+  EXPECT_EQ(1U, args.size());
+
+  EXPECT_TRUE(function->IsMemberFunction());
+  EXPECT_FALSE(function->return_type().is_const());
+  EXPECT_FALSE(function->return_type().is_volatile());
+  ValidateBasicType(function->GetReturnType(), 0, L"void");
+
+  EXPECT_FALSE(args[0].is_const());
+  EXPECT_FALSE(args[0].is_volatile());
+  ValidateBasicType(function->GetArgumentType(0), sizeof(int32_t), L"int32_t");
+
+  // Find the containing class.
+  type_vector = FindTypesBySuffix(L"::TestAllInOneUDT");
+  ASSERT_EQ(1U, type_vector.size());
+  type = type_vector[0];
+  ASSERT_TRUE(type);
+
+  // Check that the function points to its containing class.
+  EXPECT_EQ(function->containing_class_id(), type->type_id());
+}
+
+TEST_P(PdbCrawlerTest, TestProcedure) {
+  std::vector<TypePtr> type_vector = FindTypesBySuffix(L"void ()");
+
+  // There could be more than one procedure  with different calling conventions.
+  ASSERT_LE(1U, type_vector.size());
+
+  TypePtr type = type_vector[0];
+  ASSERT_TRUE(type);
+
+  FunctionTypePtr function;
+  ASSERT_EQ(Type::FUNCTION_TYPE_KIND, type->kind());
+  ASSERT_TRUE(type->CastTo(&function));
+  ASSERT_TRUE(function);
+
+  const FunctionType::Arguments& args = function->argument_types();
+
+  EXPECT_EQ(0, args.size());
+
+  EXPECT_FALSE(function->IsMemberFunction());
+  EXPECT_EQ(kNoTypeId, function->containing_class_id());
+
+  EXPECT_FALSE(function->return_type().is_const());
+  EXPECT_FALSE(function->return_type().is_volatile());
+  ValidateBasicType(function->GetReturnType(), 0, L"void");
+}
+
 TEST_P(PdbCrawlerTest, TestReference) {
   std::vector<TypePtr> types = FindTypesBySuffix(L"::TestReference");
 

@@ -163,11 +163,10 @@ void ArrayType::Finalize(Flags flags,
   element_type_id_ = element_type_id;
 }
 
-FunctionType::FunctionType(CallConvention call_convention,
-                           TypeId containing_class_id)
+FunctionType::FunctionType(CallConvention call_convention)
     : Type(FUNCTION_TYPE_KIND, L"", 0),
       call_convention_(call_convention),
-      containing_class_id_(containing_class_id),
+      containing_class_id_(kNoTypeId),
       return_type_(kNoTypeFlags, kNoTypeId) {
 }
 
@@ -180,12 +179,14 @@ bool FunctionType::ArgumentType::operator==(const ArgumentType& other) const {
 }
 
 void FunctionType::Finalize(const ArgumentType& return_type,
-                            const Arguments& arg_types) {
+                            const Arguments& arg_types,
+                            TypeId containing_class_id) {
   DCHECK_EQ(0U, arg_types_.size());
   DCHECK_EQ(kNoTypeId, return_type_.type_id());
 
   return_type_ = return_type;
   arg_types_ = arg_types;
+  containing_class_id_ = containing_class_id;
 }
 
 TypePtr FunctionType::GetArgumentType(size_t arg_no) const {
