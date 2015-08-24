@@ -75,14 +75,26 @@ TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
   return repository()->GetType(fields_[field_no].type_id());
 }
 
+TypePtr UserDefinedType::GetFunctionType(size_t function_no) const {
+  DCHECK(repository());
+  DCHECK_GT(functions_.size(), function_no);
+
+  return repository()->GetType(functions_[function_no].type_id());
+}
+
 BasicType::BasicType(const base::string16& name, size_t size)
     : Type(BASIC_TYPE_KIND, name, name, size) {
 }
 
-void UserDefinedType::Finalize(const Fields& fields) {
+void UserDefinedType::Finalize(const Fields& fields,
+                               const Functions& functions) {
   DCHECK_EQ(0U, fields_.size());
+  DCHECK_EQ(0U, functions_.size());
   for (auto field : fields)
     fields_.push_back(field);
+
+  for (auto function : functions)
+    functions_.push_back(function);
 }
 
 UserDefinedType::Field::Field(const base::string16& name,
@@ -100,6 +112,15 @@ UserDefinedType::Field::Field(const base::string16& name,
   DCHECK_GE(63u, bit_pos);
   DCHECK_GE(63u, bit_len);
   DCHECK_NE(kNoTypeId, type_id);
+}
+
+UserDefinedType::Function::Function(const base::string16& name, TypeId type_id)
+    : name_(name), type_id_(type_id) {
+  DCHECK_NE(kNoTypeId, type_id);
+}
+
+bool UserDefinedType::Function::operator==(const Function& other) const {
+  return name_ == other.name_ && type_id_ == other.type_id_;
 }
 
 bool UserDefinedType::Field::operator==(const Field& o) const {

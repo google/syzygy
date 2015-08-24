@@ -27,7 +27,7 @@ class TypesTest : public testing::Test {
                     size_t size,
                     const UserDefinedType::Fields& fields) {
     UserDefinedTypePtr udt = new UserDefinedType(name, size);
-    udt->Finalize(fields);
+    udt->Finalize(fields, UserDefinedType::Functions());
     return udt;
   }
 
@@ -83,9 +83,21 @@ TEST_F(TypesTest, UserDefineType) {
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt =
       new UserDefinedType(L"foo", 10);
-  udt->Finalize(fields);
 
-  repo_.AddType(udt);
+  const TypeId kClassId = repo_.AddType(udt);
+
+  // Set up a member function.
+  FunctionTypePtr function = new FunctionType(FunctionType::CALL_NEAR_C);
+  function->Finalize(FunctionType::ArgumentType(kNoTypeFlags, kShortTypeId),
+                     FunctionType::Arguments(), kClassId);
+  function->SetName(L"short (foo::)()");
+  const TypeId kFunctionId = repo_.AddType(function);
+
+  UserDefinedType::Functions functions;
+  functions.push_back(
+      UserDefinedType::Function(L"memberFunction", kFunctionId));
+
+  udt->Finalize(fields, functions);
 
   // Up-cast it.
   TypePtr type(udt);
@@ -126,6 +138,13 @@ TEST_F(TypesTest, UserDefineType) {
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&basic_type));
   EXPECT_EQ(L"short", basic_type->name());
   EXPECT_EQ(2, basic_type->size());
+
+  EXPECT_EQ(1, udt->functions().size());
+  EXPECT_EQ(L"memberFunction", udt->functions()[0].name());
+  EXPECT_EQ(kFunctionId, udt->functions()[0].type_id());
+  ASSERT_TRUE(udt->GetFunctionType(0)->CastTo(&function));
+  EXPECT_EQ(L"short (foo::)()", function->name());
+  EXPECT_EQ(function->containing_class_id(), udt->type_id());
 }
 
 // This test will eventually be deleted with the no-decorated-name constructor.
@@ -140,7 +159,7 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 10);
-  udt->Finalize(fields);
+  udt->Finalize(fields, UserDefinedType::Functions());
 
   repo_.AddType(udt);
 

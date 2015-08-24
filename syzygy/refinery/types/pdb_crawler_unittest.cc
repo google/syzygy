@@ -530,6 +530,50 @@ TEST_P(PdbCrawlerTest, TestArray) {
   EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
 }
 
+TEST_P(PdbCrawlerTest, TestFunctions) {
+  std::vector<TypePtr> type_vector = FindTypesBySuffix(L"::TestFunctions");
+  ASSERT_EQ(1U, type_vector.size());
+
+  TypePtr type = type_vector[0];
+  ASSERT_TRUE(type);
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  ASSERT_EQ(0U, udt->fields().size());
+  ASSERT_EQ(4U, udt->functions().size());
+
+  const UserDefinedType::Functions& functions = udt->functions();
+  FunctionTypePtr function;
+
+  // First function is a constructor.
+  EXPECT_EQ(L"TestFunctions", functions[0].name());
+  EXPECT_TRUE(udt->GetFunctionType(0)->CastTo(&function));
+  EXPECT_EQ(0U, function->argument_types().size());
+  ValidateBasicType(function->GetReturnType(), 0, L"void");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+
+  EXPECT_EQ(L"NonOverloadedFunction", functions[1].name());
+  EXPECT_TRUE(udt->GetFunctionType(1)->CastTo(&function));
+  EXPECT_EQ(0U, function->argument_types().size());
+  ValidateBasicType(function->GetReturnType(), 0, L"void");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+
+  EXPECT_EQ(L"OverloadedFunction", functions[2].name());
+  EXPECT_TRUE(udt->GetFunctionType(2)->CastTo(&function));
+  EXPECT_EQ(1U, function->argument_types().size());
+  ValidateBasicType(function->GetArgumentType(0), sizeof(int32_t), L"int32_t");
+  ValidateBasicType(function->GetReturnType(), 0, L"void");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+
+  EXPECT_EQ(L"OverloadedFunction", functions[3].name());
+  EXPECT_TRUE(udt->GetFunctionType(3)->CastTo(&function));
+  EXPECT_EQ(0U, function->argument_types().size());
+  ValidateBasicType(function->GetReturnType(), sizeof(int32_t), L"int32_t");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+}
+
 // Run both the 32-bit and 64-bit tests.
 INSTANTIATE_TEST_CASE_P(InstantiateFor32and64,
                         PdbCrawlerTest,

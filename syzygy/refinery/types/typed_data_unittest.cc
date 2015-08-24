@@ -128,7 +128,7 @@ class TypedDataTest : public testing::Test {
     fields.push_back(UserDefinedType::Field(
         L"inner_two", offsetof(TestUDT::InnerUDT, inner_two), 0, 0, 0,
         uint32_type->type_id()));
-    inner->Finalize(fields);
+    inner->Finalize(fields, UserDefinedType::Functions());
     repo_.AddType(inner);
 
     fields.clear();
@@ -158,7 +158,7 @@ class TypedDataTest : public testing::Test {
     fields.push_back(UserDefinedType::Field(L"six", offsetof(TestUDT, six),
                                             kNoTypeFlags, 0, 0,
                                             array_type->type_id()));
-    outer->Finalize(fields);
+    outer->Finalize(fields, UserDefinedType::Functions());
     repo_.AddType(outer);
 
     ptr_type->Finalize(Type::FLAG_CONST, outer->type_id());

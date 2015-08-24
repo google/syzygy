@@ -351,4 +351,22 @@ bool LeafVFuncTab::Initialize(PdbStream* stream) {
   return true;
 }
 
+MethodListRecord::MethodListRecord() : body_{},
+                                       vbaseoff_{} {}
+
+bool MethodListRecord::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::mlMethod, vbaseoff);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if ((attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro) &&
+      !ReadBasicType(stream, &vbaseoff_)) {
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace pdb

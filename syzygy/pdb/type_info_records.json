@@ -257,6 +257,24 @@
           "type_name": "uint32_t"
         }
       ]
+    },
+    {
+      "original_name": "mlMethod",
+      "name": "MethodListRecord",
+      "first_extra_field": "vbaseoff",
+      "extra_fields": [
+        {
+          "name": "vbaseoff",
+          "type_name": "uint32_t",
+          "condition": "attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "attr",
+          "type": "LeafMemberAttributeField"
+        }
+      ]
     }
   ],
   "types": {

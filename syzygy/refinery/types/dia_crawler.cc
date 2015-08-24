@@ -687,7 +687,7 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
   }
 
   DCHECK_EQ(0UL, udt->fields().size());
-  udt->Finalize(fields);
+  udt->Finalize(fields, UserDefinedType::Functions());
   return true;
 }
 

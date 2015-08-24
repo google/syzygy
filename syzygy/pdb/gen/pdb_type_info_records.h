@@ -493,6 +493,34 @@ class LeafVFuncTab {
   uint32_t index_;
 };
 
+class MethodListRecord {
+ public:
+  MethodListRecord();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::mlMethod& body() const { return body_; }
+  uint32_t vbaseoff() const { return vbaseoff_; }
+  LeafMemberAttributeField attr() const { return {body_.attr}; }
+  // @}
+
+  bool has_vbaseoff() const {
+    return (attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro);
+  }
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::mlMethod body_;
+
+  // Additional fields parsed from the pdb stream.
+  uint32_t vbaseoff_;
+};
+
 }  // namespace pdb
 
 #endif  // SYZYGY_PDB_GEN_PDB_TYPE_INFO_RECORDS_H_

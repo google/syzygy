@@ -132,8 +132,9 @@ using BasicTypePtr = scoped_refptr<BasicType>;
 class UserDefinedType : public Type {
  public:
   class Field;
+  class Function;
   typedef std::vector<Field> Fields;
-
+  typedef std::vector<Function> Functions;
   static const TypeKind ID = USER_DEFINED_TYPE_KIND;
 
   // Creates a new user defined type with name @p name, size @p size.
@@ -153,16 +154,26 @@ class UserDefinedType : public Type {
   // @pre SetRepository has been called.
   TypePtr GetFieldType(size_t field_no) const;
 
-  // Accessor.
+  // Retrieves the type associated with function @p function_no.
+  // @pre function_no < functions().size().
+  // @pre SetRepository has been called.
+  TypePtr GetFunctionType(size_t function_no) const;
+
+  // Accessors.
+  // @{
   const Fields& fields() const { return fields_; }
+  const Functions& functions() const { return functions_; }
+  // @}
 
   // Finalize the type by providing it with a field list.
   // @param fields the fields for the type.
+  // @param functions the member functions for the type.
   // @note this can only be called once per type instance.
-  void Finalize(const Fields& fields);
+  void Finalize(const Fields& fields, const Functions& functions);
 
  private:
   Fields fields_;
+  Functions functions_;
 
   DISALLOW_COPY_AND_ASSIGN(UserDefinedType);
 };
@@ -211,6 +222,27 @@ class UserDefinedType::Field {
   const Flags flags_;
   const size_t bit_pos_ : 6;
   const size_t bit_len_ : 6;
+  const TypeId type_id_;
+};
+
+// Represents a member function in UDT.
+class UserDefinedType::Function {
+ public:
+  // Creates a new member function.
+  // @param name the name of the field.
+  // @param type_id the type ID of the function type.
+  Function(const base::string16& name, TypeId type_id);
+
+  // @name Accessors.
+  // @{
+  const base::string16& name() const { return name_; }
+  TypeId type_id() const { return type_id_; }
+  // @}
+
+  bool operator==(const Function& other) const;
+
+ private:
+  const base::string16 name_;
   const TypeId type_id_;
 };
 

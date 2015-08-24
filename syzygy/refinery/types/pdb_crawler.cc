@@ -84,14 +84,35 @@ class TypeCreator {
   // @returns pointer to the underlying object type.
   TypePtr ReadBitfield();
 
-  // Parses a member field from the @p stream and inserts it into the @p fields
-  // vector.
+  // Processes a member field and inserts it into given field list.
+  // @param member pointer to the member type record.
+  // @param fields pointer to the field list.
   // @returns true on success, false on failure.
-  bool ReadMember(pdb::PdbStream* stream, UserDefinedType::Fields* fields);
+  bool ProcessMember(pdb::LeafMember* member, UserDefinedType::Fields* fields);
 
-  // Parses fieldlist from the data stream and populates the given @p object.
+  // Processes one method field and adds it as a member function in the member
+  // function list.
+  // @param method pointer to the one method type record.
+  // @param functions pointer to the member function list.
   // @returns true on success, false on failure.
-  bool ReadFieldlist(UserDefinedType::Fields* fields);
+  bool ProcessOneMethod(pdb::LeafOneMethod* method,
+                        UserDefinedType::Functions* functions);
+
+  // Processes overloaded method field and add the member functions to the given
+  // list.
+  // @param method pointer to the method type record.
+  // @param functions pointer to the member function list.
+  // @returns true on success, false on failure.
+  bool ProcessMethod(pdb::LeafMethod* method,
+                     UserDefinedType::Functions* functions);
+
+  // Parses field list from the data stream and populates the UDT with fields
+  // and member functions.
+  // @param fields pointer to the field list.
+  // @param functions pointer to the member function list.
+  // @returns true on success, false on failure.
+  bool ReadFieldlist(UserDefinedType::Fields* fields,
+                     UserDefinedType::Functions* functions);
 
   // Parses arglist from the data stream and populates the given @p object. At
   // the same time it appends comma separated list of (decorated) names of the
@@ -281,92 +302,101 @@ TypePtr TypeCreator::ReadModifier() {
   return child;
 }
 
-bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fieldlist) {
-  DCHECK(fieldlist);
+bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fields,
+                                UserDefinedType::Functions* functions) {
+  DCHECK(fields);
+  DCHECK(functions);
   size_t leaf_end = stream_->pos() + type_info_enum_.len();
 
   // Make our local copy of the data. This is necessary to avoid clutter with
   // deeper levels of recursion.
-  scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream());
-  stream->Init(stream_.get());
+  scoped_refptr<pdb::PdbByteStream> local_stream(new pdb::PdbByteStream());
+  local_stream->Init(stream_.get());
 
-  while (stream->pos() < leaf_end) {
+  while (local_stream->pos() < leaf_end) {
     uint16 leaf_type = 0;
-    if (!stream->Read(&leaf_type, 1)) {
+    if (!local_stream->Read(&leaf_type, 1)) {
       LOG(ERROR) << "Unable to read the type of a list field.";
       return false;
     }
 
     switch (leaf_type) {
       case cci::LF_MEMBER: {
-        if (!ReadMember(stream.get(), fieldlist))
+        pdb::LeafMember type_info;
+        if (!type_info.Initialize(local_stream.get()) ||
+            !ProcessMember(&type_info, fields)) {
           return false;
+        }
         break;
       }
       case cci::LF_BCLASS: {
         pdb::LeafBClass type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_VBCLASS:
       case cci::LF_IVBCLASS: {
         pdb::LeafVBClass type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_ENUMERATE: {
         pdb::LeafEnumerate type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_FRIENDFCN: {
         pdb::LeafFriendFcn type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_STMEMBER: {
         pdb::LeafSTMember type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_METHOD: {
         pdb::LeafMethod type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()) ||
+            !ProcessMethod(&type_info, functions)) {
           return false;
+        }
         break;
       }
       case cci::LF_NESTTYPE: {
         pdb::LeafNestType type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_VFUNCTAB: {
         pdb::LeafVFuncTab type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_FRIENDCLS: {
         pdb::LeafFriendCls type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
       case cci::LF_ONEMETHOD: {
         pdb::LeafOneMethod type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()) ||
+            !ProcessOneMethod(&type_info, functions)) {
           return false;
+        }
         break;
       }
       case cci::LF_VFUNCOFF: {
         pdb::LeafVFuncOff type_info;
-        if (!type_info.Initialize(stream.get()))
+        if (!type_info.Initialize(local_stream.get()))
           return false;
         break;
       }
@@ -375,8 +405,8 @@ bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fieldlist) {
         break;
       }
     }
-    // Find where we ended.
-    stream->Seek(common::AlignUp(stream->pos(), 4));
+    // The records are aligned.
+    local_stream->Seek(common::AlignUp(local_stream->pos(), 4));
   }
   return true;
 }
@@ -462,11 +492,12 @@ TypePtr TypeCreator::ReadClass() {
       return nullptr;
 
     UserDefinedType::Fields fieldlist;
+    UserDefinedType::Functions functionlist;
     if (!type_info_enum_.SeekRecord(type_info.body().field) ||
-        !ReadFieldlist(&fieldlist))
+        !ReadFieldlist(&fieldlist, &functionlist))
       return false;
 
-    udt->Finalize(fieldlist);
+    udt->Finalize(fieldlist, functionlist);
     return udt;
   }
 }
@@ -617,19 +648,14 @@ TypeCreator::TypeCreator(TypeRepository* repository) : repository_(repository) {
 TypeCreator::~TypeCreator() {
 }
 
-bool TypeCreator::ReadMember(pdb::PdbStream* stream,
-                             UserDefinedType::Fields* fields) {
+bool TypeCreator::ProcessMember(pdb::LeafMember* member,
+                                UserDefinedType::Fields* fields) {
+  DCHECK(member);
   DCHECK(fields);
-  pdb::LeafMember type_info;
-  if (!type_info.Initialize(stream)) {
-    LOG(ERROR) << "Unable to read type info record.";
-    return false;
-  }
 
   // TODO(mopler): Should we store the access protection and other info?
-
   // Get the member info.
-  TypeId type_id = type_info.body().index;
+  TypeId type_id = member->body().index;
   TypePtr child = FindOrCreateType(type_id);
   if (child == nullptr) {
     LOG(ERROR) << "Found member referencing unknown type index.";
@@ -637,8 +663,62 @@ bool TypeCreator::ReadMember(pdb::PdbStream* stream,
   }
 
   fields->push_back(UserDefinedType::Field(
-      type_info.name(), type_info.offset(), GetFlags(type_id),
+      member->name(), member->offset(), GetFlags(type_id),
       GetBitPosition(type_id), GetBitLength(type_id), child->type_id()));
+  return true;
+}
+
+bool TypeCreator::ProcessOneMethod(pdb::LeafOneMethod* method,
+                                   UserDefinedType::Functions* functions) {
+  DCHECK(method);
+  DCHECK(functions);
+
+  // Parse the function type.
+  TypeId function_id = method->body().index;
+  if (FindOrCreateType(function_id) == nullptr) {
+    LOG(ERROR) << "Found member referencing unknown type index.";
+    return false;
+  }
+
+  functions->push_back(UserDefinedType::Function(method->name(), function_id));
+  return true;
+}
+
+bool TypeCreator::ProcessMethod(pdb::LeafMethod* method,
+                                UserDefinedType::Functions* functions) {
+  DCHECK(method);
+  DCHECK(functions);
+
+  // Seek the method list record.
+  if (!type_info_enum_.SeekRecord(method->body().mList) ||
+      type_info_enum_.type() != cci::LF_METHODLIST) {
+    return false;
+  }
+
+  // We need a local copy of the data in order to load the records.
+  scoped_refptr<pdb::PdbByteStream> local_stream(new pdb::PdbByteStream());
+  local_stream->Init(stream_.get());
+
+  uint16_t count = method->body().count;
+  while (count > 0) {
+    pdb::MethodListRecord method_record;
+    if (!method_record.Initialize(local_stream.get())) {
+      LOG(ERROR) << "Unable to read method list record.";
+      return false;
+    }
+
+    // Parse the function type.
+    TypeId function_id = method_record.body().index;
+    if (FindOrCreateType(function_id) == nullptr) {
+      LOG(ERROR) << "Found member referencing unknown type index.";
+      return false;
+    }
+
+    functions->push_back(
+        UserDefinedType::Function(method->name(), function_id));
+
+    count--;
+  }
   return true;
 }
 

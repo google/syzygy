@@ -66,6 +66,13 @@ struct TestArrays {
   TestRecursiveUDT* volatile (*array_ptr)[32];
 };
 
+struct TestFunctions {
+  TestFunctions() {}
+  void NonOverloadedFunction() {}
+  int OverloadedFunction() { return 42; }
+  void OverloadedFunction(int arg) {}
+};
+
 // The following classes are set up to test correct reading of pointer to data
 // members and functions.
 class A {};
@@ -144,6 +151,9 @@ void AliasTypesOne() {
 
   TestArrays arrays = {{0}};
   Alias(&arrays);
+
+  TestFunctions functions;
+  Alias(&functions);
 
   TestMemberPointersUDT member_data = {};
   Alias(&member_data);

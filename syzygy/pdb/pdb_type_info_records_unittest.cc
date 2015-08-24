@@ -389,6 +389,8 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafOneMethod) {
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
   EXPECT_EQ(kType, type_record.body().index);
   EXPECT_EQ(kName, type_record.name());
+  EXPECT_TRUE(type_record.has_vbaseoff());
+  EXPECT_EQ(kVbaseOff, type_record.vbaseoff());
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafPointer) {
@@ -552,6 +554,33 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncTab) {
   ASSERT_TRUE(type_record.Initialize(stream_.get()));
 
   EXPECT_EQ(kType, type_record.index());
+}
+
+TEST_F(PdbTypeInfoRecordsTest, ReadMethodListRecord) {
+  const LeafMemberAttributeField kAttr = {0x1212};
+  const uint16 kPad = 0x0000;
+  const uint32_t kType = 0xF0F0F0F0;
+  const uint32_t kVbaseOff = 0xBA5E0000;
+
+  EXPECT_EQ(kAttr.mprop, Microsoft_Cci_Pdb::CV_MTintro);
+
+  MethodListRecord type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kAttr);
+  WriteData(kPad);
+  WriteData(kType);
+  WriteData(kVbaseOff);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kAttr.raw, type_record.attr().raw);
+  EXPECT_EQ(kType, type_record.body().index);
+  EXPECT_TRUE(type_record.has_vbaseoff());
+  EXPECT_EQ(kVbaseOff, type_record.vbaseoff());
 }
 
 }  // namespace pdb
