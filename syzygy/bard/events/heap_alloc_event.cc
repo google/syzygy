@@ -30,7 +30,7 @@ HeapAllocEvent::HeapAllocEvent(HANDLE trace_heap,
       trace_alloc_(trace_alloc) {
 }
 
-bool HeapAllocEvent::PlayImpl(void* backdrop) {
+bool HeapAllocEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
   using bard::backdrops::HeapBackdrop;

@@ -30,7 +30,7 @@ HeapFreeEvent::HeapFreeEvent(HANDLE trace_heap,
       trace_succeeded_(trace_succeeded) {
 }
 
-bool HeapFreeEvent::PlayImpl(void* backdrop) {
+bool HeapFreeEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
   using bard::backdrops::HeapBackdrop;

@@ -23,7 +23,7 @@ namespace events {
 
 // An event that wraps a call to HeapReAlloc, to be played against a
 // HeapBackdrop.
-class HeapReAllocEvent : public LinkedEvent {
+class HeapReAllocEvent : public EventInterface {
  public:
   HeapReAllocEvent(HANDLE trace_heap,
                    DWORD flags,
@@ -33,7 +33,8 @@ class HeapReAllocEvent : public LinkedEvent {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kHeapReAllocEvent; }
+  EventType type() const override { return kGetProcessHeapEvent; }
+  bool Play(void* backdrop) override;
   // @}
 
   // @name Accessors.
@@ -46,9 +47,6 @@ class HeapReAllocEvent : public LinkedEvent {
   // @}
 
  private:
-  // LinkedEvent implementation.
-  bool PlayImpl(void* backdrop) override;
-
   // Arguments to HeapReAlloc.
   HANDLE trace_heap_;
   DWORD flags_;

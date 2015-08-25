@@ -14,7 +14,6 @@
 
 #include "syzygy/bard/events/linked_event.h"
 
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "base/threading/simple_thread.h"
 #include "gtest/gtest.h"
@@ -24,13 +23,13 @@ namespace events {
 
 namespace {
 
-class TestLinkedEvent : public LinkedEvent {
+class TestEvent : public EventInterface {
  public:
-  TestLinkedEvent() : played_(false) {}
+  TestEvent() : played_(false) {}
 
   EventType type() const override { return static_cast<EventType>(0); }
 
-  bool PlayImpl(void* backdrop) override {
+  bool Play(void* backdrop) override {
     base::AutoLock auto_lock(lock_);
     played_ = true;
     return true;
@@ -61,16 +60,19 @@ class TestRunner : public base::DelegateSimpleThread::Delegate {
 class LinkedEventTest : public testing::Test {
  public:
   LinkedEventTest()
-      : runner1_(&event1_, empty_backdrop_),
-        runner2_(&event2_, empty_backdrop_),
-        runner3_(&event3_, empty_backdrop_) {}
+      : linked_event1_(scoped_ptr<EventInterface>(new TestEvent())),
+        linked_event2_(scoped_ptr<EventInterface>(new TestEvent())),
+        linked_event3_(scoped_ptr<EventInterface>(new TestEvent())),
+        runner1_(&linked_event1_, empty_backdrop_),
+        runner2_(&linked_event2_, empty_backdrop_),
+        runner3_(&linked_event3_, empty_backdrop_) {}
 
  protected:
   void* empty_backdrop_;
 
-  TestLinkedEvent event1_;
-  TestLinkedEvent event2_;
-  TestLinkedEvent event3_;
+  LinkedEvent linked_event1_;
+  LinkedEvent linked_event2_;
+  LinkedEvent linked_event3_;
 
   TestRunner runner1_;
   TestRunner runner2_;
@@ -83,20 +85,24 @@ TEST_F(LinkedEventTest, TestOneLink) {
   base::DelegateSimpleThread thread1(&runner1_, "First Thread");
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
 
-  event2_.AddPrequel(&event1_);
+  linked_event2_.AddPrequel(&linked_event1_);
 
   thread2.Start();
 
-  EXPECT_FALSE(event1_.played());
-  EXPECT_FALSE(event2_.played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
 
   thread1.Start();
   thread1.Join();
 
   thread2.Join();
 
-  EXPECT_TRUE(event1_.played());
-  EXPECT_TRUE(event2_.played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
 }
 
 TEST_F(LinkedEventTest, TestChainLink) {
@@ -104,29 +110,38 @@ TEST_F(LinkedEventTest, TestChainLink) {
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
   base::DelegateSimpleThread thread3(&runner3_, "Third Thread");
 
-  event2_.AddPrequel(&event1_);
-  event3_.AddPrequel(&event2_);
+  linked_event2_.AddPrequel(&linked_event1_);
+  linked_event3_.AddPrequel(&linked_event2_);
 
   thread3.Start();
 
-  EXPECT_FALSE(event1_.played());
-  EXPECT_FALSE(event2_.played());
-  EXPECT_FALSE(event3_.played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event3_.event())->played());
 
   thread2.Start();
 
-  EXPECT_FALSE(event1_.played());
-  EXPECT_FALSE(event2_.played());
-  EXPECT_FALSE(event3_.played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event3_.event())->played());
 
   thread1.Start();
   thread1.Join();
   thread2.Join();
   thread3.Join();
 
-  EXPECT_TRUE(event1_.played());
-  EXPECT_TRUE(event2_.played());
-  EXPECT_TRUE(event3_.played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event3_.event())->played());
 }
 
 TEST_F(LinkedEventTest, TestMultipleDependency) {
@@ -134,29 +149,38 @@ TEST_F(LinkedEventTest, TestMultipleDependency) {
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
   base::DelegateSimpleThread thread3(&runner3_, "Third Thread");
 
-  event3_.AddPrequel(&event1_);
-  event3_.AddPrequel(&event2_);
+  linked_event3_.AddPrequel(&linked_event1_);
+  linked_event3_.AddPrequel(&linked_event2_);
 
   thread3.Start();
 
-  EXPECT_FALSE(event1_.played());
-  EXPECT_FALSE(event2_.played());
-  EXPECT_FALSE(event3_.played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event3_.event())->played());
 
   thread2.Start();
 
-  EXPECT_FALSE(event1_.played());
-  EXPECT_TRUE(event2_.played());
-  EXPECT_FALSE(event3_.played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
+  EXPECT_FALSE(
+      reinterpret_cast<const TestEvent*>(linked_event3_.event())->played());
 
   thread1.Start();
   thread1.Join();
   thread2.Join();
   thread3.Join();
 
-  EXPECT_TRUE(event1_.played());
-  EXPECT_TRUE(event2_.played());
-  EXPECT_TRUE(event3_.played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event1_.event())->played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event2_.event())->played());
+  EXPECT_TRUE(
+      reinterpret_cast<const TestEvent*>(linked_event3_.event())->played());
 }
 
 }  // namespace events

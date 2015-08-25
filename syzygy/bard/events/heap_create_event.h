@@ -23,7 +23,7 @@ namespace events {
 
 // An event that wraps a call to HeapCreate, to be played against a
 // HeapBackdrop.
-class HeapCreateEvent : public LinkedEvent {
+class HeapCreateEvent : public EventInterface {
  public:
   HeapCreateEvent(DWORD options,
                   SIZE_T initial_size,
@@ -32,7 +32,8 @@ class HeapCreateEvent : public LinkedEvent {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kHeapCreateEvent; }
+  EventType type() const override { return kGetProcessHeapEvent; }
+  bool Play(void* backdrop) override;
   // @}
 
   // @name Accessors.
@@ -44,9 +45,6 @@ class HeapCreateEvent : public LinkedEvent {
   // @}
 
  private:
-  // LinkedEvent implementation.
-  bool PlayImpl(void* backdrop) override;
-
   // Arguments to HeapCreate.
   DWORD options_;
   SIZE_T initial_size_;

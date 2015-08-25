@@ -23,13 +23,14 @@ namespace events {
 
 // An event that wraps a call to HeapDestroy, to be played against a
 // HeapBackdrop.
-class HeapDestroyEvent : public LinkedEvent {
+class HeapDestroyEvent : public EventInterface {
  public:
   HeapDestroyEvent(HANDLE trace_heap, BOOL trace_succeeded);
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kHeapDestroyEvent; }
+  EventType type() const override { return kGetProcessHeapEvent; }
+  bool Play(void* backdrop) override;
   // @}
 
   // @name Accessors.
@@ -39,9 +40,6 @@ class HeapDestroyEvent : public LinkedEvent {
   // @}
 
  private:
-  // LinkedEvent implementation.
-  bool PlayImpl(void* backdrop) override;
-
   // Argument to HeapDestory.
   HANDLE trace_heap_;
 

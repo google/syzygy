@@ -30,7 +30,7 @@ HeapSizeEvent::HeapSizeEvent(HANDLE trace_heap,
       trace_size_(trace_size) {
 }
 
-bool HeapSizeEvent::PlayImpl(void* backdrop) {
+bool HeapSizeEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
   using bard::backdrops::HeapBackdrop;

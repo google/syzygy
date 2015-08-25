@@ -20,7 +20,7 @@
 
 namespace bard {
 
-// Interface for storing and replaying events.
+// Interface for storing and playing events.
 class EventInterface {
  public:
   // Enum of all non-abstract classes that extend the EventInterface.
@@ -46,7 +46,7 @@ class EventInterface {
   // @returns the EventType enum representing this event.
   virtual EventType type() const = 0;
 
-  // Replays the recorded function call, possibly modifying the current
+  // Plays the recorded function call, possibly modifying the current
   // backdrop.
   // @note The backdrop is a piece of user data, specific to a set of
   // events, whose exact type is dictated by convention.

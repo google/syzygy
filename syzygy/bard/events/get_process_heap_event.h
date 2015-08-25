@@ -23,13 +23,14 @@ namespace events {
 
 // An event that wraps a call to GetProcessHeap, to be played against a
 // HeapBackdrop.
-class GetProcessHeapEvent : public LinkedEvent {
+class GetProcessHeapEvent : public EventInterface {
  public:
   explicit GetProcessHeapEvent(HANDLE trace_heap);
 
   // @name EventInterface implementation.
   // @{
   EventType type() const override { return kGetProcessHeapEvent; }
+  bool Play(void* backdrop) override;
   // @}
 
   // @name Accessors.
@@ -38,9 +39,6 @@ class GetProcessHeapEvent : public LinkedEvent {
   // @}
 
  private:
-  // LinkedEvent implementation.
-  bool PlayImpl(void* backdrop) override;
-
   // Recorded return value.
   HANDLE trace_heap_;
 

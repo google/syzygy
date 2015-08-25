@@ -33,7 +33,7 @@ HeapSetInformationEvent::HeapSetInformationEvent(
       trace_succeeded_(trace_succeeded) {
 }
 
-bool HeapSetInformationEvent::PlayImpl(void* backdrop) {
+bool HeapSetInformationEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
   using bard::backdrops::HeapBackdrop;

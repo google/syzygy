@@ -12,41 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Specialization for the Event interface that admits dependencies between
+// Composition of the Event interface that admits dependencies between
 // events.
 #ifndef SYZYGY_BARD_EVENTS_LINKED_EVENT_H_
 #define SYZYGY_BARD_EVENTS_LINKED_EVENT_H_
 
 #include <set>
 
+#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/waitable_event.h"
 #include "syzygy/bard/event.h"
 
 namespace bard {
 namespace events {
 
-// Specialization for Event interface that admits dependencies between
-// events through causal links. However, it is still an abstract class
-// that needs extension and implementation of PlayImpl.
-class LinkedEvent : public EventInterface {
+// Composition of Event interface that admits dependencies between
+// events.
+class LinkedEvent {
  public:
-  LinkedEvent();
+  explicit LinkedEvent(scoped_ptr<EventInterface> event);
 
   // LinkedEvent dependencies setter.
+  // @param prequel an event that must happen before this one.
   void AddPrequel(LinkedEvent* prequel);
 
-  // @name EventInterface implementation.
-  // @{
-  bool Play(void* backdrop) override;
-  // @}
+  // Plays the recorded function call, possibly modifying the current
+  // backdrop.
+  // @note The backdrop is a piece of user data, specific to a set of
+  // events, whose exact type is dictated by convention.
+  // @param backdrop the backdrop.
+  // @returns true if Play succeeds without any problems, false otherwise.
+  bool Play(void* backdrop);
 
- protected:
-  // Play method to be implemented by classes who inherit a LinkedEvent.
-  virtual bool PlayImpl(void* backdrop) = 0;
+  // @name Accessors.
+  // @{
+  const EventInterface* event() const { return event_.get(); }
+  // @}
 
  private:
   base::WaitableEvent waitable_event_;
 
+  // The event that this LinkedEvent refers to.
+  scoped_ptr<EventInterface> event_;
   // The prequel events must be played before this one.
   std::set<LinkedEvent*> prequels_;
 

@@ -30,7 +30,7 @@ HeapCreateEvent::HeapCreateEvent(DWORD options,
       trace_heap_(trace_heap) {
 }
 
-bool HeapCreateEvent::PlayImpl(void* backdrop) {
+bool HeapCreateEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
   using bard::backdrops::HeapBackdrop;

@@ -24,7 +24,7 @@ HeapDestroyEvent::HeapDestroyEvent(HANDLE trace_heap, BOOL trace_succeeded)
     : trace_heap_(trace_heap), trace_succeeded_(trace_succeeded) {
 }
 
-bool HeapDestroyEvent::PlayImpl(void* backdrop) {
+bool HeapDestroyEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
   using bard::backdrops::HeapBackdrop;

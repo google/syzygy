@@ -23,7 +23,7 @@ namespace events {
 
 // An event that wraps a call to HeapSize, to be played against a
 // HeapBackdrop.
-class HeapSizeEvent : public LinkedEvent {
+class HeapSizeEvent : public EventInterface {
  public:
   HeapSizeEvent(HANDLE trace_heap,
                 DWORD flags,
@@ -32,7 +32,8 @@ class HeapSizeEvent : public LinkedEvent {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kHeapSizeEvent; }
+  EventType type() const override { return kGetProcessHeapEvent; }
+  bool Play(void* backdrop) override;
   // @}
 
   // @name Accessors.
@@ -44,8 +45,6 @@ class HeapSizeEvent : public LinkedEvent {
   // @}
 
  private:
-  bool PlayImpl(void* backdrop) override;
-
   // Arguments to HeapSize.
   HANDLE trace_heap_;
   DWORD flags_;

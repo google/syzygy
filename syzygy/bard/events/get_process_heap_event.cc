@@ -24,7 +24,7 @@ GetProcessHeapEvent::GetProcessHeapEvent(HANDLE trace_heap)
     : trace_heap_(trace_heap) {
 }
 
-bool GetProcessHeapEvent::PlayImpl(void* backdrop) {
+bool GetProcessHeapEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 
   using bard::backdrops::HeapBackdrop;

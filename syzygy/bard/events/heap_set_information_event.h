@@ -23,7 +23,7 @@ namespace events {
 
 // An event that wraps a call to HeapSetInformation, to be played against
 // a HeapBackdrop.
-class HeapSetInformationEvent : public LinkedEvent {
+class HeapSetInformationEvent : public EventInterface {
  public:
   HeapSetInformationEvent(HANDLE trace_heap,
                           HEAP_INFORMATION_CLASS info_class,
@@ -33,7 +33,8 @@ class HeapSetInformationEvent : public LinkedEvent {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kHeapSetInformationEvent; }
+  EventType type() const override { return kGetProcessHeapEvent; }
+  bool Play(void* backdrop) override;
   // @}
 
   // @name Accessors.
@@ -46,9 +47,6 @@ class HeapSetInformationEvent : public LinkedEvent {
   // @}
 
  private:
-  // LinkedEvent implementation.
-  bool PlayImpl(void* backdrop) override;
-
   // Arguments to HeapSetInformation.
   HANDLE trace_heap_;
   HEAP_INFORMATION_CLASS info_class_;

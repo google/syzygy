@@ -17,7 +17,10 @@
 namespace bard {
 namespace events {
 
-LinkedEvent::LinkedEvent() : waitable_event_(true, false) {
+LinkedEvent::LinkedEvent(scoped_ptr<EventInterface> event)
+    : waitable_event_(true, false) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event.get());
+  event_ = std::move(event);
 }
 
 void LinkedEvent::AddPrequel(LinkedEvent* prequel) {
@@ -31,7 +34,7 @@ bool LinkedEvent::Play(void* backdrop) {
   for (auto& event : prequels_)
     event->waitable_event_.Wait();
 
-  if (!PlayImpl(backdrop))
+  if (!event_->Play(backdrop))
     return false;
 
   waitable_event_.Signal();
