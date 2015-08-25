@@ -184,12 +184,16 @@ TEST_F(RegistryCacheTest, MaximumNbKeys) {
               (registry_key_ + L"\\Application 1\\v1").c_str(), KEY_ALL_ACCESS);
   ASSERT_TRUE(key_.Valid());
   TestRegistryCache::StackId stack_id;
+  // Start with current time and add increment for each iteration of the loop,
+  // instead of using Time::now() each time. Avoids having possible duplicates
+  // if the iteration runs too fast.
+  base::Time start_time = base::Time::Now();
   for (int i = 0; i < TestRegistryCache::kDefaultMaxEntriesPerVersion + delta;
        i++) {
     stack_id = base::RandUint64();
-    key_.WriteValue(
-        base::Int64ToString16(base::Time::Now().ToInternalValue()).c_str(),
-        &stack_id, sizeof(stack_id), REG_BINARY);
+    base::Time time = start_time + base::TimeDelta::FromMilliseconds(i);
+    key_.WriteValue(base::Int64ToString16(time.ToInternalValue()).c_str(),
+                    &stack_id, sizeof(stack_id), REG_BINARY);
   }
   EXPECT_EQ(TestRegistryCache::kDefaultMaxEntriesPerVersion + delta,
             key_.GetValueCount());
