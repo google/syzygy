@@ -32,7 +32,7 @@ class HeapFreeEvent : public EventInterface {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kGetProcessHeapEvent; }
+  EventType type() const override { return kHeapFreeEvent; }
   bool Play(void* backdrop) override;
   // @}
 

@@ -32,7 +32,7 @@ class HeapSizeEvent : public EventInterface {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kGetProcessHeapEvent; }
+  EventType type() const override { return kHeapSizeEvent; }
   bool Play(void* backdrop) override;
   // @}
 

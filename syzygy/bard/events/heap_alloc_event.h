@@ -32,7 +32,7 @@ class HeapAllocEvent : public EventInterface {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kGetProcessHeapEvent; }
+  EventType type() const override { return kHeapAllocEvent; }
   bool Play(void* backdrop) override;
   // @}
 

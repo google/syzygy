@@ -29,7 +29,7 @@ class HeapDestroyEvent : public EventInterface {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kGetProcessHeapEvent; }
+  EventType type() const override { return kHeapDestroyEvent; }
   bool Play(void* backdrop) override;
   // @}
 

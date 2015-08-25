@@ -33,7 +33,7 @@ class HeapSetInformationEvent : public EventInterface {
 
   // @name EventInterface implementation.
   // @{
-  EventType type() const override { return kGetProcessHeapEvent; }
+  EventType type() const override { return kHeapSetInformationEvent; }
   bool Play(void* backdrop) override;
   // @}
 
