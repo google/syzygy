@@ -1,0 +1,79 @@
+// Copyright 2015 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <verrsrc.h>
+#include <winres.h>
+
+#include "syzygy/kasko/version.h"
+
+#ifdef APSTUDIO_INVOKED
+#error Don't open this file in the GUI, it'll be massacred on save.
+#endif  // APSTUDIO_INVOKED
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.S.) resources
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+#pragma code_page(1252)
+
+#if !defined(KASKO_FILETYPE)
+#error You must define KASKO_FILETYPE to your file type, e.g. VFT_APP or such.
+#endif
+
+#if !defined(KASKO_DESCRIPTION)
+#error You must define KASKO_DESCRIPTION with your description string.
+#endif
+
+#if !defined(KASKO_INTERNALNAME)
+#error You must define KASKO_INTERNALNAME with your internal name.
+#endif
+
+#if !defined(KASKO_ORIGINALFILENAME)
+#error You must define KASKO_ORIGINALFILENAME with your original file name.
+#endif
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION KASKO_MAJOR,KASKO_MINOR,KASKO_BUILD,KASKO_PATCH
+ PRODUCTVERSION KASKO_MAJOR,KASKO_MINOR,KASKO_BUILD,KASKO_PATCH
+ FILEFLAGSMASK VS_FFI_FILEFLAGSMASK
+#ifdef _DEBUG
+ FILEFLAGS VS_FF_DEBUG
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS VOS__WINDOWS32
+ FILETYPE KASKO_FILETYPE
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "FileDescription", KASKO_DESCRIPTION
+            VALUE "FileVersion", KASKO_VERSION_STRING
+            VALUE "InternalName", KASKO_INTERNALNAME
+            VALUE "LegalCopyright", "Copyright (C) Google Inc 2015"
+            VALUE "OriginalFilename", KASKO_ORIGINALFILENAME
+            VALUE "ProductName", "Kasko"
+            VALUE "ProductVersion", KASKO_VERSION_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

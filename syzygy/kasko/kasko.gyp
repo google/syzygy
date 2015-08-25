@@ -147,6 +147,7 @@
       'target_name': 'kasko',
       'type': 'loadable_module',
       'sources': [
+        'kasko.rc',
         'api/client.cc',
         'api/client.h',
         'api/crash_key.h',
@@ -160,7 +161,8 @@
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
-        'kasko_lib'
+        'kasko_lib',
+        'kasko_version',
       ],
       'defines': [
         'KASKO_IMPLEMENTATION',
