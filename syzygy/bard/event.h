@@ -53,6 +53,32 @@ class EventInterface {
   // @param backdrop the backdrop.
   // @returns true if Play succeeds without any problems, false otherwise.
   virtual bool Play(void* backdrop) = 0;
+
+  // NOTE: Every non-abstract class that extends Event should
+  // also implement two static serialization functions:
+  //
+  // Serialize an Event in an OutArchive.
+  // @param event a ponter to the event to be serialized.
+  // @param out_archive where to serialize the event.
+  // @returns true on success, false otherwise.
+  //
+  // static bool Save(const EventInterface* const event,
+  //                  core::OutArchive* out_archive);
+  //
+  // Deserialize an event from an InArchive.
+  // @param in_archive from where to deserialize this event.
+  // @returns a scoped__ptr to the newly created event on success,
+  //     an nullptr scoped_ptr otherwise.
+  //
+  // static std::scoped_ptr<DerivedEvent> Load(core::InArchive* in_archive);
+  //
+  // This is done instead of creating virtual methods, for those would require
+  // empty constructors and initialization checks, requiring way more effort
+  // to maintain.
+  //
+  // NOTE: A DerivedEvent event should NOT save its own type in the Save method.
+  // That should be done by a root serialization, which will need to read the
+  // type to call the appropriate static save method from the appropriate class.
 };
 
 }  // namespace bard

@@ -75,5 +75,15 @@ TEST_F(HeapCreateEventTest, TestFailCall) {
                                        kLiveHeap);
 }
 
+TEST_F(HeapCreateEventTest, TestSerialization) {
+  scoped_ptr<HeapCreateEvent> copy =
+      testing::TestEventSerialization(heap_create_event_);
+
+  EXPECT_EQ(heap_create_event_.options(), copy->options());
+  EXPECT_EQ(heap_create_event_.initial_size(), copy->initial_size());
+  EXPECT_EQ(heap_create_event_.maximum_size(), copy->maximum_size());
+  EXPECT_EQ(heap_create_event_.trace_heap(), copy->trace_heap());
+}
+
 }  // namespace events
 }  // namespace bard

@@ -30,6 +30,43 @@ HeapSizeEvent::HeapSizeEvent(HANDLE trace_heap,
       trace_size_(trace_size) {
 }
 
+bool HeapSizeEvent::Save(const EventInterface* const event,
+                         core::OutArchive* out_archive) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event);
+  DCHECK_NE(static_cast<core::OutArchive*>(nullptr), out_archive);
+
+  const HeapSizeEvent* derived_event =
+      reinterpret_cast<const HeapSizeEvent*>(event);
+
+  return out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
+         out_archive->Save(derived_event->flags_) &&
+         out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_alloc_)) &&
+         out_archive->Save(derived_event->trace_size_);
+}
+
+scoped_ptr<HeapSizeEvent> HeapSizeEvent::Load(
+    core::InArchive* in_archive) {
+  DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
+
+  uintptr_t trace_heap;
+  DWORD flags;
+  uintptr_t trace_alloc;
+  SIZE_T trace_size;
+  if (in_archive->Load(&trace_heap) &&
+      in_archive->Load(&flags) &&
+      in_archive->Load(&trace_alloc) &&
+      in_archive->Load(&trace_size)) {
+    return scoped_ptr<HeapSizeEvent>(
+        new HeapSizeEvent(reinterpret_cast<HANDLE>(trace_heap),
+                          flags,
+                          reinterpret_cast<LPVOID>(trace_alloc),
+                          trace_size));
+  }
+  return nullptr;
+}
+
 bool HeapSizeEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 

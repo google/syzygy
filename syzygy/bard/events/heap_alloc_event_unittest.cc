@@ -78,5 +78,15 @@ TEST_F(HeapAllocEventTest, TestFailCall) {
                                        kLiveAlloc);
 }
 
+TEST_F(HeapAllocEventTest, TestSerialization) {
+  scoped_ptr<HeapAllocEvent> copy =
+      testing::TestEventSerialization(heap_alloc_event_);
+
+  EXPECT_EQ(heap_alloc_event_.trace_heap(), copy->trace_heap());
+  EXPECT_EQ(heap_alloc_event_.flags(), copy->flags());
+  EXPECT_EQ(heap_alloc_event_.bytes(), copy->bytes());
+  EXPECT_EQ(heap_alloc_event_.trace_alloc(), copy->trace_alloc());
+}
+
 }  // namespace events
 }  // namespace bard

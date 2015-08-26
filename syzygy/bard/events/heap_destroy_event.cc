@@ -24,6 +24,34 @@ HeapDestroyEvent::HeapDestroyEvent(HANDLE trace_heap, BOOL trace_succeeded)
     : trace_heap_(trace_heap), trace_succeeded_(trace_succeeded) {
 }
 
+bool HeapDestroyEvent::Save(const EventInterface* const event,
+                            core::OutArchive* out_archive) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event);
+  DCHECK_NE(static_cast<core::OutArchive*>(nullptr), out_archive);
+
+  const HeapDestroyEvent* derived_event =
+      reinterpret_cast<const HeapDestroyEvent*>(event);
+
+  return out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
+         out_archive->Save(derived_event->trace_succeeded_);
+}
+
+scoped_ptr<HeapDestroyEvent> HeapDestroyEvent::Load(
+    core::InArchive* in_archive) {
+  DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
+
+  uintptr_t trace_heap;
+  BOOL trace_succeeded;
+  if (in_archive->Load(&trace_heap) &&
+      in_archive->Load(&trace_succeeded)) {
+    return scoped_ptr<HeapDestroyEvent>(
+        new HeapDestroyEvent(reinterpret_cast<HANDLE>(trace_heap),
+                             trace_succeeded));
+  }
+  return nullptr;
+}
+
 bool HeapDestroyEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 

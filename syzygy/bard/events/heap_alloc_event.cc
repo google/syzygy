@@ -30,6 +30,43 @@ HeapAllocEvent::HeapAllocEvent(HANDLE trace_heap,
       trace_alloc_(trace_alloc) {
 }
 
+bool HeapAllocEvent::Save(const EventInterface* const event,
+                          core::OutArchive* out_archive) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event);
+  DCHECK_NE(static_cast<core::OutArchive*>(nullptr), out_archive);
+
+  const HeapAllocEvent* derived_event =
+      reinterpret_cast<const HeapAllocEvent*>(event);
+
+  return out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
+         out_archive->Save(derived_event->flags_) &&
+         out_archive->Save(derived_event->bytes_) &&
+         out_archive->Save(
+            reinterpret_cast<uintptr_t>(derived_event->trace_alloc_));
+}
+
+scoped_ptr<HeapAllocEvent> HeapAllocEvent::Load(
+    core::InArchive* in_archive) {
+  DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
+
+  uintptr_t trace_heap;
+  DWORD flags;
+  SIZE_T bytes;
+  uintptr_t trace_alloc;
+  if (in_archive->Load(&trace_heap) &&
+      in_archive->Load(&flags) &&
+      in_archive->Load(&bytes) &&
+      in_archive->Load(&trace_alloc)) {
+    return scoped_ptr<HeapAllocEvent>(
+        new HeapAllocEvent(reinterpret_cast<HANDLE>(trace_heap),
+                           flags,
+                           bytes,
+                           reinterpret_cast<LPVOID>(trace_alloc)));
+  }
+  return nullptr;
+}
+
 bool HeapAllocEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 

@@ -15,7 +15,9 @@
 #ifndef SYZYGY_BARD_UNITTEST_UTIL_H_
 #define SYZYGY_BARD_UNITTEST_UTIL_H_
 
+#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
+#include "syzygy/bard/event.h"
 #include "syzygy/bard/trace_live_map.h"
 
 namespace testing {
@@ -46,6 +48,25 @@ void CheckTraceLiveMapNotContain(const TraceLiveMap<T>& const_trace_live_map,
   T answer;
   EXPECT_FALSE(trace_live_map.GetLiveFromTrace(trace, &answer));
   EXPECT_FALSE(trace_live_map.GetTraceFromLive(live, &answer));
+}
+
+template <typename Event>
+scoped_ptr<Event> TestEventSerialization(const Event& original_data) {
+  core::ByteVector bytes;
+
+  core::ScopedOutStreamPtr out_stream;
+  out_stream.reset(core::CreateByteOutStream(std::back_inserter(bytes)));
+  core::NativeBinaryOutArchive out_archive(out_stream.get());
+  EXPECT_TRUE(Event::Save(&original_data, &out_archive));
+  EXPECT_TRUE(out_archive.Flush());
+
+  core::ScopedInStreamPtr in_stream;
+  in_stream.reset(core::CreateByteInStream(bytes.begin(), bytes.end()));
+  core::NativeBinaryInArchive in_archive(in_stream.get());
+  scoped_ptr<Event> data_copy = Event::Load(&in_archive).Pass();
+  EXPECT_NE(static_cast<Event*>(nullptr), data_copy.get());
+
+  return data_copy;
 }
 
 }  // namespace testing

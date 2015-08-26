@@ -56,33 +56,48 @@ class HeapSetInformationEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(HeapSetInformationEventTest, TestSuccessCall) {
-  HeapSetInformationEvent heap_set_information_event_(
+  HeapSetInformationEvent heap_set_information_event(
       kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kInfoClass, kInfo, kInfoLength))
       .WillOnce(Return(true));
 
   EXPECT_TRUE(
-      heap_set_information_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+      heap_set_information_event.Play(reinterpret_cast<void*>(&backdrop_)));
 }
 
 TEST_F(HeapSetInformationEventTest, TestFailCall) {
-  HeapSetInformationEvent heap_set_information_event_(
+  HeapSetInformationEvent heap_set_information_event(
       kTraceHeap, kInfoClass, kInfo, kInfoLength, false);
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kInfoClass, kInfo, kInfoLength))
       .WillOnce(Return(false));
 
   EXPECT_TRUE(
-      heap_set_information_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+      heap_set_information_event.Play(reinterpret_cast<void*>(&backdrop_)));
 }
 
 TEST_F(HeapSetInformationEventTest, TestInconsistentReturn) {
-  HeapSetInformationEvent heap_set_information_event_(
+  HeapSetInformationEvent heap_set_information_event(
       kTraceHeap, kInfoClass, kInfo, kInfoLength, false);
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kInfoClass, kInfo, kInfoLength))
       .WillOnce(Return(true));
 
   EXPECT_FALSE(
-      heap_set_information_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+      heap_set_information_event.Play(reinterpret_cast<void*>(&backdrop_)));
+}
+
+TEST_F(HeapSetInformationEventTest, TestSerialization) {
+  HeapSetInformationEvent heap_set_information_event(
+      kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
+
+  scoped_ptr<HeapSetInformationEvent> copy =
+      testing::TestEventSerialization(heap_set_information_event);
+
+  EXPECT_EQ(heap_set_information_event.trace_heap(), copy->trace_heap());
+  EXPECT_EQ(heap_set_information_event.info_class(), copy->info_class());
+  EXPECT_EQ(heap_set_information_event.info(), copy->info());
+  EXPECT_EQ(heap_set_information_event.info_length(), copy->info_length());
+  EXPECT_EQ(heap_set_information_event.trace_succeeded(),
+            copy->trace_succeeded());
 }
 
 }  // namespace events

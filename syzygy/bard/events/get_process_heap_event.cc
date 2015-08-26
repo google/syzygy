@@ -24,6 +24,30 @@ GetProcessHeapEvent::GetProcessHeapEvent(HANDLE trace_heap)
     : trace_heap_(trace_heap) {
 }
 
+bool GetProcessHeapEvent::Save(const EventInterface* const event,
+                               core::OutArchive* out_archive) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event);
+  DCHECK_NE(static_cast<core::OutArchive*>(nullptr), out_archive);
+
+  const GetProcessHeapEvent* derived_event =
+      reinterpret_cast<const GetProcessHeapEvent*>(event);
+
+  return out_archive->Save(
+      reinterpret_cast<uintptr_t>(derived_event->trace_heap_));
+}
+
+scoped_ptr<GetProcessHeapEvent> GetProcessHeapEvent::Load(
+    core::InArchive* in_archive) {
+  DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
+
+  uintptr_t trace_heap;
+  if (in_archive->Load(&trace_heap)) {
+    return scoped_ptr<GetProcessHeapEvent>(
+        new GetProcessHeapEvent(reinterpret_cast<HANDLE>(trace_heap)));
+  }
+  return nullptr;
+}
+
 bool GetProcessHeapEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 

@@ -49,11 +49,11 @@ class HeapDestroyEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(HeapDestroyEventTest, TestSuccessCall) {
-  HeapDestroyEvent heap_destroy_event_(kTraceHeap, true);
+  HeapDestroyEvent heap_destroy_event(kTraceHeap, true);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(true));
 
-  EXPECT_TRUE(heap_destroy_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+  EXPECT_TRUE(heap_destroy_event.Play(reinterpret_cast<void*>(&backdrop_)));
 
   testing::CheckTraceLiveMapNotContain(backdrop_.heap_map(),
                                        kTraceHeap,
@@ -61,11 +61,11 @@ TEST_F(HeapDestroyEventTest, TestSuccessCall) {
 }
 
 TEST_F(HeapDestroyEventTest, TestFailCall) {
-  HeapDestroyEvent heap_destroy_event_(kTraceHeap, false);
+  HeapDestroyEvent heap_destroy_event(kTraceHeap, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(false));
 
-  EXPECT_TRUE(heap_destroy_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+  EXPECT_TRUE(heap_destroy_event.Play(reinterpret_cast<void*>(&backdrop_)));
 
   testing::CheckTraceLiveMapContains(backdrop_.heap_map(),
                                      kTraceHeap,
@@ -73,15 +73,25 @@ TEST_F(HeapDestroyEventTest, TestFailCall) {
 }
 
 TEST_F(HeapDestroyEventTest, TestInconsistentReturn) {
-  HeapDestroyEvent heap_destroy_event_(kTraceHeap, false);
+  HeapDestroyEvent heap_destroy_event(kTraceHeap, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(true));
 
-  EXPECT_FALSE(heap_destroy_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+  EXPECT_FALSE(heap_destroy_event.Play(reinterpret_cast<void*>(&backdrop_)));
 
   testing::CheckTraceLiveMapContains(backdrop_.heap_map(),
                                      kTraceHeap,
                                      kLiveHeap);
+}
+
+TEST_F(HeapDestroyEventTest, TestSerialization) {
+  HeapDestroyEvent heap_destroy_event(kTraceHeap, true);
+
+  scoped_ptr<HeapDestroyEvent> copy =
+      testing::TestEventSerialization(heap_destroy_event);
+
+  EXPECT_EQ(heap_destroy_event.trace_heap(), copy->trace_heap());
+  EXPECT_EQ(heap_destroy_event.trace_succeeded(), copy->trace_succeeded());
 }
 
 }  // namespace events

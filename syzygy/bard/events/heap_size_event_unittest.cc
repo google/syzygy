@@ -72,5 +72,15 @@ TEST_F(HeapSizeEventTest, TestFailCall) {
   EXPECT_FALSE(heap_size_event_.Play(reinterpret_cast<void*>(&backdrop_)));
 }
 
+TEST_F(HeapSizeEventTest, TestSerialization) {
+  scoped_ptr<HeapSizeEvent> copy =
+      testing::TestEventSerialization(heap_size_event_);
+
+  EXPECT_EQ(heap_size_event_.trace_heap(), copy->trace_heap());
+  EXPECT_EQ(heap_size_event_.flags(), copy->flags());
+  EXPECT_EQ(heap_size_event_.trace_alloc(), copy->trace_alloc());
+  EXPECT_EQ(heap_size_event_.trace_size(), copy->trace_size());
+}
+
 }  // namespace events
 }  // namespace bard

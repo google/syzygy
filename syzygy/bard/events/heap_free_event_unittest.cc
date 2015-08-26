@@ -53,12 +53,12 @@ class HeapFreeEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(HeapFreeEventTest, TestSuccessCall) {
-  HeapFreeEvent heap_free_event_(kTraceHeap, kFlags, kTraceAlloc, true);
+  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, true);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kFlags, kLiveAlloc))
       .WillOnce(Return(true));
 
-  EXPECT_TRUE(heap_free_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+  EXPECT_TRUE(heap_free_event.Play(reinterpret_cast<void*>(&backdrop_)));
 
   testing::CheckTraceLiveMapNotContain(backdrop_.alloc_map(),
                                        kTraceAlloc,
@@ -66,12 +66,12 @@ TEST_F(HeapFreeEventTest, TestSuccessCall) {
 }
 
 TEST_F(HeapFreeEventTest, TestFailCall) {
-  HeapFreeEvent heap_free_event_(kTraceHeap, kFlags, kTraceAlloc, false);
+  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kFlags, kLiveAlloc))
       .WillOnce(Return(false));
 
-  EXPECT_TRUE(heap_free_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+  EXPECT_TRUE(heap_free_event.Play(reinterpret_cast<void*>(&backdrop_)));
 
   testing::CheckTraceLiveMapContains(backdrop_.alloc_map(),
                                      kTraceAlloc,
@@ -79,16 +79,28 @@ TEST_F(HeapFreeEventTest, TestFailCall) {
 }
 
 TEST_F(HeapFreeEventTest, TestInconsistentReturn) {
-  HeapFreeEvent heap_free_event_(kTraceHeap, kFlags, kTraceAlloc, false);
+  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kFlags, kLiveAlloc))
       .WillOnce(Return(true));
 
-  EXPECT_FALSE(heap_free_event_.Play(reinterpret_cast<void*>(&backdrop_)));
+  EXPECT_FALSE(heap_free_event.Play(reinterpret_cast<void*>(&backdrop_)));
 
   testing::CheckTraceLiveMapContains(backdrop_.alloc_map(),
                                      kTraceAlloc,
                                      kLiveAlloc);
+}
+
+TEST_F(HeapFreeEventTest, TestSerialization) {
+  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, true);
+
+  scoped_ptr<HeapFreeEvent> copy =
+      testing::TestEventSerialization(heap_free_event);
+
+  EXPECT_EQ(heap_free_event.trace_heap(), copy->trace_heap());
+  EXPECT_EQ(heap_free_event.flags(), copy->flags());
+  EXPECT_EQ(heap_free_event.trace_alloc(), copy->trace_alloc());
+  EXPECT_EQ(heap_free_event.trace_succeeded(), copy->trace_succeeded());
 }
 
 }  // namespace events

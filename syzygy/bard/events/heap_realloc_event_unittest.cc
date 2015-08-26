@@ -78,7 +78,6 @@ TEST_F(HeapReAllocEventTest, TestSuccessCall) {
 }
 
 TEST_F(HeapReAllocEventTest, TestFailCall) {
-  using testing::_;
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kFlags, kLiveAlloc, kBytes))
       .WillOnce(Return(nullptr));
 
@@ -90,6 +89,17 @@ TEST_F(HeapReAllocEventTest, TestFailCall) {
   testing::CheckTraceLiveMapNotContain(backdrop_.alloc_map(),
                                        kTraceReAlloc,
                                        kLiveReAlloc);
+}
+
+TEST_F(HeapReAllocEventTest, TestSerialization) {
+  scoped_ptr<HeapReAllocEvent> copy =
+      testing::TestEventSerialization(heap_realloc_event_);
+
+  EXPECT_EQ(heap_realloc_event_.trace_heap(), copy->trace_heap());
+  EXPECT_EQ(heap_realloc_event_.flags(), copy->flags());
+  EXPECT_EQ(heap_realloc_event_.trace_alloc(), copy->trace_alloc());
+  EXPECT_EQ(heap_realloc_event_.bytes(), copy->bytes());
+  EXPECT_EQ(heap_realloc_event_.trace_realloc(), copy->trace_realloc());
 }
 
 }  // namespace events

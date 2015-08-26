@@ -16,7 +16,11 @@
 #ifndef SYZYGY_BARD_EVENTS_HEAP_SIZE_EVENT_H_
 #define SYZYGY_BARD_EVENTS_HEAP_SIZE_EVENT_H_
 
-#include "syzygy/bard/events/linked_event.h"
+#include <windows.h>
+
+#include "base/memory/scoped_ptr.h"
+#include "syzygy/bard/event.h"
+#include "syzygy/core/serialization.h"
 
 namespace bard {
 namespace events {
@@ -36,12 +40,19 @@ class HeapSizeEvent : public EventInterface {
   bool Play(void* backdrop) override;
   // @}
 
+  // @name Serialization methods.
+  // @{
+  static bool Save(const EventInterface* const event,
+                   core::OutArchive* out_archive);
+  static scoped_ptr<HeapSizeEvent> Load(core::InArchive* in_archive);
+  // @}
+
   // @name Accessors.
   // @{
   HANDLE trace_heap() const { return trace_heap_; }
   DWORD flags() const { return flags_; }
   LPCVOID trace_alloc() const { return trace_alloc_; }
-  SIZE_T size() const { return trace_size_; }
+  SIZE_T trace_size() const { return trace_size_; }
   // @}
 
  private:

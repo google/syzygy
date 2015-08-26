@@ -71,5 +71,12 @@ TEST_F(GetProcessHeapEventTest, TestFailCall) {
                                        kLiveHeap);
 }
 
+TEST_F(GetProcessHeapEventTest, TestSerialization) {
+  scoped_ptr<GetProcessHeapEvent> copy =
+      testing::TestEventSerialization(get_process_heap_event_);
+
+  EXPECT_EQ(get_process_heap_event_.trace_heap(), copy->trace_heap());
+}
+
 }  // namespace events
 }  // namespace bard

@@ -32,6 +32,48 @@ HeapReAllocEvent::HeapReAllocEvent(HANDLE trace_heap,
       trace_realloc_(trace_realloc) {
 }
 
+bool HeapReAllocEvent::Save(const EventInterface* const event,
+                            core::OutArchive* out_archive) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event);
+  DCHECK_NE(static_cast<core::OutArchive*>(nullptr), out_archive);
+
+  const HeapReAllocEvent* derived_event =
+      reinterpret_cast<const HeapReAllocEvent*>(event);
+
+  return out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
+         out_archive->Save(derived_event->flags_) &&
+         out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_alloc_)) &&
+         out_archive->Save(derived_event->bytes_) &&
+         out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_realloc_));
+}
+
+scoped_ptr<HeapReAllocEvent> HeapReAllocEvent::Load(
+    core::InArchive* in_archive) {
+  DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
+
+  uintptr_t trace_heap;
+  DWORD flags;
+  uintptr_t trace_alloc;
+  SIZE_T bytes;
+  uintptr_t trace_realloc;
+  if (in_archive->Load(&trace_heap) &&
+      in_archive->Load(&flags) &&
+      in_archive->Load(&trace_alloc) &&
+      in_archive->Load(&bytes) &&
+      in_archive->Load(&trace_realloc)) {
+    return scoped_ptr<HeapReAllocEvent>(
+        new HeapReAllocEvent(reinterpret_cast<HANDLE>(trace_heap),
+                             flags,
+                             reinterpret_cast<LPVOID>(trace_alloc),
+                             bytes,
+                             reinterpret_cast<LPVOID>(trace_realloc)));
+  }
+  return nullptr;
+}
+
 bool HeapReAllocEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 

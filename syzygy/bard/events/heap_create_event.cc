@@ -30,6 +30,42 @@ HeapCreateEvent::HeapCreateEvent(DWORD options,
       trace_heap_(trace_heap) {
 }
 
+bool HeapCreateEvent::Save(const EventInterface* const event,
+                           core::OutArchive* out_archive) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event);
+  DCHECK_NE(static_cast<core::OutArchive*>(nullptr), out_archive);
+
+  const HeapCreateEvent* derived_event =
+      reinterpret_cast<const HeapCreateEvent*>(event);
+
+  return out_archive->Save(derived_event->options_) &&
+         out_archive->Save(derived_event->initial_size_) &&
+         out_archive->Save(derived_event->maximum_size_) &&
+         out_archive->Save(
+            reinterpret_cast<uintptr_t>(derived_event->trace_heap_));
+}
+
+scoped_ptr<HeapCreateEvent> HeapCreateEvent::Load(
+    core::InArchive* in_archive) {
+  DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
+
+  DWORD options;
+  SIZE_T initial_size;
+  SIZE_T maximum_size;
+  uintptr_t trace_heap;
+  if (in_archive->Load(&options) &&
+      in_archive->Load(&initial_size) &&
+      in_archive->Load(&maximum_size) &&
+      in_archive->Load(&trace_heap)) {
+    return scoped_ptr<HeapCreateEvent>(
+        new HeapCreateEvent(options,
+                            initial_size,
+                            maximum_size,
+                            reinterpret_cast<HANDLE>(trace_heap)));
+  }
+  return nullptr;
+}
+
 bool HeapCreateEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 

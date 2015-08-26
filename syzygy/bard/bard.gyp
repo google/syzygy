@@ -50,6 +50,7 @@
       'dependencies': [
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
+        '<(src)/syzygy/core/core.gyp:core_lib',
       ],
     },
     {

@@ -30,6 +30,40 @@ HeapFreeEvent::HeapFreeEvent(HANDLE trace_heap,
       trace_succeeded_(trace_succeeded) {
 }
 
+bool HeapFreeEvent::Save(const EventInterface* const event,
+                         core::OutArchive* out_archive) {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), event);
+
+  const HeapFreeEvent* derived_event =
+      reinterpret_cast<const HeapFreeEvent*>(event);
+
+  return out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
+         out_archive->Save(derived_event->flags_) &&
+         out_archive->Save(
+             reinterpret_cast<uintptr_t>(derived_event->trace_alloc_)) &&
+         out_archive->Save(derived_event->trace_succeeded_);
+}
+
+scoped_ptr<HeapFreeEvent> HeapFreeEvent::Load(
+    core::InArchive* in_archive) {
+  uintptr_t trace_heap;
+  DWORD flags;
+  uintptr_t trace_alloc;
+  BOOL trace_succeeded;
+  if (in_archive->Load(&trace_heap) &&
+      in_archive->Load(&flags) &&
+      in_archive->Load(&trace_alloc) &&
+      in_archive->Load(&trace_succeeded)) {
+    return scoped_ptr<HeapFreeEvent>(
+        new HeapFreeEvent(reinterpret_cast<HANDLE>(trace_heap),
+                          flags,
+                          reinterpret_cast<LPVOID>(trace_alloc),
+                          trace_succeeded));
+  }
+  return nullptr;
+}
+
 bool HeapFreeEvent::Play(void* backdrop) {
   DCHECK_NE(static_cast<void*>(nullptr), backdrop);
 

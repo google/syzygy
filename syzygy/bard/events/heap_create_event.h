@@ -16,7 +16,11 @@
 #ifndef SYZYGY_BARD_EVENTS_HEAP_CREATE_EVENT_H_
 #define SYZYGY_BARD_EVENTS_HEAP_CREATE_EVENT_H_
 
-#include "syzygy/bard/events/linked_event.h"
+#include <windows.h>
+
+#include "base/memory/scoped_ptr.h"
+#include "syzygy/bard/event.h"
+#include "syzygy/core/serialization.h"
 
 namespace bard {
 namespace events {
@@ -34,6 +38,13 @@ class HeapCreateEvent : public EventInterface {
   // @{
   EventType type() const override { return kHeapCreateEvent; }
   bool Play(void* backdrop) override;
+  // @}
+
+  // @name Serialization methods.
+  // @{
+  static bool Save(const EventInterface* const event,
+                   core::OutArchive* out_archive);
+  static scoped_ptr<HeapCreateEvent> Load(core::InArchive* in_archive);
   // @}
 
   // @name Accessors.
