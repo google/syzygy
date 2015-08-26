@@ -17,6 +17,7 @@ minidump.
 """
 
 from collections import namedtuple
+import logging
 import optparse
 import os
 import re
@@ -55,7 +56,10 @@ _GET_BAD_ACCESS_INFO_COMMAND = 'dt -o error_info'
 
 
 # Command to print the block info structure nested into the error info one.
-_GET_BLOCK_INFO_COMMAND = 'dt agent::asan::AsanBlockInfo poi(error_info) -o'
+#
+# Here's the description of the keyword to use in this template:
+#     - operand: The operator to use to access the structure ('.' or '->').
+_GET_BLOCK_INFO_COMMAND_TEMPLATE = '?? @@c++(error_info{operand}block_info)'
 
 
 # Template command to print a stack trace from an error info structure.
@@ -106,6 +110,8 @@ ASanReport = namedtuple('ASanReport',
 #   - 003cd6b8 0ff3a36b 007bff00 00004e84 003cd760 foo!bar+0x18
 #   - 003cd6b8 0ff3a36b 007bff00 00004e84 003cd760 0xcafebabe
 #   - (Inline) -------- -------- -------- -------- foo!bar+0x42
+#   - 003cd6b8 0ff3a36b 007bff00 00004e84 003cd760 foo!bar+0x18 (FPO: [0,0,0])
+#   - 001ccc48 76d0bedd 00000e40 00020000 00456ab0 foo+0x18c
 #
 # Here's a description of the different groups in this regex:
 #     - args: The arguments in front of the module name.
@@ -117,7 +123,7 @@ _STACK_FRAME_RE = re.compile("""
     (\(Inline\)\s)?
     (?P<args>([0-9A-F\-]+\ +)+)
     (?:
-      (?P<module>[^ ]+)(!(?P<location>.*))? |
+      ((?P<module>[^ !\+]+)((!|\+)(?P<location>.*)))? |
       (?P<address>0x[0-9a-f]+)
     )
     $
@@ -150,8 +156,23 @@ _FRAME_POINTER_RE = re.compile(
 
 # Match an enum value as it is printed by a debugger. They're usually
 # represented as 'NUMERIC_VALUE ( LITERAL_VALUE )'.
+#
+# Here's a description of the different groups in this regex:
+#     - num_value: The numeric value of this enum.
+#     - literal_value: The literal value of this enum.
 _ENUM_VAL_RE = re.compile(
     '\s*(?P<num_value>\d+)\s*\(\s*(?P<literal_value>[a-zA-Z0-9_]+)\s*\)',
+    re.VERBOSE | re.IGNORECASE)
+
+
+# Match a structure field as it is printed by a debugger.They're usually
+# represented as '+0x004 FIELD_NAME: FIELD_VALUE'.
+#
+# Here's a description of the different groups in this regex:
+#     - num_value: The numeric value of this enum.
+#     - literal_value: The literal value of this enum.
+_STRUCT_FIELD_RE = re.compile(
+    '(\s+\+0x[0-9a-zA-Z]+\s)?(?P<field_name>([^\:]+))\:\s(?P<field_value>.*)',
     re.VERBOSE | re.IGNORECASE)
 
 
@@ -212,10 +233,11 @@ def DebugStructToDict(structure):
   """
   ret = dict()
   for entry in structure:
-    if not entry.find(':'):
+    m = _STRUCT_FIELD_RE.match(entry)
+    if not m:
       continue
-    key = entry[:entry.find(':')]
-    value = entry[entry.find(':') + 1:]
+    key = m.group('field_name')
+    value = m.group('field_value')
     ret[key.rstrip().lstrip()] = value.rstrip().lstrip()
   return ret
 
@@ -368,10 +390,12 @@ class ScopedDebugger(subprocess.Popen):
     Returns:
       The output of the debugger after running this command.
     """
+    logging.info('Executing command: %s' % command)
     self.stdin.write(command + '; .echo %s\n' % _SENTINEL)
     lines = []
     while True:
       line = self.stdout.readline().rstrip()
+      logging.debug('Command stdout: %s' % line)
       # Sometimes the sentinel value is preceded by something like '0:000> '.
       if line.endswith(_SENTINEL):
         break
@@ -437,29 +461,29 @@ def ProcessMinidump(minidump_filename, cdb_path, pdb_path):
     # Indicates if this bug has been caught by the unhandled exception filter.
     from_uef = False
 
+    found_bad_access_info_frame = False
+
     for line in crash_lines:
       if not any(line.find(b) != -1 for b in _BAD_ACCESS_INFO_FRAMES):
         bad_access_info_frame += 1
       else:
+        found_bad_access_info_frame = True
         if line.find('ExceptionFilter') != -1:
           from_uef = True
         break
 
-    if bad_access_info_frame == -1:
+    if not found_bad_access_info_frame:
       print ('Unable to find the frame containing the invalid access'
-             'informations for %d.' % minidump_filename)
+             'informations for %s.' % minidump_filename)
       return
 
     # Get the information about this bad access.
     debugger.Command('.frame %X' % bad_access_info_frame)
     debugger.Command('kv')
     bad_access_info = debugger.Command(_GET_BAD_ACCESS_INFO_COMMAND)
-    bad_access_block_info = debugger.Command(_GET_BLOCK_INFO_COMMAND)
-    # The first two lines contain no useful information, remove them.
-    bad_access_info.pop(0)
-    bad_access_info.pop(0)
-    bad_access_block_info.pop(0)
-    bad_access_block_info.pop(0)
+    bad_access_block_info = debugger.Command(
+        _GET_BLOCK_INFO_COMMAND_TEMPLATE.format(operand='.' if from_uef
+                                                else '->'))
     bad_access_info_vals = DebugStructToDict(bad_access_info)
     bad_access_info_vals.update(DebugStructToDict(bad_access_block_info))
 
@@ -603,7 +627,13 @@ def _ParseArguments():
   parser.add_option('--pdb-path',
                     help='(Optional) The path to the folder containing the'
                          ' PDBs.')
+  parser.add_option('-v', '--verbose', action='count', default=0,
+                    help='Use to increase log verbosity. Can be passed in'
+                         'multiple times for more detailed logs.')
   (opts, args) = parser.parse_args()
+
+  level = [logging.ERROR, logging.INFO, logging.DEBUG][min(2, opts.verbose)]
+  logging.basicConfig(level=level)
 
   if not opts.cdb_path:
     for path in _DEFAULT_CDB_PATHS:

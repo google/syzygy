@@ -49,6 +49,20 @@ class TestInterceptorParser(unittest.TestCase):
     self.assertEqual(valid_frame_m.group('location'), 'bar+0x42')
     self.assertEqual(valid_frame_m.group('address'), None)
 
+    valid_frame = 'ab cd ef 01 23 foo!bar+0x18 (FPO: [0,0,0])'
+    valid_frame_m = minidump_symbolizer._STACK_FRAME_RE.search(valid_frame)
+    self.assertTrue(valid_frame_m != None)
+    self.assertEqual(valid_frame_m.group('module'), 'foo')
+    self.assertEqual(valid_frame_m.group('location'), 'bar+0x18 (FPO: [0,0,0])')
+    self.assertEqual(valid_frame_m.group('address'), None)
+
+    valid_frame = '001ccc48 76d0bedd 00000e40 00020000 00456ab0 foo+0x18c'
+    valid_frame_m = minidump_symbolizer._STACK_FRAME_RE.search(valid_frame)
+    self.assertTrue(valid_frame_m != None)
+    self.assertEqual(valid_frame_m.group('module'), 'foo')
+    self.assertEqual(valid_frame_m.group('location'), '0x18c')
+    self.assertEqual(valid_frame_m.group('address'), None)
+
     invalid_frame = ''
     invalid_frame_m = minidump_symbolizer._STACK_FRAME_RE.search(invalid_frame)
     self.assertTrue(invalid_frame_m == None)
