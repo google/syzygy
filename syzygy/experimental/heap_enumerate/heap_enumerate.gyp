@@ -18,15 +18,24 @@
   },
   'targets': [
     {
-      'target_name': 'experimental',
-      'type': 'none',
+      'target_name': 'heap_enumerate',
+      'type': 'executable',
+      'sources': [
+        'heap_enumerate.cc',
+        'heap_enumerate.h',
+        'heap_enumerate_app.cc',
+        'heap_enumerate_app.h',
+        'heap_enumerate_main.cc',
+      ],
+      'working_directory': '$(OutDir)',
       'dependencies': [
-        '<(src)/syzygy/experimental/code_tally/code_tally.gyp:*',
-        '<(src)/syzygy/experimental/compare/compare.gyp:*',
-        '<(src)/syzygy/experimental/heap_enumerate/heap_enumerate.gyp:*',
-        '<(src)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
-        '<(src)/syzygy/experimental/pdb_writer/pdb_writer.gyp:*',
-        '<(src)/syzygy/experimental/timed_decomposer/timed_decomposer.gyp:*',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/application/application.gyp:application_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/core/core.gyp:core_lib',
+        '<(src)/syzygy/pe/pe.gyp:dia_sdk',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/refinery/types/types.gyp:types_lib'
       ],
     },
   ]
