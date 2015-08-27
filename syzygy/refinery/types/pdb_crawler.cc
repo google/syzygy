@@ -14,6 +14,7 @@
 
 #include "syzygy/refinery/types/pdb_crawler.h"
 
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_reader.h"
@@ -56,33 +57,23 @@ class TypeCreator {
   bool CreateTypes(scoped_refptr<pdb::PdbStream> stream);
 
  private:
-  // Parses class from the data stream.
-  // @returns pointer to the created object.
+  // The following functions parse objects from the data stream.
+  // @returns pointer to the created object or underlying if this type does not
+  // get translated to the type repository.
   TypePtr ReadClass();
-
-  // Parses pointer from the data stream.
-  // @returns pointer to the created object.
   TypePtr ReadPointer();
-
-  // Parses array from the data stream.
-  // @returns pointer to the created object.
   TypePtr ReadArray();
-
-  // Parses procedure from the data stream.
-  // @returns pointer to the created object.
   TypePtr ReadProcedure();
-
-  // Parses member function from the data stream.
-  // @returns pointer to the created object.
   TypePtr ReadMFunction();
-
-  // Parses modifier from the data stream.
-  // @returns pointer to the object it modifies.
   TypePtr ReadModifier();
-
-  // Parses bitfield from the data stream.
-  // @returns pointer to the underlying object type.
   TypePtr ReadBitfield();
+
+  // Assigns names to all pointer, array and function types that have been
+  // created.
+  bool EnsureTypeName(TypePtr type);
+  bool AssignPointerName(PointerTypePtr ptr);
+  bool AssignArrayName(ArrayTypePtr array);
+  bool AssignFunctionName(FunctionTypePtr function);
 
   // Processes a member field and inserts it into given field list.
   // @param member pointer to the member type record.
@@ -118,12 +109,8 @@ class TypeCreator {
   // argument types. At the same time it appends comma separated list of
   // (decorated) names of the argument types to the strings passed as pointers.
   // @param args pointer to the the argument list.
-  // @param name pointer to the incomplete name of the function.
-  // @param decorated_name pointer to the incomplete decorated name.
   // @returns true on success, false on failure.
-  bool ReadArglist(FunctionType::Arguments* args,
-                   base::string16* name,
-                   base::string16* decorated_name);
+  bool ReadArglist(FunctionType::Arguments* args);
 
   // Creates function type from the given parameters.
   // @param type_id type index of the function type.
@@ -160,12 +147,6 @@ class TypeCreator {
 
   // @returns bit length of the record with @p type id.
   size_t GetBitLength(TypeId type_id);
-
-  // @returns name of the record with @p type id.
-  base::string16 GetName(TypeId type_id);
-
-  // @returns name of the record with @p type id.
-  base::string16 GetDecoratedName(TypeId type_id);
 
   // @returns type id of the first type record in the repository lying under
   // the record with @p type id.
@@ -214,9 +195,10 @@ class TypeCreator {
                                   cci::CV_ptrtype ptrtype);
 
   // Construct string of CV modifiers.
-  // @param type info flags.
+  // @param is_const true if type is const.
+  // @param is_volatile true if type is volatile.
   // @returns the string of CV modifiers.
-  static base::string16 GetCVMod(Type::Flags flags);
+  static base::string16 GetCVMod(bool is_const, bool is_volatile);
 
   // Pulls CV_prmode out of basic type index.
   // @param type_id type index of a basic type.
@@ -281,14 +263,6 @@ TypePtr TypeCreator::ReadPointer() {
   TypeId pointee_id = type_info.body().utype;
   if (FindOrCreateType(pointee_id) == nullptr)
     return nullptr;
-
-  // Set correct name depending whether this is reference or not.
-  wchar_t suffix = L'*';
-  if (ptr_mode == PointerType::PTR_MODE_REF)
-    suffix = L'&';
-
-  created->SetName(GetName(pointee_id) + suffix);
-  created->SetDecoratedName(GetDecoratedName(pointee_id) + suffix);
 
   // Setting the flags from the child node - this is needed because of
   // different semantics between PDB file and Type interface. In PDB pointer
@@ -424,12 +398,9 @@ bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fields,
   return true;
 }
 
-bool TypeCreator::ReadArglist(FunctionType::Arguments* arglist,
-                              base::string16* name,
-                              base::string16* decorated_name) {
+bool TypeCreator::ReadArglist(FunctionType::Arguments* arglist) {
   DCHECK(arglist);
-  DCHECK(name);
-  DCHECK(decorated_name);
+
   // Make our local copy of the data. This is necessary to avoid clutter with
   // deeper levels of recursion.
   scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream());
@@ -446,24 +417,8 @@ bool TypeCreator::ReadArglist(FunctionType::Arguments* arglist,
       return false;
     }
 
-    if (arglist->size() != 0) {
-      name->append(L", ");
-      decorated_name->append(L", ");
-    }
-
-    // Parse the underlying type.
     if (FindOrCreateType(arg_type_id) == nullptr)
       return false;
-
-    // Append the names, if the argument type is T_NOTYPE then this is a C-style
-    // variadic function like printf and we append "..." instead.
-    if (GetUnderlyingTypeId(arg_type_id) == cci::T_NOTYPE) {
-      name->append(L"...");
-      decorated_name->append(L"...");
-    } else {
-      name->append(GetName(arg_type_id));
-      decorated_name->append(GetDecoratedName(arg_type_id));
-    }
 
     arglist->push_back(FunctionType::ArgumentType(
         GetFlags(arg_type_id), GetUnderlyingTypeId(arg_type_id)));
@@ -541,14 +496,6 @@ TypePtr TypeCreator::ReadArray() {
   // TODO(mopler): Once we load everything test against the size not being zero.
   if (elem_type->size() != 0)
     num_elements = type_info.size() / elem_type->size();
-
-  base::string16 name = GetName(elem_id);
-  base::string16 decorated_name = GetDecoratedName(elem_id);
-  base::StringAppendF(&name, L"[%d]", num_elements);
-  base::StringAppendF(&decorated_name, L"[%d]", num_elements);
-
-  array_type->SetName(name);
-  array_type->SetDecoratedName(decorated_name);
   array_type->Finalize(GetFlags(elem_id), index_type->type_id(), num_elements,
                        elem_type->type_id());
   return array_type;
@@ -602,33 +549,14 @@ TypePtr TypeCreator::CreateFunctionType(TypeId type_id,
     return false;
   }
 
-  base::string16 name = GetName(return_type_id) + L" (";
-  base::string16 decorated_name = GetDecoratedName(return_type_id) + L" (";
-
-  if (containing_class_id != kNoTypeId) {
-    // Update the containing class id to skip over forward declarations.
-    containing_class_id = GetUnderlyingTypeId(containing_class_id);
-
-    // And add the UDT name to the signature.
-    name += GetName(containing_class_id) + L"::)(";
-    decorated_name += GetDecoratedName(containing_class_id) + L"::)(";
-  }
-
   // Parse the argument list and finish the names.
-  if (!type_info_enum_.SeekRecord(arglist_id) ||
-      !ReadArglist(&arglist, &name, &decorated_name)) {
+  if (!type_info_enum_.SeekRecord(arglist_id) || !ReadArglist(&arglist))
     return false;
-  }
 
   function_type->Finalize(
       FunctionType::ArgumentType(GetFlags(return_type_id),
                                  GetUnderlyingTypeId(return_type_id)),
-      arglist, containing_class_id);
-  name.append(L")");
-  decorated_name.append(L")");
-
-  function_type->SetName(name);
-  function_type->SetDecoratedName(decorated_name);
+      arglist, GetUnderlyingTypeId(containing_class_id));
   return function_type;
 }
 
@@ -656,6 +584,163 @@ TypePtr TypeCreator::ReadBitfield() {
   SaveBitfieldInfo(type_info_enum_.type_id(), type_info.body().position,
                    type_info.body().length);
   return underlying_type;
+}
+
+bool TypeCreator::EnsureTypeName(TypePtr type) {
+  if (!type->name().empty())
+    return true;
+
+  switch (type->kind()) {
+    case Type::POINTER_TYPE_KIND: {
+      PointerTypePtr ptr;
+      if (!type->CastTo(&ptr))
+        return false;
+
+      if (!AssignPointerName(ptr))
+        return false;
+
+      DCHECK_NE(L"", ptr->name());
+      DCHECK_NE(L"", ptr->decorated_name());
+      break;
+    }
+    case Type::ARRAY_TYPE_KIND: {
+      ArrayTypePtr array;
+      if (!type->CastTo(&array))
+        return false;
+
+      if (!AssignArrayName(array))
+        return false;
+
+      DCHECK_NE(L"", array->name());
+      DCHECK_NE(L"", array->decorated_name());
+      break;
+    }
+    case Type::FUNCTION_TYPE_KIND: {
+      FunctionTypePtr function;
+      if (!type->CastTo(&function))
+        return false;
+
+      if (!AssignFunctionName(function))
+        return false;
+
+      DCHECK_NE(L"", function->name());
+      DCHECK_NE(L"", function->decorated_name());
+      break;
+    }
+    // Rest of the types should have their names set up.
+    case Type::USER_DEFINED_TYPE_KIND:
+    case Type::BASIC_TYPE_KIND: {
+      DCHECK_NE(L"", type->name());
+      break;
+    }
+  }
+
+  return true;
+}
+
+bool TypeCreator::AssignArrayName(ArrayTypePtr array) {
+  TypePtr element_type = array->GetElementType();
+  base::string16 name;
+  base::string16 decorated_name;
+  if (element_type) {
+    if (!EnsureTypeName(element_type))
+      return false;
+    name = element_type->name();
+    decorated_name = element_type->decorated_name();
+  }
+
+  name.append(GetCVMod(array->is_const(), array->is_volatile()));
+  decorated_name.append(GetCVMod(array->is_const(), array->is_volatile()));
+
+  base::StringAppendF(&name, L"[%d]", array->num_elements());
+  base::StringAppendF(&decorated_name, L"[%d]", array->num_elements());
+
+  array->SetDecoratedName(name);
+  array->SetName(name);
+  return true;
+}
+
+bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
+  TypePtr content_type = ptr->GetContentType();
+  base::string16 name;
+  base::string16 decorated_name;
+  if (content_type) {
+    if (!EnsureTypeName(content_type))
+      return false;
+    name = content_type->name();
+    decorated_name = content_type->decorated_name();
+  }
+
+  name.append(GetCVMod(ptr->is_const(), ptr->is_volatile()));
+  decorated_name.append(GetCVMod(ptr->is_const(), ptr->is_volatile()));
+
+  if (ptr->ptr_mode() == PointerType::PTR_MODE_PTR) {
+    name.append(L"*");
+    decorated_name.append(L"*");
+  } else {
+    name.append(L"&");
+    decorated_name.append(L"&");
+  }
+
+  ptr->SetName(name);
+  ptr->SetDecoratedName(decorated_name);
+  return true;
+}
+
+bool TypeCreator::AssignFunctionName(FunctionTypePtr function) {
+  TypePtr return_type = function->GetReturnType();
+  base::string16 name;
+  base::string16 decorated_name;
+  if (return_type) {
+    if (!EnsureTypeName(return_type))
+      return false;
+    name = return_type->name();
+    decorated_name = return_type->decorated_name();
+  }
+
+  name.append(L" (");
+  decorated_name.append(L" (");
+
+  TypePtr class_type = function->GetContainingClassType();
+  if (class_type) {
+    if (!EnsureTypeName(class_type))
+      return false;
+    name.append(class_type->name() + L"::)(");
+    decorated_name.append(class_type->decorated_name() + L"::)(");
+  }
+
+  // Get the argument types names.
+  std::vector<base::string16> arg_names;
+  std::vector<base::string16> arg_decorated_names;
+  for (size_t i = 0; i < function->argument_types().size(); ++i) {
+    TypePtr arg_type = function->GetArgumentType(i);
+    if (arg_type) {
+      if (!EnsureTypeName(arg_type))
+        return false;
+
+      // Append the names, if the argument type is T_NOTYPE then this is a
+      // C-style variadic function like printf and we append "..." instead.
+      if (arg_type->type_id() == cci::T_NOTYPE) {
+        arg_names.push_back(L"...");
+        arg_decorated_names.push_back(L"...");
+      } else {
+        const FunctionType::ArgumentType& arg = function->argument_types()[i];
+        base::string16 CV_mods = GetCVMod(arg.is_const(), arg.is_volatile());
+        arg_names.push_back(arg_type->name() + CV_mods);
+        arg_decorated_names.push_back(arg_type->decorated_name() + CV_mods);
+      }
+    }
+  }
+
+  name.append(base::JoinString(arg_names, L", "));
+  decorated_name.append(base::JoinString(arg_decorated_names, L", "));
+
+  name.append(L")");
+  decorated_name.append(L")");
+
+  function->SetName(name);
+  function->SetDecoratedName(name);
+  return true;
 }
 
 TypeCreator::TypeCreator(TypeRepository* repository) : repository_(repository) {
@@ -866,15 +951,12 @@ bool TypeCreator::IsImportantType(uint32_t type) {
   return false;
 }
 
-base::string16 TypeCreator::GetCVMod(Type::Flags flags) {
+base::string16 TypeCreator::GetCVMod(bool is_const, bool is_volatile) {
   base::string16 suffix;
-  if (flags & Type::FLAG_CONST) {
+  if (is_const)
     suffix += L" const";
-  }
-  if (flags & Type::FLAG_VOLATILE) {
-    flags |= Type::FLAG_VOLATILE;
+  if (is_volatile)
     suffix += L" volatile";
-  }
   return suffix;
 }
 
@@ -923,20 +1005,6 @@ size_t TypeCreator::GetUnderlyingTypeId(TypeId type_id) {
   }
 }
 
-base::string16 TypeCreator::GetName(TypeId type_id) {
-  TypePtr type = repository_->GetType(GetUnderlyingTypeId(type_id));
-  if (type == nullptr)
-    return L"";
-  return type->name() + GetCVMod(GetFlags(type_id));
-}
-
-base::string16 TypeCreator::GetDecoratedName(TypeId type_id) {
-  TypePtr type = repository_->GetType(GetUnderlyingTypeId(type_id));
-  if (type == nullptr)
-    return L"";
-  return type->decorated_name() + GetCVMod(GetFlags(type_id));
-}
-
 cci::CV_prmode TypeCreator::TypeIndexToPrMode(TypeId type_id) {
   return static_cast<cci::CV_prmode>(
       (type_id & cci::CV_PRIMITIVE_TYPE::CV_MMASK) >>
@@ -980,8 +1048,6 @@ TypePtr TypeCreator::CreateBasicType(TypeId type_id) {
     PointerTypePtr basic_type =
         new PointerType(size, PointerType::PTR_MODE_PTR);
     basic_type->Finalize(kNoTypeFlags, basic_index);
-    basic_type->SetName(GetName(basic_index) + L"*");
-    basic_type->SetDecoratedName(GetDecoratedName(basic_index) + L"*");
 
     if (!repository_->AddTypeWithId(basic_type, type_id))
       return nullptr;
@@ -1114,6 +1180,12 @@ bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
   // Process every important type.
   for (TypeId type_id : records_to_process_) {
     if (FindOrCreateType(type_id) == nullptr)
+      return false;
+  }
+
+  // And assign type names.
+  for (auto type : *repository_) {
+    if (!EnsureTypeName(type))
       return false;
   }
 

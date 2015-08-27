@@ -135,6 +135,17 @@ struct TestAllInOneUDT : public A, virtual public B {
 REGISTER_SIZEOF_TYPE(TestAllInOneUDT);
 REGISTER_OFFSETOF(TestAllInOneUDT, regular_member);
 
+class ComplicatedTypeB;
+class ComplicatedTypeA;
+
+class ComplicatedTypeA {
+  void (ComplicatedTypeB::*ptr)(ComplicatedTypeA);
+};
+
+class ComplicatedTypeB {
+  void Function(ComplicatedTypeA a) {}
+};
+
 void AliasTypesOne() {
   // Make sure the types are used in the file.
   TestCollidingUDT colliding = {};

@@ -574,6 +574,29 @@ TEST_P(PdbCrawlerTest, TestFunctions) {
   EXPECT_EQ(udt->type_id(), function->containing_class_id());
 }
 
+TEST_P(PdbCrawlerTest, TestComplicatedTypeGraph) {
+  std::vector<TypePtr> type_vector = FindTypesBySuffix(L"::ComplicatedTypeA");
+  ASSERT_EQ(1U, type_vector.size());
+
+  UserDefinedTypePtr class_a;
+  ASSERT_TRUE(type_vector[0]->CastTo(&class_a));
+
+  type_vector = FindTypesBySuffix(L"::ComplicatedTypeB");
+  ASSERT_EQ(1U, type_vector.size());
+
+  UserDefinedTypePtr class_b;
+  ASSERT_TRUE(type_vector[0]->CastTo(&class_b));
+
+  // Correct name of the function
+  EXPECT_EQ(L"void (testing::ComplicatedTypeB::)(testing::ComplicatedTypeA)",
+            class_b->GetFunctionType(0)->name());
+
+  // And also correct name of the pointer. This wasn't possible to populate with
+  // only one traversal through the type stream.
+  EXPECT_EQ(L"void (testing::ComplicatedTypeB::)(testing::ComplicatedTypeA)*",
+            class_a->GetFieldType(0)->name());
+}
+
 // Run both the 32-bit and 64-bit tests.
 INSTANTIATE_TEST_CASE_P(InstantiateFor32and64,
                         PdbCrawlerTest,
