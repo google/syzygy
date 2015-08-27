@@ -443,7 +443,7 @@ bool DumpLeafMFunc(const TypeInfoRecordMap& type_map,
   DumpTypeIndexField(type_map, out, "Type index of containing class",
                      type_info.classtype, indent_level);
   DumpTypeIndexField(type_map, out, "Type index of this pointer",
-                     type_info.thisadjust, indent_level);
+                     type_info.thistype, indent_level);
   DumpIndentedText(out, indent_level, "Calling convention: 0x%02X\n",
                    type_info.calltype);
   DumpIndentedText(out, indent_level, "Number of parameters: %d\n",
