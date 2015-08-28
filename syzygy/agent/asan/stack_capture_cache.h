@@ -265,9 +265,10 @@ class StackCaptureCache {
 // and stored in the known stacks cache set.
 class StackCaptureCache::CachePage {
  public:
-  explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {}
-
-  ~CachePage();
+  // Placement-new factory. This is strictly a "bring your own memory"
+  // class.
+  // @param alloc The allocation to use. Must be the appropriate size.
+  static CachePage* CreateInPlace(void* alloc, CachePage* link);
 
   // Allocates a stack capture from this cache page if possible.
   // @param max_num_frames The maximum number of frames the object needs to be
@@ -304,6 +305,12 @@ class StackCaptureCache::CachePage {
   size_t data_size() { return kDataSize; }
 
  protected:
+  // These are protected so that we can't accidentally allocate pages directly.
+  // These are meant to be placement-new initialized with allocations served
+  // directly from VirtualAlloc.
+  explicit CachePage(CachePage* link) : next_page_(link), bytes_used_(0) {}
+  ~CachePage();
+
   // The parent StackCaptureCache is responsible for cleaning up the linked list
   // of cache pages, thus needs access to our internals.
   friend StackCaptureCache;

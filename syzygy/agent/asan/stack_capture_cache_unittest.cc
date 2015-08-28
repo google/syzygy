@@ -79,12 +79,15 @@ TEST_F(StackCaptureCacheTest, CachePageTest) {
   static const size_t kFrameCounts[] =
       { 5, 10, 30, StackCapture::kMaxNumFrames };
 
+  void* alloc = ::VirtualAlloc(nullptr,
+        sizeof(TestStackCaptureCache::CachePage), MEM_COMMIT, PAGE_READWRITE);
+
   for (size_t i = 0; i < arraysize(kFrameCounts); ++i) {
     size_t max_num_frames = kFrameCounts[i];
-    scoped_ptr<TestStackCaptureCache::CachePage> page(
-        new TestStackCaptureCache::CachePage(NULL));
+    TestStackCaptureCache::CachePage* page =
+        TestStackCaptureCache::CachePage::CreateInPlace(alloc, nullptr);
 
-    // Ensure that returning a page works.
+    // Ensure that returning a stack to a page works.
     EXPECT_EQ(0u, page->bytes_used());
     StackCapture* s1 = page->GetNextStackCapture(max_num_frames);
     ASSERT_TRUE(s1 != NULL);
@@ -109,6 +112,8 @@ TEST_F(StackCaptureCacheTest, CachePageTest) {
     // And no more than that.
     EXPECT_TRUE(page->GetNextStackCapture(max_num_frames) == NULL);
   }
+
+  ::VirtualFree(alloc, 0, MEM_RELEASE);
 }
 
 TEST_F(StackCaptureCacheTest, SaveStackTrace) {
@@ -398,6 +403,27 @@ TEST_F(StackCaptureCacheTest, StackCaptureObserver) {
 
   // Save again the first stack, which should not call back our observer.
   cache.SaveStackTrace(stack);
+}
+
+TEST_F(StackCaptureCacheTest, AllocateMultiplePages) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+
+  static const size_t kMaxFrames = 32;
+  const void* dummy_frames[kMaxFrames] = {};
+
+  StackCapture stack;
+  stack.InitFromStack();
+  cache.SaveStackTrace(stack);
+  auto page = cache.current_page();
+
+  for (size_t i = 0; i < 10000; ++i) {
+    StackCapture stack;
+    stack.InitFromBuffer(i + 1, dummy_frames, kMaxFrames - (i % 5));
+    cache.SaveStackTrace(stack);
+  }
+
+  EXPECT_NE(page, cache.current_page());
 }
 
 }  // namespace asan

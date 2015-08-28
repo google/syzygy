@@ -44,10 +44,13 @@ size_t StackCaptureCache::compression_reporting_period_ =
     ::common::kDefaultReportingPeriod;
 
 StackCaptureCache::CachePage::~CachePage() {
-  // It's our parent StackCaptureCache's responsibility to clean up the linked
-  // list of cache pages. We balk if we're being deleted and haven't been
-  // properly unlinked from the linked list.
-  DCHECK_EQ(static_cast<CachePage*>(nullptr), next_page_);
+}
+
+// static
+StackCaptureCache::CachePage* StackCaptureCache::CachePage::CreateInPlace(
+    void* alloc, CachePage* link) {
+  // Use a placement new.
+  return new(alloc) CachePage(link);
 }
 
 common::StackCapture* StackCaptureCache::CachePage::GetNextStackCapture(
@@ -141,7 +144,9 @@ StackCaptureCache::~StackCaptureCache() {
     page->next_page_ = nullptr;
 
     memory_notifier_->NotifyReturnedToOS(page, sizeof(*page));
-    page->~CachePage();
+
+    // This should have been allocated by VirtuaAlloc, so should be aligned.
+    DCHECK(::common::IsAligned(page, GetPageSize()));
     CHECK_EQ(TRUE, ::VirtualFree(page, 0, MEM_RELEASE));
   }
 }
@@ -177,9 +182,8 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
       stack_trace = GetStackCapture(num_frames);
       DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_trace);
       stack_trace->InitFromBuffer(stack_id, frames, num_frames);
-      std::pair<StackSet::iterator, bool> it =
-          known_stacks_[known_stack_shard].insert(stack_trace);
-      DCHECK(it.second);
+      auto result = known_stacks_[known_stack_shard].insert(stack_trace);
+      DCHECK(result.second);
       DCHECK(stack_trace->HasNoRefs());
       FOR_EACH_OBSERVER(Observer, observer_list_, OnNewStack(stack_trace));
     } else {
@@ -343,23 +347,12 @@ void StackCaptureCache::AllocateCachePage() {
                 "kCachePageSize should be a multiple of the system allocation "
                 "granularity.");
 
-  // If we already have an allocated page request an allocation that is
-  // contiguous.
-  void* new_page = nullptr;
-  if (current_page_) {
-    new_page = ::VirtualAlloc(current_page_ + 1, sizeof(CachePage), MEM_COMMIT,
-                              PAGE_READWRITE);
-  }
-
-  // If that fails then request an allocation anywhere.
-  if (!new_page) {
-    new_page =
-        ::VirtualAlloc(nullptr, sizeof(CachePage), MEM_COMMIT, PAGE_READWRITE);
-  }
+  void* new_page = ::VirtualAlloc(nullptr, sizeof(CachePage), MEM_COMMIT,
+                                  PAGE_READWRITE);
   CHECK_NE(static_cast<void*>(nullptr), new_page);
 
   // Use a placement new and notify the shadow memory.
-  current_page_ = new(new_page) CachePage(current_page_);
+  current_page_ = CachePage::CreateInPlace(new_page, current_page_);
   memory_notifier_->NotifyInternalUse(new_page, sizeof(CachePage));
 }
 
@@ -461,7 +454,7 @@ common::StackCapture* StackCaptureCache::GetStackCapture(size_t num_frames) {
 
     // Allocate a new page (that links to the current page) and use it to
     // allocate a new stack capture.
-    current_page_ = new CachePage(current_page_);
+    AllocateCachePage();
     CHECK_NE(static_cast<CachePage*>(nullptr), current_page_);
     statistics_.size += sizeof(CachePage);
     stack_capture = current_page_->GetNextStackCapture(num_frames);

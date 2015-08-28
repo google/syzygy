@@ -481,19 +481,8 @@ bool PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
 
   // Grab a new slab if needed.
   if (slab_ == nullptr || slab_cursor_ >= slab_end) {
-    // IF we have an existing slab try to get its immediate neighbor in order
-    // to reduce fragmentation.
-    void* slab = nullptr;
-    if (slab_) {
-      slab = ::VirtualAlloc(
-          slab_end, Page::kSlabSize, MEM_RESERVE, PAGE_NOACCESS);
-      DCHECK(slab == nullptr || slab == slab_end);
-    }
-
-    if (slab == nullptr) {
-      slab = ::VirtualAlloc(
-          nullptr, Page::kSlabSize, MEM_RESERVE, PAGE_NOACCESS);
-    }
+    void* slab = ::VirtualAlloc(
+        nullptr, Page::kSlabSize, MEM_RESERVE, PAGE_NOACCESS);
     if (slab == nullptr)
       return false;
 
