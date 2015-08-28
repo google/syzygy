@@ -14,8 +14,64 @@
 
 #include "syzygy/grinder/grinders/mem_replay_grinder.h"
 
+#include "base/strings/string_util.h"
+#include "gtest/gtest.h"
+
 namespace grinder {
 namespace grinders {
-  // TODO(rubensf): Implement this
+
+namespace {
+
+class TestMemReplayGrinder : public MemReplayGrinder {
+ public:
+  using MemReplayGrinder::process_id_enum_map_;
+  using MemReplayGrinder::missing_events_;
+
+  using MemReplayGrinder::LoadAsanFunctionNames;
+};
+
+}  // namespace
+
+TEST(MemReplayGrinderTest, TestTableEntry) {
+  const char kDummyFunctionName[] = "asan_HeapAlloc";
+  char buffer[FIELD_OFFSET(TraceFunctionNameTableEntry, name) +
+              arraysize(kDummyFunctionName)] = {};
+  TraceFunctionNameTableEntry* data =
+      reinterpret_cast<TraceFunctionNameTableEntry*>(buffer);
+
+  data->function_id = 37;
+  data->name_length = arraysize(kDummyFunctionName);
+  base::snprintf(data->name, data->name_length, kDummyFunctionName);
+
+  TestMemReplayGrinder grinder;
+
+  grinder.LoadAsanFunctionNames();
+  grinder.OnFunctionNameTableEntry(base::Time::Now(), 1, data);
+
+  EXPECT_EQ(bard::EventInterface::EventType::kHeapAllocEvent,
+            grinder.process_id_enum_map_[std::make_pair(1, 37)]);
+}
+
+TEST(MemReplayGrinderTest, TestInvalidTableEntry) {
+  const char kDummyFunctionName[] = "DummyFunctionName";
+  char buffer[FIELD_OFFSET(TraceFunctionNameTableEntry, name) +
+              arraysize(kDummyFunctionName)] = {};
+  TraceFunctionNameTableEntry* data =
+      reinterpret_cast<TraceFunctionNameTableEntry*>(buffer);
+
+  data->function_id = 37;
+  data->name_length = arraysize(kDummyFunctionName);
+  base::snprintf(data->name, data->name_length, kDummyFunctionName);
+
+  TestMemReplayGrinder grinder;
+
+  grinder.LoadAsanFunctionNames();
+  grinder.OnFunctionNameTableEntry(base::Time::Now(), 1, data);
+
+  EXPECT_EQ(1u, grinder.missing_events_.size());
+  EXPECT_NE(grinder.missing_events_.end(),
+            grinder.missing_events_.find(kDummyFunctionName));
+}
+
 }  // namespace grinders
 }  // namespace grinder

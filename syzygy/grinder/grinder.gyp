@@ -53,6 +53,7 @@
       ],
       'dependencies': [
         '<(src)/syzygy/application/application.gyp:application_lib',
+        '<(src)/syzygy/bard/bard.gyp:bard_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',

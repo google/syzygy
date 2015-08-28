@@ -18,6 +18,11 @@
 #ifndef SYZYGY_GRINDER_GRINDERS_MEM_REPLAY_GRINDER_H_
 #define SYZYGY_GRINDER_GRINDERS_MEM_REPLAY_GRINDER_H_
 
+#include <map>
+#include <utility>
+
+#include "syzygy/bard/event.h"
+#include "syzygy/bard/events/linked_event.h"
 #include "syzygy/grinder/grinder.h"
 
 namespace grinder {
@@ -28,9 +33,6 @@ namespace grinders {
 // trace file to be used as a test scenario.
 class MemReplayGrinder : public GrinderInterface {
  public:
-  MemReplayGrinder();
-  ~MemReplayGrinder();
-
   // @name GrinderInterface implementation.
   // @{
   bool ParseCommandLine(const base::CommandLine* command_line) override;
@@ -38,6 +40,28 @@ class MemReplayGrinder : public GrinderInterface {
   bool Grind() override;
   bool OutputData(FILE* file) override;
   // @}
+
+  // @name ParserEventHandler implementation.
+  // @{
+  void OnFunctionNameTableEntry(
+      base::Time time,
+      DWORD process_id,
+      const TraceFunctionNameTableEntry* data) override;
+  // @}
+
+  // Protected for unittesting.
+ protected:
+  // Key for storing function names by process and id.
+  using ProcessFunctionIdPair = std::pair<DWORD, uint32_t>;
+  using EventInterface = bard::EventInterface;
+  using EventType = EventInterface::EventType;
+
+  // Loads the function_enum_map_ with SyzyASan function names.
+  void LoadAsanFunctionNames();
+
+  std::map<ProcessFunctionIdPair, EventType> process_id_enum_map_;
+  std::map<std::string, EventType> function_enum_map_;
+  std::set<std::string> missing_events_;
 };
 
 }  // namespace grinders
