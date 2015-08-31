@@ -45,6 +45,13 @@
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
+// Disable all optimizations in this file. This entirely consists of code
+// that runs once at startup, or once during error handling. The latter code
+// is particularly useful to keep in its highest-fidelity form to help with
+// diagnosing edge cases during crash processing.
+#pragma optimize("", off)
+#pragma auto_inline(off)
+
 namespace agent {
 namespace asan {
 
@@ -210,8 +217,9 @@ bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
   return true;
 }
 
-// Sets a crash key using the given breakpad function.
-void SetCrashKeyValuePair(const BreakpadFunctions& breakpad_functions,
+// Sets a crash key using the given breakpad function. The breakpad functions
+// are passed by value so a stack copy is made.
+void SetCrashKeyValuePair(BreakpadFunctions breakpad_functions,
                           const char* key,
                           const char* value) {
   if (breakpad_functions.set_crash_key_value_pair_ptr != NULL) {
@@ -230,8 +238,9 @@ void SetCrashKeyValuePair(const BreakpadFunctions& breakpad_functions,
   return;
 }
 
-// Writes the appropriate crash keys for the given error.
-void SetCrashKeys(const BreakpadFunctions& breakpad_functions,
+// Writes the appropriate crash keys for the given error. The breakpad
+// functions are passed by value so a stack copy is made.
+void SetCrashKeys(BreakpadFunctions breakpad_functions,
                   AsanErrorInfo* error_info) {
   DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
          breakpad_functions.report_crash_with_protobuf_ptr != NULL ||
@@ -297,7 +306,8 @@ bool PopulateProtobufAndMemoryRanges(
 // @param breakpad_functions A struct containing pointers to the various
 //     Breakpad reporting functions.
 // @param error_info The information about this error.
-void BreakpadErrorHandler(const BreakpadFunctions& breakpad_functions,
+// @note @p breakpad_function is passed by value so a stack copy is made.
+void BreakpadErrorHandler(BreakpadFunctions breakpad_functions,
                           AsanErrorInfo* error_info) {
   DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
          breakpad_functions.report_crash_with_protobuf_ptr != NULL ||
