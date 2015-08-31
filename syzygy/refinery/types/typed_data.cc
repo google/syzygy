@@ -90,7 +90,8 @@ bool TypedData::IsArrayType() const {
   return type_->kind() == Type::ARRAY_TYPE_KIND;
 }
 
-bool TypedData::GetNamedField(const base::StringPiece16& name, TypedData* out) {
+bool TypedData::GetNamedField(const base::StringPiece16& name,
+                              TypedData* out) const {
   DCHECK(out);
   // TODO(siggi): Does it ever make sense to request a nameless field?
   DCHECK(!name.empty());
@@ -115,7 +116,8 @@ bool TypedData::GetNamedField(const base::StringPiece16& name, TypedData* out) {
   return false;
 }
 
-bool TypedData::GetField(const UserDefinedType::Field& field, TypedData* out) {
+bool TypedData::GetField(const UserDefinedType::Field& field,
+                         TypedData* out) const {
   DCHECK(out);
   DCHECK(type_);
   DCHECK(!IsPrimitiveType());
@@ -127,7 +129,7 @@ bool TypedData::GetField(const UserDefinedType::Field& field, TypedData* out) {
   return true;
 }
 
-bool TypedData::GetSignedValue(int64_t* value) {
+bool TypedData::GetSignedValue(int64_t* value) const {
   DCHECK(value);
   DCHECK(IsPrimitiveType());
   DCHECK(bit_source_);
@@ -193,7 +195,7 @@ bool TypedData::GetSignedValue(int64_t* value) {
   return true;
 }
 
-bool TypedData::GetUnsignedValue(uint64_t* value) {
+bool TypedData::GetUnsignedValue(uint64_t* value) const {
   DCHECK(value);
   DCHECK(IsPrimitiveType());
   DCHECK(bit_source_);
@@ -255,7 +257,7 @@ bool TypedData::GetUnsignedValue(uint64_t* value) {
   return true;
 }
 
-bool TypedData::GetPointerValue(Address* value) {
+bool TypedData::GetPointerValue(Address* value) const {
   DCHECK(value);
   DCHECK(IsPointerType());
   DCHECK_EQ(0, bit_len_);  // Bitfields need not apply for pointer.
@@ -283,7 +285,7 @@ bool TypedData::GetPointerValue(Address* value) {
   return false;
 }
 
-bool TypedData::Dereference(TypedData* referenced_data) {
+bool TypedData::Dereference(TypedData* referenced_data) const {
   DCHECK(referenced_data);
   DCHECK(IsPointerType());
   DCHECK(bit_source_);
@@ -306,7 +308,7 @@ bool TypedData::Dereference(TypedData* referenced_data) {
   return true;
 }
 
-bool TypedData::GetArrayElement(size_t index, TypedData* element_data) {
+bool TypedData::GetArrayElement(size_t index, TypedData* element_data) const {
   DCHECK(element_data);
   DCHECK(IsArrayType());
   DCHECK(bit_source_);
@@ -329,7 +331,7 @@ bool TypedData::GetArrayElement(size_t index, TypedData* element_data) {
   return true;
 }
 
-bool TypedData::GetDataImpl(void* data, size_t data_size) {
+bool TypedData::GetDataImpl(void* data, size_t data_size) const {
   DCHECK(data);
   DCHECK(IsPrimitiveType());
   DCHECK(bit_source_);

@@ -50,48 +50,48 @@ class TypedData {
   // @param name the name of the field to retrieve.
   // @param out on success returns a TypedData covering the field.
   // @returns true on success.
-  bool GetNamedField(const base::StringPiece16& name, TypedData* out);
+  bool GetNamedField(const base::StringPiece16& name, TypedData* out) const;
 
   // Retrieves a field of a UDT.
   // @pre !IsPrimitiveType().
   // @param field the field to retrieve, must be a field of type().
   // @param out on success returns a TypedData covering the field.
   // @returns true on success.
-  bool GetField(const UserDefinedType::Field& field, TypedData* out);
+  bool GetField(const UserDefinedType::Field& field, TypedData* out) const;
 
   // Retrieves the value of the type promoted to a large integer.
   // @pre IsPrimitiveType() == true.
   // @param data on success contains the value of the data pointed to by this
   //     instance.
   // @returns true on success.
-  bool GetSignedValue(int64_t* value);
+  bool GetSignedValue(int64_t* value) const;
 
   // Retrieves the value of the type promoted to a large unsigned integer.
   // @pre IsPrimitiveType() == true.
   // @param data on success contains the value of the data pointed to by this
   //     instance.
   // @returns true on success.
-  bool GetUnsignedValue(uint64_t* value);
+  bool GetUnsignedValue(uint64_t* value) const;
 
   // Retrieves the value of a pointer type promoted to a 64 bit value.
   // @pre IsPointerType() == true.
   // @param data on success contains the value of the data pointed to by this
   //     instance.
   // @returns true on success.
-  bool GetPointerValue(Address* value);
+  bool GetPointerValue(Address* value) const;
 
   // Dereferences the type for pointer types.
   // @pre IsPointerType() == true.
   // @param referenced_data on success contains the pointed-to data.
   // @returns true on success.
-  bool Dereference(TypedData* referenced_data);
+  bool Dereference(TypedData* referenced_data) const;
 
   // Retrieves an array element.
   // @pre IsArrayType() == true.
   // @param index the zero-based index of the requested element.
   // @param element_data on success contains the pointed-to data.
   // @returns true on success.
-  bool GetArrayElement(size_t index, TypedData* element_data);
+  bool GetArrayElement(size_t index, TypedData* element_data) const;
 
   // @name Accessors
   // @{
@@ -110,9 +110,9 @@ class TypedData {
             size_t bit_len);
 
   template <typename DataType>
-  bool GetData(DataType* data);
+  bool GetData(DataType* data) const;
 
-  bool GetDataImpl(void* data, size_t data_size);
+  bool GetDataImpl(void* data, size_t data_size) const;
 
   BitSource* bit_source_;
   TypePtr type_;
@@ -125,7 +125,7 @@ class TypedData {
 };
 
 template <typename DataType>
-bool TypedData::GetData(DataType* data) {
+bool TypedData::GetData(DataType* data) const {
   return GetDataImpl(data, sizeof(*data));
 }
 
