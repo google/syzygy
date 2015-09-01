@@ -55,5 +55,33 @@
         '<(src)/syzygy/common/common.gyp:common_lib',
       ],
     },
+    {
+      'target_name': 'pdb_dia_dumper_lib',
+      'type': 'static_library',
+      'sources': [
+        'pdb_dia_dump.cc',
+        'pdb_dia_dump.h',
+      ],
+      'dependencies': [
+        'pdb_dumper_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/application/application.gyp:application_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
+      ],
+    },
+    {
+      'target_name': 'pdb_dia_dumper',
+      'type': 'executable',
+      'sources': [
+        'pdb_dia_dump_main.cc',
+      ],
+      'dependencies': [
+        'pdb_dia_dumper_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_lib',
+      ],
+    },
   ],
 }

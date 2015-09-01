@@ -22,6 +22,7 @@
 
 #include "base/callback.h"
 #include "base/files/file_path.h"
+#include "base/strings/string16.h"
 #include "base/win/scoped_comptr.h"
 
 namespace pe {
@@ -115,6 +116,12 @@ SearchResult FindAndLoadDiaDebugStreamByName(const wchar_t* name,
                                              IDiaSession* dia_session,
                                              std::vector<T>* list);
 
+// Gets the index id associated with the given symbol.
+// @param symbol the symbol to examine.
+// @param sym_index_id on success, returns @p symbol's index id.
+// @returns true on success, false on failure.
+bool GetSymIndexId(IDiaSymbol* symbol, uint32_t* sym_index_id);
+
 // Gets the symbol tab associated with the given symbol.
 // @param symbol the symbol to examine.
 // @param sym_tag on success, returns @p symbol's tag.
@@ -125,6 +132,12 @@ bool GetSymTag(IDiaSymbol* symbol, enum SymTagEnum* sym_tag);
 // @returns true if @p symbol is of type @p expected_sym_tag,
 //     false on error or mismatch.
 bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag);
+
+// Gets the name associated with the given symbol.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's name.
+// @returns true on success, false on failure.
+bool GetSymName(IDiaSymbol* symbol, base::string16* name);
 
 // A worker class that makes it easy to visit specific children of a given
 // DIA symbol.

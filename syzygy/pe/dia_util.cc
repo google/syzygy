@@ -181,6 +181,21 @@ SearchResult FindDiaDebugStream(const wchar_t* name,
   return kSearchFailed;
 }
 
+bool GetSymIndexId(IDiaSymbol* symbol, uint32_t* sym_index_id) {
+  DCHECK(symbol);
+  DCHECK(sym_index_id);
+
+  DWORD index_id = 0;
+  HRESULT hr = symbol->get_symIndexId(&index_id);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's index id. " << common::LogHr(hr);
+    return false;
+  }
+
+  *sym_index_id = static_cast<uint32_t>(index_id);
+  return true;
+}
+
 bool GetSymTag(IDiaSymbol* symbol, enum SymTagEnum* sym_tag) {
   DCHECK(symbol != NULL);
   DCHECK(sym_tag != NULL);
@@ -204,6 +219,22 @@ bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag) {
     return false;
 
   return sym_tag == expected_sym_tag;
+}
+
+bool GetSymName(IDiaSymbol* symbol, base::string16* name) {
+  DCHECK(symbol); DCHECK(name);
+
+  base::win::ScopedBstr tmp;
+  HRESULT hr = symbol->get_name(tmp.Receive());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Error getting symbol's name: " << common::LogHr(hr) << ".";
+    return false;
+  }
+  if (hr == S_FALSE)
+    return false;  // Name is an unsupported property.
+
+  *name = common::ToString(tmp);
+  return true;
 }
 
 ChildVisitor::ChildVisitor(IDiaSymbol* parent, enum SymTagEnum type)
@@ -234,6 +265,9 @@ bool ChildVisitor::VisitChildrenImpl() {
     LOG(ERROR) << "Unable to get children: " << common::LogHr(hr);
     return false;
   }
+
+  if (hr == S_FALSE)
+    return true;  // No child.
 
   return EnumerateChildren(children.get());
 }

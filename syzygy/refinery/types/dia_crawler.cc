@@ -14,6 +14,8 @@
 
 #include "syzygy/refinery/types/dia_crawler.h"
 
+#include <hash_map>
+
 #include "base/strings/stringprintf.h"
 #include "base/win/scoped_bstr.h"
 #include "syzygy/pe/dia_util.h"
@@ -127,28 +129,6 @@ bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name) {
   }
 
   return true;
-}
-
-bool GetSymTag(IDiaSymbol* symbol, uint32_t* sym_tag) {
-  DCHECK(symbol); DCHECK(sym_tag);
-
-  DWORD tmp = 0;
-  HRESULT hr = symbol->get_symTag(&tmp);
-  if (hr != S_OK)
-    return false;
-
-  *sym_tag = static_cast<uint32_t>(tmp);
-  return true;
-}
-
-bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum sym_tag) {
-  DCHECK(symbol);
-
-  uint32_t tag = SymTagNull;
-  if (!GetSymTag(symbol, &tag))
-    return false;
-
-  return static_cast<enum SymTagEnum>(tag) == sym_tag;
 }
 
 bool GetSymFlags(IDiaSymbol* symbol, Type::Flags* flags) {
@@ -553,8 +533,8 @@ TypePtr TypeCreator::FindOrCreateType(IDiaSymbol* symbol) {
 TypePtr TypeCreator::CreateType(IDiaSymbol* symbol) {
   DCHECK(symbol);
 
-  uint32_t sym_tag = SymTagNull;
-  if (!GetSymTag(symbol, &sym_tag))
+  enum SymTagEnum sym_tag = SymTagNull;
+  if (!pe::GetSymTag(symbol, &sym_tag))
     return nullptr;
 
   switch (sym_tag) {
@@ -583,7 +563,7 @@ TypePtr TypeCreator::CreateType(IDiaSymbol* symbol) {
 
 TypePtr TypeCreator::CreateUDT(IDiaSymbol* symbol) {
   DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagUDT));
+  DCHECK(pe::IsSymTag(symbol, SymTagUDT));
 
   base::string16 name;
   size_t size = 0;
@@ -595,7 +575,7 @@ TypePtr TypeCreator::CreateUDT(IDiaSymbol* symbol) {
 
 TypePtr TypeCreator::CreateEnum(IDiaSymbol* symbol) {
   DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagEnum));
+  DCHECK(pe::IsSymTag(symbol, SymTagEnum));
 
   base::string16 name;
   size_t size = 0;
@@ -609,7 +589,7 @@ TypePtr TypeCreator::CreateEnum(IDiaSymbol* symbol) {
 bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
   DCHECK(symbol);
   DCHECK(udt);
-  DCHECK(IsSymTag(symbol, SymTagUDT));
+  DCHECK(pe::IsSymTag(symbol, SymTagUDT));
 
   // Enumerate the fields and add them.
   base::win::ScopedComPtr<IDiaEnumSymbols> enum_children;
@@ -630,8 +610,8 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
     if (!SUCCEEDED(hr))
       return false;
 
-    uint32_t sym_tag = 0;
-    if (!GetSymTag(field_sym.get(), &sym_tag))
+    enum SymTagEnum sym_tag = SymTagNull;
+    if (!pe::GetSymTag(field_sym.get(), &sym_tag))
       return false;
 
     // We only care about data.
@@ -694,7 +674,7 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
 bool TypeCreator::FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr) {
   DCHECK(symbol);
   DCHECK(ptr);
-  DCHECK(IsSymTag(symbol, SymTagPointerType));
+  DCHECK(pe::IsSymTag(symbol, SymTagPointerType));
 
   base::win::ScopedComPtr<IDiaSymbol> contained_type_sym;
   if (!GetSymType(symbol, &contained_type_sym))
@@ -715,7 +695,7 @@ bool TypeCreator::FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr) {
 bool TypeCreator::FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr array) {
   DCHECK(symbol);
   DCHECK(array);
-  DCHECK(IsSymTag(symbol, SymTagArrayType));
+  DCHECK(pe::IsSymTag(symbol, SymTagArrayType));
 
   base::win::ScopedComPtr<IDiaSymbol> index_type_sym;
   if (!GetSymArrayIndexType(symbol, &index_type_sym))
@@ -748,7 +728,7 @@ bool TypeCreator::FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr array) {
 TypePtr TypeCreator::CreateBaseType(IDiaSymbol* symbol) {
   // Note that the void base type has zero size.
   DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagBaseType));
+  DCHECK(pe::IsSymTag(symbol, SymTagBaseType));
 
   base::string16 base_type_name;
   size_t size = 0;
@@ -762,7 +742,7 @@ TypePtr TypeCreator::CreateBaseType(IDiaSymbol* symbol) {
 
 TypePtr TypeCreator::CreateFunctionType(IDiaSymbol* symbol) {
   DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagFunctionType));
+  DCHECK(pe::IsSymTag(symbol, SymTagFunctionType));
 
   return new WildcardType(L"Function", 0);
 }
@@ -770,7 +750,7 @@ TypePtr TypeCreator::CreateFunctionType(IDiaSymbol* symbol) {
 TypePtr TypeCreator::CreatePointerType(IDiaSymbol* symbol) {
   // Note that the void base type has zero size.
   DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagPointerType));
+  DCHECK(pe::IsSymTag(symbol, SymTagPointerType));
 
   size_t size = 0;
   PointerType::Mode ptr_mode = PointerType::PTR_MODE_PTR;
@@ -782,7 +762,7 @@ TypePtr TypeCreator::CreatePointerType(IDiaSymbol* symbol) {
 
 TypePtr TypeCreator::CreateTypedefType(IDiaSymbol* symbol) {
   DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagTypedef));
+  DCHECK(pe::IsSymTag(symbol, SymTagTypedef));
 
   base::string16 name;
   if (!GetSymName(symbol, &name))
@@ -794,7 +774,7 @@ TypePtr TypeCreator::CreateTypedefType(IDiaSymbol* symbol) {
 
 TypePtr TypeCreator::CreateArrayType(IDiaSymbol* symbol) {
   DCHECK(symbol);
-  DCHECK(IsSymTag(symbol, SymTagArrayType));
+  DCHECK(pe::IsSymTag(symbol, SymTagArrayType));
 
   size_t size = 0;
   if (!GetSymSize(symbol, &size)) {
