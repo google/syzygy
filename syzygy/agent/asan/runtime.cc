@@ -238,6 +238,21 @@ void SetCrashKeyValuePair(BreakpadFunctions breakpad_functions,
   return;
 }
 
+// Writes some early crash keys. These will be present even if SyzyAsan crashes
+// and can be used to help triage those bugs.
+void SetEarlyCrashKeys(BreakpadFunctions breakpad_functions,
+                       AsanRuntime* runtime) {
+  DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+
+  SetCrashKeyValuePair(breakpad_functions, "asan-random-key",
+      base::StringPrintf("%016llx", runtime->random_key()).c_str());
+
+  if (runtime->params().enable_feature_randomization) {
+    SetCrashKeyValuePair(breakpad_functions, "asan-feature-set",
+        base::UintToString(runtime->enabled_features()).c_str());
+  }
+}
+
 // Writes the appropriate crash keys for the given error. The breakpad
 // functions are passed by value so a stack copy is made.
 void SetCrashKeys(BreakpadFunctions breakpad_functions,
@@ -486,7 +501,8 @@ LPTOP_LEVEL_EXCEPTION_FILTER AsanRuntime::previous_uef_ = NULL;
 bool AsanRuntime::uef_installed_ = false;
 
 AsanRuntime::AsanRuntime()
-    : logger_(), stack_cache_(), asan_error_callback_(), heap_manager_() {
+    : logger_(), stack_cache_(), asan_error_callback_(), heap_manager_(),
+      random_key_(::__rdtsc()) {
   ::common::SetDefaultAsanParameters(&params_);
   starting_ticks_ = ::GetTickCount();
 }
@@ -556,6 +572,16 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Finally, initialize the heap manager. This comes after parsing all
   // parameters as some decisions can only be made once.
   heap_manager_->Init();
+
+  // Set some early crash keys.
+  // NOTE: This calls back into the executable process to set crash keys. This
+  // only works for Breakpad/Kasko enabled processes, assuming we haven't
+  // instrumented the executable. In the case of Chrome this works because we
+  // have instrumented chrome.dll, which is loaded at runtime by chrome.exe,
+  // which is already initialized by the time we get here.
+  // TODO(chrisha): Either do this via an instrumented module entry hook, or
+  // expose a client API in Kasko.
+  SetEarlyCrashKeys(breakpad_functions, this);
 
   return true;
 }

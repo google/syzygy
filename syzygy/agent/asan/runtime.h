@@ -144,6 +144,12 @@ class AsanRuntime {
   //     share the same flag.
   void set_allocation_filter_flag(bool value);
 
+  // @names Accessors.
+  // {
+  AsanFeatureSet enabled_features() const { return enabled_features_; }
+  uint64_t random_key() const { return random_key_; }
+  // @}
+
   // Observes a given thread ID, adding it to thread ID set.
   // @param thread_id The thread ID that has been observed.
   void AddThreadId(uint32 thread_id);
@@ -307,6 +313,9 @@ class AsanRuntime {
   base::Lock thread_ids_lock_;
   base::hash_set<uint32> thread_ids_;  // Under thread_ids_lock_.
 
+  // A random key that is generated on object creation. This is used for
+  // correlating duplicate crash reports on the back-end.
+  const uint64_t random_key_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };
