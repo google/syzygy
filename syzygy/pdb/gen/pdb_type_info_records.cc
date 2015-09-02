@@ -230,7 +230,8 @@ bool LeafOneMethod::Initialize(PdbStream* stream) {
       bytes_read != to_read) {
     return false;
   }
-  if ((attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro) &&
+  if ((attr().mprop == Microsoft_Cci_Pdb::CV_MTintro ||
+       attr().mprop == Microsoft_Cci_Pdb::CV_MTpureintro) &&
       !ReadBasicType(stream, &vbaseoff_)) {
     return false;
   }
@@ -361,7 +362,8 @@ bool MethodListRecord::Initialize(PdbStream* stream) {
       bytes_read != to_read) {
     return false;
   }
-  if ((attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro) &&
+  if ((attr().mprop == Microsoft_Cci_Pdb::CV_MTintro ||
+       attr().mprop == Microsoft_Cci_Pdb::CV_MTpureintro) &&
       !ReadBasicType(stream, &vbaseoff_)) {
     return false;
   }

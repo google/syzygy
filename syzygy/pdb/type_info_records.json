@@ -159,7 +159,7 @@
         {
           "name": "vbaseoff",
           "type_name": "uint32_t",
-          "condition": "attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro"
+          "condition": "attr().mprop == Microsoft_Cci_Pdb::CV_MTintro ||\n attr().mprop == Microsoft_Cci_Pdb::CV_MTpureintro"
         },
         {
           "name": "name",
@@ -266,7 +266,7 @@
         {
           "name": "vbaseoff",
           "type_name": "uint32_t",
-          "condition": "attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro"
+          "condition": "attr().mprop == Microsoft_Cci_Pdb::CV_MTintro ||\n attr().mprop == Microsoft_Cci_Pdb::CV_MTpureintro"
         }
       ],
       "retyped_fields": [

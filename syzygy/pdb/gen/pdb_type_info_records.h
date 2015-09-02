@@ -322,7 +322,8 @@ class LeafOneMethod {
   // @}
 
   bool has_vbaseoff() const {
-    return (attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro);
+    return (attr().mprop == Microsoft_Cci_Pdb::CV_MTintro ||
+            attr().mprop == Microsoft_Cci_Pdb::CV_MTpureintro);
   }
 
   // Initializes the class from the given pdb stream.
@@ -505,7 +506,8 @@ class MethodListRecord {
   // @}
 
   bool has_vbaseoff() const {
-    return (attr().mprop >= Microsoft_Cci_Pdb::CV_MTintro);
+    return (attr().mprop == Microsoft_Cci_Pdb::CV_MTintro ||
+            attr().mprop == Microsoft_Cci_Pdb::CV_MTpureintro);
   }
 
   // Initializes the class from the given pdb stream.
