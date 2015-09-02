@@ -145,7 +145,7 @@ class ListEntryEnumerator {
   // Initialize the enumerator to walk entries of type @p record_type on the
   // field named @p list_entry_name from @p list_head.
   // @returns true on success, false on failure.
-  bool Initialize(TypedData list_head,
+  bool Initialize(const TypedData& list_head,
                   UserDefinedTypePtr record_type,
                   base::StringPiece16 list_entry_name);
 
@@ -178,7 +178,7 @@ ListEntryEnumerator::ListEntryEnumerator()
     : list_head_(0), list_entry_offset_(0) {
 }
 
-bool ListEntryEnumerator::Initialize(TypedData list_head,
+bool ListEntryEnumerator::Initialize(const TypedData& list_head,
                                      UserDefinedTypePtr record_type,
                                      base::StringPiece16 list_entry_name) {
   // Check that the list_head has an Flink.
@@ -230,7 +230,7 @@ class HeapEnumerator {
   ListEntryEnumerator GetSegmentEnumerator();
 
   // Accessor to the heap.
-  TypedData heap() const { return heap_; }
+  const TypedData& heap() const { return heap_; }
 
  private:
   // A reflective bit source.
@@ -416,21 +416,21 @@ bool HeapEntryWalker::Initialize(HeapEnumerator* heap_enumerator) {
                << "only one of Encoding and EncodeFlagMask present!";
     return false;
   }
-  if (!has_flags)
-    return true;
 
-  uint64 value = 0;
-  if (!encode_flag_mask.GetUnsignedValue(&value)) {
-    LOG(ERROR) << "Unable to get heap flags mask.";
-    return false;
-  }
-  // From observation of some heaps.
-  const uint64 kEncodingEnabled = 0x00100000;
-  if (value & kEncodingEnabled) {
-    BitSource* source = encoding.bit_source();
-    encoding_.resize(encoding.range().size());
-    if (!source->GetAll(encoding.range(), &encoding_.at(0)))
+  if (has_flags) {
+    uint64 value = 0;
+    if (!encode_flag_mask.GetUnsignedValue(&value)) {
+      LOG(ERROR) << "Unable to get heap flags mask.";
       return false;
+    }
+    // From observation of some heaps.
+    const uint64 kEncodingEnabled = 0x00100000;
+    if (value & kEncodingEnabled) {
+      BitSource* source = encoding.bit_source();
+      encoding_.resize(encoding.range().size());
+      if (!source->GetAll(encoding.range(), &encoding_.at(0)))
+        return false;
+    }
   }
 
   heap_bit_source_ = heap.bit_source();
@@ -562,7 +562,7 @@ void HeapEnumerate::PrintAllocsInRange(const refinery::AddressRange& range) {
     ::fprintf(output_, "  Alloc@0x%08llX(%d)\n", it->first, it->second);
 }
 
-void HeapEnumerate::DumpTypedData(TypedData data, size_t indent) {
+void HeapEnumerate::DumpTypedData(const TypedData& data, size_t indent) {
   std::fprintf(output_, "%ls", data.type()->name().c_str());
   if (data.IsPointerType()) {
     Address addr = 0;

@@ -39,8 +39,7 @@ class HeapEnumerate {
   // Outputs the allocations from alloc_ that start within @p range.
   void PrintAllocsInRange(const refinery::AddressRange& range);
 
-  // TODO(siggi): Make TypedData const friendly and turn this into a const&.
-  void DumpTypedData(refinery::TypedData data, size_t indent);
+  void DumpTypedData(const refinery::TypedData& data, size_t indent);
 
   HANDLE heap_;
   FILE* output_;
