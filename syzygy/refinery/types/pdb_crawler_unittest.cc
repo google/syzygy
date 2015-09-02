@@ -47,7 +47,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
     }
 
     LoadTypes();
-    LoadConstantsFromSymbolStream();
+    LoadUnsignedConstantsFromSymbolStream();
   }
 
   void LoadTypes() {
@@ -83,9 +83,10 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
     }
   }
 
-  // This function reads all the constants from the symbol stream. We use this
-  // to find the const static variables containing sizes of member pointers.
-  void LoadConstantsFromSymbolStream() {
+  // This function reads all unsigned constants from the symbol stream. We use
+  // this to find the const static variables containing sizes of member
+  // pointers.
+  void LoadUnsignedConstantsFromSymbolStream() {
     pdb::PdbReader reader;
     pdb::PdbFile pdb_file;
     pdb::DbiStream dbi_stream;
@@ -114,9 +115,10 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
       uint32_t type_index = 0;
       ASSERT_TRUE(sym_record_stream->Read(&type_index, 1));
 
-      // Read the value.
+      // Read the value, we are not interested in signed values.
       uint64_t value;
-      ASSERT_TRUE(pdb::ReadUnsignedNumeric(sym_record_stream.get(), &value));
+      if (!pdb::ReadUnsignedNumeric(sym_record_stream.get(), &value))
+        continue;
 
       // And its name.
       base::string16 name;
