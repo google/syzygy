@@ -72,16 +72,15 @@ void ReportBadMemoryAccess(void* location,
 
   common::StackCapture stack;
   stack.InitFromStack();
-  // We need to compute a relative stack id so that for the same stack trace
-  // we'll get the same value every time even if the modules are loaded at a
-  // different base address.
-  stack.set_stack_id(stack.ComputeRelativeStackId());
-
+  // We need to use the relative stack id so that for the same stack trace we
+  // get the same value every time even if the modules are loaded at a different
+  // base address.
+  //
   // Check if we can ignore this error.
-  if (asan_runtime->ShouldIgnoreError(stack.stack_id()))
+  if (asan_runtime->ShouldIgnoreError(stack.relative_stack_id()))
     return;
 
-  bad_access_info.crash_stack_id = stack.stack_id();
+  bad_access_info.crash_stack_id = stack.relative_stack_id();
   bad_access_info.location = location;
   bad_access_info.access_mode = access_mode;
   bad_access_info.access_size = access_size;

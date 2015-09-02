@@ -122,28 +122,31 @@ TEST_F(StackCaptureCacheTest, SaveStackTrace) {
   EXPECT_EQ(StackCapture::kMaxNumFrames, cache.max_num_frames());
 
   // Capture a stack trace.
-  ULONG stack_id = 0;
+  ULONG absolute_stack_id = 0;
   void* frames[StackCapture::kMaxNumFrames] = { 0 };
-  size_t num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+  size_t num_frames = ::CaptureStackBackTrace(0, StackCapture::kMaxNumFrames,
+                                              frames, &absolute_stack_id);
 
   // We should be able to save the captures stack trace.
-  const StackCapture* s1 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  const StackCapture* s1 =
+      cache.SaveStackTrace(absolute_stack_id, frames, num_frames);
   ASSERT_TRUE(s1 != NULL);
   EXPECT_EQ(num_frames, s1->max_num_frames());
 
   // We should get a pointer to the initial stack capture object if we attempt
   // to save the same trace again.
-  const StackCapture* s2 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  const StackCapture* s2 =
+      cache.SaveStackTrace(absolute_stack_id, frames, num_frames);
   EXPECT_EQ(s1, s2);
 
   // Capture a new stack trace.
-  num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+  num_frames = ::CaptureStackBackTrace(0, StackCapture::kMaxNumFrames, frames,
+                                       &absolute_stack_id);
 
   // We should get a pointer to a new stack capture object when we attempt
   // to save a different trace.
-  const StackCapture* s3 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  const StackCapture* s3 =
+      cache.SaveStackTrace(absolute_stack_id, frames, num_frames);
   EXPECT_NE(s1, s3);
   EXPECT_EQ(num_frames, s3->max_num_frames());
 }
@@ -154,28 +157,31 @@ TEST_F(StackCaptureCacheTest, RestrictedStackTraces) {
   EXPECT_EQ(20u, cache.max_num_frames());
 
   // Capture a stack trace.
-  ULONG stack_id = 0;
+  ULONG absolute_stack_id = 0;
   void* frames[StackCapture::kMaxNumFrames] = { 0 };
-  size_t num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+  size_t num_frames = ::CaptureStackBackTrace(0, StackCapture::kMaxNumFrames,
+                                              frames, &absolute_stack_id);
 
   // We should be able to save the captures stack trace.
-  const StackCapture* s1 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  const StackCapture* s1 =
+      cache.SaveStackTrace(absolute_stack_id, frames, num_frames);
   ASSERT_TRUE(s1 != NULL);
   EXPECT_EQ(num_frames, s1->max_num_frames());
 
   // We should get a pointer to the initial stack capture object if we attempt
   // to save the same trace again.
-  const StackCapture* s2 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  const StackCapture* s2 =
+      cache.SaveStackTrace(absolute_stack_id, frames, num_frames);
   EXPECT_EQ(s1, s2);
 
   // Capture a new stack trace.
-  num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
+  num_frames = ::CaptureStackBackTrace(0, StackCapture::kMaxNumFrames, frames,
+                                       &absolute_stack_id);
 
   // We should get a pointer to a new stack capture object when we attempt
   // to save a different trace.
-  const StackCapture* s3 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  const StackCapture* s3 =
+      cache.SaveStackTrace(absolute_stack_id, frames, num_frames);
   EXPECT_NE(s1, s3);
   EXPECT_EQ(num_frames, s1->max_num_frames());
 }
@@ -351,11 +357,12 @@ TEST_F(StackCaptureCacheTest, StackCapturePointerIsValid) {
   TestStackCaptureCache cache(&logger);
 
   // Capture and save a stack trace.
-  ULONG stack_id = 0;
+  ULONG absolute_stack_id = 0;
   void* frames[StackCapture::kMaxNumFrames] = { 0 };
-  size_t num_frames = ::CaptureStackBackTrace(
-      0, StackCapture::kMaxNumFrames, frames, &stack_id);
-  const StackCapture* s1 = cache.SaveStackTrace(stack_id, frames, num_frames);
+  size_t num_frames = ::CaptureStackBackTrace(0, StackCapture::kMaxNumFrames,
+                                              frames, &absolute_stack_id);
+  const StackCapture* s1 =
+      cache.SaveStackTrace(absolute_stack_id, frames, num_frames);
   ASSERT_TRUE(s1 != NULL);
 
   // This pointer should be valid.
@@ -387,8 +394,9 @@ TEST_F(StackCaptureCacheTest, StackCaptureObserver) {
   StackCapture stack;
   stack.InitFromStack();
   // Expect one callback with the right stack id value.
-  EXPECT_CALL(observer, OnNewStack(Pointee(Property(&StackCapture::stack_id,
-                                                    Eq(stack.stack_id())))))
+  EXPECT_CALL(observer,
+              OnNewStack(Pointee(Property(&StackCapture::absolute_stack_id,
+                                          Eq(stack.absolute_stack_id())))))
       .Times(1);
   cache.SaveStackTrace(stack);
 
@@ -396,8 +404,9 @@ TEST_F(StackCaptureCacheTest, StackCaptureObserver) {
   StackCapture stack2;
   stack2.InitFromStack();
   // Expect one callback with the right stack id value.
-  EXPECT_CALL(observer, OnNewStack(Pointee(Property(&StackCapture::stack_id,
-                                                    Eq(stack2.stack_id())))))
+  EXPECT_CALL(observer,
+              OnNewStack(Pointee(Property(&StackCapture::absolute_stack_id,
+                                          Eq(stack2.absolute_stack_id())))))
       .Times(1);
   cache.SaveStackTrace(stack2);
 

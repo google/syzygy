@@ -1022,7 +1022,7 @@ DebugShadow::Metadata::Metadata(
 DebugShadow::Metadata::Metadata(const Metadata& rhs)
     : address(rhs.address), size(rhs.size), marker(rhs.marker) {
   if (rhs.stack_capture.num_frames() > 0) {
-    stack_capture.InitFromBuffer(rhs.stack_capture.stack_id(),
+    stack_capture.InitFromBuffer(rhs.stack_capture.absolute_stack_id(),
                                  rhs.stack_capture.frames(),
                                  rhs.stack_capture.num_frames());
   }
@@ -1033,7 +1033,7 @@ DebugShadow::Metadata& DebugShadow::Metadata::operator=(const Metadata& rhs) {
   size = rhs.size;
   marker = rhs.marker;
   if (rhs.stack_capture.num_frames() > 0) {
-    stack_capture.InitFromBuffer(rhs.stack_capture.stack_id(),
+    stack_capture.InitFromBuffer(rhs.stack_capture.absolute_stack_id(),
                                  rhs.stack_capture.frames(),
                                  rhs.stack_capture.num_frames());
   }

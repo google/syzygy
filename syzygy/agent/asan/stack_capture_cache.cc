@@ -156,7 +156,9 @@ void StackCaptureCache::Init() {
 }
 
 const common::StackCapture* StackCaptureCache::SaveStackTrace(
-    StackId stack_id, const void* const* frames, size_t num_frames) {
+    StackId absolute_stack_id,
+    const void* const* frames,
+    size_t num_frames) {
   DCHECK_NE(static_cast<void**>(nullptr), frames);
   DCHECK_NE(num_frames, 0U);
   DCHECK_NE(static_cast<CachePage*>(nullptr), current_page_);
@@ -166,14 +168,14 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
   bool saturated = false;
 
   {
-    size_t known_stack_shard = stack_id % kKnownStacksSharding;
+    size_t known_stack_shard = absolute_stack_id % kKnownStacksSharding;
     // Get or insert the current stack trace while under the lock for this
     // bucket.
     base::AutoLock auto_lock(known_stacks_locks_[known_stack_shard]);
 
     // Check if the stack capture is already in the cache map.
     common::StackCapture capture;
-    capture.set_stack_id(stack_id);
+    capture.set_absolute_stack_id(absolute_stack_id);
     StackSet::iterator result = known_stacks_[known_stack_shard].find(&capture);
 
     // If this capture has not already been cached then we have to initialize
@@ -181,7 +183,7 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
     if (result == known_stacks_[known_stack_shard].end()) {
       stack_trace = GetStackCapture(num_frames);
       DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_trace);
-      stack_trace->InitFromBuffer(stack_id, frames, num_frames);
+      stack_trace->InitFromBuffer(absolute_stack_id, frames, num_frames);
       auto result = known_stacks_[known_stack_shard].insert(stack_trace);
       DCHECK(result.second);
       DCHECK(stack_trace->HasNoRefs());
@@ -238,16 +240,16 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
 
 const common::StackCapture* StackCaptureCache::SaveStackTrace(
     const common::StackCapture& stack_capture) {
-  return SaveStackTrace(stack_capture.stack_id(),
-                        stack_capture.frames(),
-                        stack_capture.num_frames());
+  return SaveStackTrace(stack_capture.absolute_stack_id(),
+                        stack_capture.frames(), stack_capture.num_frames());
 }
 
 void StackCaptureCache::ReleaseStackTrace(
     const common::StackCapture* stack_capture) {
   DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
 
-  size_t known_stack_shard = stack_capture->stack_id() % kKnownStacksSharding;
+  size_t known_stack_shard =
+      stack_capture->absolute_stack_id() % kKnownStacksSharding;
   bool add_to_reclaimed_list = false;
   common::StackCapture* stack = nullptr;
   {

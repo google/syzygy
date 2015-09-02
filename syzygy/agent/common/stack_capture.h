@@ -43,12 +43,18 @@ class StackCapture {
   using StackId = ::common::AsanStackId;
 
   StackCapture()
-      : ref_count_(0), stack_id_(0), num_frames_(0),
-        max_num_frames_(kMaxNumFrames) {
-  }
+      : ref_count_(0),
+        absolute_stack_id_(0),
+        relative_stack_id_(0),
+        num_frames_(0),
+        max_num_frames_(kMaxNumFrames) {}
 
   explicit StackCapture(size_t max_num_frames)
-      : ref_count_(0), stack_id_(0), num_frames_(0), max_num_frames_(0) {
+      : ref_count_(0),
+        absolute_stack_id_(0),
+        relative_stack_id_(0),
+        num_frames_(0),
+        max_num_frames_(0) {
     DCHECK_LT(0u, max_num_frames);
     DCHECK_GE(kMaxNumFrames, max_num_frames);
     max_num_frames_ = max_num_frames;
@@ -61,7 +67,8 @@ class StackCapture {
   // @param frames The frames to be hashed.
   // @param num_frames The number of frames to be hashed.
   // @returns The computed stack trace ID.
-  static StackId ComputeStackId(const void* const* frames, size_t num_frames);
+  static StackId ComputeAbsoluteStackId(const void* const* frames,
+                                        size_t num_frames);
 
   // Calculate the size necessary to store a StackCapture with the given
   // number of stack frames.
@@ -100,8 +107,11 @@ class StackCapture {
   // @returns the reference count for this stack capture.
   RefCount ref_count() const { return ref_count_; }
 
-  // @returns the ID associated with this stack trace.
-  StackId stack_id() const { return stack_id_; }
+  // @returns the absolute ID associated with this stack trace.
+  StackId absolute_stack_id() const { return absolute_stack_id_; }
+
+  // @returns the relative ID associated with this stack trace.
+  StackId relative_stack_id() const;
 
   // @returns the number of valid frame pointers in this stack trace capture.
   size_t num_frames() const { return num_frames_; }
@@ -118,7 +128,9 @@ class StackCapture {
 
   // Sets the stack ID for a given trace.
   // @param The stack ID to set.
-  void set_stack_id(StackId stack_id) { stack_id_ = stack_id; }
+  void set_absolute_stack_id(StackId absolute_stack_id) {
+    absolute_stack_id_ = absolute_stack_id;
+  }
 
   // Set the number of bottom frames to skip per stack trace. This is needed to
   // be able to improve the stack cache compression in Chrome's unittests where
@@ -134,13 +146,13 @@ class StackCapture {
 
   // Initializes a stack trace from an array of frame pointers, a count and
   // a StackId (such as returned by ::CaptureStackBackTrace).
-  // @param stack_id The ID of the stack back trace. This value will be ignored
-  //     and another ID calculated if the trace has to be truncated.
+  // @param absolute_stack_id The ID of the stack back trace. This value will be
+  //     ignored and another ID calculated if the trace has to be truncated.
   // @param frames an array of frame pointers.
   // @param num_frames the number of valid frame pointers in @frames. Note
   //     that at most kMaxNumFrames frame pointers will be copied to this
   //     stack trace capture.
-  void InitFromBuffer(StackId stack_id,
+  void InitFromBuffer(StackId absolute_stack_id,
                       const void* const* frames,
                       size_t num_frames);
 
@@ -160,11 +172,6 @@ class StackCapture {
                     const StackCapture* stack_capture2) const;
   };
 
-  // Computes the hash of a stack trace using relative addresses of each stack
-  // frame.
-  // @returns the relative hash of this stack trace.
-  StackId ComputeRelativeStackId() const;
-
   // @name Testing seams.
   // @{
   // Allows injecting false modules for use in computing the relative stack ID.
@@ -182,8 +189,14 @@ class StackCapture {
   // The number of bottom frames to skip on the stack traces.
   static size_t bottom_frames_to_skip_;
 
-  // The unique ID of this hash. This is used for storing the hash in the set.
-  StackId stack_id_;
+  // The absolute unique ID of this hash. This is used for storing the hash in
+  // the set.
+  StackId absolute_stack_id_;
+
+  // The relative unique ID of this hash. This is used when persistence between
+  // runs is needed. Declared mutable as it's calculated on demand and cached
+  // when relative_stack_id is called.
+  mutable StackId relative_stack_id_;
 
   // The number of valid frames in this stack trace capture, and the maximum
   // number it can represent. We use uint8s here because we're limited to
@@ -205,6 +218,11 @@ class StackCapture {
   void* frames_[kMaxNumFrames];
 
  private:
+  // Computes the hash of a stack trace using relative addresses of each stack
+  // frame. Declared virtual for unittesting.
+  // @returns the relative hash of this stack trace.
+  virtual StackId ComputeRelativeStackId() const;
+
   DISALLOW_COPY_AND_ASSIGN(StackCapture);
 };
 

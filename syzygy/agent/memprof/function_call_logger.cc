@@ -78,32 +78,32 @@ uint32 FunctionCallLogger::GetStackTraceId(TraceFileSegment* segment) {
   agent::common::StackCapture stack;
   stack.InitFromStack();
   if (stack_trace_tracking_ == kTrackingTrack)
-    return stack.stack_id();
+    return stack.absolute_stack_id();
 
   // Insert the stack ID. If it already exists it doesn't need to be emitted
   // so return early.
   bool inserted = false;
   {
     base::AutoLock lock(lock_);
-    inserted = emitted_stack_ids_.insert(stack.stack_id()).second;
+    inserted = emitted_stack_ids_.insert(stack.absolute_stack_id()).second;
   }
   if (!inserted)
-    return stack.stack_id();
+    return stack.absolute_stack_id();
 
   size_t frame_size = sizeof(void*) * stack.num_frames();
   size_t data_size = FIELD_OFFSET(TraceStackTrace, frames) + frame_size;
   if (!segment->CanAllocate(data_size) && !FlushSegment(segment))
-    return stack.stack_id();
+    return stack.absolute_stack_id();
   DCHECK(segment->CanAllocate(data_size));
 
   TraceStackTrace* data = segment->AllocateTraceRecord<TraceStackTrace>(
       data_size);
   DCHECK_NE(static_cast<TraceStackTrace*>(nullptr), data);
   data->num_frames = stack.num_frames();
-  data->stack_trace_id = stack.stack_id();
+  data->stack_trace_id = stack.absolute_stack_id();
   ::memcpy(data->frames, stack.frames(), frame_size);
 
-  return stack.stack_id();
+  return stack.absolute_stack_id();
 }
 
 bool FunctionCallLogger::FlushSegment(TraceFileSegment* segment) {

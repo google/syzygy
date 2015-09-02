@@ -865,7 +865,7 @@ void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
   ErrorInfoGetBadAccessInformation(shadow_, stack_cache_, &error_info);
   agent::common::StackCapture stack;
   stack.InitFromStack();
-  error_info.crash_stack_id = stack.ComputeRelativeStackId();
+  error_info.crash_stack_id = stack.relative_stack_id();
 
   // We expect a callback to be set.
   DCHECK(!heap_error_callback_.is_null());
@@ -941,9 +941,7 @@ bool BlockHeapManager::ShouldReportCorruptBlock(const BlockInfo* block_info) {
     return true;
 
   const common::StackCapture* alloc_stack = block_info->header->alloc_stack;
-  // TODO(sebmarchand|chrisha): Use a cache to improve the RelativeStackID
-  // computations.
-  StackId relative_alloc_stack_id = alloc_stack->ComputeRelativeStackId();
+  StackId relative_alloc_stack_id = alloc_stack->relative_stack_id();
 
   // Look at the registry cache to see if an error has already been reported
   // for this allocation stack trace, if so prevent from reporting another one.
