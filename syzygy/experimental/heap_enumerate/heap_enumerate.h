@@ -35,6 +35,10 @@ class HeapEnumerate {
 
  private:
   bool AllocateSomeBlocks();
+
+  // Outputs the allocations from alloc_ that start within @p range.
+  void PrintAllocsInRange(const refinery::AddressRange& range);
+
   // TODO(siggi): Make TypedData const friendly and turn this into a const&.
   void DumpTypedData(refinery::TypedData data, size_t indent);
 
