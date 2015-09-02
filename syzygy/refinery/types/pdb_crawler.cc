@@ -30,23 +30,7 @@ namespace {
 
 namespace cci = Microsoft_Cci_Pdb;
 
-// This struct is used to store and pass around additional information that
-// cannot be put straight in the type repository. Main two purposes are to
-// propagate CV modifiers from children to parents and to store information from
-// records that do not get translated to the type repository (e.g. LF_MODIFIER).
-struct ExtraTypeProperties {
-  // CV flags.
-  Type::Flags flags;
-
-  // If this type is a bitfield, this is the bit position.
-  size_t bit_pos : 6;
-
-  // If this type is a bitfield, this is the bit length.
-  size_t bit_len : 6;
-
-  // Type Id of the closest element on the way down in the type repository.
-  TypeId type_id;
-};
+const uint16_t kNoLeafType = static_cast<uint16_t>(-1);
 
 class TypeCreator {
  public:
@@ -54,22 +38,34 @@ class TypeCreator {
   ~TypeCreator();
 
   // Crawls @p stream, creates all types and assigns names to pointers.
+  // @returns true on success, false on failure.
   bool CreateTypes(scoped_refptr<pdb::PdbStream> stream);
 
  private:
   // The following functions parse objects from the data stream.
-  // @returns pointer to the created object or underlying if this type does not
-  // get translated to the type repository.
-  TypePtr ReadClass();
-  TypePtr ReadPointer();
-  TypePtr ReadArray();
-  TypePtr ReadProcedure();
-  TypePtr ReadMFunction();
-  TypePtr ReadModifier();
-  TypePtr ReadBitfield();
+  // @returns pointer to the created object or nullptr on failure.
+  TypePtr CreateUserDefinedType(TypeId type_id);
+  TypePtr CreateBasicPointerType(TypeId type_id);
+  TypePtr CreatePointerType(TypeId type_id);
+  TypePtr CreateArrayType(TypeId type_id);
+  TypePtr CreateFunctionType(TypeId type_id);
+  TypePtr CreateBasicType(TypeId type_id);
+  TypePtr CreateWildcardType(TypeId type_id);
+
+  // The following functions parse records but do not save them in the type
+  // repository. Instead they just pass out the flags (and bit field values)
+  // to the caller. However they ensure parsing of the underlying types.
+  // @returns pointer to the type underlying the modifier.
+  TypePtr ReadModifier(TypeId type_id, Type::Flags* flags);
+  TypePtr ReadPointer(TypeId type_id, Type::Flags* flags);
+  TypePtr ReadBitfield(TypeId type_id,
+                       Type::Flags* flags,
+                       size_t* bit_pos,
+                       size_t* bit_len);
 
   // Assigns names to all pointer, array and function types that have been
   // created.
+  // @returns true on success, false on failure.
   bool EnsureTypeName(TypePtr type);
   bool AssignPointerName(PointerTypePtr ptr);
   bool AssignArrayName(ArrayTypePtr array);
@@ -102,55 +98,25 @@ class TypeCreator {
   // @param fields pointer to the field list.
   // @param functions pointer to the member function list.
   // @returns true on success, false on failure.
-  bool ReadFieldlist(UserDefinedType::Fields* fields,
+  bool ReadFieldlist(TypeId type_id,
+                     UserDefinedType::Fields* fields,
                      UserDefinedType::Functions* functions);
 
   // Parses arglist from the data stream and populates the given list of
-  // argument types. At the same time it appends comma separated list of
-  // (decorated) names of the argument types to the strings passed as pointers.
+  // argument types.
   // @param args pointer to the the argument list.
   // @returns true on success, false on failure.
-  bool ReadArglist(FunctionType::Arguments* args);
-
-  // Creates function type from the given parameters.
-  // @param type_id type index of the function type.
-  // @param call_type calling convention of the function.
-  // @param return_type_id type of the return value.
-  // @param containing_class_id type index of the containing class. kNoTypeId
-  //        means that this function isn't a member function.
-  // @param arglist_id type index of the argument list.
-  TypePtr CreateFunctionType(TypeId type_id,
-                             uint8_t call_type,
-                             TypeId return_type_id,
-                             TypeId containing_class_id,
-                             TypeId arglist_id);
+  bool ReadArglist(TypeId type_id, FunctionType::Arguments* args);
 
   // Parses type given by a type from the PDB type info stream.
   // @param type_id index of the type to create.
   // @returns pointer to the created object.
   TypePtr CreateType(TypeId type_id);
 
-  // Creates a basic type object.
-  // @param type_id type index of the basic type.
-  // @returns pointer to the created object.
-  TypePtr CreateBasicType(TypeId type_id);
-
-  // The following functions return values of the record with the given type id.
-  // In case the temporary record is missing we assume identity mapping and no
-  // flags.
-
-  // @returns CV flags of the record with @p type id.
-  Type::Flags GetFlags(TypeId type_id);
-
-  // @returns bit position of the record with @p type id.
-  size_t GetBitPosition(TypeId type_id);
-
-  // @returns bit length of the record with @p type id.
-  size_t GetBitLength(TypeId type_id);
-
-  // @returns type id of the first type record in the repository lying under
-  // the record with @p type id.
-  size_t GetUnderlyingTypeId(TypeId type_id);
+  // Returns the leaf type of a record with given type index.
+  // @param type_id type index of the record.
+  // @returns type of the record, -1 as an error sentinel.
+  uint16_t GetLeafType(TypeId type_id);
 
   // Does a first pass through the stream making the map of type indices for
   // UDT and saves indices of all types that will get translated to the type
@@ -161,19 +127,30 @@ class TypeCreator {
   // Checks if type object exists and constructs one if it does not.
   // @param type_id type index of the type.
   // @returns pointer to the type object.
-  TypePtr FindOrCreateType(TypeId type_id);
+  TypePtr FindOrCreateTypeImpl(TypeId type_id);
 
-  // Saves additional type info in the temporary stash.
-  // @param type_id type index of the type in PDB stream.
-  // @param underlying_id type index of the underlying type in the repository.
-  // @param flags type info flags.
-  void SaveTypeInfo(TypeId type_id, TypeId underlying_id, Type::Flags flags);
+  // The following functions are called during parsing to recurse deeper and
+  // validate the references we expect to be there. For better description see
+  // the file pdb_type_info_stream_description.md in the pdb directory.
+  TypePtr FindOrCreateBasicType(TypeId type_id);
+  TypePtr FindOrCreateIndexingType(TypeId type_id);
+  TypePtr FindOrCreateIntegralBasicType(TypeId type_id);
+  TypePtr FindOrCreateStructuredType(TypeId type_id);
+  TypePtr FindOrCreateInheritableType(TypeId type_id);
+  TypePtr FindOrCreateUserDefinedType(TypeId type_id);
+  TypePtr FindOrCreateModifiableType(TypeId type_id);
+  TypePtr FindOrCreateSpecificType(TypeId type_id, uint16_t type);
 
-  // Saves additional bitfield type info in the temporary stash.
-  // @param type_id type index of the bitfield.
-  // @param bit_pos_in the bit position of the field.
-  // @param bit_len_in the bit length of the field.
-  void SaveBitfieldInfo(TypeId type_id, size_t bit_pos_in, size_t bit_len_in);
+  // The following function also propagate the flags and bit field information
+  // to their parents.
+  TypePtr FindOrCreateOptionallyModifiedType(TypeId type_id,
+                                             Type::Flags* flags);
+  TypePtr FindOrCreateBitfieldType(TypeId type_id, Type::Flags* flags);
+  TypePtr FindOrCreatePointableType(TypeId type_id, Type::Flags* flags);
+  TypePtr FindOrCreateMemberType(TypeId type_id,
+                                 Type::Flags* flags,
+                                 size_t* bit_pos,
+                                 size_t* bit_len);
 
   // @returns name for a basic type specified by its @p type.
   static base::string16 BasicTypeName(uint16_t type);
@@ -194,16 +171,16 @@ class TypeCreator {
   static size_t MemberPointerSize(cci::CV_pmtype pmtype,
                                   cci::CV_ptrtype ptrtype);
 
+  // Pulls CV_prmode out of basic type index.
+  // @param type_id type index of a basic type.
+  // @returns the CV_prmode field.
+  static cci::CV_prmode TypeIndexToPrMode(TypeId type_id);
+
   // Construct string of CV modifiers.
   // @param is_const true if type is const.
   // @param is_volatile true if type is volatile.
   // @returns the string of CV modifiers.
   static base::string16 GetCVMod(bool is_const, bool is_volatile);
-
-  // Pulls CV_prmode out of basic type index.
-  // @param type_id type index of a basic type.
-  // @returns the CV_prmode field.
-  static cci::CV_prmode TypeIndexToPrMode(TypeId type_id);
 
   // Creates Type::Flags from the individual bool values.
   // @param is_const true if type is const.
@@ -211,33 +188,43 @@ class TypeCreator {
   // @returns type flags.
   static Type::Flags CreateTypeFlags(bool is_const, bool is_volatile);
 
-  // Checks if a type is important.
+  // Checks if the type gets translated to a type repository.
   // @param type the type of this record.
   // @returns true if this record gets translated to the repository.
   static bool IsImportantType(uint32_t type);
 
+  // Checks if this is actually pointer encoded in basic type index.
+  // @param type_id type index of the record.
+  // @returns true if the record is pointer.
+  bool IsBasicPointerType(TypeId type_id);
+
   // Pointer to the type info repository.
   TypeRepository* repository_;
 
-  // Type info enumerator used to transverse the stream.
+  // Type info enumerator used to traverse the stream.
   pdb::TypeInfoEnumerator type_info_enum_;
 
   // Direct access to the Pdb stream inside the type info enumerator.
   scoped_refptr<pdb::PdbStream> stream_;
 
-  // Hash to store the additional type information. Indexed by the type index
-  // from the PDB stream.
-  base::hash_map<TypeId, ExtraTypeProperties> temp_stash_;
-
   // Hash to map forward references to the right UDT records. For each unique
   // decorated name of an UDT, it contains type index of the class definition.
   base::hash_map<base::string16, TypeId> udt_map;
+
+  // Hash to store the pdb leaf types of the individual records. Indexed by type
+  // indices.
+  base::hash_map<TypeId, uint16_t> types_map_;
 
   // Vector of records to process.
   std::vector<TypeId> records_to_process_;
 };
 
-TypePtr TypeCreator::ReadPointer() {
+TypePtr TypeCreator::CreatePointerType(TypeId type_id) {
+  DCHECK_EQ(GetLeafType(type_id), cci::LF_POINTER);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
   pdb::LeafPointer type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
@@ -251,48 +238,111 @@ TypePtr TypeCreator::ReadPointer() {
     ptr_mode = PointerType::PTR_MODE_REF;
 
   PointerTypePtr created = new PointerType(size, ptr_mode);
-  Type::Flags flags =
-      CreateTypeFlags(type_info.attr().isconst, type_info.attr().isvolatile);
-
-  TypeId type_id = type_info_enum_.type_id();
-  SaveTypeInfo(type_id, type_id, flags);
   if (!repository_->AddTypeWithId(created, type_id))
     return nullptr;
 
   // Try to find the object in the repository.
   TypeId pointee_id = type_info.body().utype;
-  if (FindOrCreateType(pointee_id) == nullptr)
+  Type::Flags pointee_flags = kNoTypeFlags;
+  TypePtr pointee_type = FindOrCreatePointableType(pointee_id, &pointee_flags);
+  if (pointee_type == nullptr)
     return nullptr;
 
   // Setting the flags from the child node - this is needed because of
   // different semantics between PDB file and Type interface. In PDB pointer
   // has a const flag when it's const, while here pointer has a const flag if
   // it points to a const type.
-  created->Finalize(GetFlags(pointee_id), GetUnderlyingTypeId(pointee_id));
+  created->Finalize(pointee_flags, pointee_type->type_id());
   return created;
 }
 
-TypePtr TypeCreator::ReadModifier() {
+TypePtr TypeCreator::CreateBasicPointerType(TypeId type_id) {
+  DCHECK(IsBasicPointerType(type_id));
+  TypeId basic_index = type_id & (cci::CV_PRIMITIVE_TYPE::CV_TMASK |
+                                  cci::CV_PRIMITIVE_TYPE::CV_SMASK);
+  if (FindOrCreateBasicType(basic_index) == nullptr)
+    return nullptr;
+
+  // Get pointer size.
+  size_t size = 0;
+  cci::CV_prmode prmode = TypeIndexToPrMode(type_id);
+  switch (prmode) {
+    case cci::CV_TM_NPTR32:
+      size = 4;
+      break;
+    case cci::CV_TM_NPTR64:
+      size = 8;
+      break;
+    case cci::CV_TM_NPTR128:
+      size = 16;
+      break;
+    default:
+      return nullptr;
+  }
+
+  // Create and finalize type.
+  PointerTypePtr pointer_type =
+      new PointerType(size, PointerType::PTR_MODE_PTR);
+  pointer_type->Finalize(kNoTypeFlags, basic_index);
+
+  if (!repository_->AddTypeWithId(pointer_type, type_id))
+    return nullptr;
+  return pointer_type;
+}
+
+TypePtr TypeCreator::ReadPointer(TypeId type_id, Type::Flags* flags) {
+  DCHECK(flags);
+  DCHECK_EQ(GetLeafType(type_id), cci::LF_POINTER);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
+  pdb::LeafPointer type_info;
+  if (!type_info.Initialize(stream_.get())) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return nullptr;
+  }
+
+  *flags =
+      CreateTypeFlags(type_info.attr().isconst, type_info.attr().isvolatile);
+  if (!stream_->Seek(0))
+    return nullptr;
+
+  return FindOrCreateSpecificType(type_info_enum_.type_id(), cci::LF_POINTER);
+}
+
+TypePtr TypeCreator::ReadModifier(TypeId type_id, Type::Flags* flags) {
+  DCHECK(flags);
+  DCHECK_EQ(GetLeafType(type_id), cci::LF_MODIFIER);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
   pdb::LeafModifier type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
 
-  TypePtr underlying_type = FindOrCreateType(type_info.body().type);
+  TypePtr underlying_type = FindOrCreateModifiableType(type_info.body().type);
   if (underlying_type == nullptr)
     return nullptr;
 
-  SaveTypeInfo(type_info_enum_.type_id(), underlying_type->type_id(),
-               CreateTypeFlags(type_info.attr().mod_const,
-                               type_info.attr().mod_volatile));
+  *flags = CreateTypeFlags(type_info.attr().mod_const,
+                           type_info.attr().mod_volatile);
   return underlying_type;
 }
 
-bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fields,
+bool TypeCreator::ReadFieldlist(TypeId type_id,
+                                UserDefinedType::Fields* fields,
                                 UserDefinedType::Functions* functions) {
   DCHECK(fields);
   DCHECK(functions);
+  DCHECK_EQ(GetLeafType(type_id), cci::LF_FIELDLIST);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
   size_t leaf_end = stream_->pos() + type_info_enum_.len();
 
   // Make our local copy of the data. This is necessary to avoid clutter with
@@ -398,8 +448,13 @@ bool TypeCreator::ReadFieldlist(UserDefinedType::Fields* fields,
   return true;
 }
 
-bool TypeCreator::ReadArglist(FunctionType::Arguments* arglist) {
+bool TypeCreator::ReadArglist(TypeId type_id,
+                              FunctionType::Arguments* arglist) {
   DCHECK(arglist);
+  DCHECK_EQ(GetLeafType(type_id), cci::LF_ARGLIST);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
 
   // Make our local copy of the data. This is necessary to avoid clutter with
   // deeper levels of recursion.
@@ -417,23 +472,28 @@ bool TypeCreator::ReadArglist(FunctionType::Arguments* arglist) {
       return false;
     }
 
-    if (FindOrCreateType(arg_type_id) == nullptr)
+    Type::Flags flags = kNoTypeFlags;
+    TypePtr arg_type = FindOrCreateOptionallyModifiedType(arg_type_id, &flags);
+    if (arg_type == nullptr)
       return false;
 
-    arglist->push_back(FunctionType::ArgumentType(
-        GetFlags(arg_type_id), GetUnderlyingTypeId(arg_type_id)));
+    arglist->push_back(FunctionType::ArgumentType(flags, arg_type->type_id()));
   }
   return true;
 }
 
-TypePtr TypeCreator::ReadClass() {
+TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
+  DCHECK(GetLeafType(type_id) == cci::LF_CLASS ||
+         GetLeafType(type_id) == cci::LF_STRUCTURE);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
   pdb::LeafClass type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
-
-  TypeId type_id = type_info_enum_.type_id();
 
   if (type_info.property().fwdref) {
     // Find the type index of the class.
@@ -448,10 +508,9 @@ TypePtr TypeCreator::ReadClass() {
       return udt;
     }
 
-    SaveTypeInfo(type_id, real_class_id->second, kNoTypeFlags);
-
     // Force parsing of the class.
-    return FindOrCreateType(real_class_id->second);
+    return FindOrCreateSpecificType(real_class_id->second,
+                                    type_info_enum_.type());
   } else {
     // Create UDT of the class and find its fieldlist.
     UserDefinedTypePtr udt = new UserDefinedType(
@@ -461,8 +520,7 @@ TypePtr TypeCreator::ReadClass() {
 
     UserDefinedType::Fields fieldlist;
     UserDefinedType::Functions functionlist;
-    if (!type_info_enum_.SeekRecord(type_info.body().field) ||
-        !ReadFieldlist(&fieldlist, &functionlist))
+    if (!ReadFieldlist(type_info.body().field, &fieldlist, &functionlist))
       return false;
 
     udt->Finalize(fieldlist, functionlist);
@@ -470,25 +528,28 @@ TypePtr TypeCreator::ReadClass() {
   }
 }
 
-TypePtr TypeCreator::ReadArray() {
+TypePtr TypeCreator::CreateArrayType(TypeId type_id) {
+  DCHECK_EQ(GetLeafType(type_id), cci::LF_ARRAY);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
   pdb::LeafArray type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
 
-  // Save type information.
-  TypeId type_id = type_info_enum_.type_id();
   ArrayTypePtr array_type = new ArrayType(type_info.size());
-
   if (!repository_->AddTypeWithId(array_type, type_id))
     return false;
 
   // Find the types in the repository.
+  Type::Flags flags = kNoTypeFlags;
   TypeId index_id = type_info.body().idxtype;
   TypeId elem_id = type_info.body().elemtype;
-  TypePtr index_type = FindOrCreateType(index_id);
-  TypePtr elem_type = FindOrCreateType(elem_id);
+  TypePtr index_type = FindOrCreateIndexingType(index_id);
+  TypePtr elem_type = FindOrCreateOptionallyModifiedType(elem_id, &flags);
   if (index_type == nullptr || elem_type == nullptr)
     return false;
 
@@ -496,71 +557,94 @@ TypePtr TypeCreator::ReadArray() {
   // TODO(mopler): Once we load everything test against the size not being zero.
   if (elem_type->size() != 0)
     num_elements = type_info.size() / elem_type->size();
-  array_type->Finalize(GetFlags(elem_id), index_type->type_id(), num_elements,
+  array_type->Finalize(flags, index_type->type_id(), num_elements,
                        elem_type->type_id());
   return array_type;
 }
 
-TypePtr TypeCreator::ReadProcedure() {
-  pdb::LeafProcedure type_info;
-  if (!type_info.Initialize(stream_.get())) {
-    LOG(ERROR) << "Unable to read type info record.";
+TypePtr TypeCreator::CreateFunctionType(TypeId type_id) {
+  DCHECK(GetLeafType(type_id) == cci::LF_PROCEDURE ||
+         GetLeafType(type_id) == cci::LF_MFUNCTION);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
+  FunctionType::CallConvention call_convention;
+  TypeId return_type_id = kNoTypeId;
+  TypeId containing_class_id = kNoTypeId;
+  TypeId arglist_id = kNoTypeId;
+
+  if (type_info_enum_.type() == cci::LF_PROCEDURE) {
+    // Load the procedure record.
+    pdb::LeafProcedure type_info;
+    if (!type_info.Initialize(stream_.get())) {
+      LOG(ERROR) << "Unable to read type info record.";
+      return nullptr;
+    }
+
+    call_convention =
+        static_cast<FunctionType::CallConvention>(type_info.body().calltype);
+    return_type_id = type_info.body().rvtype;
+    arglist_id = type_info.body().arglist;
+  } else if (type_info_enum_.type() == cci::LF_MFUNCTION) {
+    // Load the member function record.
+    pdb::LeafMFunction type_info;
+    if (!type_info.Initialize(stream_.get())) {
+      LOG(ERROR) << "Unable to read type info record.";
+      return nullptr;
+    }
+
+    call_convention =
+        static_cast<FunctionType::CallConvention>(type_info.body().calltype);
+    return_type_id = type_info.body().rvtype;
+    arglist_id = type_info.body().arglist;
+    containing_class_id = type_info.body().classtype;
+  } else {
     return nullptr;
   }
 
-  return CreateFunctionType(type_info_enum_.type_id(),
-                            type_info.body().calltype, type_info.body().rvtype,
-                            kNoTypeId, type_info.body().arglist);
-}
-
-TypePtr TypeCreator::ReadMFunction() {
-  pdb::LeafMFunction type_info;
-  if (!type_info.Initialize(stream_.get())) {
-    LOG(ERROR) << "Unable to read type info record.";
-    return nullptr;
-  }
-
-  return CreateFunctionType(type_info_enum_.type_id(),
-                            type_info.body().calltype, type_info.body().rvtype,
-                            type_info.body().classtype,
-                            type_info.body().arglist);
-}
-
-TypePtr TypeCreator::CreateFunctionType(TypeId type_id,
-                                        uint8_t call_type,
-                                        TypeId return_type_id,
-                                        TypeId containing_class_id,
-                                        TypeId arglist_id) {
-  FunctionType::CallConvention call_convention =
-      static_cast<FunctionType::CallConvention>(call_type);
   FunctionTypePtr function_type = new FunctionType(call_convention);
-
   if (!repository_->AddTypeWithId(function_type, type_id))
     return false;
 
-  FunctionType::Arguments arglist;
-
-  if (FindOrCreateType(return_type_id) == nullptr)
+  Type::Flags flags = kNoTypeFlags;
+  TypePtr return_type =
+      FindOrCreateOptionallyModifiedType(return_type_id, &flags);
+  if (return_type == nullptr)
     return false;
 
   // If this is a member function parse the containing class.
-  if (containing_class_id != kNoTypeId &&
-      FindOrCreateType(containing_class_id) == nullptr) {
-    return false;
+  if (containing_class_id != kNoTypeId) {
+    TypePtr class_type = FindOrCreateStructuredType(containing_class_id);
+    if (class_type == nullptr)
+      return nullptr;
+
+    containing_class_id = class_type->type_id();
   }
 
-  // Parse the argument list and finish the names.
-  if (!type_info_enum_.SeekRecord(arglist_id) || !ReadArglist(&arglist))
+  // Parse the argument list.
+  FunctionType::Arguments arglist;
+  if (!ReadArglist(arglist_id, &arglist))
     return false;
 
   function_type->Finalize(
-      FunctionType::ArgumentType(GetFlags(return_type_id),
-                                 GetUnderlyingTypeId(return_type_id)),
-      arglist, GetUnderlyingTypeId(containing_class_id));
+      FunctionType::ArgumentType(flags, return_type->type_id()), arglist,
+      containing_class_id);
   return function_type;
 }
 
-TypePtr TypeCreator::ReadBitfield() {
+TypePtr TypeCreator::ReadBitfield(TypeId type_id,
+                                  Type::Flags* flags,
+                                  size_t* bit_pos,
+                                  size_t* bit_len) {
+  DCHECK(flags);
+  DCHECK(bit_pos);
+  DCHECK(bit_len);
+  DCHECK(GetLeafType(type_id) == cci::LF_BITFIELD);
+
+  if (!type_info_enum_.SeekRecord(type_id))
+    return nullptr;
+
   pdb::LeafBitfield type_info;
   if (!type_info.Initialize(stream_.get())) {
     LOG(ERROR) << "Unable to read type info record.";
@@ -574,16 +658,13 @@ TypePtr TypeCreator::ReadBitfield() {
     return nullptr;
   }
 
-  TypeId underlying_id = type_info.body().type;
-  TypePtr underlying_type = FindOrCreateType(underlying_id);
-  if (underlying_type == nullptr)
-    return nullptr;
+  *bit_pos = type_info.body().position;
+  *bit_len = type_info.body().length;
 
-  SaveTypeInfo(type_info_enum_.type_id(), underlying_type->type_id(),
-               GetFlags(underlying_id));
-  SaveBitfieldInfo(type_info_enum_.type_id(), type_info.body().position,
-                   type_info.body().length);
-  return underlying_type;
+  TypeId underlying_id = type_info.body().type;
+  *flags = kNoTypeFlags;
+
+  return FindOrCreateBitfieldType(underlying_id, flags);
 }
 
 bool TypeCreator::EnsureTypeName(TypePtr type) {
@@ -758,13 +839,17 @@ bool TypeCreator::ProcessMember(pdb::LeafMember* member,
   // TODO(mopler): Should we store the access protection and other info?
   // Get the member info.
   TypeId member_id = member->body().index;
-  if (FindOrCreateType(member_id) == nullptr)
+  Type::Flags flags = kNoTypeFlags;
+  size_t bit_pos = 0;
+  size_t bit_len = 0;
+  TypePtr member_type =
+      FindOrCreateMemberType(member_id, &flags, &bit_pos, &bit_len);
+  if (member_type == nullptr)
     return false;
 
-  fields->push_back(UserDefinedType::Field(
-      member->name(), member->offset(), GetFlags(member_id),
-      GetBitPosition(member_id), GetBitLength(member_id),
-      GetUnderlyingTypeId(member_id)));
+  fields->push_back(UserDefinedType::Field(member->name(), member->offset(),
+                                           flags, bit_pos, bit_len,
+                                           member_type->type_id()));
   return true;
 }
 
@@ -775,7 +860,7 @@ bool TypeCreator::ProcessOneMethod(pdb::LeafOneMethod* method,
 
   // Parse the function type.
   TypeId function_id = method->body().index;
-  if (FindOrCreateType(function_id) == nullptr)
+  if (FindOrCreateSpecificType(function_id, cci::LF_MFUNCTION) == nullptr)
     return false;
 
   functions->push_back(UserDefinedType::Function(method->name(), function_id));
@@ -807,7 +892,7 @@ bool TypeCreator::ProcessMethod(pdb::LeafMethod* method,
 
     // Parse the function type.
     TypeId function_id = method_record.body().index;
-    if (FindOrCreateType(function_id) == nullptr)
+    if (FindOrCreateSpecificType(function_id, cci::LF_MFUNCTION) == nullptr)
       return false;
 
     functions->push_back(
@@ -850,7 +935,7 @@ base::string16 TypeCreator::LeafTypeName(uint16_t leaf_type) {
     LEAF_CASE_TABLE(LEAF_TYPE_NAME)
 #undef LEAF_TYPE_NAME
     default:
-      return L"LeafUnknown";
+      return L"UnknownLeaf";
   }
 }
 
@@ -969,40 +1054,28 @@ Type::Flags TypeCreator::CreateTypeFlags(bool is_const, bool is_volatile) {
   return flags;
 }
 
-Type::Flags TypeCreator::GetFlags(TypeId type_id) {
-  auto it = temp_stash_.find(type_id);
-  if (it == temp_stash_.end()) {
-    return kNoTypeFlags;
-  } else {
-    return it->second.flags;
-  }
-}
-
-size_t TypeCreator::GetBitPosition(TypeId type_id) {
-  auto it = temp_stash_.find(type_id);
-  if (it == temp_stash_.end()) {
-    return 0;
-  } else {
-    return it->second.bit_pos;
-  }
-}
-
-size_t TypeCreator::GetBitLength(TypeId type_id) {
-  auto it = temp_stash_.find(type_id);
-  if (it == temp_stash_.end()) {
-    return 0;
-  } else {
-    return it->second.bit_len;
-  }
-}
-
-size_t TypeCreator::GetUnderlyingTypeId(TypeId type_id) {
-  auto it = temp_stash_.find(type_id);
-  if (it == temp_stash_.end()) {
+uint16_t TypeCreator::GetLeafType(TypeId type_id) {
+  if (type_id < cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM)
     return type_id;
+
+  auto it = types_map_.find(type_id);
+  if (it == types_map_.end()) {
+    LOG(ERROR) << "Couldn't find record with type index " << type_id
+               << " in the types map.";
+    return kNoLeafType;
   } else {
-    return it->second.type_id;
+    return it->second;
   }
+}
+
+bool TypeCreator::IsBasicPointerType(TypeId type_id) {
+  if (type_id >= cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM)
+    return false;
+
+  if (TypeIndexToPrMode(type_id) == cci::CV_TM_DIRECT)
+    return false;
+
+  return true;
 }
 
 cci::CV_prmode TypeCreator::TypeIndexToPrMode(TypeId type_id) {
@@ -1012,69 +1085,32 @@ cci::CV_prmode TypeCreator::TypeIndexToPrMode(TypeId type_id) {
 }
 
 TypePtr TypeCreator::CreateBasicType(TypeId type_id) {
+  DCHECK(type_id < cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM);
+
   // Check if we are dealing with pointer.
   cci::CV_prmode prmode = TypeIndexToPrMode(type_id);
-  if (prmode == cci::CV_TM_DIRECT) {
-    BasicTypePtr basic_type =
-        new BasicType(BasicTypeName(type_id), BasicTypeSize(type_id));
+  if (prmode != cci::CV_TM_DIRECT)
+    return nullptr;
 
-    // Save type and additional info.
-    if (!repository_->AddTypeWithId(basic_type, type_id))
-      return nullptr;
-    return basic_type;
-  } else {
-    TypeId basic_index = type_id & (cci::CV_PRIMITIVE_TYPE::CV_TMASK |
-                                    cci::CV_PRIMITIVE_TYPE::CV_SMASK);
-    if (FindOrCreateType(basic_index) == nullptr)
-      return nullptr;
+  BasicTypePtr basic_type =
+      new BasicType(BasicTypeName(type_id), BasicTypeSize(type_id));
 
-    // Get pointer size.
-    size_t size = 0;
-    switch (prmode) {
-      case cci::CV_TM_NPTR32:
-        size = 4;
-        break;
-      case cci::CV_TM_NPTR64:
-        size = 8;
-        break;
-      case cci::CV_TM_NPTR128:
-        size = 16;
-        break;
-      default:
-        return nullptr;
-    }
-
-    // Create and finalize type.
-    PointerTypePtr basic_type =
-        new PointerType(size, PointerType::PTR_MODE_PTR);
-    basic_type->Finalize(kNoTypeFlags, basic_index);
-
-    if (!repository_->AddTypeWithId(basic_type, type_id))
-      return nullptr;
-    return basic_type;
-  }
+  // Save type and additional info.
+  if (!repository_->AddTypeWithId(basic_type, type_id))
+    return nullptr;
+  return basic_type;
 }
 
-void TypeCreator::SaveTypeInfo(TypeId type_id,
-                               TypeId underlying_id,
-                               Type::Flags flags) {
-  ExtraTypeProperties& prop = temp_stash_[type_id];
-  prop.type_id = underlying_id;
-  prop.flags = flags;
-  prop.bit_pos = 0;
-  prop.bit_len = 0;
+TypePtr TypeCreator::CreateWildcardType(TypeId type_id) {
+  base::string16 name = LeafTypeName(type_info_enum_.type());
+  TypePtr wildcard_type = new WildcardType(name, name, 0);
+  if (!repository_->AddTypeWithId(wildcard_type, type_id))
+    return nullptr;
+  return wildcard_type;
 }
 
-void TypeCreator::SaveBitfieldInfo(TypeId type_id,
-                                   size_t bit_pos,
-                                   size_t bit_len) {
-  ExtraTypeProperties& prop = temp_stash_[type_id];
-  prop.bit_pos = bit_pos;
-  prop.bit_len = bit_len;
-}
-
-TypePtr TypeCreator::FindOrCreateType(TypeId type_id) {
-  TypePtr type = repository_->GetType(GetUnderlyingTypeId(type_id));
+TypePtr TypeCreator::FindOrCreateTypeImpl(TypeId type_id) {
+  TypePtr type = repository_->GetType(type_id);
   if (type != nullptr)
     return type;
 
@@ -1083,47 +1119,173 @@ TypePtr TypeCreator::FindOrCreateType(TypeId type_id) {
   if (type_id >= type_info_enum_.type_info_header().type_min) {
     return CreateType(type_id);
   } else {
-    // If it is a basic type, construct it.
-    return CreateBasicType(type_id);
+    // Check if this is actually a pointer.
+    if (IsBasicPointerType(type_id)) {
+      return CreateBasicPointerType(type_id);
+    } else {
+      // Otherwise create the basic type.
+      return CreateBasicType(type_id);
+    }
   }
 }
 
-TypePtr TypeCreator::CreateType(TypeId type_id) {
-  if (!type_info_enum_.SeekRecord(type_id))
-    return false;
+TypePtr TypeCreator::FindOrCreateIndexingType(TypeId type_id) {
+  if (type_id == cci::T_ULONG || type_id == cci::T_UQUAD)
+    return FindOrCreateTypeImpl(type_id);
 
-  switch (type_info_enum_.type()) {
+  return nullptr;
+}
+
+TypePtr TypeCreator::FindOrCreateIntegralBasicType(TypeId type_id) {
+  TypeId type_mask = (type_id & cci::CV_PRIMITIVE_TYPE::CV_TMASK) >>
+                     cci::CV_PRIMITIVE_TYPE::CV_TSHIFT;
+
+  if (type_mask == cci::CV_SIGNED || type_mask == cci::CV_UNSIGNED)
+    return FindOrCreateBasicType(type_id);
+
+  return nullptr;
+}
+
+TypePtr TypeCreator::FindOrCreateBasicType(TypeId type_id) {
+  if (type_id < cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM &&
+      !IsBasicPointerType(type_id)) {
+    return FindOrCreateTypeImpl(type_id);
+  }
+
+  return nullptr;
+}
+
+TypePtr TypeCreator::FindOrCreateInheritableType(TypeId type_id) {
+  uint16_t type = GetLeafType(type_id);
+  if (type == cci::LF_CLASS || type == cci::LF_STRUCTURE)
+    return FindOrCreateTypeImpl(type_id);
+
+  return nullptr;
+}
+
+TypePtr TypeCreator::FindOrCreateStructuredType(TypeId type_id) {
+  uint16_t type = GetLeafType(type_id);
+  if (type == cci::LF_UNION)
+    return FindOrCreateTypeImpl(type_id);
+
+  return FindOrCreateInheritableType(type_id);
+}
+
+TypePtr TypeCreator::FindOrCreateUserDefinedType(TypeId type_id) {
+  uint16_t type = GetLeafType(type_id);
+  if (type == cci::LF_ENUM)
+    return FindOrCreateTypeImpl(type_id);
+
+  return FindOrCreateStructuredType(type_id);
+}
+
+TypePtr TypeCreator::FindOrCreateModifiableType(TypeId type_id) {
+  uint16_t type = GetLeafType(type_id);
+
+  if (type < cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM)
+    return FindOrCreateBasicType(type_id);
+
+  return FindOrCreateUserDefinedType(type_id);
+}
+
+TypePtr TypeCreator::FindOrCreateOptionallyModifiedType(TypeId type_id,
+                                                        Type::Flags* flags) {
+  DCHECK(flags);
+  uint16_t type = GetLeafType(type_id);
+  *flags = kNoTypeFlags;
+
+  if (type == cci::LF_MODIFIER)
+    return ReadModifier(type_id, flags);
+
+  if (type == cci::LF_POINTER)
+    return ReadPointer(type_id, flags);
+
+  if (type == cci::LF_ARRAY)
+    return FindOrCreateTypeImpl(type_id);
+
+  if (IsBasicPointerType(type_id))
+    return FindOrCreateTypeImpl(type_id);
+
+  return FindOrCreateModifiableType(type_id);
+}
+
+TypePtr TypeCreator::FindOrCreateBitfieldType(TypeId type_id,
+                                              Type::Flags* flags) {
+  DCHECK(flags);
+  uint16_t type = GetLeafType(type_id);
+  *flags = kNoTypeFlags;
+
+  if (type == cci::LF_MODIFIER) {
+    TypePtr type = ReadModifier(type_id, flags);
+    if (type->kind() != Type::BASIC_TYPE_KIND)
+      return nullptr;
+
+    return type;
+  }
+
+  return FindOrCreateIntegralBasicType(type_id);
+}
+
+TypePtr TypeCreator::FindOrCreateMemberType(TypeId type_id,
+                                            Type::Flags* flags,
+                                            size_t* bit_pos,
+                                            size_t* bit_len) {
+  DCHECK(flags);
+  DCHECK(bit_pos);
+  DCHECK(bit_len);
+
+  uint16_t type = GetLeafType(type_id);
+  *flags = kNoTypeFlags;
+  *bit_pos = 0;
+  *bit_len = 0;
+
+  if (type == cci::LF_BITFIELD)
+    return ReadBitfield(type_id, flags, bit_pos, bit_len);
+
+  return FindOrCreateOptionallyModifiedType(type_id, flags);
+}
+
+TypePtr TypeCreator::FindOrCreatePointableType(TypeId type_id,
+                                               Type::Flags* flags) {
+  DCHECK(flags);
+  *flags = kNoTypeFlags;
+  uint16_t type = GetLeafType(type_id);
+
+  if (type == cci::LF_MFUNCTION || type == cci::LF_PROCEDURE ||
+      type == cci::LF_VTSHAPE) {
+    return FindOrCreateTypeImpl(type_id);
+  }
+
+  return FindOrCreateOptionallyModifiedType(type_id, flags);
+}
+
+TypePtr TypeCreator::FindOrCreateSpecificType(TypeId type_id, uint16_t type) {
+  DCHECK_NE(kNoLeafType, type);
+  uint16_t this_type = GetLeafType(type_id);
+
+  if (this_type != type)
+    return nullptr;
+
+  return FindOrCreateTypeImpl(type_id);
+}
+
+TypePtr TypeCreator::CreateType(TypeId type_id) {
+  switch (GetLeafType(type_id)) {
     case cci::LF_CLASS:
     case cci::LF_STRUCTURE: {
-      return ReadClass();
+      return CreateUserDefinedType(type_id);
     }
     case cci::LF_POINTER: {
-      return ReadPointer();
+      return CreatePointerType(type_id);
     }
     case cci::LF_ARRAY: {
-      return ReadArray();
+      return CreateArrayType(type_id);
     }
-    case cci::LF_PROCEDURE: {
-      return ReadProcedure();
-    }
+    case cci::LF_PROCEDURE:
     case cci::LF_MFUNCTION: {
-      return ReadMFunction();
+      return CreateFunctionType(type_id);
     }
-    case cci::LF_MODIFIER: {
-      return ReadModifier();
-    }
-    case cci::LF_BITFIELD: {
-      return ReadBitfield();
-    }
-    default: {
-      // Default behavior is to create wildcard objects.
-      // TODO(mopler): Parse everything and delete this stub.
-      base::string16 name = LeafTypeName(type_info_enum_.type());
-      TypePtr wildcard_type = new WildcardType(name, name, 0);
-      if (!repository_->AddTypeWithId(wildcard_type, type_id))
-        return nullptr;
-      return wildcard_type;
-    }
+    default: { return CreateWildcardType(type_id); }
   }
 }
 
@@ -1131,6 +1293,9 @@ bool TypeCreator::PrepareData() {
   while (!type_info_enum_.EndOfStream()) {
     if (!type_info_enum_.NextTypeInfoRecord())
       return false;
+
+    types_map_.insert(
+        std::make_pair(type_info_enum_.type_id(), type_info_enum_.type()));
 
     // We remember ids of the types that we will later descend into.
     if (IsImportantType(type_info_enum_.type()))
@@ -1179,7 +1344,7 @@ bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
 
   // Process every important type.
   for (TypeId type_id : records_to_process_) {
-    if (FindOrCreateType(type_id) == nullptr)
+    if (FindOrCreateTypeImpl(type_id) == nullptr)
       return false;
   }
 
