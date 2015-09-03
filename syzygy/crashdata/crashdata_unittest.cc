@@ -30,8 +30,8 @@ TEST(CrashDataTest, ValueGetLeaf) {
 
 TEST(CrashDataTest, ValueGetList) {
   Value v;
-  List* l = ValueGetList(&v);
-  EXPECT_EQ(Value_Type_LIST, v.type());
+  ValueList* l = ValueGetValueList(&v);
+  EXPECT_EQ(Value_Type_VALUE_LIST, v.type());
   EXPECT_FALSE(v.has_leaf());
   EXPECT_TRUE(v.has_list());
   EXPECT_FALSE(v.has_dictionary());

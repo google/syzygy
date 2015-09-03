@@ -471,7 +471,7 @@ void PopulateCorruptBlockRange(const Shadow* shadow,
 
   // Add the blocks.
   if (range.block_info_count > 0) {
-    crashdata::List* list = crashdata::ValueGetList(
+    crashdata::ValueList* list = crashdata::ValueGetValueList(
         crashdata::DictAddValue("blocks", dict));
     for (size_t i = 0; i < range.block_info_count; ++i) {
       if (range.block_info[i].header != nullptr)
@@ -658,7 +658,7 @@ void PopulateErrorInfo(
   crashdata::LeafSetUInt(error_info.corrupt_block_count,
                          crashdata::DictAddLeaf("corrupt-block-count", dict));
   if (error_info.corrupt_ranges_reported > 0) {
-    crashdata::List* list = crashdata::ValueGetList(
+    crashdata::ValueList* list = crashdata::ValueGetValueList(
         crashdata::DictAddValue("corrupt-ranges", dict));
     for (size_t i = 0; i < error_info.corrupt_ranges_reported; ++i) {
       PopulateCorruptBlockRange(shadow, error_info.corrupt_ranges[i],

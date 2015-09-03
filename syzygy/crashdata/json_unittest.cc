@@ -180,7 +180,7 @@ TEST(CrashDataJsonTest, ValueLeafBlob) {
 
 TEST(CrashDataJsonTest, ValueList) {
   Value value;
-  List* list = ValueGetList(&value);
+  ValueList* list = ValueGetValueList(&value);
 
   LeafGetAddress(ValueGetLeaf(list->add_values()))->set_address(0xDEADF00D);
   LeafSetInt(42, ValueGetLeaf(list->add_values()));
@@ -237,7 +237,7 @@ TEST(CrashDataJsonTest, AllTypes) {
       DictAddValue("dict", dict)))));
 
   // Nested list with a single element
-  List* list = ValueGetList(DictAddValue("list", dict));
+  ValueList* list = ValueGetValueList(DictAddValue("list", dict));
   LeafSetInt(200, ValueGetLeaf(list->add_values()));
 
   const char kExpectedPretty[] =

@@ -40,7 +40,7 @@ Leaf* ValueGetLeaf(Value* value);
 // Makes the given value a list.
 // @param value The value to be initialized.
 // @returns the nested list object.
-List* ValueGetList(Value* value);
+ValueList* ValueGetValueList(Value* value);
 
 // Makes the given value a dictionary.
 // @param value The value to be initialized.

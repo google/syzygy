@@ -25,9 +25,9 @@ Leaf* ValueGetLeaf(Value* value) {
   return value->mutable_leaf();
 }
 
-List* ValueGetList(Value* value) {
+ValueList* ValueGetValueList(Value* value) {
   assert(value != nullptr);
-  value->set_type(Value_Type_LIST);
+  value->set_type(Value_Type_VALUE_LIST);
   return value->mutable_list();
 }
 

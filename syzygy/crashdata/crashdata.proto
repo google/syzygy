@@ -164,7 +164,7 @@ message Leaf {
 
 // A list of any number of values. If ordering is important, it is up to the
 // user to maintain this.
-message List {
+message ValueList {
   repeated Value values = 1;
 }
 
@@ -186,7 +186,7 @@ message Value {
   enum Type {
     UNKNOWN_TYPE = 0;
     LEAF = 1;
-    LIST = 2;
+    VALUE_LIST = 2;
     DICTIONARY = 3;
   }
 
@@ -201,6 +201,6 @@ message Value {
   optional Leaf leaf = 3;
 
   // Recursive container types.
-  optional List list = 4;
+  optional ValueList list = 4;
   optional Dictionary dictionary = 5;
 }

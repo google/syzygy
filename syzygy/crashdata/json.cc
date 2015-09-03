@@ -357,8 +357,8 @@ bool ToJson(const Leaf* leaf, std::string* indent, std::string* output) {
   return false;
 }
 
-struct ListYieldFunctor {
-  explicit ListYieldFunctor(const List* list) : list_(list) {
+struct ValueListYieldFunctor {
+  explicit ValueListYieldFunctor(const ValueList* list) : list_(list) {
   }
 
   bool operator()(size_t index, std::string* indent, std::string* output) {
@@ -368,13 +368,13 @@ struct ListYieldFunctor {
     return true;
   }
 
-  const List* list_;
+  const ValueList* list_;
 };
 
-bool ToJson(const List* list, std::string* indent, std::string* output) {
+bool ToJson(const ValueList* list, std::string* indent, std::string* output) {
   assert(list != nullptr);
   assert(output != nullptr);
-  ListYieldFunctor yield(list);
+  ValueListYieldFunctor yield(list);
   if (!EmitJsonList('[', ']', 1, list->values_size(), yield, indent, output))
     return false;
   return true;
@@ -438,7 +438,7 @@ bool ToJson(const Value* value, std::string* indent, std::string* output) {
       return true;
     }
 
-    case Value_Type_LIST: {
+    case Value_Type_VALUE_LIST: {
       if (!value->has_list())
         return false;
       if (!ToJson(&value->list(), indent, output))
