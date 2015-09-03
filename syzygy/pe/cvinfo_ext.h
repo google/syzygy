@@ -403,48 +403,51 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
 
 // This macro allow the easy construction of switch statements over the special
 // types enum when constructing their names and sizes.
-#define SPECIAL_TYPE_NAME_CASE_TABLE(decl)                                     \
-  decl(T_NOTYPE, NoType, 0) decl(T_ABS, Abs, 0) decl(                          \
-      T_SEGMENT, Segment, 0) decl(T_VOID, void, 0) decl(T_PVOID, nullptr_t, 0) \
-      decl(T_HRESULT, HRESULT, 4) decl(T_CURRENCY, Currency, 8) decl(          \
-          T_NOTTRANS, NotTransposed, 0) decl(T_BIT, Bit, 0) decl(T_PASCHAR,    \
-                                                                 char, 1)      \
-          decl(T_CHAR, int8_t,                                                 \
-               1) decl(T_UCHAR, uint8_t, 1) decl(T_RCHAR, char, 1)             \
-              decl(T_WCHAR, wchar_t, 2) decl(T_INT1, int8_t,                   \
-                                             1) decl(T_UINT1, uint8_t, 1)      \
-                  decl(T_SHORT, int16_t, 2) decl(T_USHORT, uint16_t, 2) decl(  \
-                      T_INT2,                                                  \
-                      int16_t,                                                 \
-                      2) decl(T_UINT2, uint16_t, 2)                            \
-                      decl(T_LONG, int32_t, 4) decl(                           \
-                          T_ULONG,                                             \
-                          uint32_t, 4) decl(T_INT4, int32_t, 4)                \
-                          decl(T_UINT4,                                        \
-                               uint32_t, 4) decl(T_QUAD, int64_t,              \
-                                                 8) decl(T_UQUAD, uint64_t, 8) \
-                              decl(T_INT8, int64_t, 8) decl(                   \
-                                  T_UINT8,                                     \
-                                  uint64_t, 8) decl(T_OCT, int128_t, 16)       \
-                                  decl(T_UOCT, uint128_t,                      \
-                                       16) decl(T_INT16, int128_t, 16)         \
-                                      decl(T_UINT16, uint128_t, 16) decl(      \
-                                          T_REAL32,                            \
-                                          float, 4) decl(T_REAL64, double,     \
-                                                         8) decl(T_REAL80,     \
-                                                                 double80, 10) \
-                                          decl(T_REAL128, double128, 16) decl( \
-                                              T_CPLX32, Complex32,             \
-                                              8) decl(T_CPLX64, Complex64, 16) \
-                                              decl(T_CPLX80, Complex80,        \
-                                                   20) decl(T_CPLX128,         \
-                                                            Complex128,        \
-                                                            32) decl(T_BOOL08, \
-                                                                     bool, 1)  \
-                                                  decl(T_BOOL16, Bool16, 2)    \
-                                                      decl(T_BOOL32, Bool32,   \
-                                                           4) decl(T_BOOL64,   \
-                                                                   Bool64, 8)
+#define SPECIAL_TYPE_NAME_CASE_TABLE(decl) \
+    decl(T_NOTYPE, NoType, 0) \
+    decl(T_ABS, Abs, 0) \
+    decl(T_SEGMENT, Segment, 0) \
+    decl(T_VOID, void, 0) \
+    decl(T_PVOID, nullptr_t, 0) \
+    decl(T_HRESULT, HRESULT, 4) \
+    decl(T_CURRENCY, Currency, 8) \
+    decl(T_NOTTRANS, NotTransposed, 0) \
+    decl(T_BIT, Bit, 0) \
+    decl(T_PASCHAR, char, 1) \
+    decl(T_CHAR, int8_t, 1) \
+    decl(T_UCHAR, uint8_t, 1) \
+    decl(T_RCHAR, char, 1) \
+    decl(T_WCHAR, wchar_t, 2) \
+    decl(T_INT1, int8_t, 1) \
+    decl(T_UINT1, uint8_t, 1) \
+    decl(T_SHORT, int16_t, 2) \
+    decl(T_USHORT, uint16_t, 2) \
+    decl(T_INT2, int16_t, 2) \
+    decl(T_UINT2, uint16_t, 2) \
+    decl(T_LONG, int32_t, 4) \
+    decl(T_ULONG, uint32_t, 4) \
+    decl(T_INT4, int32_t, 4) \
+    decl(T_UINT4, uint32_t, 4) \
+    decl(T_QUAD, int64_t, 8) \
+    decl(T_UQUAD, uint64_t, 8) \
+    decl(T_INT8, int64_t, 8) \
+    decl(T_UINT8, uint64_t, 8) \
+    decl(T_OCT, int128_t, 16) \
+    decl(T_UOCT, uint128_t, 16) \
+    decl(T_INT16, int128_t, 16) \
+    decl(T_UINT16, uint128_t, 16) \
+    decl(T_REAL32, float, 4) \
+    decl(T_REAL64, double, 8) \
+    decl(T_REAL80, double80, 10) \
+    decl(T_REAL128, double128, 16) \
+    decl(T_CPLX32, Complex32, 8) \
+    decl(T_CPLX64, Complex64, 16) \
+    decl(T_CPLX80, Complex80, 20) \
+    decl(T_CPLX128, Complex128, 32) \
+    decl(T_BOOL08, bool, 1) \
+    decl(T_BOOL16, Bool16, 2) \
+    decl(T_BOOL32, Bool32, 4) \
+    decl(T_BOOL64, Bool64, 8)
 
 // All of the data structures below need to have tight alignment so that they
 // can be overlaid directly onto byte streams.
