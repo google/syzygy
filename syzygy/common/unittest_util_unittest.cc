@@ -32,4 +32,49 @@ TEST(CommonUnitTestUtil, ScopedLogLevelSaver) {
   ASSERT_EQ(old_level, logging::GetMinLogLevel());
 }
 
+namespace {
+
+void ScopedEnvironmentVariableTestImpl(bool is_variable_set) {
+  const char kVariableName[] = "ScopedEnvironmentVariableTestVarName";
+  const char kVariableValue[] = "initial";
+  const char kVariableOverrideValue[] = "override";
+
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+
+  // Ensure the variable isn't set.
+  std::string initial_value;
+  ASSERT_FALSE(env->GetVar(kVariableName, &initial_value));
+
+  // Set it if necessary.
+  if (is_variable_set)
+    ASSERT_TRUE(env->SetVar(kVariableName, kVariableValue));
+
+  // Override the variable.
+  scoped_ptr<ScopedEnvironmentVariable> override(
+      new ScopedEnvironmentVariable(kVariableName, kVariableOverrideValue));
+  std::string retrieved_value;
+  ASSERT_TRUE(env->GetVar(kVariableName, &retrieved_value));
+  ASSERT_EQ(kVariableOverrideValue, retrieved_value);
+
+  // Delete the override.
+  override.reset();
+  if (is_variable_set) {
+    ASSERT_TRUE(env->GetVar(kVariableName, &retrieved_value));
+    ASSERT_EQ(kVariableValue, retrieved_value);
+  } else {
+    ASSERT_FALSE(env->GetVar(kVariableName, &retrieved_value));
+  }
+}
+
+}  // namespace
+
+TEST(CommonUnitTestUtil, ScopedEnvironmentVariableNotSetCase) {
+  ScopedEnvironmentVariableTestImpl(false);
+}
+
+TEST(CommonUnitTestUtil, ScopedEnvironmentVariableSetCase) {
+  ScopedEnvironmentVariableTestImpl(true);
+}
+
+
 }  // namespace testing

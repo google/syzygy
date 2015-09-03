@@ -17,12 +17,19 @@
 #ifndef SYZYGY_COMMON_UNITTEST_UTIL_H_
 #define SYZYGY_COMMON_UNITTEST_UTIL_H_
 
+#include <string>
+#include <vector>
+
+#include "base/environment.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
+#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 
 namespace testing {
+
+const char kNtSymbolPathEnvVar[] = "_NT_SYMBOL_PATH";
 
 // Helper class to make sure that a test that plays with the log level doesn't
 // change it for other tests.
@@ -72,10 +79,10 @@ class ApplicationTestBase : public testing::Test {
   }
 
   // Sets up before each test invocation.
-  virtual void SetUp() override;
+  void SetUp() override;
 
   // Cleans up after each test invocation.
-  virtual void TearDown() override;
+  void TearDown() override;
 
   // Disables logging for the test in which this is called.
   void DisableLogging() {
@@ -130,6 +137,30 @@ class ApplicationTestBase : public testing::Test {
   // a single instance at a time, but only one test is running at a time so
   // this is not really an issue.
   static ApplicationTestBase* self_;
+};
+
+// Helper class for setting an environment variable, then restoring it on
+// destruction.
+class ScopedEnvironmentVariable {
+ public:
+  ScopedEnvironmentVariable();
+  ScopedEnvironmentVariable(base::StringPiece name, base::StringPiece value);
+  ~ScopedEnvironmentVariable();
+
+  // Overrides the environment variable.
+  // @param name the name of the variable to override.
+  // @param value the value of the override.
+  // @returns true for the first call, false on subsequent calls.
+  bool Set(base::StringPiece name, base::StringPiece value);
+
+ private:
+  std::string name_;
+  bool should_restore_;
+  std::string restore_value_;
+
+  scoped_ptr<base::Environment> env_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedEnvironmentVariable);
 };
 
 }  // namespace testing

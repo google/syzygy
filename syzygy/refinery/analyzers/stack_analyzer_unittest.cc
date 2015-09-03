@@ -16,7 +16,6 @@
 
 #include <string>
 
-#include "base/environment.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
@@ -26,6 +25,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_com_initializer.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
@@ -44,7 +44,6 @@ namespace {
 
 // TODO(manzagop): factor out a testing::ScopedSetSymbolPath.
 const wchar_t kLocalSymbolPathSuffix[] = L"symbols\\microsoft";
-const char kNtSymbolPathEnvVar[] = "_NT_SYMBOL_PATH";
 const char kNtSymbolPathPrefix[] = "SRV*";
 const char kNtSymbolPathSuffix[] =
     "*http://msdl.microsoft.com/download/symbols";
@@ -54,13 +53,7 @@ const char kNtSymbolPathSuffix[] =
 class StackAnalyzerTest : public testing::Test {
  protected:
   void SetUp() override {
-    env_.reset(base::Environment::Create());
-    if (env_.get() == NULL) {
-      LOG(ERROR) << "base::Environment::Create returned NULL.";
-      FAIL();
-    }
-
-    // Determine the local symbol directory and ensure it exists.
+    // Build the local symbol directory path and ensure it exists.
     base::FilePath local_symbol_path =
         testing::GetOutputRelativePath(kLocalSymbolPathSuffix);
     ASSERT_TRUE(base::CreateDirectory(local_symbol_path));
@@ -77,29 +70,13 @@ class StackAnalyzerTest : public testing::Test {
         "%s%s%s", kNtSymbolPathPrefix, local_symbol_path_narrow.c_str(),
         kNtSymbolPathSuffix);
 
-    // Set the symbol path.
-    restore_symbol_path_ = true;
-    if (!env_->GetVar(kNtSymbolPathEnvVar, &symbol_path_restore_value_))
-      restore_symbol_path_ = false;  // Variable does not exist.
-
-    if (!env_->SetVar(kNtSymbolPathEnvVar, nt_symbol_path)) {
-      LOG(ERROR) << "Unable to override " << kNtSymbolPathEnvVar;
-      FAIL();
-    }
-  }
-
-  void TearDown() override {
-    if (restore_symbol_path_) {
-      ASSERT_TRUE(
-          env_->SetVar(kNtSymbolPathEnvVar, symbol_path_restore_value_));
-    }
-    ASSERT_TRUE(env_->UnSetVar(kNtSymbolPathEnvVar));
+    // Set the variable.
+    ASSERT_TRUE(
+        scoped_env_variable_.Set(testing::kNtSymbolPathEnvVar, nt_symbol_path));
   }
 
  private:
-  scoped_ptr<base::Environment> env_;
-  bool restore_symbol_path_;
-  std::string symbol_path_restore_value_;
+  testing::ScopedEnvironmentVariable scoped_env_variable_;
 };
 
 TEST_F(StackAnalyzerTest, AnalyzeMinidump) {

@@ -121,4 +121,41 @@ FILE* ApplicationTestBase::GetOrInitFile(base::ScopedFILE* f,
   return f->get();
 }
 
+ScopedEnvironmentVariable::ScopedEnvironmentVariable() {
+}
+
+ScopedEnvironmentVariable::ScopedEnvironmentVariable(base::StringPiece name,
+                                                     base::StringPiece value) {
+  CHECK(Set(name, value));
+}
+
+ScopedEnvironmentVariable::~ScopedEnvironmentVariable() {
+  if (should_restore_) {
+    CHECK(env_->SetVar(name_.c_str(), restore_value_));
+  } else {
+    CHECK(env_->UnSetVar(name_.c_str()));
+  }
+}
+
+bool ScopedEnvironmentVariable::Set(base::StringPiece name,
+                                    base::StringPiece value) {
+  DCHECK(!name.empty());
+  if (env_)
+    return false;  // Setting more than once is disallowed.
+
+  name.CopyToString(&name_);
+  env_.reset(base::Environment::Create());
+  CHECK(env_);
+
+  // Get restoration info.
+  should_restore_ = true;
+  if (!env_->GetVar(name_.c_str(), &restore_value_))
+    should_restore_ = false;  // Variable does not exist.
+
+  // Set the variable.
+  CHECK(env_->SetVar(name_.c_str(), value.as_string()));
+
+  return true;
+}
+
 }  // namespace testing
