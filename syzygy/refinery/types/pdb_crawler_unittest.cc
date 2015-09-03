@@ -138,6 +138,13 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
     return found_types;
   }
 
+  TypePtr FindOneTypeBySuffix(const base::string16& suffix) {
+    std::vector<TypePtr> results = FindTypesBySuffix(suffix);
+
+    EXPECT_EQ(1U, results.size());
+    return results[0];
+  }
+
   PdbCrawler crawler_;
   base::FilePath test_types_file_;
   base::hash_map<base::string16, size_t> constants_;
@@ -161,6 +168,14 @@ void ValidateField(const UserDefinedType::Field& field,
 
 void ValidateBasicType(TypePtr type, size_t size, const base::string16& name) {
   EXPECT_EQ(Type::BASIC_TYPE_KIND, type->kind());
+  EXPECT_EQ(size, type->size());
+  EXPECT_EQ(name, type->name());
+}
+
+void ValidateWildcardType(TypePtr type,
+                          size_t size,
+                          const base::string16& name) {
+  EXPECT_EQ(Type::WILDCARD_TYPE_KIND, type->kind());
   EXPECT_EQ(size, type->size());
   EXPECT_EQ(name, type->name());
 }
@@ -206,13 +221,9 @@ const bool kIsVolatile = true;
 }  // namespace
 
 TEST_P(PdbCrawlerTest, TestSimpleUDT) {
-  std::vector<TypePtr> simple_udt = FindTypesBySuffix(L"::TestSimpleUDT");
-
-  ASSERT_EQ(1U, simple_udt.size());
-
-  TypePtr type = simple_udt[0];
-
+  TypePtr type = FindOneTypeBySuffix(L"::TestSimpleUDT");
   ASSERT_TRUE(type);
+
   EXPECT_EQ(LookupSizeOf(L"TestSimpleUDT"), type->size());
   EXPECT_TRUE(
       EndsWith(type->name(), L"::TestSimpleUDT", base::CompareCase::SENSITIVE));
@@ -272,12 +283,7 @@ TEST_P(PdbCrawlerTest, TestSimpleUDT) {
 }
 
 TEST_P(PdbCrawlerTest, TestAllInOneUDT) {
-  std::vector<TypePtr> test_udt = FindTypesBySuffix(L"::TestAllInOneUDT");
-
-  ASSERT_EQ(1U, test_udt.size());
-
-  TypePtr type = test_udt[0];
-
+  TypePtr type = FindOneTypeBySuffix(L"::TestAllInOneUDT");
   ASSERT_TRUE(type);
 
   EXPECT_EQ(LookupSizeOf(L"TestAllInOneUDT"), type->size());
@@ -327,11 +333,7 @@ TEST_P(PdbCrawlerTest, TestCollidingUDTs) {
 }
 
 TEST_P(PdbCrawlerTest, TestRecursiveUDTs) {
-  std::vector<TypePtr> recursive_udt = FindTypesBySuffix(L"::TestRecursiveUDT");
-
-  ASSERT_EQ(1U, recursive_udt.size());
-
-  TypePtr type = recursive_udt[0];
+  TypePtr type = FindOneTypeBySuffix(L"::TestRecursiveUDT");
 
   ASSERT_TRUE(type);
   EXPECT_EQ(LookupSizeOf(L"TestRecursiveUDT"), type->size());
@@ -356,14 +358,9 @@ TEST_P(PdbCrawlerTest, TestRecursiveUDTs) {
 }
 
 TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
-  std::vector<TypePtr> member_data_udt =
-      FindTypesBySuffix(L"::TestMemberPointersUDT");
-
-  ASSERT_EQ(1U, member_data_udt.size());
-
-  TypePtr type = member_data_udt[0];
-
+  TypePtr type = FindOneTypeBySuffix(L"::TestMemberPointersUDT");
   ASSERT_TRUE(type);
+
   EXPECT_EQ(LookupSizeOf(L"TestMemberPointersUDT"), type->size());
   ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
@@ -391,11 +388,8 @@ TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
 }
 
 TEST_P(PdbCrawlerTest, TestMFunction) {
-  std::vector<TypePtr> type_vector =
-      FindTypesBySuffix(L"void (testing::TestAllInOneUDT::)(int32_t)");
-  ASSERT_EQ(1U, type_vector.size());
-
-  TypePtr type = type_vector[0];
+  TypePtr type =
+      FindOneTypeBySuffix(L"void (testing::TestAllInOneUDT::)(int32_t)");
   ASSERT_TRUE(type);
 
   FunctionTypePtr function;
@@ -417,9 +411,7 @@ TEST_P(PdbCrawlerTest, TestMFunction) {
   ValidateBasicType(function->GetArgumentType(0), sizeof(int32_t), L"int32_t");
 
   // Find the containing class.
-  type_vector = FindTypesBySuffix(L"::TestAllInOneUDT");
-  ASSERT_EQ(1U, type_vector.size());
-  type = type_vector[0];
+  type = FindOneTypeBySuffix(L"::TestAllInOneUDT");
   ASSERT_TRUE(type);
 
   // Check that the function points to its containing class.
@@ -453,12 +445,9 @@ TEST_P(PdbCrawlerTest, TestProcedure) {
 }
 
 TEST_P(PdbCrawlerTest, TestReference) {
-  std::vector<TypePtr> types = FindTypesBySuffix(L"::TestReference");
-
-  ASSERT_EQ(1U, types.size());
-
-  TypePtr type = types[0];
+  TypePtr type = FindOneTypeBySuffix(L"::TestReference");
   ASSERT_TRUE(type);
+
   EXPECT_TRUE(
       EndsWith(type->name(), L"::TestReference", base::CompareCase::SENSITIVE));
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
@@ -482,10 +471,7 @@ TEST_P(PdbCrawlerTest, TestReference) {
 }
 
 TEST_P(PdbCrawlerTest, TestArray) {
-  std::vector<TypePtr> type_vector = FindTypesBySuffix(L"::TestArrays");
-  ASSERT_EQ(1U, type_vector.size());
-
-  TypePtr type = type_vector[0];
+  TypePtr type = FindOneTypeBySuffix(L"::TestArrays");
   ASSERT_TRUE(type);
 
   UserDefinedTypePtr udt;
@@ -533,10 +519,7 @@ TEST_P(PdbCrawlerTest, TestArray) {
 }
 
 TEST_P(PdbCrawlerTest, TestFunctions) {
-  std::vector<TypePtr> type_vector = FindTypesBySuffix(L"::TestFunctions");
-  ASSERT_EQ(1U, type_vector.size());
-
-  TypePtr type = type_vector[0];
+  TypePtr type = FindOneTypeBySuffix(L"::TestFunctions");
   ASSERT_TRUE(type);
 
   UserDefinedTypePtr udt;
@@ -577,17 +560,17 @@ TEST_P(PdbCrawlerTest, TestFunctions) {
 }
 
 TEST_P(PdbCrawlerTest, TestComplicatedTypeGraph) {
-  std::vector<TypePtr> type_vector = FindTypesBySuffix(L"::ComplicatedTypeA");
-  ASSERT_EQ(1U, type_vector.size());
+  TypePtr type = FindOneTypeBySuffix(L"::ComplicatedTypeA");
+  ASSERT_TRUE(type);
 
   UserDefinedTypePtr class_a;
-  ASSERT_TRUE(type_vector[0]->CastTo(&class_a));
+  ASSERT_TRUE(type->CastTo(&class_a));
 
-  type_vector = FindTypesBySuffix(L"::ComplicatedTypeB");
-  ASSERT_EQ(1U, type_vector.size());
+  type = FindOneTypeBySuffix(L"::ComplicatedTypeB");
+  ASSERT_TRUE(type);
 
   UserDefinedTypePtr class_b;
-  ASSERT_TRUE(type_vector[0]->CastTo(&class_b));
+  ASSERT_TRUE(type->CastTo(&class_b));
 
   // Correct name of the function
   EXPECT_EQ(L"void (testing::ComplicatedTypeB::)(testing::ComplicatedTypeA)",
@@ -597,6 +580,33 @@ TEST_P(PdbCrawlerTest, TestComplicatedTypeGraph) {
   // only one traversal through the type stream.
   EXPECT_EQ(L"void (testing::ComplicatedTypeB::)(testing::ComplicatedTypeA)*",
             class_a->GetFieldType(0)->name());
+}
+
+TEST_P(PdbCrawlerTest, TestBitfields) {
+  TypePtr type = FindOneTypeBySuffix(L"::TestBitfields");
+  ASSERT_TRUE(type);
+  EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  const UserDefinedType::Fields& fields = udt->fields();
+  ASSERT_EQ(4U, fields.size());
+
+  ValidateField(fields[0], 0, 0, 1, !kIsConst, !kIsVolatile, L"bool_bitfield");
+  ValidateBasicType(udt->GetFieldType(0), sizeof(bool), L"bool");
+
+  ValidateField(fields[1], 4, 0, 1, !kIsConst, !kIsVolatile, L"int_bitfield");
+  ValidateBasicType(udt->GetFieldType(1), sizeof(int32_t), L"int32_t");
+
+  // TODO(mopler): Once we parse enum types, change this.
+  ValidateField(fields[2], 8, 0, 1, !kIsConst, !kIsVolatile, L"enum_bitfield");
+  ValidateWildcardType(udt->GetFieldType(2), 0, L"LF_ENUM");
+
+  ValidateField(fields[3], 8, 1, 1, kIsConst, !kIsVolatile,
+                L"const_enum_bitfield");
+  ValidateWildcardType(udt->GetFieldType(3), 0, L"LF_ENUM");
 }
 
 // Run both the 32-bit and 64-bit tests.

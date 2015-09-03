@@ -1102,7 +1102,7 @@ TypePtr TypeCreator::CreateBasicType(TypeId type_id) {
 }
 
 TypePtr TypeCreator::CreateWildcardType(TypeId type_id) {
-  base::string16 name = LeafTypeName(type_info_enum_.type());
+  base::string16 name = LeafTypeName(GetLeafType(type_id));
   TypePtr wildcard_type = new WildcardType(name, name, 0);
   if (!repository_->AddTypeWithId(wildcard_type, type_id))
     return nullptr;
@@ -1140,8 +1140,10 @@ TypePtr TypeCreator::FindOrCreateIntegralBasicType(TypeId type_id) {
   TypeId type_mask = (type_id & cci::CV_PRIMITIVE_TYPE::CV_TMASK) >>
                      cci::CV_PRIMITIVE_TYPE::CV_TSHIFT;
 
-  if (type_mask == cci::CV_SIGNED || type_mask == cci::CV_UNSIGNED)
+  if (type_mask == cci::CV_SIGNED || type_mask == cci::CV_UNSIGNED ||
+      type_mask == cci::CV_INT || type_mask == cci::CV_BOOLEAN) {
     return FindOrCreateBasicType(type_id);
+  }
 
   return nullptr;
 }
@@ -1217,11 +1219,15 @@ TypePtr TypeCreator::FindOrCreateBitfieldType(TypeId type_id,
 
   if (type == cci::LF_MODIFIER) {
     TypePtr type = ReadModifier(type_id, flags);
-    if (type->kind() != Type::BASIC_TYPE_KIND)
-      return nullptr;
+    // TODO(mopler): Once we load enums change the name test to type test.
+    if (type->kind() == Type::BASIC_TYPE_KIND || type->name() == L"LF_ENUM")
+      return type;
 
-    return type;
+    return nullptr;
   }
+
+  if (type == cci::LF_ENUM)
+    return FindOrCreateTypeImpl(type_id);
 
   return FindOrCreateIntegralBasicType(type_id);
 }

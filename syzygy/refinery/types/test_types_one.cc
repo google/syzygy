@@ -73,6 +73,16 @@ struct TestFunctions {
   void OverloadedFunction(int arg) {}
 };
 
+enum UnderlyingEnum : short { first_value, second_value };
+
+struct TestBitfields {
+  TestBitfields() : const_enum_bitfield(first_value) {}
+  bool bool_bitfield : 1;
+  int int_bitfield : 1;
+  UnderlyingEnum enum_bitfield : 1;
+  const UnderlyingEnum const_enum_bitfield : 1;
+};
+
 // The following classes are set up to test correct reading of pointer to data
 // members and functions.
 class A {};
@@ -165,6 +175,9 @@ void AliasTypesOne() {
 
   TestFunctions functions;
   Alias(&functions);
+
+  TestBitfields bitfields = {};
+  Alias(&bitfields);
 
   TestMemberPointersUDT member_data = {};
   Alias(&member_data);
