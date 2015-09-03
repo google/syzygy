@@ -233,6 +233,9 @@ class HeapEnumerator {
   // Get an enumerator for a segment's UCR list.
   ListEntryEnumerator GetUCREnumerator(const TypedData& segment);
 
+  // Retrieves the front end heap - if enabled.
+  bool GetFrontEndHeap(TypedData* front_end_heap);
+
   // Accessor to the heap.
   const TypedData& heap() const { return heap_; }
 
@@ -361,6 +364,33 @@ ListEntryEnumerator HeapEnumerator::GetUCREnumerator(const TypedData& segment) {
   }
 
   return ucr_list_enum;
+}
+
+bool HeapEnumerator::GetFrontEndHeap(TypedData* front_end_heap) {
+  DCHECK(front_end_heap);
+  uint64_t front_end_heap_type = 0;
+  if (!GetNamedValueUnsigned(heap_, L"FrontEndHeapType", &front_end_heap_type))
+    return false;
+
+  // From looking at some heaps.
+  const uint64_t kLFHHeapType = 2;
+  if (front_end_heap_type != kLFHHeapType)
+    return false;
+
+  TypedData front_end_heap_field;
+  Address front_end_heap_addr = 0;
+  if (!heap_.GetNamedField(L"FrontEndHeap", &front_end_heap_field) ||
+      !front_end_heap_field.GetPointerValue(&front_end_heap_addr)) {
+    return false;
+  }
+
+  if (!lfh_heap_type_)
+    return false;
+
+  *front_end_heap =
+      TypedData(heap_.bit_source(), lfh_heap_type_,
+                AddressRange(front_end_heap_addr, lfh_heap_type_->size()));
+  return true;
 }
 
 // TODO(siggi): This thing needs two modes for de-obfuscating heap entries.
@@ -658,6 +688,13 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
   HeapEnumerator enumerator;
   if (!enumerator.Initialize(heap_, &repo))
     return;
+
+  // Dump the heap structure itself.
+  DumpTypedData(enumerator.heap(), 0);
+
+  TypedData front_end_heap;
+  if (enumerator.GetFrontEndHeap(&front_end_heap))
+    DumpTypedData(front_end_heap, 0);
 
   // This is used to walk the entries in each segment.
   HeapEntryWalker walker;
