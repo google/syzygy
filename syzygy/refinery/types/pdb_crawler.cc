@@ -437,6 +437,13 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
           return false;
         break;
       }
+      case cci::LF_INDEX: {
+        pdb::LeafIndex type_info;
+        if (!type_info.Initialize(local_stream.get()))
+          return false;
+        // This is always the last record of the fieldlist.
+        return ReadFieldlist(type_info.body().index, fields, functions);
+      }
       default: {
         NOTREACHED();
         break;

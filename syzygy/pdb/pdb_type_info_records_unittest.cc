@@ -240,6 +240,25 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafFriendFcn) {
   EXPECT_EQ(kName, type_record.name());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafIndex) {
+  const uint16_t kPad = 0x0000;
+  const uint32_t kType = 0x07041348;
+
+  LeafIndex type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kPad);
+  WriteData(kType);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kPad, type_record.body().pad0);
+  EXPECT_EQ(kType, type_record.body().index);
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
   const uint32_t kType = 0x1993;
   const LeafMemberAttributeField kAttr = {0x12A5};

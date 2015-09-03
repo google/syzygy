@@ -92,6 +92,9 @@
       ]
     },
     {
+      "name": "LeafIndex"
+    },
+    {
       "name": "LeafMember",
       "first_extra_field": "offset",
       "extra_fields": [

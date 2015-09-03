@@ -139,6 +139,19 @@ bool LeafFriendFcn::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafIndex::LeafIndex() : body_{} {}
+
+bool LeafIndex::Initialize(PdbStream* stream) {
+  size_t to_read = sizeof(body_);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+
+  return true;
+}
+
 LeafMember::LeafMember() : body_{},
                            offset_{},
                            name_{} {}

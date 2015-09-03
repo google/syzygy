@@ -194,6 +194,25 @@ class LeafFriendFcn {
   base::string16 name_;
 };
 
+class LeafIndex {
+ public:
+  LeafIndex();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafIndex& body() const { return body_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafIndex body_;
+};
+
 class LeafMember {
  public:
   LeafMember();
