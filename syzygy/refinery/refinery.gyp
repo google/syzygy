@@ -89,6 +89,7 @@
         'validators/validators.gyp:validators_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
        ],
