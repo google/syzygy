@@ -227,7 +227,11 @@ class HeapEnumerator {
 
   bool Initialize(HANDLE heap, TypeRepository* repo);
 
+  // Get an enumerator for the heap's segment list.
   ListEntryEnumerator GetSegmentEnumerator();
+
+  // Get an enumerator for a segment's UCR list.
+  ListEntryEnumerator GetUCREnumerator(const TypedData& segment);
 
   // Accessor to the heap.
   const TypedData& heap() const { return heap_; }
@@ -340,6 +344,23 @@ ListEntryEnumerator HeapEnumerator::GetSegmentEnumerator() {
   }
 
   return heap_segment_enum;
+}
+
+ListEntryEnumerator HeapEnumerator::GetUCREnumerator(const TypedData& segment) {
+  TypedData ucr_list;
+  if (!segment.GetNamedField(L"UCRSegmentList", &ucr_list)) {
+    LOG(ERROR) << "No UCRSegmentList in segment.";
+    return ListEntryEnumerator();
+  }
+
+  ListEntryEnumerator ucr_list_enum;
+  if (!ucr_list_enum.Initialize(ucr_list, heap_ucr_descriptor_type_,
+                                L"SegmentEntry")) {
+    LOG(ERROR) << "Failed to initialize UCR enumerator";
+    return ListEntryEnumerator();
+  }
+
+  return ucr_list_enum;
 }
 
 // TODO(siggi): This thing needs two modes for de-obfuscating heap entries.
@@ -659,7 +680,9 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
         if (!walker.GetDecodedEntry(&entry)) {
           // TODO(siggi): This currently happens on stepping into an
           //     uncommitted range - do better - but how?
-          fprintf(output_, "GetDecodedEntry failed\n");
+          fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
+                  walker.curr_entry().range().addr(),
+                  walker.curr_entry().range().size());
           break;
         }
 
@@ -693,5 +716,9 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
     } else {
       LOG(ERROR) << "EnumSegment failed.";
     }
+
+    ListEntryEnumerator enum_ucrs = enumerator.GetUCREnumerator(segment);
+    while (enum_ucrs.Next())
+      DumpTypedData(enum_ucrs.current_record(), 1);
   }
 }
