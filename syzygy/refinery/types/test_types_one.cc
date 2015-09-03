@@ -156,6 +156,10 @@ class ComplicatedTypeB {
   void Function(ComplicatedTypeA a) {}
 };
 
+struct TestNullptrType {
+  nullptr_t nullptr_type;
+};
+
 void AliasTypesOne() {
   // Make sure the types are used in the file.
   TestCollidingUDT colliding = {};
@@ -184,6 +188,9 @@ void AliasTypesOne() {
 
   TestAllInOneUDT all_in_one = {};
   Alias(&all_in_one);
+
+  TestNullptrType nullptr_type = {};
+  Alias(&nullptr_type);
 }
 
 }  // namespace testing

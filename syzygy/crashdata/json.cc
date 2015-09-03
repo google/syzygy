@@ -358,8 +358,7 @@ bool ToJson(const Leaf* leaf, std::string* indent, std::string* output) {
 }
 
 struct ValueListYieldFunctor {
-  explicit ValueListYieldFunctor(const ValueList* list) : list_(list) {
-  }
+  explicit ValueListYieldFunctor(const ValueList* list) : list_(list) {}
 
   bool operator()(size_t index, std::string* indent, std::string* output) {
     assert(output != nullptr);

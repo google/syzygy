@@ -76,5 +76,4 @@ TEST(CommonUnitTestUtil, ScopedEnvironmentVariableSetCase) {
   ScopedEnvironmentVariableTestImpl(true);
 }
 
-
 }  // namespace testing

@@ -471,8 +471,8 @@ void PopulateCorruptBlockRange(const Shadow* shadow,
 
   // Add the blocks.
   if (range.block_info_count > 0) {
-    crashdata::ValueList* list = crashdata::ValueGetValueList(
-        crashdata::DictAddValue("blocks", dict));
+    crashdata::ValueList* list =
+        crashdata::ValueGetValueList(crashdata::DictAddValue("blocks", dict));
     for (size_t i = 0; i < range.block_info_count; ++i) {
       if (range.block_info[i].header != nullptr)
         // Emit the block info but don't explicitly include the contents.

@@ -582,6 +582,17 @@ TEST_P(PdbCrawlerTest, TestComplicatedTypeGraph) {
             class_a->GetFieldType(0)->name());
 }
 
+TEST_P(PdbCrawlerTest, TestNullptrType) {
+  TypePtr type = FindOneTypeBySuffix(L"::TestNullptrType");
+  ASSERT_TRUE(type);
+
+  UserDefinedTypePtr nullptr_struct;
+  ASSERT_TRUE(type->CastTo(&nullptr_struct));
+
+  EXPECT_EQ(1U, nullptr_struct->fields().size());
+  ValidateBasicType(nullptr_struct->GetFieldType(0), 0, L"nullptr_t");
+}
+
 TEST_P(PdbCrawlerTest, TestBitfields) {
   TypePtr type = FindOneTypeBySuffix(L"::TestBitfields");
   ASSERT_TRUE(type);

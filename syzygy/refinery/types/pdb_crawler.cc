@@ -1072,6 +1072,10 @@ bool TypeCreator::IsBasicPointerType(TypeId type_id) {
   if (type_id >= cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM)
     return false;
 
+  // T_PVOID is used to encode std::nullptr_t which we save as a basic type.
+  if (type_id == cci::T_PVOID)
+    return false;
+
   if (TypeIndexToPrMode(type_id) == cci::CV_TM_DIRECT)
     return false;
 
@@ -1086,11 +1090,6 @@ cci::CV_prmode TypeCreator::TypeIndexToPrMode(TypeId type_id) {
 
 TypePtr TypeCreator::CreateBasicType(TypeId type_id) {
   DCHECK(type_id < cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM);
-
-  // Check if we are dealing with pointer.
-  cci::CV_prmode prmode = TypeIndexToPrMode(type_id);
-  if (prmode != cci::CV_TM_DIRECT)
-    return nullptr;
 
   BasicTypePtr basic_type =
       new BasicType(BasicTypeName(type_id), BasicTypeSize(type_id));
