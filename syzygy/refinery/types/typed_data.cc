@@ -38,34 +38,34 @@ bool IsFieldOf(TypePtr type, const UserDefinedType::Field& field) {
 TypedData::TypedData() : bit_source_(nullptr) {
 }
 
-TypedData::TypedData(BitSource* bit_source,
-                     TypePtr type,
-                     const AddressRange& range)
+TypedData::TypedData(BitSource* bit_source, TypePtr type, Address addr)
     : bit_source_(bit_source),
       type_(type),
-      range_(range),
+      addr_(addr),
       bit_pos_(0),
       bit_len_(0) {
   DCHECK(bit_source_);
   DCHECK(type_);
-  DCHECK(range_.IsValid());
 }
 
 TypedData::TypedData(BitSource* bit_source,
                      TypePtr type,
-                     const AddressRange& range,
+                     Address addr,
                      size_t bit_pos,
                      size_t bit_len)
     : bit_source_(bit_source),
       type_(type),
-      range_(range),
+      addr_(addr),
       bit_pos_(bit_pos),
       bit_len_(bit_len) {
   DCHECK(bit_source_);
   DCHECK(type_);
-  DCHECK(range_.IsValid());
-  DCHECK(bit_pos >= 0 && bit_pos < range.size() * 8);
-  DCHECK(bit_len >= 0 && bit_len < range.size() * 8);
+  DCHECK(bit_pos >= 0 && bit_pos < type_->size() * 8);
+  DCHECK(bit_len >= 0 && bit_len < type_->size() * 8);
+}
+
+bool TypedData::IsValid() const {
+  return bit_source_ != nullptr && type_ != nullptr;
 }
 
 bool TypedData::IsPrimitiveType() const {
@@ -106,9 +106,8 @@ bool TypedData::GetNamedField(const base::StringPiece16& name,
     if (name == field.name()) {
       TypePtr field_type = udt->GetFieldType(i);
       DCHECK(field_type);
-      AddressRange slice(range_.addr() + field.offset(), field_type->size());
-      *out = TypedData(bit_source_, field_type, slice, field.bit_pos(),
-                       field.bit_len());
+      *out = TypedData(bit_source_, field_type, addr() + field.offset(),
+                       field.bit_pos(), field.bit_len());
       return true;
     }
   }
@@ -124,8 +123,7 @@ bool TypedData::GetField(const UserDefinedType::Field& field,
   DCHECK(IsFieldOf(type_, field));
 
   TypePtr field_type = type_->repository()->GetType(field.type_id());
-  AddressRange slice(range_.addr() + field.offset(), field_type->size());
-  *out = TypedData(bit_source_, field_type, slice);
+  *out = TypedData(bit_source_, field_type, addr() + field.offset());
   return true;
 }
 
@@ -302,8 +300,7 @@ bool TypedData::Dereference(TypedData* referenced_data) const {
   if (!GetPointerValue(&addr))
     return false;
 
-  *referenced_data = TypedData(bit_source_, content_type,
-                               AddressRange(addr, content_type->size()));
+  *referenced_data = TypedData(bit_source_, content_type, addr);
 
   return true;
 }
@@ -324,11 +321,14 @@ bool TypedData::GetArrayElement(size_t index, TypedData* element_data) const {
   if (!element_type)
     return false;
 
-  Address element_addr = range_.addr() + index * element_type->size();
   *element_data = TypedData(bit_source_, element_type,
-                            AddressRange(element_addr, element_type->size()));
+                            addr() + index * element_type->size());
 
   return true;
+}
+
+AddressRange TypedData::GetRange() const {
+  return AddressRange(addr(), type()->size());
 }
 
 bool TypedData::GetDataImpl(void* data, size_t data_size) const {
@@ -336,10 +336,10 @@ bool TypedData::GetDataImpl(void* data, size_t data_size) const {
   DCHECK(IsPrimitiveType());
   DCHECK(bit_source_);
 
-  if (data_size != range_.size())
+  if (data_size != type_->size())
     return false;
 
-  return bit_source_->GetAll(range_, data);
+  return bit_source_->GetAll(GetRange(), data);
 }
 
 }  // namespace refinery

@@ -69,9 +69,7 @@ class TypedDataTest : public testing::Test {
   }
 
   TypedData GetTestInstance() {
-    return TypedData(
-        test_bit_source(), udt_,
-        AddressRange(ToAddr(&test_instance), sizeof(test_instance)));
+    return TypedData(test_bit_source(), udt_, ToAddr(&test_instance));
   }
 
   Address ToAddr(const void* ptr) { return reinterpret_cast<Address>(ptr); }
@@ -102,8 +100,8 @@ class TypedDataTest : public testing::Test {
   template <typename FieldType>
   void AssertFieldMatchesData(const FieldType& field, const TypedData& data) {
     AssertFieldMatchesDataType(field, data);
-    ASSERT_EQ(ToAddr(&field), data.range().addr());
-    ASSERT_EQ(sizeof(field), data.range().size());
+    ASSERT_EQ(ToAddr(&field), data.addr());
+    ASSERT_EQ(sizeof(field), data.type()->size());
   }
 
   UserDefinedTypePtr udt() const { return udt_; }
@@ -174,6 +172,24 @@ class TypedDataTest : public testing::Test {
 };
 
 }  // namespace
+
+TEST_F(TypedDataTest, IsValid) {
+  EXPECT_FALSE(TypedData().IsValid());
+
+  TypedData data = GetTestInstance();
+  EXPECT_TRUE(data.IsValid());
+
+  TypedData copy = data;
+  EXPECT_TRUE(copy.IsValid());
+}
+
+TEST_F(TypedDataTest, GetRange) {
+  TypedData data = GetTestInstance();
+
+  AddressRange range = data.GetRange();
+  EXPECT_EQ(data.addr(), range.addr());
+  EXPECT_EQ(data.type()->size(), range.size());
+}
 
 TEST_F(TypedDataTest, GetNamedField) {
   TypedData data(GetTestInstance());
@@ -295,7 +311,7 @@ TEST_F(TypedDataTest, Dereference) {
   // Make sure the dereferenced object is identical.
   ASSERT_TRUE(derefenced.bit_source() == data.bit_source());
   ASSERT_TRUE(derefenced.type() == data.type());
-  ASSERT_TRUE(derefenced.range() == data.range());
+  ASSERT_TRUE(derefenced.addr() == data.addr());
 }
 
 TEST_F(TypedDataTest, GetArrayElement) {

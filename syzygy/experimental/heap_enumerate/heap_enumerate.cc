@@ -191,7 +191,7 @@ bool ListEntryEnumerator::Initialize(const TypedData& list_head,
     return false;
   record_type_ = record_type;
   list_entry_name.CopyToString(&list_entry_name_);
-  list_head_ = list_head.range().addr();
+  list_head_ = list_head.addr();
   current_list_entry_ = list_head;
 
   return true;
@@ -211,9 +211,8 @@ bool ListEntryEnumerator::Next() {
     return false;
 
   // Retrieve the next entry.
-  TypedData next_entry(
-      current_list_entry_.bit_source(), record_type_,
-      AddressRange(flink_addr - list_entry_offset_, record_type_->size()));
+  TypedData next_entry(current_list_entry_.bit_source(), record_type_,
+                       flink_addr - list_entry_offset_);
 
   if (!next_entry.GetNamedField(list_entry_name_, &current_list_entry_))
     return false;
@@ -330,9 +329,7 @@ bool HeapEnumerator::Initialize(HANDLE heap, TypeRepository* repo) {
     return false;
   }
 
-  heap_ = TypedData(
-      &bit_source_, heap_type_,
-      AddressRange(reinterpret_cast<Address>(heap), heap_type_->size()));
+  heap_ = TypedData(&bit_source_, heap_type_, reinterpret_cast<Address>(heap));
 
   return true;
 }
@@ -393,8 +390,7 @@ bool HeapEnumerator::GetFrontEndHeap(TypedData* front_end_heap) {
     return false;
 
   *front_end_heap =
-      TypedData(heap_.bit_source(), lfh_heap_type_,
-                AddressRange(front_end_heap_addr, lfh_heap_type_->size()));
+      TypedData(heap_.bit_source(), lfh_heap_type_, front_end_heap_addr);
   return true;
 }
 
@@ -517,11 +513,10 @@ bool HeapEntryWalker::Next() {
 
   TypePtr entry_type = curr_entry_.type();
   Address next_start_addr =
-      curr_entry_.range().start() + entry_type->size() * curr_entry.size;
+      curr_entry_.addr() + entry_type->size() * curr_entry.size;
 
   // TODO(siggi): Verify that this is monotonically forward...
-  curr_entry_ = TypedData(heap_bit_source_, entry_type,
-                          AddressRange(next_start_addr, entry_type->size()));
+  curr_entry_ = TypedData(heap_bit_source_, entry_type, next_start_addr);
 
   return true;
 }
@@ -552,8 +547,8 @@ bool SegmentEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
     const uint64 kEncodingEnabled = 0x00100000;
     if (value & kEncodingEnabled) {
       BitSource* source = encoding.bit_source();
-      encoding_.resize(encoding.range().size());
-      if (!source->GetAll(encoding.range(), &encoding_.at(0)))
+      encoding_.resize(encoding.type()->size());
+      if (!source->GetAll(encoding.GetRange(), &encoding_.at(0)))
         return false;
     }
   }
@@ -571,8 +566,7 @@ bool SegmentEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
   // ranges. Uncommitted ranges are stored as a list of whole pages with
   // _HEAP_UCR_DESCRIPTOR structures.
   segment_range_ =
-      AddressRange(segment.range().addr(),
-                   Address(last_valid_entry) - segment.range().addr());
+      AddressRange(segment.addr(), Address(last_valid_entry) - segment.addr());
 
   return true;
 }
@@ -582,11 +576,11 @@ bool SegmentEntryWalker::GetDecodedEntry(HeapEntry* entry) {
   HeapEntry tmp = {};
 
   // Bail if the current entry is for some reason not of the right size.
-  if (curr_entry_.range().size() != sizeof(tmp))
+  if (curr_entry_.type()->size() != sizeof(tmp))
     return false;
 
   // Get the raw entry.
-  if (!heap_bit_source_->GetAll(curr_entry_.range(), &tmp))
+  if (!heap_bit_source_->GetAll(curr_entry_.GetRange(), &tmp))
     return false;
 
   // Unencode it.
@@ -599,7 +593,7 @@ bool SegmentEntryWalker::GetDecodedEntry(HeapEntry* entry) {
 }
 
 bool SegmentEntryWalker::AtEnd() const {
-  if (curr_entry_.range().end() >= segment_range_.end())
+  if (curr_entry_.addr() + curr_entry_.type()->size() >= segment_range_.end())
     return true;
 
   return false;
@@ -614,7 +608,7 @@ bool LFHBinEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
     return false;
 
   // TODO(siggi): Acquire the data necessary to decode the entries.
-  AddressRange entry_range = walker->curr_entry().range();
+  AddressRange entry_range = walker->curr_entry().GetRange();
 
   HeapEntry entry = {};
   if (!walker->GetDecodedEntry(&entry))
@@ -625,10 +619,9 @@ bool LFHBinEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
   heap_userdata_header_type_ = heap_enumerator->heap_userdata_header_type();
   bin_range_ =
       AddressRange(entry_range.start(), entry.size * entry_range.size());
-  curr_entry_ = TypedData(
-      heap_bit_source_, walker->curr_entry().type(),
-      AddressRange(entry_range.end() + heap_userdata_header_type_->size(),
-                   entry_range.size()));
+  curr_entry_ =
+      TypedData(heap_bit_source_, walker->curr_entry().type(),
+                entry_range.end() + heap_userdata_header_type_->size());
   return true;
 }
 
@@ -638,7 +631,7 @@ bool LFHBinEntryWalker::GetDecodedEntry(HeapEntry* entry) {
 }
 
 bool LFHBinEntryWalker::AtEnd() const {
-  if (curr_entry_.range().end() >= bin_range_.end())
+  if (curr_entry_.GetRange().end() >= bin_range_.end())
     return true;
 
   return false;
@@ -646,8 +639,7 @@ bool LFHBinEntryWalker::AtEnd() const {
 
 TypedData LFHBinEntryWalker::GetHeapUserDataHeader() {
   return TypedData(heap_bit_source_, heap_userdata_header_type_,
-                   AddressRange(bin_range_.addr() + curr_entry_.type()->size(),
-                                heap_userdata_header_type_->size()));
+                   bin_range_.addr() + curr_entry_.type()->size());
 }
 
 bool GetNtdllTypes(TypeRepository* repo) {
@@ -755,7 +747,7 @@ void HeapEnumerate::DumpTypedData(const TypedData& data, size_t indent) {
   } else {
     UserDefinedTypePtr udt;
     if (data.type()->CastTo(&udt)) {
-      std::fprintf(output_, "@0x%08llX:\n", data.range().addr());
+      std::fprintf(output_, "@0x%08llX:\n", data.addr());
       for (auto f : udt->fields()) {
         Spaces(output_, indent);
 
@@ -813,8 +805,8 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
           // TODO(siggi): This currently happens on stepping into an
           //     uncommitted range - do better - but how?
           fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
-                  segment_walker.curr_entry().range().addr(),
-                  segment_walker.curr_entry().range().size());
+                  segment_walker.curr_entry().addr(),
+                  segment_walker.curr_entry().type()->size());
           break;
         }
 
@@ -825,7 +817,7 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
         }
 
         // The address range covered by the current entry.
-        refinery::AddressRange range(segment_walker.curr_entry().range().addr(),
+        refinery::AddressRange range(segment_walker.curr_entry().addr(),
                                      entry.size * sizeof(entry));
         ::fprintf(output_, "Entry@0x%08llX(%d)\n", range.addr(), range.size());
 

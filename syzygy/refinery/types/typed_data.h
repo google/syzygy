@@ -33,7 +33,10 @@ class TypedData {
  public:
   TypedData();
   // TODO(siggi): Maybe BitSource can be a const ptr?
-  TypedData(BitSource* bit_source, TypePtr type, const AddressRange& range);
+  TypedData(BitSource* bit_source, TypePtr type, Address address);
+
+  // Returns true if this instance is valid - e.g. has a bit_source and a type.
+  bool IsValid() const;
 
   // Returns true iff type()->kind() != UDT.
   // TODO(siggi): This doesn't feel right somehow.
@@ -93,11 +96,15 @@ class TypedData {
   // @returns true on success.
   bool GetArrayElement(size_t index, TypedData* element_data) const;
 
+  // Retrieves the address range covered by this instance.
+  // @pre IsValid() == true.
+  AddressRange GetRange() const;
+
   // @name Accessors
   // @{
   BitSource* bit_source() const { return bit_source_; }
   const TypePtr& type() const { return type_; }
-  const AddressRange& range() const { return range_; }
+  Address addr() const { return addr_; }
   size_t bit_pos() { return bit_pos_; }
   size_t bit_len() { return bit_len_; }
   // @}
@@ -105,7 +112,7 @@ class TypedData {
  private:
   TypedData(BitSource* bit_source,
             TypePtr type,
-            const AddressRange& range,
+            Address addr,
             size_t bit_pos,
             size_t bit_len);
 
@@ -116,7 +123,7 @@ class TypedData {
 
   BitSource* bit_source_;
   TypePtr type_;
-  AddressRange range_;
+  Address addr_;
 
   // For bitfields these denote the bit position and length of the data.
   uint8_t bit_pos_;
