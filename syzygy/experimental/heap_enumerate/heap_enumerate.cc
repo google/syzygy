@@ -21,6 +21,7 @@
 #include <algorithm>
 
 #include "base/logging.h"
+#include "base/macros.h"
 #include "base/containers/hash_tables.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"
@@ -239,6 +240,10 @@ class HeapEnumerator {
   // Accessor to the heap.
   const TypedData& heap() const { return heap_; }
 
+  UserDefinedTypePtr heap_userdata_header_type() const {
+    return heap_userdata_header_type_;
+  }
+
  private:
   // A reflective bit source.
   TestBitSource bit_source_;
@@ -393,10 +398,18 @@ bool HeapEnumerator::GetFrontEndHeap(TypedData* front_end_heap) {
   return true;
 }
 
-// TODO(siggi): This thing needs two modes for de-obfuscating heap entries.
-//   The Heap mode XORs the "Encoding" field into the HEAP_ENTRY, given the
-//   "EncodeFlagMask" value is just so. This is the mode used when walking
-//   heap segments.
+// As seen in Windbg help on the "!heap command".
+enum HeapEntryFlags {
+  HEAP_ENTRY_BUSY = 0x01,
+  HEAP_ENTRY_EXTRA_PRESENT = 0x02,
+  HEAP_ENTRY_FILL_PATTERN = 0x04,
+  HEAP_ENTRY_VIRTUAL_ALLOC = 0x08,
+  HEAP_ENTRY_LAST_ENTRY = 0x10,
+  HEAP_ENTRY_SETTABLE_FLAG1 = 0x20,
+  HEAP_ENTRY_SETTABLE_FLAG2 = 0x40,
+  HEAP_ENTRY_SETTABLE_FLAG3 = 0x80,
+};
+
 //   The LFH mode mixes an ntdll local variable, with the HEAP pointer/handle
 //   with the address of the entry for obfuscation.
 class HeapEntryWalker {
@@ -412,18 +425,11 @@ class HeapEntryWalker {
   COMPILE_ASSERT(sizeof(HeapEntry) == 8, heap_entry_is_not_8_bytes);
 
   HeapEntryWalker();
-
-  // Initialize the walker.
-  bool Initialize(HeapEnumerator* heap_enumerator);
-
-  // Prepare to walk @p segment.
-  bool EnumSegment(const TypedData& segment);
-
   // Returns the current entry decoded.
-  bool GetDecodedEntry(HeapEntry* entry);
+  virtual bool GetDecodedEntry(HeapEntry* entry) = 0;
 
   // Returns true iff the current entry is at or past the segment range.
-  bool AtEnd() const;
+  virtual bool AtEnd() const = 0;
 
   // Walk to the next entry in the segment.
   bool Next();
@@ -431,19 +437,66 @@ class HeapEntryWalker {
   // Accessor.
   const TypedData& curr_entry() const { return curr_entry_; }
 
- private:
+ protected:
+  virtual ~HeapEntryWalker() {}
+
+  // Initialize the walker.
+  bool Initialize(HeapEnumerator* heap_enumerator);
+
   // A bit source that covers all memory we have for the heap.
   BitSource* heap_bit_source_;
-
-  // An address range covering the segment under enumeration.
-  AddressRange segment_range_;
 
   // The current heap entry.
   TypedData curr_entry_;
 
+ private:
+  DISALLOW_COPY_AND_ASSIGN(HeapEntryWalker);
+};
+
+// A class that knows how to de-obfuscate and walk heap segments.
+// This XORs the "Encoding" field into the HEAP_ENTRY, given the
+// "EncodeFlagMask" value is just so.
+class SegmentEntryWalker : public HeapEntryWalker {
+ public:
+  SegmentEntryWalker() = default;
+
+  // Initialize the walker to walk @p segment.
+  bool Initialize(HeapEnumerator* heap_enumerator, const TypedData& segment);
+
+  // Returns the current entry decoded.
+  bool GetDecodedEntry(HeapEntry* entry) override;
+  bool AtEnd() const override;
+
+ private:
+  // An address range covering the segment under enumeration.
+  AddressRange segment_range_;
+
   // The encoding for entries in this range.
   // TODO(siggi): This needs to change for LFH entry walking.
   std::vector<uint8_t> encoding_;
+
+  DISALLOW_COPY_AND_ASSIGN(SegmentEntryWalker);
+};
+
+// The LFH mode mixes an ntdll local variable, with the HEAP pointer/handle
+// with the address of the entry for obfuscation.
+class LFHBinEntryWalker : public HeapEntryWalker {
+ public:
+  LFHBinEntryWalker() = default;
+
+  bool Initialize(HeapEnumerator* heap_enumerator, SegmentEntryWalker* walker);
+
+  bool GetDecodedEntry(HeapEntry* entry) override;
+  bool AtEnd() const override;
+
+  TypedData GetHeapUserDataHeader();
+
+ private:
+  // An address range covering the bin under enumeration.
+  AddressRange bin_range_;
+  UserDefinedTypePtr heap_userdata_header_type_;
+
+  DISALLOW_COPY_AND_ASSIGN(LFHBinEntryWalker);
 };
 
 HeapEntryWalker::HeapEntryWalker() : heap_bit_source_(nullptr) {
@@ -452,11 +505,32 @@ HeapEntryWalker::HeapEntryWalker() : heap_bit_source_(nullptr) {
 bool HeapEntryWalker::Initialize(HeapEnumerator* heap_enumerator) {
   DCHECK(heap_enumerator);
 
-  // Three ways to get through here:
-  // 1. The heap doesn't know of encoding or encode flags mask.
-  // 2. The heap doesn't have encoding enabled.
-  // 3. The heap has encoding enabled.
-  // Only in the third case is the encoding_ vector initialized.
+  heap_bit_source_ = heap_enumerator->heap().bit_source();
+
+  return true;
+}
+
+bool HeapEntryWalker::Next() {
+  HeapEntry curr_entry = {};
+  if (!GetDecodedEntry(&curr_entry))
+    return false;
+
+  TypePtr entry_type = curr_entry_.type();
+  Address next_start_addr =
+      curr_entry_.range().start() + entry_type->size() * curr_entry.size;
+
+  // TODO(siggi): Verify that this is monotonically forward...
+  curr_entry_ = TypedData(heap_bit_source_, entry_type,
+                          AddressRange(next_start_addr, entry_type->size()));
+
+  return true;
+}
+
+bool SegmentEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
+                                    const TypedData& segment) {
+  if (!HeapEntryWalker::Initialize(heap_enumerator))
+    return false;
+
   TypedData encode_flag_mask;
   TypedData encoding;
   TypedData heap = heap_enumerator->heap();
@@ -484,12 +558,6 @@ bool HeapEntryWalker::Initialize(HeapEnumerator* heap_enumerator) {
     }
   }
 
-  heap_bit_source_ = heap.bit_source();
-
-  return true;
-}
-
-bool HeapEntryWalker::EnumSegment(const TypedData& segment) {
   // Get the first entry.
   if (!segment.GetNamedField(L"Entry", &curr_entry_))
     return false;
@@ -509,7 +577,7 @@ bool HeapEntryWalker::EnumSegment(const TypedData& segment) {
   return true;
 }
 
-bool HeapEntryWalker::GetDecodedEntry(HeapEntry* entry) {
+bool SegmentEntryWalker::GetDecodedEntry(HeapEntry* entry) {
   DCHECK(entry);
   HeapEntry tmp = {};
 
@@ -530,27 +598,56 @@ bool HeapEntryWalker::GetDecodedEntry(HeapEntry* entry) {
   return true;
 }
 
-bool HeapEntryWalker::AtEnd() const {
+bool SegmentEntryWalker::AtEnd() const {
   if (curr_entry_.range().end() >= segment_range_.end())
     return true;
 
   return false;
 }
 
-bool HeapEntryWalker::Next() {
-  HeapEntry curr_entry = {};
-  if (!GetDecodedEntry(&curr_entry))
+bool LFHBinEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
+                                   SegmentEntryWalker* walker) {
+  DCHECK(heap_enumerator);
+  DCHECK(walker);
+
+  if (!HeapEntryWalker::Initialize(heap_enumerator))
     return false;
 
-  TypePtr entry_type = curr_entry_.type();
-  Address next_start_addr =
-      curr_entry_.range().start() + entry_type->size() * curr_entry.size;
+  // TODO(siggi): Acquire the data necessary to decode the entries.
+  AddressRange entry_range = walker->curr_entry().range();
 
-  // TODO(siggi): Verify that this is monotonically forward...
-  curr_entry_ = TypedData(heap_bit_source_, entry_type,
-                          AddressRange(next_start_addr, entry_type->size()));
+  HeapEntry entry = {};
+  if (!walker->GetDecodedEntry(&entry))
+    return false;
 
+  // TODO(siggi): Make this readable with a TypedData primitive.
+  //   The BE contains a userdata header, followed by a run of FE entries.
+  heap_userdata_header_type_ = heap_enumerator->heap_userdata_header_type();
+  bin_range_ =
+      AddressRange(entry_range.start(), entry.size * entry_range.size());
+  curr_entry_ = TypedData(
+      heap_bit_source_, walker->curr_entry().type(),
+      AddressRange(entry_range.end() + heap_userdata_header_type_->size(),
+                   entry_range.size()));
   return true;
+}
+
+bool LFHBinEntryWalker::GetDecodedEntry(HeapEntry* entry) {
+  // TODO(siggi): writeme.
+  return false;
+}
+
+bool LFHBinEntryWalker::AtEnd() const {
+  if (curr_entry_.range().end() >= bin_range_.end())
+    return true;
+
+  return false;
+}
+
+TypedData LFHBinEntryWalker::GetHeapUserDataHeader() {
+  return TypedData(heap_bit_source_, heap_userdata_header_type_,
+                   AddressRange(bin_range_.addr() + curr_entry_.type()->size(),
+                                heap_userdata_header_type_->size()));
 }
 
 bool GetNtdllTypes(TypeRepository* repo) {
@@ -696,11 +793,6 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
   if (enumerator.GetFrontEndHeap(&front_end_heap))
     DumpTypedData(front_end_heap, 0);
 
-  // This is used to walk the entries in each segment.
-  HeapEntryWalker walker;
-  if (!walker.Initialize(&enumerator))
-    return;
-
   // Enumerate the segments of the heap, by walking the segment list.
   ListEntryEnumerator enum_segments = enumerator.GetSegmentEnumerator();
   while (enum_segments.Next()) {
@@ -708,18 +800,21 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
 
     DumpTypedData(segment, 0);
 
+    // This is used to walk the entries in each segment.
+    SegmentEntryWalker segment_walker;
+
     // Enumerate the entries in the segment by walking them.
-    if (walker.EnumSegment(segment)) {
+    if (segment_walker.Initialize(&enumerator, segment)) {
       uint16_t prev_size = 0;
 
-      while (!walker.AtEnd()) {
+      while (!segment_walker.AtEnd()) {
         HeapEntryWalker::HeapEntry entry = {};
-        if (!walker.GetDecodedEntry(&entry)) {
+        if (!segment_walker.GetDecodedEntry(&entry)) {
           // TODO(siggi): This currently happens on stepping into an
           //     uncommitted range - do better - but how?
           fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
-                  walker.curr_entry().range().addr(),
-                  walker.curr_entry().range().size());
+                  segment_walker.curr_entry().range().addr(),
+                  segment_walker.curr_entry().range().size());
           break;
         }
 
@@ -730,7 +825,7 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
         }
 
         // The address range covered by the current entry.
-        refinery::AddressRange range(walker.curr_entry().range().addr(),
+        refinery::AddressRange range(segment_walker.curr_entry().range().addr(),
                                      entry.size * sizeof(entry));
         ::fprintf(output_, "Entry@0x%08llX(%d)\n", range.addr(), range.size());
 
@@ -743,9 +838,35 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
         prev_size = entry.size;
         ::fprintf(output_, " segment_index: 0x%02X\n", entry.segment_index);
         ::fprintf(output_, " unused_bytes: 0x%02X\n", entry.unused_bytes);
-        PrintAllocsInRange(range);
 
-        if (!walker.Next()) {
+        // TODO(siggi): The name of this flag does not fit modern times?
+        if (entry.flags & HEAP_ENTRY_VIRTUAL_ALLOC) {
+          LFHBinEntryWalker bin_walker;
+          if (bin_walker.Initialize(&enumerator, &segment_walker)) {
+            TypedData udh = bin_walker.GetHeapUserDataHeader();
+            DumpTypedData(udh, 2);
+
+            // TODO(siggi): Walk the bin entries and enumerate their contained
+            //    alloc(s).
+
+            uint64_t signature = 0;
+            if (GetNamedValueUnsigned(udh, L"Signature", &signature)) {
+              const uint32_t kUDHMagic = 0xF0E0D0C0;
+              if (signature != kUDHMagic) {
+                ::fprintf(output_, "UDH signature incorrect: 0x%08llX.\n",
+                          signature);
+              }
+            } else {
+              ::fprintf(output_, "GetNamedValueUnsigned failed.\n");
+            }
+          } else {
+            fprintf(output_, "LFHBinEntryWalker::Initialize failed\n");
+          }
+        } else {
+          PrintAllocsInRange(range);
+        }
+
+        if (!segment_walker.Next()) {
           fprintf(output_, "Next failed\n");
           break;
         }
