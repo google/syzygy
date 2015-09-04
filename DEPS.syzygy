@@ -12,16 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# Sawbuck builds on Chrome base, uses GYP, GTest, all of which requires
+# Syzygy builds on Chrome base, uses GYP, GTest, all of which requires
 # this build configuration.
 
 vars = {
-  "chrome_revision": "271365",
-  "gyp_revision": "1988",
-  "py_etw_revision": "559",
-
-  "chrome_base": "http://src.chromium.org/svn/trunk",
-  "chromium_git": "https://chromium.googlesource.com/chromium/",
+  "chromium_git": "https://chromium.googlesource.com/",
 
   # Paths to installed utilities used in hooks. These need to use
   # Windows style paths.
@@ -32,46 +27,39 @@ vars = {
 deps = {
   # Dependency required to build base.
   "src/third_party/icu":
-    Var("chromium_git") + "deps/icu46@" +
-        'fffc215567216e09f56578b254a56668f1c89add',
+    Var("chromium_git") + "chromium/deps/icu46@fffc215",
 
   # A general purpose X86 disassembler.
   "src/third_party/distorm/files":
-    "http://distorm.googlecode.com/svn/trunk@250",
+    "https://github.com/gdabah/distorm.git@25c9359",
 
   # Used for benchmarking.
   "src/third_party/dromaeo/files":
-    Var("chrome_base") + "/src/chrome/test/data/dromaeo@" +
-        Var("chrome_revision"),
+    Var("chromium_git") + "chromium/src/chrome/test/data/dromaeo@bdd0d52",
 
   # Used by our various ETW processing scripts.
+  # TODO(sebmarchand): Switch to the GitHub Organisation clone of this project
+  #     once its available.
   "src/third_party/sawbuck/py/etw":
-    "http://sawbuck.googlecode.com/svn/trunk/sawbuck/py/etw@" +
-        Var("py_etw_revision"),
+    "https://github.com/sebmarchand/pyetw.git@302431b",
 
   # A pinned version of Python to use with our scripts.
   # TODO(chrisha): Upgrade to Python 2.7.6, like the rest of Chromium.
   "src/third_party/python_26":
-    Var("chrome_base") + "/tools/third_party/python_26@" +
-        Var("chrome_revision"),
+    Var("chromium_git") + "chromium/deps/python_26@5bb4080",
 
   # This brings in GYP.
   "src/tools/gyp":
-    "http://gyp.googlecode.com/svn/trunk@" + Var("gyp_revision"),
+    "https://chromium.googlesource.com/external/gyp@2be082c",
 
   # This brings in code coverage tools, like croc. This is required for our
   # coverage generation.
   "src/tools/code_coverage":
-    Var("chrome_base") + "/src/tools/code_coverage@" + Var("chrome_revision"),
+    Var("chromium_git") + "chromium/src/tools/code_coverage@23081ea",
 
   # This brings in Clang. This is required to generate the project files.
   "src/tools/clang":
-    "https://chromium.googlesource.com/chromium/src/tools/clang@" +
-      '33c2e4149926da7262361323a111605877add859',
-
-  # This brings in protobuf, used by SyzyASan metadata.
-  "src/third_party/protobuf/src":
-    "http://protobuf.googlecode.com/svn/trunk/src@573",
+    Var("chromium_git") + "chromium/src/tools/clang@33c2e41",
 }
 
 

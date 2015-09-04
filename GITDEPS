@@ -22,6 +22,7 @@ vars = {
   "buildtools_revision": "ecc8e253abac3b6186a97573871a084f4c0ca3ae",
   "gmock_revision": "2742c12ed43e7ff5823157e33f2a0ac5a2dd17e0",  # r455.
   "gtest_revision": "bc830d325d07a8a943386446139be3ab3565e038",  # r668.
+  "protobuf_revision": "786379af4766fa7ec22b51862ba6e84156b1f9cb",
 }
 
 deps = {
@@ -61,5 +62,14 @@ deps = {
     [],
     Var("buildtools_revision"),
     {'recurse': True}
+  ),
+
+  # This brings in protobuf, used by SyzyASan metadata.
+  "third_party/protobuf": (
+    Var("chrome_base_git") + "external/github.com/google/protobuf",
+    [
+      "src",
+    ],
+    Var("protobuf_revision"),
   ),
 }
