@@ -624,6 +624,17 @@ TEST_P(PdbCrawlerTest, TestBitfields) {
   ValidateWildcardType(udt->GetFieldType(3), 0, L"LF_ENUM");
 }
 
+TEST_P(PdbCrawlerTest, TestLongFieldlist) {
+  TypePtr type = FindOneTypeBySuffix(L"::TestStructWithLongFieldlist");
+  ASSERT_TRUE(type);
+
+  UserDefinedTypePtr long_fieldlist;
+  ASSERT_TRUE(type->CastTo(&long_fieldlist));
+
+  // We should have read all of the fieldlist parts.
+  EXPECT_EQ(765U, long_fieldlist->fields().size());
+}
+
 // Run both the 32-bit and 64-bit tests.
 INSTANTIATE_TEST_CASE_P(InstantiateFor32and64,
                         PdbCrawlerTest,
