@@ -827,7 +827,7 @@ bool TypeCreator::AssignFunctionName(FunctionTypePtr function) {
   decorated_name.append(L")");
 
   function->SetName(name);
-  function->SetDecoratedName(name);
+  function->SetDecoratedName(decorated_name);
   return true;
 }
 

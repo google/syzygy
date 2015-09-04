@@ -416,6 +416,10 @@ TEST_P(PdbCrawlerTest, TestMFunction) {
 
   // Check that the function points to its containing class.
   EXPECT_EQ(function->containing_class_id(), type->type_id());
+
+  EXPECT_EQ(function->name(), L"void (" + type->name() + L"::)(int32_t)");
+  EXPECT_EQ(function->decorated_name(),
+            L"void (" + type->decorated_name() + L"::)(int32_t)");
 }
 
 TEST_P(PdbCrawlerTest, TestProcedure) {
