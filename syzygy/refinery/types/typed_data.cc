@@ -327,6 +327,33 @@ bool TypedData::GetArrayElement(size_t index, TypedData* element_data) const {
   return true;
 }
 
+bool TypedData::OffsetAndCast(ptrdiff_t offs,
+                              TypePtr new_type,
+                              TypedData* output) {
+  DCHECK(output);
+  if (!new_type)
+    return false;
+  if (!IsValid())
+    return false;
+
+  return OffsetBytesAndCast(offs * type()->size(), new_type, output);
+}
+
+bool TypedData::OffsetBytesAndCast(ptrdiff_t offs,
+                                   TypePtr new_type,
+                                   TypedData* output) {
+  DCHECK(output);
+  if (!new_type)
+    return false;
+  if (!IsValid())
+    return false;
+
+  // TODO(siggi): Validate the new range against the bit source with a new
+  //     interface.
+  *output = TypedData(bit_source(), new_type, addr() + offs);
+  return true;
+}
+
 AddressRange TypedData::GetRange() const {
   return AddressRange(addr(), type()->size());
 }

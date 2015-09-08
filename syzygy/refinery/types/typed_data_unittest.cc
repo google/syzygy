@@ -64,7 +64,8 @@ class TestBitSource : public BitSource {
 class TypedDataTest : public testing::Test {
  protected:
   void SetUp() override {
-    udt_ = CreateUDTType();
+    CreateTypes();
+
     ASSERT_TRUE(udt_);
   }
 
@@ -105,16 +106,17 @@ class TypedDataTest : public testing::Test {
   }
 
   UserDefinedTypePtr udt() const { return udt_; }
+  TypePtr uint32_type() const { return uint32_type_; }
 
  private:
-  UserDefinedTypePtr CreateUDTType() {
+  void CreateTypes() {
     TypePtr uint8_type = new BasicType(L"uint8_t", sizeof(uint8_t));
     TypePtr uint16_type = new BasicType(L"uint16_t", sizeof(uint16_t));
-    TypePtr uint32_type = new BasicType(L"uint32_t", sizeof(uint32_t));
+    uint32_type_ = new BasicType(L"uint32_t", sizeof(uint32_t));
     TypePtr int32_type = new BasicType(L"int32_t", sizeof(int32_t));
     repo_.AddType(uint8_type);
     repo_.AddType(uint16_type);
-    repo_.AddType(uint32_type);
+    repo_.AddType(uint32_type_);
     repo_.AddType(int32_type);
 
     UserDefinedType::Fields fields;
@@ -125,7 +127,7 @@ class TypedDataTest : public testing::Test {
         uint8_type->type_id()));
     fields.push_back(UserDefinedType::Field(
         L"inner_two", offsetof(TestUDT::InnerUDT, inner_two), 0, 0, 0,
-        uint32_type->type_id()));
+        uint32_type_->type_id()));
     inner->Finalize(fields, UserDefinedType::Functions());
     repo_.AddType(inner);
 
@@ -149,7 +151,7 @@ class TypedDataTest : public testing::Test {
         10, int32_type->type_id()));
 
     ArrayTypePtr array_type = new ArrayType(sizeof(test_instance.six));
-    array_type->Finalize(kNoTypeFlags, uint32_type->type_id(),
+    array_type->Finalize(kNoTypeFlags, uint32_type_->type_id(),
                          arraysize(test_instance.six), int32_type->type_id());
     repo_.AddType(array_type);
 
@@ -161,12 +163,13 @@ class TypedDataTest : public testing::Test {
 
     ptr_type->Finalize(Type::FLAG_CONST, outer->type_id());
 
-    return outer;
+    udt_ = outer;
   }
 
   BitSource* test_bit_source() { return &test_bit_source_; }
 
   UserDefinedTypePtr udt_;
+  TypePtr uint32_type_;
   TestBitSource test_bit_source_;
   TypeRepository repo_;
 };
@@ -329,6 +332,49 @@ TEST_F(TypedDataTest, GetArrayElement) {
   }
 
   ASSERT_FALSE(array.GetArrayElement(arraysize(test_instance.six), &element));
+}
+
+TEST_F(TypedDataTest, OffsetAndCast) {
+  TypedData data(GetTestInstance());
+
+  TypedData cast;
+  // Identity cast.
+  ASSERT_TRUE(data.OffsetAndCast(0, data.type(), &cast));
+  EXPECT_EQ(data.bit_source(), cast.bit_source());
+  EXPECT_EQ(data.addr(), cast.addr());
+  EXPECT_EQ(data.type(), cast.type());
+
+  // Append-cast.
+  ASSERT_TRUE(data.OffsetAndCast(1, uint32_type(), &cast));
+  EXPECT_EQ(data.bit_source(), cast.bit_source());
+  EXPECT_EQ(ToAddr(&test_instance + 1), cast.addr());
+  EXPECT_EQ(uint32_type(), cast.type());
+
+  // Try a negative offset.
+  ASSERT_TRUE(data.OffsetAndCast(-2, uint32_type(), &cast));
+  EXPECT_EQ(ToAddr(&test_instance - 2), cast.addr());
+}
+
+TEST_F(TypedDataTest, OffsetBytesAndCast) {
+  TypedData data(GetTestInstance());
+
+  TypedData cast;
+  // Identity cast.
+  ASSERT_TRUE(data.OffsetBytesAndCast(0, data.type(), &cast));
+  EXPECT_EQ(data.bit_source(), cast.bit_source());
+  EXPECT_EQ(data.addr(), cast.addr());
+  EXPECT_EQ(data.type(), cast.type());
+
+  // Forwards.
+  const ptrdiff_t kDistance = 24;
+  ASSERT_TRUE(data.OffsetBytesAndCast(kDistance, uint32_type(), &cast));
+  EXPECT_EQ(data.bit_source(), cast.bit_source());
+  EXPECT_EQ(ToAddr(&test_instance) + kDistance, cast.addr());
+  EXPECT_EQ(uint32_type(), cast.type());
+
+  // Try a negative offset.
+  ASSERT_TRUE(data.OffsetBytesAndCast(-kDistance, uint32_type(), &cast));
+  EXPECT_EQ(ToAddr(&test_instance) - kDistance, cast.addr());
 }
 
 }  // namespace refinery

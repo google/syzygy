@@ -96,6 +96,24 @@ class TypedData {
   // @returns true on success.
   bool GetArrayElement(size_t index, TypedData* element_data) const;
 
+  // Offsets the address of this instance by @p off times of the size of
+  // this instance, and casts the result to @p new_type.
+  // @note OffsetAndCast(1, some_type, &output) casts the memory immediately
+  //     adjoining this instance to "some_type".
+  // @param offs how much to offset.
+  // @param new_type the type to cast to.
+  // @param output on success returns the result.
+  // @returns true on success.
+  bool OffsetAndCast(ptrdiff_t offs, TypePtr new_type, TypedData* output);
+
+  // Offsets the address of this instance by @p off bytes, and casts the
+  // result to @p new_type.
+  // @param offs how many bytes to offset.
+  // @param type the type to cast to.
+  // @param output on success returns the result.
+  // @returns true on success.
+  bool OffsetBytesAndCast(ptrdiff_t offs, TypePtr new_type, TypedData* output);
+
   // Retrieves the address range covered by this instance.
   // @pre IsValid() == true.
   AddressRange GetRange() const;
