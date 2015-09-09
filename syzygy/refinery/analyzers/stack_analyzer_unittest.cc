@@ -250,7 +250,7 @@ class StackAnalyzerTest : public testing::Test {
   testing::ScopedEnvironmentVariable scoped_env_variable_;
 };
 
-TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
+TEST_F(StackAnalyzerTest, DISABLED_AnalyzeMinidump) {
   base::win::ScopedCOMInitializer com_initializer;
   base::FilePath path;
 
