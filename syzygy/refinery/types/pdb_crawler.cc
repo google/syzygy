@@ -152,6 +152,10 @@ class TypeCreator {
                                  size_t* bit_pos,
                                  size_t* bit_len);
 
+  // Accessors for forward references caching.
+  bool CacheUserDefinedTypeForwardDeclaration(TypeId fwd_id, TypeId class_id);
+  TypeId LookupConcreteClassForForwardDeclaration(TypeId type_id);
+
   // @returns name for a basic type specified by its @p type.
   static base::string16 BasicTypeName(uint16_t type);
 
@@ -214,6 +218,10 @@ class TypeCreator {
   // Hash to store the pdb leaf types of the individual records. Indexed by type
   // indices.
   base::hash_map<TypeId, uint16_t> types_map_;
+
+  // Hash which stores for each forward declaration the type index of the
+  // actual class type.
+  base::hash_map<TypeId, TypeId> fwd_reference_map_;
 
   // Vector of records to process.
   std::vector<TypeId> records_to_process_;
@@ -514,6 +522,10 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
         return nullptr;
       return udt;
     }
+
+    // Cache redirection to the real class.
+    if (!CacheUserDefinedTypeForwardDeclaration(type_id, real_class_id->second))
+      return nullptr;
 
     // Force parsing of the class.
     return FindOrCreateSpecificType(real_class_id->second,
@@ -1075,6 +1087,20 @@ uint16_t TypeCreator::GetLeafType(TypeId type_id) {
   }
 }
 
+bool TypeCreator::CacheUserDefinedTypeForwardDeclaration(TypeId fwd_id,
+                                                         TypeId class_id) {
+  return fwd_reference_map_.insert(std::make_pair(fwd_id, class_id)).second;
+}
+
+TypeId TypeCreator::LookupConcreteClassForForwardDeclaration(TypeId type_id) {
+  auto redir = fwd_reference_map_.find(type_id);
+  if (redir != fwd_reference_map_.end()) {
+    return redir->second;
+  } else {
+    return kNoTypeId;
+  }
+}
+
 bool TypeCreator::IsBasicPointerType(TypeId type_id) {
   if (type_id >= cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM)
     return false;
@@ -1116,6 +1142,10 @@ TypePtr TypeCreator::CreateWildcardType(TypeId type_id) {
 }
 
 TypePtr TypeCreator::FindOrCreateTypeImpl(TypeId type_id) {
+  TypeId concrete_type_id = LookupConcreteClassForForwardDeclaration(type_id);
+  if (concrete_type_id != kNoTypeId)
+    return repository_->GetType(concrete_type_id);
+
   TypePtr type = repository_->GetType(type_id);
   if (type != nullptr)
     return type;
