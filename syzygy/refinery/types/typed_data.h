@@ -104,7 +104,7 @@ class TypedData {
   // @param new_type the type to cast to.
   // @param output on success returns the result.
   // @returns true on success.
-  bool OffsetAndCast(ptrdiff_t offs, TypePtr new_type, TypedData* output);
+  bool OffsetAndCast(ptrdiff_t offs, TypePtr new_type, TypedData* output) const;
 
   // Offsets the address of this instance by @p off bytes, and casts the
   // result to @p new_type.
@@ -112,7 +112,9 @@ class TypedData {
   // @param type the type to cast to.
   // @param output on success returns the result.
   // @returns true on success.
-  bool OffsetBytesAndCast(ptrdiff_t offs, TypePtr new_type, TypedData* output);
+  bool OffsetBytesAndCast(ptrdiff_t offs,
+                          TypePtr new_type,
+                          TypedData* output) const;
 
   // Retrieves the address range covered by this instance.
   // @pre IsValid() == true.

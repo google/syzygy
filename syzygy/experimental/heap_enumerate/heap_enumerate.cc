@@ -468,7 +468,6 @@ class SegmentEntryWalker : public HeapEntryWalker {
   AddressRange segment_range_;
 
   // The encoding for entries in this range.
-  // TODO(siggi): This needs to change for LFH entry walking.
   std::vector<uint8_t> encoding_;
 
   DISALLOW_COPY_AND_ASSIGN(SegmentEntryWalker);
@@ -485,12 +484,15 @@ class LFHBinEntryWalker : public HeapEntryWalker {
   bool GetDecodedEntry(HeapEntry* entry) override;
   bool AtEnd() const override;
 
-  TypedData GetHeapUserDataHeader();
+  // Accessor.
+  const TypedData& heap_userdata_header() const {
+    return heap_userdata_header_;
+  }
 
  private:
   // An address range covering the bin under enumeration.
   AddressRange bin_range_;
-  UserDefinedTypePtr heap_userdata_header_type_;
+  TypedData heap_userdata_header_;
 
   DISALLOW_COPY_AND_ASSIGN(LFHBinEntryWalker);
 };
@@ -507,18 +509,12 @@ bool HeapEntryWalker::Initialize(HeapEnumerator* heap_enumerator) {
 }
 
 bool HeapEntryWalker::Next() {
-  HeapEntry curr_entry = {};
-  if (!GetDecodedEntry(&curr_entry))
+  HeapEntry decoded = {};
+  if (!GetDecodedEntry(&decoded))
     return false;
 
-  TypePtr entry_type = curr_entry_.type();
-  Address next_start_addr =
-      curr_entry_.addr() + entry_type->size() * curr_entry.size;
-
-  // TODO(siggi): Verify that this is monotonically forward...
-  curr_entry_ = TypedData(heap_bit_source_, entry_type, next_start_addr);
-
-  return true;
+  return curr_entry_.OffsetAndCast(decoded.size, curr_entry_.type(),
+                                   &curr_entry_);
 }
 
 bool SegmentEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
@@ -614,14 +610,23 @@ bool LFHBinEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
   if (!walker->GetDecodedEntry(&entry))
     return false;
 
-  // TODO(siggi): Make this readable with a TypedData primitive.
-  //   The BE contains a userdata header, followed by a run of FE entries.
-  heap_userdata_header_type_ = heap_enumerator->heap_userdata_header_type();
   bin_range_ =
       AddressRange(entry_range.start(), entry.size * entry_range.size());
-  curr_entry_ =
-      TypedData(heap_bit_source_, walker->curr_entry().type(),
-                entry_range.end() + heap_userdata_header_type_->size());
+
+  // The bin is comprised of a _HEAP_USERDATA_HEADER, followed by a
+  // concatenation of heap entries.
+  if (!walker->curr_entry().OffsetAndCast(
+          1, heap_enumerator->heap_userdata_header_type(),
+          &heap_userdata_header_)) {
+    return false;
+  }
+
+  // TODO(siggi): This is an awkard way to acquire this type.
+  if (!heap_userdata_header_.OffsetAndCast(1, walker->curr_entry().type(),
+                                           &curr_entry_)) {
+    return false;
+  }
+
   return true;
 }
 
@@ -635,11 +640,6 @@ bool LFHBinEntryWalker::AtEnd() const {
     return true;
 
   return false;
-}
-
-TypedData LFHBinEntryWalker::GetHeapUserDataHeader() {
-  return TypedData(heap_bit_source_, heap_userdata_header_type_,
-                   bin_range_.addr() + curr_entry_.type()->size());
 }
 
 bool GetNtdllTypes(TypeRepository* repo) {
@@ -835,7 +835,7 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
         if (entry.flags & HEAP_ENTRY_VIRTUAL_ALLOC) {
           LFHBinEntryWalker bin_walker;
           if (bin_walker.Initialize(&enumerator, &segment_walker)) {
-            TypedData udh = bin_walker.GetHeapUserDataHeader();
+            const TypedData& udh = bin_walker.heap_userdata_header();
             DumpTypedData(udh, 2);
 
             // TODO(siggi): Walk the bin entries and enumerate their contained

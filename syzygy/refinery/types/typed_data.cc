@@ -329,7 +329,7 @@ bool TypedData::GetArrayElement(size_t index, TypedData* element_data) const {
 
 bool TypedData::OffsetAndCast(ptrdiff_t offs,
                               TypePtr new_type,
-                              TypedData* output) {
+                              TypedData* output) const {
   DCHECK(output);
   if (!new_type)
     return false;
@@ -341,7 +341,7 @@ bool TypedData::OffsetAndCast(ptrdiff_t offs,
 
 bool TypedData::OffsetBytesAndCast(ptrdiff_t offs,
                                    TypePtr new_type,
-                                   TypedData* output) {
+                                   TypedData* output) const {
   DCHECK(output);
   if (!new_type)
     return false;
