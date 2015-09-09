@@ -54,10 +54,10 @@
           '4018',  # signed/unsigned mismatch.
           '4125',  # decimal digit terminates octal escape sequence.
         ],
+        # This target exports a hard dependency because it generates header
+        # files.
+        'hard_dependency': 1,
       },
-      # This target exports a hard dependency because it generates header
-      # files.
-      'hard_dependency': 1,
     },
     {
       'target_name': 'process_state_lib',
