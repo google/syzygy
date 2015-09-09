@@ -21,12 +21,13 @@ namespace testing {
 // variables these values appear in the symbol record stream and we can parse
 // them and use them for testing.
 #define REGISTER_SIZEOF(NAME, TYPE) \
-  static const size_t k##NAME##Size = sizeof(##TYPE)
+  static const size_t kPdbCrawler##NAME##Size = sizeof(##TYPE)
 #define REGISTER_SIZEOF_TYPE(TYPE) REGISTER_SIZEOF(##TYPE, ##TYPE)
 
 // Macro for registering the offset of a member field in the same way.
-#define REGISTER_OFFSETOF(TYPE, FIELD) \
-  static const size_t k##FIELD##In##TYPE##Offset = offsetof(##TYPE, ##FIELD)
+#define REGISTER_OFFSETOF(TYPE, FIELD)                       \
+  static const size_t kPdbCrawler##FIELD##In##TYPE##Offset = \
+      offsetof(##TYPE, ##FIELD)
 
 // Functions implemented to ensure all the test types make it into the
 // associated PDB file.

@@ -61,7 +61,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
   // the symbol stream. On failure the maximum possible value of size_t gets
   // returned which would cause failure of the test using this function.
   size_t LookupSizeOf(const base::string16& name) {
-    const auto it = constants_.find(L"k" + name + L"Size");
+    const auto it = constants_.find(name + L"Size");
     if (it != constants_.end()) {
       return it->second;
     } else {
@@ -75,7 +75,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
   // function.
   size_t LookupOffsetOf(const base::string16& type,
                         const base::string16& field) {
-    const auto it = constants_.find(L"k" + field + L"In" + type + L"Offset");
+    const auto it = constants_.find(field + L"In" + type + L"Offset");
     if (it != constants_.end()) {
       return it->second;
     } else {
@@ -103,6 +103,8 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
     ASSERT_TRUE(pdb::ReadSymbolRecord(
         sym_record_stream.get(), sym_record_stream->length(), &symbol_vector));
 
+    const base::string16 kPrefix = L"kPdbCrawler";
+
     pdb::SymbolRecordVector::const_iterator symbol_iter = symbol_vector.begin();
     for (; symbol_iter != symbol_vector.end(); ++symbol_iter) {
       ASSERT_TRUE(sym_record_stream->Seek(symbol_iter->start_position));
@@ -124,6 +126,12 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
       base::string16 name;
       ASSERT_TRUE(pdb::ReadWideString(sym_record_stream.get(), &name));
 
+      // We want to save only our own constants.
+      if (!base::StartsWith(name, kPrefix, base::CompareCase::SENSITIVE))
+        continue;
+
+      // Strip the prefix from the constant name and save.
+      name = name.substr(kPrefix.length(), base::string16::npos);
       constants_.insert(std::make_pair(name, value));
     }
   }
