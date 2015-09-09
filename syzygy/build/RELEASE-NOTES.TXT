@@ -1,6 +1,15 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.10.0
+
+[d692f37ef6] SyzyASan - Disable CtMalloc and put Kasko behind a feature flag..
+[9eecf1f1f4] SyzyASan - Register some crash keys immediately upon SyzyASAN
+             initialization.
+[e5ef6d14c8] SyzyASan - Disable optimization on key error handling functions.
+[4578f181d2] SyzyASan - Ignores near-nullptr accesses.
+[5248c93d6d] SyzyASan - Use the new Kasko memory range functionality.
+
 Version 0.8.9.0
 
 [b05aa394ae] SyzyASan - Improvements to corrupt block analysis.
