@@ -317,6 +317,9 @@ class AsanRuntime {
   // correlating duplicate crash reports on the back-end.
   const uint64_t random_key_;
 
+  // Indicates if Kasko is enabled.
+  bool enable_kasko_;
+
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };
 

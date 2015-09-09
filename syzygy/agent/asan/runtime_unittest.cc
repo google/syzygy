@@ -14,7 +14,7 @@
 
 #include "syzygy/agent/asan/runtime.h"
 
-#include <vector>
+#include <map>
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -247,13 +247,23 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
 
   const size_t kIterations = 10000;
 
-  std::vector<size_t> feature_group_frequency;
-  feature_group_frequency.resize(ASAN_FEATURE_MAX, 0);
+  std::map<size_t, size_t> feature_group_frequency;
 
   for (size_t i = 0; i < kIterations; ++i) {
     AsanFeatureSet feature_group = asan_runtime_.GenerateRandomFeatureSet();
     ASSERT_LT(feature_group, ASAN_FEATURE_MAX);
-    feature_group_frequency[feature_group]++;
+    if (feature_group_frequency.find(feature_group) !=
+        feature_group_frequency.end()) {
+      feature_group_frequency[feature_group]++;
+    } else {
+      feature_group_frequency[feature_group] = 0;
+    }
+  }
+
+  size_t number_of_disabled_features = 0;
+  for (size_t i = 0; i < sizeof(kAsanDisabledFeatureMask); ++i) {
+    if ((kAsanDisabledFeatureMask & (1 << i)) == 0)
+      number_of_disabled_features++;
   }
 
   // This could theoretically fail, but that would imply an extremely bad
@@ -261,11 +271,12 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
   // standard deviation of 1 / 8 * sqrt(10000 * 7) = 33. A 10% margin is
   // 1000 / 33 = 30 standard deviations. For |z| > 30, the p-value is < 0.00001
   // and can be considered as insignificant.
-  const size_t kExpectedCount = kIterations / ASAN_FEATURE_MAX;
+  const size_t kExpectedCount =
+    kIterations / (ASAN_FEATURE_MAX >> number_of_disabled_features);
   const size_t kErrorMargin = kExpectedCount / 10;
   for (const auto& iter : feature_group_frequency) {
-    EXPECT_LT(kExpectedCount - kErrorMargin, iter);
-    EXPECT_GT(kExpectedCount + kErrorMargin, iter);
+    EXPECT_LT(kExpectedCount - kErrorMargin, iter.second);
+    EXPECT_GT(kExpectedCount + kErrorMargin, iter.second);
   }
 
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
