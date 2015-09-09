@@ -347,26 +347,28 @@ bool TypeCreator::CreateTypesOfKind(enum SymTagEnum kind,
   if (!SUCCEEDED(hr))
     return false;
 
-  LONG count = 0;
-  hr = matching_types->get_Count(&count);
-  if (!SUCCEEDED(hr))
-    return false;
+  // The function get_Count from DIA has either a bug or is really badly
+  // implemented thus taking forever to finish. Therefore we simply load next
+  // symbol until reaching the end.
+  base::win::ScopedComPtr<IDiaSymbol> symbol;
+  ULONG received = 0;
+  hr = matching_types->Next(1, symbol.Receive(), &received);
 
-  for (LONG i = 0; i < count; ++i) {
-    base::win::ScopedComPtr<IDiaSymbol> symbol;
-
-    ULONG received = 0;
-    hr = matching_types->Next(1, symbol.Receive(), &received);
-    if (!SUCCEEDED(hr))
-      return false;
-
+  while (hr == S_OK) {
     scoped_refptr<Type> type = FindOrCreateType(symbol.get());
     if (!type)
       return false;
 
     if (!FinalizeType(symbol.get(), type))
       return false;
+
+    symbol.Release();
+    received = 0;
+    hr = matching_types->Next(1, symbol.Receive(), &received);
   }
+
+  if (!SUCCEEDED(hr))
+    return false;
 
   return true;
 }
