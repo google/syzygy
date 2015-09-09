@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.10.1
+
+[d5431ad295] Fixed the build configuration.
+
 Version 0.8.10.0
 
 [d692f37ef6] SyzyASan - Disable CtMalloc and put Kasko behind a feature flag..
