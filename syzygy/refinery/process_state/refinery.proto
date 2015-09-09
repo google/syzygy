@@ -70,6 +70,10 @@ message ThreadInformation {
 // Also holds thread information.
 message Stack {
   optional ThreadInformation thread_info = 1;
+
+  // TODO(manzagop): Remove. Temporary sentinel for unit testing, pending actual
+  // population of stack data in the process state.
+  optional bool stack_walk_success = 2;
 }
 
 message StackFrame {
