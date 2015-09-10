@@ -27,7 +27,7 @@ described in the following format.
 
 ##### Array
 - *elemtype:* OptionallyModifiedType
-- *idxtype:* UnsignedBasicType
+- *idxtype:* IndexingType
 
 ##### ArglistRecord
 - *index:* OptionallyModifiedType
@@ -36,7 +36,8 @@ described in the following format.
 - *index:* Class
 
 ##### Bitfield
- - *type:* IntegralBasicType
+ - *type:* IntegralBasicType |
+           Enum
 
 ##### Class
  - *field:* FieldList
@@ -47,12 +48,41 @@ described in the following format.
  - *field:* Fieldlist
  - *utype:* IntegralBasicType
 
+##### Fieldlist
+ This record is concatenation of records of the following types:
+
+ - BCLass
+ - VBClass
+ - Enumerate
+ - FriendCls
+ - FriendFcn
+ - Index
+ - Member
+ - STMember
+ - Method
+ - NestType
+ - VFuncTab
+ - OneMethod
+ - VFuncOff
+
+##### FriendCls (not used by VS 2013)
+ - *index:* UserDefinedType
+
+##### FriendFcn (not used by VS 2013)
+ - *index:* Procedure
+
+##### Index
+ - *index:* Fieldlist
+
 ##### Member
 - *index:* OptionallyModifiedType |
            Bitfield
 
 ##### Method
 - *mlist:* MethodList
+
+##### Methodlist
+ This record is just concatenation of MethodListRecord types.
 
 ##### MethodListRecord
 - *index:* MFunction
@@ -64,7 +94,7 @@ described in the following format.
 - *arglist:* Arglist
 
 ##### Modifier
-- *type:* DataType
+- *type:* ModifiableType
 
 ##### NestType
 - *index:* UserDefinedType
@@ -95,7 +125,7 @@ described in the following format.
 
 ## Sets of types used above
 
-- UnsignedBasicType
+- IndexingType
   - uint32_t
   - uint64_t
 - IntegralBasicType
@@ -108,14 +138,14 @@ described in the following format.
 - UserDefinedType
  - StructuredType
  - Enum
-- DataType
+- ModifiableType
   - BasicType
   - UserDefinedType
-  - Array
 - OptionallyModifiedType
- - DataType
+ - ModifiableType
  - Modifier
  - Pointer
+ - Array
 - PointableType
   - OptionallyModifiedType
   - Procedure
