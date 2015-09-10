@@ -23,14 +23,6 @@ namespace {
 
 class TypesTest : public testing::Test {
  protected:
-  TypePtr CreateUDT(const wchar_t* name,
-                    size_t size,
-                    const UserDefinedType::Fields& fields) {
-    UserDefinedTypePtr udt = new UserDefinedType(name, size);
-    udt->Finalize(fields, UserDefinedType::Functions());
-    return udt;
-  }
-
   TypePtr CreatePointerType(const wchar_t* name,
                             size_t size,
                             PointerType::Mode ptr_mode,
@@ -82,7 +74,7 @@ TEST_F(TypesTest, UserDefinedType) {
   const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt =
-      new UserDefinedType(L"foo", 10);
+      new UserDefinedType(L"foo", 10, UserDefinedType::UDT_CLASS);
 
   const TypeId kClassId = repo_.AddType(udt);
 
@@ -112,6 +104,7 @@ TEST_F(TypesTest, UserDefinedType) {
   ASSERT_EQ(type.get(), udt.get());
 
   EXPECT_FALSE(udt->is_fwd_decl());
+  EXPECT_EQ(UserDefinedType::UDT_CLASS, udt->udt_kind());
 
   // Verify the fields set up above.
   ASSERT_EQ(3U, udt->fields().size());
@@ -159,7 +152,8 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
                                           kBasicTypeId));
   const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
-  UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 10);
+  UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 10,
+                                               UserDefinedType::UDT_STRUCT);
   udt->Finalize(fields, UserDefinedType::Functions());
 
   repo_.AddType(udt);
@@ -177,6 +171,7 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   ASSERT_EQ(type.get(), udt.get());
 
   EXPECT_FALSE(udt->is_fwd_decl());
+  EXPECT_EQ(UserDefinedType::UDT_STRUCT, udt->udt_kind());
 
   // Verify the fields set up above.
   ASSERT_EQ(3U, udt->fields().size());
@@ -209,7 +204,8 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
 
 TEST_F(TypesTest, UserDefineTypeForwardDeclaration) {
   // Build a UDT instance.
-  UserDefinedTypePtr udt = new UserDefinedType(L"fwd", L"decorated_fwd", 0);
+  UserDefinedTypePtr udt = new UserDefinedType(L"fwd", L"decorated_fwd", 0,
+                                               UserDefinedType::UDT_STRUCT);
   udt->SetIsForwardDeclaration();
 
   repo_.AddType(udt);
@@ -333,8 +329,8 @@ TEST_F(TypesTest, FunctionType) {
   const TypeId kBoolTypeId = repo_.AddType(new BasicType(L"bool", 1));
   FunctionType::ArgumentType ret_value(Type::FLAG_CONST, kBoolTypeId);
 
-  const TypeId kClassType =
-      repo_.AddType(new UserDefinedType(L"foo", L"decorated_foo", 10));
+  const TypeId kClassType = repo_.AddType(new UserDefinedType(
+      L"foo", L"decorated_foo", 10, UserDefinedType::UDT_CLASS));
 
   FunctionTypePtr function = new FunctionType(FunctionType::CALL_NEAR_C);
   function->Finalize(ret_value, args, kClassType);

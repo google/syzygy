@@ -241,6 +241,9 @@ TEST_P(PdbCrawlerTest, TestSimpleUDT) {
   ASSERT_TRUE(type->CastTo(&udt));
   ASSERT_TRUE(udt);
 
+  EXPECT_FALSE(udt->is_fwd_decl());
+  EXPECT_EQ(UserDefinedType::UDT_STRUCT, udt->udt_kind());
+
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(6U, fields.size());
 
@@ -656,6 +659,31 @@ TEST_P(PdbCrawlerTest, TestForwardDeclaredClass) {
   EXPECT_EQ(0, udt->fields().size());
   EXPECT_EQ(0, udt->functions().size());
   EXPECT_TRUE(udt->is_fwd_decl());
+  EXPECT_EQ(UserDefinedType::UDT_CLASS, udt->udt_kind());
+}
+
+TEST_P(PdbCrawlerTest, TestUnion) {
+  TypePtr type = FindOneTypeBySuffix(L"::TestUnion");
+  ASSERT_TRUE(type);
+
+  ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  EXPECT_EQ(0, udt->functions().size());
+  EXPECT_FALSE(udt->is_fwd_decl());
+  EXPECT_EQ(UserDefinedType::UDT_UNION, udt->udt_kind());
+
+  const UserDefinedType::Fields& fields = udt->fields();
+  ASSERT_EQ(2U, fields.size());
+
+  ValidateField(fields[0], 0, 0, 0, !kIsConst, !kIsVolatile, L"signed_int");
+  ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
+
+  ValidateField(fields[1], 0, 0, 0, !kIsConst, !kIsVolatile, L"unsigned_int");
+  ValidateBasicType(udt->GetFieldType(1), sizeof(uint32_t), L"uint32_t");
 }
 
 // Run both the 32-bit and 64-bit tests.

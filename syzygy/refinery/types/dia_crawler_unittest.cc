@@ -65,6 +65,9 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   ASSERT_TRUE(type->CastTo(&udt));
   ASSERT_TRUE(udt);
 
+  EXPECT_FALSE(udt->is_fwd_decl());
+  EXPECT_EQ(UserDefinedType::UDT_STRUCT, udt->udt_kind());
+
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(6U, fields.size());
 
@@ -224,6 +227,22 @@ TEST_F(DiaCrawlerTest, TestArray) {
 
   element_type = ptr_array->GetElementType();
   EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
+}
+
+TEST_F(DiaCrawlerTest, TestUnion) {
+  TypePtr type = FindTypeEndingWith(L"::TestUnion");
+  ASSERT_TRUE(type);
+
+  ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  EXPECT_EQ(0, udt->functions().size());
+  EXPECT_EQ(2U, udt->fields().size());
+  EXPECT_FALSE(udt->is_fwd_decl());
+  EXPECT_EQ(UserDefinedType::UDT_UNION, udt->udt_kind());
 }
 
 }  // namespace refinery

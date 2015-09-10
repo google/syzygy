@@ -53,6 +53,18 @@ const char* GetTypeKindName(refinery::Type::TypeKind kind) {
   return "";
 }
 
+const char* GetUdtKindName(refinery::UserDefinedType::UdtKind kind) {
+  switch (kind) {
+    case refinery::UserDefinedType::UDT_CLASS:
+      return "UDT_CLASS";
+    case refinery::UserDefinedType::UDT_STRUCT:
+      return "UDT_STRUCT";
+    case refinery::UserDefinedType::UDT_UNION:
+      return "UDT_UNION";
+  }
+  return "";
+}
+
 const char* GetCallConventionName(refinery::FunctionType::CallConvention call) {
   switch (call) {
     case refinery::FunctionType::CALL_NEAR_C:
@@ -180,6 +192,8 @@ void PdbTypeDumpApp::DumpUserDefinedType(refinery::UserDefinedTypePtr type,
                                          uint8_t indent_level) {
   DCHECK(type != nullptr);
 
+  DumpIndentedText(out(), indent_level, "UDT kind: %s\n",
+                   GetUdtKindName(type->udt_kind()));
   if (type->is_fwd_decl()) {
     DumpIndentedText(out(), indent_level,
                      "This is only forward declaration.\n");

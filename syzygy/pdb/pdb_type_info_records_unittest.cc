@@ -512,6 +512,39 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafSTMember) {
   EXPECT_EQ(kName, type_record.name());
 }
 
+TEST_F(PdbTypeInfoRecordsTest, ReadLeafUnion) {
+  const uint16_t kCount = 21;
+  const LeafPropertyField kProperty = {0x0200};
+  EXPECT_TRUE(kProperty.decorated_name_present);
+  const uint32_t kField = 0x3107;
+  const uint64_t kSize = 0xBABE;
+  const wchar_t kName[] = L"TestUnionName";
+  const wchar_t kDecoratedName[] = L"TestUnionName@@decoration";
+
+  LeafUnion type_record;
+
+  // Fail reading from an empty stream.
+  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+
+  // Fill the stream.
+  WriteData(kCount);
+  WriteData(kProperty);
+  WriteData(kField);
+  WriteUnsignedNumeric(kSize);
+  WriteWideString(kName);
+  WriteWideString(kDecoratedName);
+
+  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+
+  EXPECT_EQ(kCount, type_record.body().count);
+  EXPECT_EQ(kProperty.raw, type_record.property().raw);
+  EXPECT_EQ(kField, type_record.body().field);
+  EXPECT_EQ(kSize, type_record.size());
+  EXPECT_TRUE(type_record.has_decorated_name());
+  EXPECT_EQ(kName, type_record.name());
+  EXPECT_EQ(kDecoratedName, type_record.decorated_name());
+}
+
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
   const uint32_t kType = 0x0480;
   const LeafMemberAttributeField kAttr = {0x0BAD};

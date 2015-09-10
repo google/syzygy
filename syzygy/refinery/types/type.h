@@ -137,17 +137,20 @@ class UserDefinedType : public Type {
   typedef std::vector<Function> Functions;
   static const TypeKind ID = USER_DEFINED_TYPE_KIND;
 
+  enum UdtKind { UDT_CLASS, UDT_STRUCT, UDT_UNION };
+
   // Creates a new user defined type with name @p name, size @p size.
   // This creates an un-finalized UDT with no fields.
   // This will eventually be deleted.
-  UserDefinedType(const base::string16& name, size_t size);
+  UserDefinedType(const base::string16& name, size_t size, UdtKind udt_kind);
 
   // Creates a new user defined type with name @p name, decorated name @p
   // decorated_name and size @p size.
   // This creates an un-finalized UDT with no fields.
   UserDefinedType(const base::string16& name,
                   const base::string16& decorated_name,
-                  size_t size);
+                  size_t size,
+                  UdtKind udt_kind);
 
   // Retrieves the type associated with field @p field_no.
   // @pre field_no < fields().size().
@@ -164,6 +167,7 @@ class UserDefinedType : public Type {
   const Fields& fields() const { return fields_; }
   const Functions& functions() const { return functions_; }
   bool is_fwd_decl() const { return is_fwd_decl_; }
+  UdtKind udt_kind() const { return udt_kind_; }
   // @}
 
   // Finalize the type by providing it with a field list.
@@ -181,6 +185,7 @@ class UserDefinedType : public Type {
   Fields fields_;
   Functions functions_;
   bool is_fwd_decl_;
+  UdtKind udt_kind_;
 
   DISALLOW_COPY_AND_ASSIGN(UserDefinedType);
 };

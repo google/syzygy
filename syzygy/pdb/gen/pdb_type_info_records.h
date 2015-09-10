@@ -439,6 +439,38 @@ class LeafSTMember {
   base::string16 name_;
 };
 
+class LeafUnion {
+ public:
+  LeafUnion();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafUnion& body() const { return body_; }
+  uint64_t size() const { return size_; }
+  const base::string16& name() const { return name_; }
+  const base::string16& decorated_name() const { return decorated_name_; }
+  LeafPropertyField property() const { return {body_.property}; }
+  // @}
+
+  bool has_decorated_name() const {
+    return (property().decorated_name_present != 0);
+  }
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafUnion body_;
+
+  // Additional fields parsed from the pdb stream.
+  uint64_t size_;
+  base::string16 name_;
+  base::string16 decorated_name_;
+};
+
 class LeafVBClass {
  public:
   LeafVBClass();

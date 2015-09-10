@@ -83,6 +83,11 @@ struct TestBitfields {
   const UnderlyingEnum const_enum_bitfield : 1;
 };
 
+union TestUnion {
+  int signed_int;
+  unsigned int unsigned_int;
+};
+
 // The following classes are set up to test correct reading of pointer to data
 // members and functions.
 class A {};
@@ -191,6 +196,9 @@ void AliasTypesOne() {
 
   TestNullptrType nullptr_type = {};
   Alias(&nullptr_type);
+
+  TestUnion union_type = {};
+  Alias(&union_type);
 }
 
 }  // namespace testing

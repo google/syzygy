@@ -311,6 +311,30 @@ bool LeafSTMember::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafUnion::LeafUnion() : body_{},
+                         size_{},
+                         name_{},
+                         decorated_name_{} {}
+
+bool LeafUnion::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafUnion, data);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadUnsignedNumeric(stream, &size_))
+    return false;
+  if (!ReadWideString(stream, &name_))
+    return false;
+  if ((property().decorated_name_present != 0) &&
+      !ReadWideString(stream, &decorated_name_)) {
+    return false;
+  }
+
+  return true;
+}
+
 LeafVBClass::LeafVBClass() : body_{},
                              vbpoff_{},
                              vboff_{} {}

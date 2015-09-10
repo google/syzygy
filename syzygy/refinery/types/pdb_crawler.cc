@@ -497,47 +497,91 @@ bool TypeCreator::ReadArglist(TypeId type_id,
 
 TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
   DCHECK(GetLeafType(type_id) == cci::LF_CLASS ||
-         GetLeafType(type_id) == cci::LF_STRUCTURE);
+         GetLeafType(type_id) == cci::LF_STRUCTURE ||
+         GetLeafType(type_id) == cci::LF_UNION);
 
   if (!type_info_enum_.SeekRecord(type_id))
     return nullptr;
 
-  pdb::LeafClass type_info;
-  if (!type_info.Initialize(stream_.get())) {
-    LOG(ERROR) << "Unable to read type info record.";
-    return nullptr;
+  // Read the values from the PDB records.
+  LeafPropertyField property = {};
+  TypeId fieldlist_id = kNoTypeId;
+  uint64_t size = 0;
+  base::string16 name;
+  base::string16 decorated_name;
+
+  if (type_info_enum_.type() == cci::LF_CLASS ||
+      type_info_enum_.type() == cci::LF_STRUCTURE) {
+    pdb::LeafClass type_info;
+    if (!type_info.Initialize(stream_.get())) {
+      LOG(ERROR) << "Unable to read type info record.";
+      return nullptr;
+    }
+    property = type_info.property();
+    fieldlist_id = type_info.body().field;
+    size = type_info.size();
+    name = type_info.name();
+    decorated_name = type_info.decorated_name();
+  } else if (type_info_enum_.type() == cci::LF_UNION) {
+    pdb::LeafUnion type_info;
+    if (!type_info.Initialize(stream_.get())) {
+      LOG(ERROR) << "Unable to read type info record.";
+      return nullptr;
+    }
+    property = type_info.property();
+    fieldlist_id = type_info.body().field;
+    size = type_info.size();
+    name = type_info.name();
+    decorated_name = type_info.decorated_name();
   }
 
-  if (type_info.property().fwdref) {
-    // Find the type index of the class.
-    auto real_class_id = udt_map.find(type_info.decorated_name());
+  // Set the correct UDT kind.
+  UserDefinedType::UdtKind udt_kind = UserDefinedType::UDT_CLASS;
+  switch (type_info_enum_.type()) {
+    case cci::LF_CLASS: {
+      udt_kind = UserDefinedType::UDT_CLASS;
+      break;
+    }
+    case cci::LF_STRUCTURE: {
+      udt_kind = UserDefinedType::UDT_STRUCT;
+      break;
+    }
+    case cci::LF_UNION: {
+      udt_kind = UserDefinedType::UDT_UNION;
+      break;
+    }
+  }
+
+  if (property.fwdref) {
+    // Find the type index of the UDT.
+    auto real_class_id = udt_map.find(decorated_name);
     if (real_class_id == udt_map.end()) {
-      // This is a forward reference without real class record.
-      UserDefinedTypePtr udt = new UserDefinedType(
-          type_info.name(), type_info.decorated_name(), type_info.size());
+      // This is a forward reference without real UDT record.
+      UserDefinedTypePtr udt =
+          new UserDefinedType(name, decorated_name, size, udt_kind);
       udt->SetIsForwardDeclaration();
       if (!repository_->AddTypeWithId(udt, type_id))
         return nullptr;
       return udt;
     }
 
-    // Cache redirection to the real class.
+    // Cache redirection to the real UDT.
     if (!CacheUserDefinedTypeForwardDeclaration(type_id, real_class_id->second))
       return nullptr;
 
-    // Force parsing of the class.
+    // Force parsing of the UDT.
     return FindOrCreateSpecificType(real_class_id->second,
                                     type_info_enum_.type());
   } else {
     // Create UDT of the class and find its fieldlist.
-    UserDefinedTypePtr udt = new UserDefinedType(
-        type_info.name(), type_info.decorated_name(), type_info.size());
+    UserDefinedTypePtr udt =
+        new UserDefinedType(name, decorated_name, size, udt_kind);
     if (!repository_->AddTypeWithId(udt, type_id))
       return nullptr;
 
     UserDefinedType::Fields fieldlist;
     UserDefinedType::Functions functionlist;
-    if (!ReadFieldlist(type_info.body().field, &fieldlist, &functionlist))
+    if (!ReadFieldlist(fieldlist_id, &fieldlist, &functionlist))
       return false;
 
     udt->Finalize(fieldlist, functionlist);
@@ -1044,6 +1088,7 @@ bool TypeCreator::IsImportantType(uint32_t type) {
   switch (type) {
     case cci::LF_CLASS:
     case cci::LF_STRUCTURE:
+    case cci::LF_UNION:
     case cci::LF_ARRAY:
     case cci::LF_POINTER:
     case cci::LF_PROCEDURE:
@@ -1312,7 +1357,8 @@ TypePtr TypeCreator::FindOrCreateSpecificType(TypeId type_id, uint16_t type) {
 TypePtr TypeCreator::CreateType(TypeId type_id) {
   switch (GetLeafType(type_id)) {
     case cci::LF_CLASS:
-    case cci::LF_STRUCTURE: {
+    case cci::LF_STRUCTURE:
+    case cci::LF_UNION: {
       return CreateUserDefinedType(type_id);
     }
     case cci::LF_POINTER: {

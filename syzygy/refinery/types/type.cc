@@ -58,14 +58,20 @@ void Type::SetDecoratedName(const base::string16& decorated_name) {
   decorated_name_ = decorated_name;
 }
 
-UserDefinedType::UserDefinedType(const base::string16& name, size_t size)
-    : is_fwd_decl_(false), Type(USER_DEFINED_TYPE_KIND, name, size) {
+UserDefinedType::UserDefinedType(const base::string16& name,
+                                 size_t size,
+                                 UdtKind udt_kind)
+    : is_fwd_decl_(false),
+      udt_kind_(udt_kind),
+      Type(USER_DEFINED_TYPE_KIND, name, size) {
 }
 
 UserDefinedType::UserDefinedType(const base::string16& name,
                                  const base::string16& decorated_name,
-                                 size_t size)
+                                 size_t size,
+                                 UdtKind udt_kind)
     : is_fwd_decl_(false),
+      udt_kind_(udt_kind),
       Type(USER_DEFINED_TYPE_KIND, name, decorated_name, size) {
 }
 

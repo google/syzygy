@@ -282,6 +282,35 @@ bool GetSymPtrMode(IDiaSymbol* symbol, PointerType::Mode* is_reference) {
   return true;
 }
 
+bool GetSymUdtKind(IDiaSymbol* symbol, UserDefinedType::UdtKind* udt_kind) {
+  DCHECK(symbol);
+  DCHECK(udt_kind);
+  DWORD cci_udt_kind;
+  HRESULT hr = symbol->get_udtKind(&cci_udt_kind);
+  if (hr != S_OK)
+    return false;
+
+  switch (cci_udt_kind) {
+    case UdtStruct: {
+      *udt_kind = UserDefinedType::UDT_STRUCT;
+      break;
+    }
+    case UdtClass: {
+      *udt_kind = UserDefinedType::UDT_CLASS;
+      break;
+    }
+    case UdtUnion: {
+      *udt_kind = UserDefinedType::UDT_UNION;
+      break;
+    }
+    case UdtInterface: {
+      NOTREACHED() << "Stumbled upon interface UDT kind which we don't expect.";
+    }
+  }
+
+  return true;
+}
+
 class TypeCreator {
  public:
   explicit TypeCreator(TypeRepository* repository);
@@ -569,10 +598,13 @@ TypePtr TypeCreator::CreateUDT(IDiaSymbol* symbol) {
 
   base::string16 name;
   size_t size = 0;
-  if (!GetSymName(symbol, &name) || !GetSymSize(symbol, &size))
+  UserDefinedType::UdtKind udt_kind;
+  if (!GetSymName(symbol, &name) || !GetSymSize(symbol, &size) ||
+      !GetSymUdtKind(symbol, &udt_kind)) {
     return nullptr;
+  }
 
-  return new UserDefinedType(name, size);
+  return new UserDefinedType(name, size, udt_kind);
 }
 
 TypePtr TypeCreator::CreateEnum(IDiaSymbol* symbol) {

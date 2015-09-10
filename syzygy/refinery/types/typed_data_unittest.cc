@@ -120,8 +120,8 @@ class TypedDataTest : public testing::Test {
     repo_.AddType(int32_type);
 
     UserDefinedType::Fields fields;
-    UserDefinedTypePtr inner(
-        new UserDefinedType(L"Inner", sizeof(TestUDT::InnerUDT)));
+    UserDefinedTypePtr inner(new UserDefinedType(
+        L"Inner", sizeof(TestUDT::InnerUDT), UserDefinedType::UDT_STRUCT));
     fields.push_back(UserDefinedType::Field(
         L"inner_one", offsetof(TestUDT::InnerUDT, inner_one), 0, 0, 0,
         uint8_type->type_id()));
@@ -132,7 +132,8 @@ class TypedDataTest : public testing::Test {
     repo_.AddType(inner);
 
     fields.clear();
-    UserDefinedTypePtr outer(new UserDefinedType(L"TestUDT", sizeof(TestUDT)));
+    UserDefinedTypePtr outer(new UserDefinedType(L"TestUDT", sizeof(TestUDT),
+                                                 UserDefinedType::UDT_STRUCT));
     PointerTypePtr ptr_type(
         new PointerType(sizeof(TestUDT*), PointerType::PTR_MODE_PTR));
     repo_.AddType(ptr_type);
