@@ -180,6 +180,11 @@ void PdbTypeDumpApp::DumpUserDefinedType(refinery::UserDefinedTypePtr type,
                                          uint8_t indent_level) {
   DCHECK(type != nullptr);
 
+  if (type->is_fwd_decl()) {
+    DumpIndentedText(out(), indent_level,
+                     "This is only forward declaration.\n");
+  }
+
   DumpIndentedText(out(), indent_level, "%d member fields:\n",
                    type->fields().size());
   for (const auto& field : type->fields())
