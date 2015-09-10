@@ -643,6 +643,21 @@ TEST_P(PdbCrawlerTest, TestLongFieldlist) {
   EXPECT_EQ(765U, long_fieldlist->fields().size());
 }
 
+TEST_P(PdbCrawlerTest, TestForwardDeclaredClass) {
+  TypePtr type = FindOneTypeBySuffix(L"::Unknown");
+  ASSERT_TRUE(type);
+
+  ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  EXPECT_EQ(0, udt->fields().size());
+  EXPECT_EQ(0, udt->functions().size());
+  EXPECT_TRUE(udt->is_fwd_decl());
+}
+
 // Run both the 32-bit and 64-bit tests.
 INSTANTIATE_TEST_CASE_P(InstantiateFor32and64,
                         PdbCrawlerTest,

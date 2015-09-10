@@ -513,9 +513,9 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
     auto real_class_id = udt_map.find(type_info.decorated_name());
     if (real_class_id == udt_map.end()) {
       // This is a forward reference without real class record.
-      // TODO(mopler): Add forward declaration flag in the UDT type.
       UserDefinedTypePtr udt = new UserDefinedType(
           type_info.name(), type_info.decorated_name(), type_info.size());
+      udt->SetIsForwardDeclaration();
       if (!repository_->AddTypeWithId(udt, type_id))
         return nullptr;
       return udt;

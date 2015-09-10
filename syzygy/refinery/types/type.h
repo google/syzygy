@@ -163,6 +163,7 @@ class UserDefinedType : public Type {
   // @{
   const Fields& fields() const { return fields_; }
   const Functions& functions() const { return functions_; }
+  bool is_fwd_decl() const { return is_fwd_decl_; }
   // @}
 
   // Finalize the type by providing it with a field list.
@@ -171,9 +172,15 @@ class UserDefinedType : public Type {
   // @note this can only be called once per type instance.
   void Finalize(const Fields& fields, const Functions& functions);
 
+  // Set this as forward declaration without concrete class.
+  // @note this can only be called once per type instance. Moreover this and
+  //    finalizing the UDT are mutually exclusive.
+  void SetIsForwardDeclaration();
+
  private:
   Fields fields_;
   Functions functions_;
+  bool is_fwd_decl_;
 
   DISALLOW_COPY_AND_ASSIGN(UserDefinedType);
 };

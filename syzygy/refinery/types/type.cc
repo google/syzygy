@@ -58,14 +58,15 @@ void Type::SetDecoratedName(const base::string16& decorated_name) {
   decorated_name_ = decorated_name;
 }
 
-UserDefinedType::UserDefinedType(const base::string16& name, size_t size) :
-    Type(USER_DEFINED_TYPE_KIND, name, size) {
+UserDefinedType::UserDefinedType(const base::string16& name, size_t size)
+    : is_fwd_decl_(false), Type(USER_DEFINED_TYPE_KIND, name, size) {
 }
 
 UserDefinedType::UserDefinedType(const base::string16& name,
                                  const base::string16& decorated_name,
                                  size_t size)
-    : Type(USER_DEFINED_TYPE_KIND, name, decorated_name, size) {
+    : is_fwd_decl_(false),
+      Type(USER_DEFINED_TYPE_KIND, name, decorated_name, size) {
 }
 
 TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
@@ -88,6 +89,7 @@ BasicType::BasicType(const base::string16& name, size_t size)
 
 void UserDefinedType::Finalize(const Fields& fields,
                                const Functions& functions) {
+  DCHECK(!is_fwd_decl_);
   DCHECK_EQ(0U, fields_.size());
   DCHECK_EQ(0U, functions_.size());
   for (auto field : fields)
@@ -95,6 +97,14 @@ void UserDefinedType::Finalize(const Fields& fields,
 
   for (auto function : functions)
     functions_.push_back(function);
+}
+
+void UserDefinedType::SetIsForwardDeclaration() {
+  DCHECK(!is_fwd_decl_);
+  DCHECK_EQ(0U, fields_.size());
+  DCHECK_EQ(0U, functions_.size());
+
+  is_fwd_decl_ = true;
 }
 
 UserDefinedType::Field::Field(const base::string16& name,

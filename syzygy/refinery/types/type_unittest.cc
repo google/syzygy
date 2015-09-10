@@ -70,7 +70,7 @@ TEST_F(TypesTest, BasicType) {
 }
 
 // This test will eventually be deleted with the no-decorated-name constructor.
-TEST_F(TypesTest, UserDefineType) {
+TEST_F(TypesTest, UserDefinedType) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
 
@@ -111,6 +111,8 @@ TEST_F(TypesTest, UserDefineType) {
   ASSERT_TRUE(type->CastTo(&udt));
   ASSERT_EQ(type.get(), udt.get());
 
+  EXPECT_FALSE(udt->is_fwd_decl());
+
   // Verify the fields set up above.
   ASSERT_EQ(3U, udt->fields().size());
 
@@ -147,7 +149,6 @@ TEST_F(TypesTest, UserDefineType) {
   EXPECT_EQ(function->containing_class_id(), udt->type_id());
 }
 
-// This test will eventually be deleted with the no-decorated-name constructor.
 TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
@@ -174,6 +175,8 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
 
   ASSERT_TRUE(type->CastTo(&udt));
   ASSERT_EQ(type.get(), udt.get());
+
+  EXPECT_FALSE(udt->is_fwd_decl());
 
   // Verify the fields set up above.
   ASSERT_EQ(3U, udt->fields().size());
@@ -202,6 +205,31 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&basic_type));
   EXPECT_EQ(L"short", basic_type->name());
   EXPECT_EQ(2, basic_type->size());
+}
+
+TEST_F(TypesTest, UserDefineTypeForwardDeclaration) {
+  // Build a UDT instance.
+  UserDefinedTypePtr udt = new UserDefinedType(L"fwd", L"decorated_fwd", 0);
+  udt->SetIsForwardDeclaration();
+
+  repo_.AddType(udt);
+
+  // Up-cast it.
+  TypePtr type(udt);
+  udt = nullptr;
+
+  ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
+  EXPECT_EQ(L"fwd", type->name());
+  EXPECT_EQ(L"decorated_fwd", type->decorated_name());
+  EXPECT_EQ(0, type->size());
+
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_EQ(type.get(), udt.get());
+
+  EXPECT_TRUE(udt->is_fwd_decl());
+
+  EXPECT_EQ(0, udt->fields().size());
+  EXPECT_EQ(0, udt->functions().size());
 }
 
 TEST_F(TypesTest, PointerType) {
