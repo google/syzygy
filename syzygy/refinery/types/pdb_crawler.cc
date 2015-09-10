@@ -313,8 +313,6 @@ TypePtr TypeCreator::ReadPointer(TypeId type_id, Type::Flags* flags) {
 
   *flags =
       CreateTypeFlags(type_info.attr().isconst, type_info.attr().isvolatile);
-  if (!stream_->Seek(0))
-    return nullptr;
 
   return FindOrCreateSpecificType(type_info_enum_.type_id(), cci::LF_POINTER);
 }
