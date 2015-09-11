@@ -591,6 +591,40 @@ bool DumpLocalSym(FILE* out,
   return false;
 }
 
+bool DumpLocalSym2013(FILE* out,
+                      PdbStream* stream,
+                      uint16 len,
+                      uint8 indent_level) {
+  LocalSym2013 symbol_info = {};
+  std::string symbol_name;
+  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name)) {
+    return false;
+  }
+
+  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
+  DumpIndentedText(out, indent_level, "typeind: %d\n", symbol_info.typind);
+  DumpIndentedText(out, indent_level, "Flags:\n");
+  DumpIndentedText(out, indent_level + 1, "IsParam            : %d\n",
+                   symbol_info.flags.fIsParam);
+  DumpIndentedText(out, indent_level + 1, "AddrTaken          : %d\n",
+                   symbol_info.flags.fAddrTaken);
+  DumpIndentedText(out, indent_level + 1, "CompGenx           : %d\n",
+                   symbol_info.flags.fCompGenx);
+  DumpIndentedText(out, indent_level + 1, "IsAggregate        : %d\n",
+                   symbol_info.flags.fIsAggregate);
+  DumpIndentedText(out, indent_level + 1, "IsAggregated       : %d\n",
+                   symbol_info.flags.fIsAggregated);
+  DumpIndentedText(out, indent_level + 1, "IsAliased          : %d\n",
+                   symbol_info.flags.fIsAliased);
+  DumpIndentedText(out, indent_level + 1, "IsAlias            : %d\n",
+                   symbol_info.flags.fIsAlias);
+  DumpIndentedText(out, indent_level + 1, "reserved           : %d\n",
+                   symbol_info.flags.reserved);
+  DumpIndentedText(out, indent_level, "name: %s\n", symbol_name.c_str());
+
+  return true;
+}
+
 bool DumpDefRangeSym(FILE* out,
                      PdbStream* stream,
                      uint16 len,

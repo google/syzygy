@@ -174,7 +174,7 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_DISCARDED, DiscardedSym) \
     decl(S_COMPILE3, CompileSym2) \
     decl(S_MSTOOLENV_V3, MSToolEnvV3) \
-    decl(S_LOCAL_VS2013, LocalSym) \
+    decl(S_LOCAL_VS2013, LocalSym2013) \
     decl(S_LPROC32_VS2013, ProcSym32) \
     decl(S_GPROC32_VS2013, ProcSym32)
 
@@ -683,12 +683,12 @@ union LocalVarFlags {
 COMPILE_ASSERT_IS_POD_OF_SIZE(LocalVarFlags, 2);
 
 // New symbol used for local symbols.
-struct LocalSym {
+struct LocalSym2013 {
   uint32 typind;       // (type index) type index
   LocalVarFlags flags; // local var flags
-  // string name       // Name of this symbol.
+  uint8 name[1];       // Name of this symbol.
 };
-COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym, 6);
+COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym2013, 7);
 
 #pragma pack(pop)
 
