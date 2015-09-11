@@ -215,6 +215,7 @@
         'coff_relinker_unittest.cc',
         'coff_transform_policy_unittest.cc',
         'coff_utils_unittest.cc',
+        'cvinfo_ext_unittest.cc',
         'decompose_app_unittest.cc',
         'decompose_image_to_text_unittest.cc',
         'decomposer_unittest.cc',

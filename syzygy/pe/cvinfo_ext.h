@@ -41,6 +41,7 @@ const uint16 S_ENTRYTHIS = 0x000E;  // Description of this pointer at entry.
 // Symbols that are not in the enum in the cv_info file.
 const uint16 S_COMPILE3 = 0x113C;
 const uint16 S_MSTOOLENV_V3 = 0x113D;
+const uint16 S_LOCAL_VS2013 = 0x113E;
 
 // Since VS2013 it seems that the compiler isn't emitting the same value as
 // those in cvinfo.h for the S_GPROC32 and S_LPROC32 types, the following 2
@@ -173,6 +174,7 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_DISCARDED, DiscardedSym) \
     decl(S_COMPILE3, CompileSym2) \
     decl(S_MSTOOLENV_V3, MSToolEnvV3) \
+    decl(S_LOCAL_VS2013, LocalSym) \
     decl(S_LPROC32_VS2013, ProcSym32) \
     decl(S_GPROC32_VS2013, ProcSym32)
 
@@ -661,6 +663,32 @@ struct CompileSymCV2 {
   LPString version;
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSymCV2, 6);
+
+// This defines flags used for local variables. See CV_LVARFLAGS for detail.
+union LocalVarFlags {
+  uint16 raw;
+  struct {
+    uint16 fIsParam : 1;
+    uint16 fAddrTaken : 1;
+    uint16 fCompGenx : 1;
+    uint16 fIsAggregate : 1;
+    uint16 fIsAggregated : 1;
+    uint16 fIsAliased : 1;
+    uint16 fIsAlias : 1;
+    uint16 reserved : 9;
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 2 bytes in size.
+COMPILE_ASSERT_IS_POD_OF_SIZE(LocalVarFlags, 2);
+
+// New symbol used for local symbols.
+struct LocalSym {
+  uint32 typind;       // (type index) type index
+  LocalVarFlags flags; // local var flags
+  // string name       // Name of this symbol.
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym, 6);
 
 #pragma pack(pop)
 
