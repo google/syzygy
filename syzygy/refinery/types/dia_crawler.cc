@@ -16,6 +16,7 @@
 
 #include <hash_map>
 
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/win/scoped_bstr.h"
 #include "syzygy/pe/dia_util.h"
@@ -235,6 +236,19 @@ bool GetSymType(IDiaSymbol* symbol,
   return true;
 }
 
+bool GetSymClassParent(IDiaSymbol* symbol,
+                       base::win::ScopedComPtr<IDiaSymbol>* type) {
+  DCHECK(symbol);
+  DCHECK(type);
+  base::win::ScopedComPtr<IDiaSymbol> tmp;
+  HRESULT hr = symbol->get_classParent(tmp.Receive());
+  if (hr != S_OK)
+    return false;
+
+  *type = tmp;
+  return true;
+}
+
 bool GetSymArrayIndexType(IDiaSymbol* symbol,
                           base::win::ScopedComPtr<IDiaSymbol>* type) {
   DCHECK(symbol);
@@ -282,6 +296,18 @@ bool GetSymPtrMode(IDiaSymbol* symbol, PointerType::Mode* is_reference) {
   return true;
 }
 
+bool GetSymCallingConvention(IDiaSymbol* symbol,
+                             FunctionType::CallConvention* call_convention) {
+  DCHECK(symbol);
+  DCHECK(call_convention);
+  DWORD tmp = 0;
+  HRESULT hr = symbol->get_callingConvention(&tmp);
+  if (!SUCCEEDED(hr))
+    return false;
+  *call_convention = static_cast<FunctionType::CallConvention>(tmp);
+  return true;
+}
+
 bool GetSymUdtKind(IDiaSymbol* symbol, UserDefinedType::UdtKind* udt_kind) {
   DCHECK(symbol);
   DCHECK(udt_kind);
@@ -321,11 +347,13 @@ class TypeCreator {
  private:
   bool CreateTypesOfKind(enum SymTagEnum kind, IDiaSymbol* global);
 
-  // Assigns names to all pointer & array types that have been created.
+  // Assigns names to all pointer, array and function types that have been
+  // created.
   bool AssignTypeNames();
   bool EnsureTypeName(TypePtr type);
   bool AssignPointerName(PointerTypePtr ptr);
-  bool AssignArrayName(ArrayTypePtr ptr);
+  bool AssignArrayName(ArrayTypePtr array);
+  bool AssignFunctionName(FunctionTypePtr function);
 
   // Finds or creates the type corresponding to @p symbol.
   // The type will be registered by a unique name in @p existing_types_.
@@ -343,6 +371,7 @@ class TypeCreator {
   bool FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt);
   bool FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr);
   bool FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr type);
+  bool FinalizeFunction(IDiaSymbol* symbol, FunctionTypePtr type);
   bool FinalizeType(IDiaSymbol* symbol, TypePtr type);
 
   struct CreatedType {
@@ -442,6 +471,14 @@ bool TypeCreator::FinalizeType(IDiaSymbol* symbol, TypePtr type) {
       return FinalizeArray(symbol, array);
     }
 
+    case Type::FUNCTION_TYPE_KIND: {
+      FunctionTypePtr function;
+      if (!type->CastTo(&function))
+        return false;
+
+      return FinalizeFunction(symbol, function);
+    }
+
     default:
       return true;
   }
@@ -452,7 +489,8 @@ bool TypeCreator::CreateTypes(IDiaSymbol* global) {
       !CreateTypesOfKind(SymTagEnum, global) ||
       !CreateTypesOfKind(SymTagTypedef, global) ||
       !CreateTypesOfKind(SymTagPointerType, global) ||
-      !CreateTypesOfKind(SymTagArrayType, global)) {
+      !CreateTypesOfKind(SymTagArrayType, global) ||
+      !CreateTypesOfKind(SymTagFunctionType, global)) {
     return false;
   }
 
@@ -476,8 +514,6 @@ bool TypeCreator::EnsureTypeName(TypePtr type) {
 
     if (!AssignPointerName(ptr))
       return false;
-
-    DCHECK_NE(L"", ptr->name());
   } else if (type->kind() == Type::ARRAY_TYPE_KIND && type->name().empty()) {
     ArrayTypePtr array;
     if (!type->CastTo(&array))
@@ -485,10 +521,15 @@ bool TypeCreator::EnsureTypeName(TypePtr type) {
 
     if (!AssignArrayName(array))
       return false;
+  } else if (type->kind() == Type::FUNCTION_TYPE_KIND && type->name().empty()) {
+    FunctionTypePtr function;
+    if (!type->CastTo(&function))
+      return false;
 
-    DCHECK_NE(L"", array->name());
+    if (!AssignFunctionName(function))
+      return false;
   }
-
+  DCHECK_NE(L"", type->name());
   return true;
 }
 
@@ -532,6 +573,56 @@ bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
   }
 
   ptr->SetName(name);
+  return true;
+}
+
+bool TypeCreator::AssignFunctionName(FunctionTypePtr function) {
+  TypePtr return_type = function->GetReturnType();
+  base::string16 name;
+  if (return_type) {
+    if (!EnsureTypeName(return_type))
+      return false;
+    name = return_type->name();
+  }
+
+  name.append(L" (");
+
+  TypePtr class_type = function->GetContainingClassType();
+  if (class_type) {
+    if (!EnsureTypeName(class_type))
+      return false;
+    name.append(class_type->name() + L"::)(");
+  }
+
+  // Get the argument types names.
+  std::vector<base::string16> arg_names;
+  for (size_t i = 0; i < function->argument_types().size(); ++i) {
+    TypePtr arg_type = function->GetArgumentType(i);
+    if (arg_type) {
+      if (!EnsureTypeName(arg_type))
+        return false;
+
+      // Append the names, if the argument type is T_NOTYPE then this is a
+      // C-style variadic function like printf and we append "..." instead.
+      if (arg_type->name() == L"btNoType") {
+        arg_names.push_back(L"...");
+      } else {
+        const FunctionType::ArgumentType& arg = function->argument_types()[i];
+        base::string16 arg_name = arg_type->name();
+        if (arg.is_const())
+          arg_name.append(L" const");
+        if (arg.is_volatile())
+          arg_name.append(L" volatile");
+
+        arg_names.push_back(arg_name);
+      }
+    }
+  }
+
+  name.append(base::JoinString(arg_names, L", "));
+  name.append(L")");
+
+  function->SetName(name);
   return true;
 }
 
@@ -638,6 +729,7 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
     return false;
 
   UserDefinedType::Fields fields;
+  UserDefinedType::Functions functions;
   for (LONG i = 0; i < count; ++i) {
     base::win::ScopedComPtr<IDiaSymbol> field_sym;
     hr = enum_children->Item(i, field_sym.Receive());
@@ -648,60 +740,77 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
     if (!pe::GetSymTag(field_sym.get(), &sym_tag))
       return false;
 
-    // We only care about data.
-    if (sym_tag != SymTagData)
-      continue;
+    // We only care about data and functions.
+    if (sym_tag == SymTagData) {
+      // TODO(siggi): Also process VTables?
+      DataKind data_kind = DataIsUnknown;
+      if (!GetSymDataKind(field_sym.get(), &data_kind))
+        return false;
+      // We only care about member data.
+      if (data_kind != DataIsMember)
+        continue;
 
-    // TODO(siggi): Also process VTables?
-    DataKind data_kind = DataIsUnknown;
-    if (!GetSymDataKind(field_sym.get(), &data_kind))
-      return false;
-    // We only care about member data.
-    if (data_kind != DataIsMember)
-      continue;
+      // The location udt and the symbol udt are a little conflated in the case
+      // of bitfields. For bitfieds, the bit length and bit offset of the udt
+      // are stored against the data symbol, and not its udt.
+      uint32_t loc_type = LocIsNull;
+      if (!GetSymLocType(field_sym.get(), &loc_type))
+        return false;
+      DCHECK(loc_type == LocIsThisRel || loc_type == LocIsBitField);
 
-    // The location udt and the symbol udt are a little conflated in the case
-    // of bitfields. For bitfieds, the bit length and bit offset of the udt
-    // are stored against the data symbol, and not its udt.
-    uint32_t loc_type = LocIsNull;
-    if (!GetSymLocType(field_sym.get(), &loc_type))
-      return false;
-    DCHECK(loc_type == LocIsThisRel || loc_type == LocIsBitField);
-
-    base::win::ScopedComPtr<IDiaSymbol> field_type_sym;
-    base::string16 field_name;
-    ptrdiff_t field_offset = 0;
-    size_t field_size = 0;
-    Type::Flags field_flags = 0;
-    if (!GetSymType(field_sym.get(), &field_type_sym) ||
-        !GetSymName(field_sym.get(), &field_name) ||
-        !GetSymOffset(field_sym.get(), &field_offset) ||
-        !GetSymSize(field_type_sym.get(), &field_size) ||
-        !GetSymFlags(field_type_sym.get(), &field_flags)) {
-      return false;
-    }
-
-    TypePtr field_type;
-    field_type = FindOrCreateType(field_type_sym.get());
-    size_t bit_length = 0;
-    size_t bit_pos = 0;
-    if (loc_type == LocIsBitField) {
-      // For bitfields we need the bit size and length.
-      if (!GetSymSize(field_sym.get(), &bit_length) ||
-          !GetSymBitPos(field_sym.get(), &bit_pos)) {
+      base::win::ScopedComPtr<IDiaSymbol> field_type_sym;
+      base::string16 field_name;
+      ptrdiff_t field_offset = 0;
+      size_t field_size = 0;
+      Type::Flags field_flags = 0;
+      if (!GetSymType(field_sym.get(), &field_type_sym) ||
+          !GetSymName(field_sym.get(), &field_name) ||
+          !GetSymOffset(field_sym.get(), &field_offset) ||
+          !GetSymSize(field_type_sym.get(), &field_size) ||
+          !GetSymFlags(field_type_sym.get(), &field_flags)) {
         return false;
       }
-    } else if (loc_type != LocIsThisRel) {
-      NOTREACHED() << "Impossible location udt!";
+
+      TypePtr field_type;
+      field_type = FindOrCreateType(field_type_sym.get());
+      size_t bit_length = 0;
+      size_t bit_pos = 0;
+      if (loc_type == LocIsBitField) {
+        // For bitfields we need the bit size and length.
+        if (!GetSymSize(field_sym.get(), &bit_length) ||
+            !GetSymBitPos(field_sym.get(), &bit_pos)) {
+          return false;
+        }
+      } else if (loc_type != LocIsThisRel) {
+        NOTREACHED() << "Impossible location udt!";
+      }
+
+      fields.push_back(UserDefinedType::Field(field_name, field_offset,
+                                              field_flags, bit_pos, bit_length,
+                                              field_type->type_id()));
+    } else if (sym_tag == SymTagFunction) {
+      base::win::ScopedComPtr<IDiaSymbol> function_type_sym;
+      base::string16 function_name;
+
+      if (!GetSymType(field_sym.get(), &function_type_sym) ||
+          !GetSymName(field_sym.get(), &function_name)) {
+        return false;
+      }
+
+      TypePtr function_type;
+      function_type = FindOrCreateType(function_type_sym.get());
+      if (!function_type)
+        return false;
+
+      functions.push_back(
+          UserDefinedType::Function(function_name, function_type->type_id()));
     }
 
-    fields.push_back(UserDefinedType::Field(field_name, field_offset,
-                                            field_flags, bit_pos, bit_length,
-                                            field_type->type_id()));
   }
 
   DCHECK_EQ(0UL, udt->fields().size());
-  udt->Finalize(fields, UserDefinedType::Functions());
+  DCHECK_EQ(0UL, udt->functions().size());
+  udt->Finalize(fields, functions);
   return true;
 }
 
@@ -759,6 +868,73 @@ bool TypeCreator::FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr array) {
   return true;
 }
 
+bool TypeCreator::FinalizeFunction(IDiaSymbol* symbol,
+                                   FunctionTypePtr function) {
+  DCHECK(symbol);
+  DCHECK(function);
+  DCHECK(pe::IsSymTag(symbol, SymTagFunctionType));
+
+  base::win::ScopedComPtr<IDiaSymbol> return_type_sym;
+  if (!GetSymType(symbol, &return_type_sym))
+    return false;
+
+  Type::Flags return_flags = 0;
+  if (!GetSymFlags(return_type_sym.get(), &return_flags))
+    return false;
+
+  TypePtr return_type = FindOrCreateType(return_type_sym.get());
+  if (!return_type)
+    return false;
+
+  TypeId containing_class_id = kNoTypeId;
+  base::win::ScopedComPtr<IDiaSymbol> parent_type_sym;
+  if (GetSymClassParent(symbol, &parent_type_sym)) {
+    TypePtr parent_type = FindOrCreateType(parent_type_sym.get());
+    if (!parent_type)
+      return false;
+    containing_class_id = parent_type->type_id();
+  }
+
+  base::win::ScopedComPtr<IDiaEnumSymbols> argument_types;
+  HRESULT hr = symbol->findChildren(SymTagFunctionArgType, nullptr, nsNone,
+                                    argument_types.Receive());
+  if (!SUCCEEDED(hr))
+    return false;
+
+  base::win::ScopedComPtr<IDiaSymbol> arg_sym;
+  ULONG received = 0;
+  hr = argument_types->Next(1, arg_sym.Receive(), &received);
+
+  FunctionType::Arguments args;
+  while (hr == S_OK) {
+    base::win::ScopedComPtr<IDiaSymbol> arg_type_sym;
+    if (!GetSymType(arg_sym.get(), &arg_type_sym))
+      return false;
+
+    TypePtr arg_type = FindOrCreateType(arg_type_sym.get());
+    if (!arg_type)
+      return false;
+
+    Type::Flags arg_flags = 0;
+    if (!GetSymFlags(arg_type_sym.get(), &arg_flags))
+      return false;
+
+    args.push_back(FunctionType::ArgumentType(arg_flags, arg_type->type_id()));
+
+    arg_sym.Release();
+    received = 0;
+    hr = argument_types->Next(1, arg_sym.Receive(), &received);
+  }
+
+  if (!SUCCEEDED(hr))
+    return false;
+
+  function->Finalize(
+      FunctionType::ArgumentType(return_flags, return_type->type_id()), args,
+      containing_class_id);
+  return true;
+}
+
 TypePtr TypeCreator::CreateBaseType(IDiaSymbol* symbol) {
   // Note that the void base type has zero size.
   DCHECK(symbol);
@@ -778,7 +954,12 @@ TypePtr TypeCreator::CreateFunctionType(IDiaSymbol* symbol) {
   DCHECK(symbol);
   DCHECK(pe::IsSymTag(symbol, SymTagFunctionType));
 
-  return new WildcardType(L"Function", 0);
+  FunctionType::CallConvention call_convention;
+
+  if (!GetSymCallingConvention(symbol, &call_convention))
+    return nullptr;
+
+  return new FunctionType(call_convention);
 }
 
 TypePtr TypeCreator::CreatePointerType(IDiaSymbol* symbol) {

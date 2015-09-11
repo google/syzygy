@@ -229,6 +229,80 @@ TEST_F(DiaCrawlerTest, TestArray) {
   EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
 }
 
+TEST_F(DiaCrawlerTest, TestFunctionType) {
+  TypePtr type =
+      FindTypeEndingWith(L"void (testing::TestAllInOneUDT::)(int32_t)");
+  ASSERT_TRUE(type);
+
+  FunctionTypePtr function;
+  ASSERT_EQ(Type::FUNCTION_TYPE_KIND, type->kind());
+  ASSERT_TRUE(type->CastTo(&function));
+  ASSERT_TRUE(function);
+
+  const FunctionType::Arguments& args = function->argument_types();
+
+  EXPECT_EQ(1U, args.size());
+
+  EXPECT_TRUE(function->IsMemberFunction());
+  EXPECT_FALSE(function->return_type().is_const());
+  EXPECT_FALSE(function->return_type().is_volatile());
+  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+
+  EXPECT_FALSE(args[0].is_const());
+  EXPECT_FALSE(args[0].is_volatile());
+  EXPECT_EQ(function->GetArgumentType(0)->name(), L"int32_t");
+
+  // Find the containing class.
+  type = FindTypeEndingWith(L"::TestAllInOneUDT");
+  ASSERT_TRUE(type);
+
+  // Check that the function points to its containing class.
+  EXPECT_EQ(function->containing_class_id(), type->type_id());
+
+  EXPECT_EQ(function->name(), L"void (" + type->name() + L"::)(int32_t)");
+}
+
+TEST_F(DiaCrawlerTest, TestFunctions) {
+  TypePtr type = FindTypeEndingWith(L"::TestFunctions");
+  ASSERT_TRUE(type);
+
+  UserDefinedTypePtr udt;
+  ASSERT_TRUE(type->CastTo(&udt));
+  ASSERT_TRUE(udt);
+
+  ASSERT_EQ(0U, udt->fields().size());
+  ASSERT_EQ(4U, udt->functions().size());
+
+  const UserDefinedType::Functions& functions = udt->functions();
+  FunctionTypePtr function;
+
+  // First function is a constructor.
+  EXPECT_EQ(L"TestFunctions", functions[0].name());
+  EXPECT_TRUE(udt->GetFunctionType(0)->CastTo(&function));
+  EXPECT_EQ(0U, function->argument_types().size());
+  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+
+  EXPECT_EQ(L"NonOverloadedFunction", functions[1].name());
+  EXPECT_TRUE(udt->GetFunctionType(1)->CastTo(&function));
+  EXPECT_EQ(0U, function->argument_types().size());
+  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+
+  EXPECT_EQ(L"OverloadedFunction", functions[2].name());
+  EXPECT_TRUE(udt->GetFunctionType(2)->CastTo(&function));
+  EXPECT_EQ(1U, function->argument_types().size());
+  EXPECT_EQ(function->GetArgumentType(0)->name(), L"int32_t");
+  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+
+  EXPECT_EQ(L"OverloadedFunction", functions[3].name());
+  EXPECT_TRUE(udt->GetFunctionType(3)->CastTo(&function));
+  EXPECT_EQ(0U, function->argument_types().size());
+  EXPECT_EQ(function->GetReturnType()->name(), L"int32_t");
+  EXPECT_EQ(udt->type_id(), function->containing_class_id());
+}
+
 TEST_F(DiaCrawlerTest, TestUnion) {
   TypePtr type = FindTypeEndingWith(L"::TestUnion");
   ASSERT_TRUE(type);
