@@ -18,6 +18,7 @@
 
 #include "base/logging.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
+#include "syzygy/refinery/types/dia_crawler.h"
 #include "syzygy/refinery/types/pdb_crawler.h"
 
 namespace pdb {
@@ -33,7 +34,8 @@ const char kUsage[] =
     "    --dump-in-order if provided the types will be output ordered by\n"
     "       their type indices.\n"
     "    --dump-all-names if provided the names will be listed for all types\n"
-    "       including function signatures which makes the output large.\n";
+    "       including function signatures which makes the output large.\n"
+    "    --dump-with-dia if provided the types will be loaded with DIA.\n";
 
 const char* GetTypeKindName(refinery::Type::TypeKind kind) {
   switch (kind) {
@@ -110,7 +112,10 @@ const char* GetCallConventionName(refinery::FunctionType::CallConvention call) {
 }  // namespace
 
 PdbTypeDumpApp::PdbTypeDumpApp()
-    : application::AppImplBase("PDB Type Dumper"), dump_in_order_(false) {
+    : application::AppImplBase("PDB Type Dumper"),
+      dump_in_order_(false),
+      dump_all_names_(false),
+      dump_with_dia_(false) {
 }
 
 bool PdbTypeDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
@@ -123,6 +128,8 @@ bool PdbTypeDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
   pdb_path_ = base::FilePath(args[0]);
   dump_in_order_ = command_line->HasSwitch("dump-in-order");
   dump_all_names_ = command_line->HasSwitch("dump-all-names");
+  dump_with_dia_ = command_line->HasSwitch("dump-with-dia");
+
   return true;
 }
 
@@ -317,15 +324,24 @@ void PdbTypeDumpApp::DumpType(refinery::TypePtr type, uint8_t indent_level) {
 }
 
 int PdbTypeDumpApp::Run() {
-  refinery::PdbCrawler crawler;
   refinery::TypeRepository repository;
 
   // Load the types.
-  if (!crawler.InitializeForFile(pdb_path_))
-    return 1;
+  if (dump_with_dia_) {
+    refinery::DiaCrawler crawler;
+    if (!crawler.InitializeForFile(pdb_path_))
+      return 1;
 
-  if (!crawler.GetTypes(&repository))
-    return 1;
+    if (!crawler.GetTypes(&repository))
+      return 1;
+  } else {
+    refinery::PdbCrawler crawler;
+    if (!crawler.InitializeForFile(pdb_path_))
+      return 1;
+
+    if (!crawler.GetTypes(&repository))
+      return 1;
+  }
 
   DumpIndentedText(out(), 0, "%d types parsed from the PDB stream:\n",
                    repository.size());

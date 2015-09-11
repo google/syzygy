@@ -79,6 +79,9 @@ class PdbTypeDumpApp : public application::AppImplBase {
 
   // Iff true, all types will be printed with their names.
   bool dump_all_names_;
+
+  // Iff true, DiaCrawler will be used for scraping the types.
+  bool dump_with_dia_;
 };
 
 }  // namespace pdb
