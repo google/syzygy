@@ -317,7 +317,7 @@ void PdbTypeDumpApp::DumpType(refinery::TypePtr type, uint8_t indent_level) {
     }
     case refinery::Type::BASIC_TYPE_KIND:
     case refinery::Type::WILDCARD_TYPE_KIND: {
-      DumpBasicType(type, indent_level);
+      DumpBasicType(type, indent_level + 1);
       break;
     }
   }
