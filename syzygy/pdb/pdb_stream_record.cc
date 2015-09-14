@@ -21,6 +21,9 @@
 
 namespace pdb {
 
+NumericConstant::NumericConstant() : kind_(CONSTANT_UNINITIALIZED) {
+}
+
 bool ReadWideString(PdbStream* stream, base::string16* string_field) {
   DCHECK(stream);
   DCHECK(string_field);
@@ -36,29 +39,84 @@ bool ReadUnsignedNumeric(PdbStream* stream, uint64_t* data_field) {
   DCHECK(stream);
   DCHECK(data_field);
 
-  uint16_t value_type = 0;
-  bool success = stream->Read(&value_type, 1);
+  NumericConstant numeric;
+  if (!ReadNumericConstant(stream, &numeric))
+    return false;
 
-  // If the type is unsigned and less than 64 bits long set the value.
+  if (numeric.kind() != NumericConstant::CONSTANT_UNSIGNED)
+    return false;
+
+  *data_field = numeric.unsigned_value();
+  return true;
+}
+
+bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
+  DCHECK(stream);
+  DCHECK(constant);
+
+  uint16_t value_type = 0;
+  if (!stream->Read(&value_type, 1))
+    return false;
+
+  // If the value is small then it's simply this value.
   if (value_type < Microsoft_Cci_Pdb::LF_NUMERIC) {
-    *data_field = value_type;
-  } else if (value_type == Microsoft_Cci_Pdb::LF_USHORT) {
-    uint16_t value = 0;
-    success &= stream->Read(&value, 1);
-    *data_field = value;
-  } else if (value_type == Microsoft_Cci_Pdb::LF_ULONG) {
-    uint32_t value = 0;
-    success &= stream->Read(&value, 1);
-    *data_field = value;
-  } else if (value_type == Microsoft_Cci_Pdb::LF_UQUADWORD) {
-    uint64_t value = 0;
-    success &= stream->Read(&value, 1);
-    *data_field = value;
-  } else {
-    success = false;
+    constant->kind_ = NumericConstant::CONSTANT_UNSIGNED;
+    constant->unsigned_value_ = value_type;
+    return true;
   }
 
-  return success;
+  // Otherwise load the constant given its value type.
+  switch (value_type) {
+    case Microsoft_Cci_Pdb::LF_USHORT: {
+      uint16_t value = 0;
+      if (!stream->Read(&value, 1))
+        return false;
+      constant->kind_ = NumericConstant::CONSTANT_UNSIGNED;
+      constant->unsigned_value_ = value;
+      return true;
+    }
+    case Microsoft_Cci_Pdb::LF_ULONG: {
+      uint32_t value = 0;
+      if (!stream->Read(&value, 1))
+        return false;
+      constant->kind_ = NumericConstant::CONSTANT_UNSIGNED;
+      constant->unsigned_value_ = value;
+      return true;
+    }
+    case Microsoft_Cci_Pdb::LF_UQUADWORD: {
+      uint64_t value = 0;
+      if (!stream->Read(&value, 1))
+        return false;
+      constant->kind_ = NumericConstant::CONSTANT_UNSIGNED;
+      constant->unsigned_value_ = value;
+      return true;
+    }
+    case Microsoft_Cci_Pdb::LF_SHORT: {
+      int16_t value = 0;
+      if (!stream->Read(&value, 1))
+        return false;
+      constant->kind_ = NumericConstant::CONSTANT_SIGNED;
+      constant->unsigned_value_ = value;
+      return true;
+    }
+    case Microsoft_Cci_Pdb::LF_LONG: {
+      int32_t value = 0;
+      if (!stream->Read(&value, 1))
+        return false;
+      constant->kind_ = NumericConstant::CONSTANT_SIGNED;
+      constant->unsigned_value_ = value;
+      return true;
+    }
+    case Microsoft_Cci_Pdb::LF_QUADWORD: {
+      int64_t value = 0;
+      if (!stream->Read(&value, 1))
+        return false;
+      constant->kind_ = NumericConstant::CONSTANT_SIGNED;
+      constant->unsigned_value_ = value;
+      return true;
+    }
+    default: { return false; }
+  }
 }
 
 }  // namespace pdb

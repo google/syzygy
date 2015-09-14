@@ -61,53 +61,108 @@ TEST_F(PdbStreamRecordTest, ReadWideString) {
   EXPECT_EQ(wide_string, control_string);
 }
 
-TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericDirect) {
+TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantDirect) {
   const uint16_t kVal16 = 42;
-  uint64_t numeric;
+  NumericConstant numeric;
 
   // Fail when attempting to read empty stream.
-  EXPECT_FALSE(ReadUnsignedNumeric(stream_.get(), &numeric));
+  EXPECT_FALSE(ReadNumericConstant(stream_.get(), &numeric));
 
   // For values smaller than 0x8000 the numeric leaf reads just their value.
   WriteData(kVal16);
-  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
-  EXPECT_EQ(kVal16, numeric);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
+  EXPECT_EQ(kVal16, numeric.unsigned_value());
 }
 
-TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUshort) {
+TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantUshort) {
   const uint16_t kVal16 = 42;
   const uint16_t kLfUshort = Microsoft_Cci_Pdb::LF_USHORT;
-  uint64_t numeric;
+  NumericConstant numeric;
 
   // Test reading 16-bit values inside LF_USHORT.
   WriteData(kLfUshort);
   WriteData(kVal16);
-  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
-  EXPECT_EQ(kVal16, numeric);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
+  EXPECT_EQ(kVal16, numeric.unsigned_value());
 }
 
-TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUlong) {
+TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantShort) {
+  const int16_t kVal16 = -42;
+  const uint16_t kLfShort = Microsoft_Cci_Pdb::LF_SHORT;
+  NumericConstant numeric;
+
+  // Test reading signed 16-bit values.
+  WriteData(kLfShort);
+  WriteData(kVal16);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
+  EXPECT_EQ(kVal16, numeric.signed_value());
+}
+
+TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantUlong) {
   const uint32_t kVal32 = 1333666999;
   const uint16_t kLfUlong = Microsoft_Cci_Pdb::LF_ULONG;
-  uint64_t numeric;
+  NumericConstant numeric;
 
   // Test reading 32-bit values.
   WriteData(kLfUlong);
   WriteData(kVal32);
-  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
-  EXPECT_EQ(kVal32, numeric);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
+  EXPECT_EQ(kVal32, numeric.unsigned_value());
+}
+
+TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantLong) {
+  const int32_t kVal32 = -1333666999;
+  const uint16_t kLfLong = Microsoft_Cci_Pdb::LF_LONG;
+  NumericConstant numeric;
+
+  // Test reading signed 32-bit values.
+  WriteData(kLfLong);
+  WriteData(kVal32);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
+  EXPECT_EQ(kVal32, numeric.signed_value());
 }
 
 TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUquad) {
   const uint64_t kVal64 = 314159265358979;
   const uint16 kLfUquad = Microsoft_Cci_Pdb::LF_UQUADWORD;
-  uint64_t numeric;
+  NumericConstant numeric;
 
   // Test reading 64-bit values.
   WriteData(kLfUquad);
   WriteData(kVal64);
-  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &numeric));
-  EXPECT_EQ(kVal64, numeric);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
+  EXPECT_EQ(kVal64, numeric.unsigned_value());
+}
+
+TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericQuad) {
+  const int64_t kVal64 = -314159265358979;
+  const uint16 kLfQuad = Microsoft_Cci_Pdb::LF_QUADWORD;
+  NumericConstant numeric;
+
+  // Test reading signed 64-bit values.
+  WriteData(kLfQuad);
+  WriteData(kVal64);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
+  EXPECT_EQ(kVal64, numeric.signed_value());
+}
+
+TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumeric) {
+  const uint16_t kVal16 = 42;
+  uint64_t constant;
+
+  // Fail when attempting to read empty stream.
+  EXPECT_FALSE(ReadUnsignedNumeric(stream_.get(), &constant));
+
+  WriteData(kVal16);
+  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &constant));
+  EXPECT_EQ(kVal16, constant);
 }
 
 TEST_F(PdbStreamRecordTest, ReadBasicType) {

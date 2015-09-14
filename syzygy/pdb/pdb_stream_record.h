@@ -26,6 +26,29 @@ namespace pdb {
 // Forward declaration
 class PdbStream;
 
+class NumericConstant {
+ public:
+  enum Kind { CONSTANT_UNINITIALIZED, CONSTANT_UNSIGNED, CONSTANT_SIGNED };
+
+  NumericConstant();
+
+  // Acc
+  Kind kind() const { return kind_; }
+  uint64_t unsigned_value() const { return unsigned_value_; }
+  int64_t signed_value() const { return signed_value_; }
+
+  // We need the function to set this constant for us.
+  friend bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant);
+
+ private:
+  union {
+    uint64_t unsigned_value_;
+    uint64_t signed_value_;
+  };
+
+  Kind kind_;
+};
+
 // Reads string from pdb stream and converts it into a wide string.
 // @param stream a pointer to the pdb stream.
 // @param string_field pointer to the wide string object.
@@ -37,6 +60,12 @@ bool ReadWideString(PdbStream* stream, base::string16* string_field);
 // @param data_field pointer to the numeric leaf object.
 // @returns true on success, false on failure.
 bool ReadUnsignedNumeric(PdbStream* stream, uint64_t* data_field);
+
+// Reads unsigned numeric leaf from pdb stream and stores it as 64-bit unsigned.
+// @param stream a pointer to the pdb stream.
+// @param constant pointer to the numeric constant object.
+// @returns true on success, false on failure.
+bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant);
 
 // Reads basic type from pdb stream.
 // @param stream a pointer to the pdb stream.
