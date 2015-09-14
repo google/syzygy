@@ -690,6 +690,46 @@ struct LocalSym2013 {
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym2013, 7);
 
+// Defines flags used for export symbols, see EXPORTSYM_FLAGS.
+union ExportVarFlags {
+  uint16 raw;
+  struct {
+    uint16 fConstant : 1;
+    uint16 fData : 1;
+    uint16 fPrivate : 1;
+    uint16 fNoName : 1;
+    uint16 fOrdinal : 1;
+    uint16 fForwarder : 1;
+    uint16 reserved : 10;
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 2 bytes in size.
+COMPILE_ASSERT_IS_POD_OF_SIZE(ExportVarFlags, 2);
+
+// Defines flags used for fram proc symbols, see FRAMEPROCSYM_FLAGS.
+union FrameProcSymFlags {
+  uint16 raw;
+  struct {
+    uint16 fHasAlloca : 1;
+    uint16 fHasSetJmp : 1;
+    uint16 fHasLongJmp : 1;
+    uint16 fHasInlAsm : 1;
+    uint16 fHasEH : 1;
+    uint16 fInlSpec : 1;
+    uint16 fHasSEH : 1;
+    uint16 fNaked : 1;
+    uint16 fSecurityChecks : 1;
+    uint16 fAsyncEH : 1;
+    uint16 fGSNoStackOrdering : 1;
+    uint16 fWasInlined : 1;
+    uint16 reserved : 4;
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 2 bytes in size.
+COMPILE_ASSERT_IS_POD_OF_SIZE(FrameProcSymFlags, 2);
+
 #pragma pack(pop)
 
 #endif  // SYZYGY_PE_CVINFO_EXT_H_
