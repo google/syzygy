@@ -1,6 +1,10 @@
 {
   "structs": [
     {
+      "name": "LeafArgList",
+      "first_extra_field": "arg"
+    },
+    {
       "name": "LeafArray",
       "first_extra_field": "data",
       "extra_fields": [
@@ -59,12 +63,33 @@
       ]
     },
     {
+      "name": "LeafEnum",
+      "first_extra_field": "name",
+      "extra_fields": [
+        {
+          "name": "name",
+          "type_name": "WideString"
+        },
+        {
+          "name": "decorated_name",
+          "type_name": "WideString",
+          "condition": "property().decorated_name_present != 0"
+        }
+      ],
+      "retyped_fields": [
+        {
+          "name": "property",
+          "type": "LeafPropertyField"
+        }
+      ]
+    },
+    {
       "name": "LeafEnumerate",
       "first_extra_field": "value",
       "extra_fields": [
         {
           "name": "value",
-          "type_name": "UnsignedNumeric"
+          "type_name": "NumericConstant"
         },
         {
           "name": "name",
@@ -287,6 +312,10 @@
       ]
     },
     {
+      "name": "LeafVTShape",
+      "first_extra_field": "desc"
+    },
+    {
       "original_name": "mlMethod",
       "name": "MethodListRecord",
       "first_extra_field": "vbaseoff",
@@ -314,6 +343,10 @@
       "parser": "ReadUnsignedNumeric",
       "ret_by_value": "True",
       "type": "uint64_t"
+    },
+    "NumericConstant": {
+      "parser": "ReadNumericConstant",
+      "type": "NumericConstant"
     }
   }
 }

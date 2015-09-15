@@ -19,6 +19,7 @@
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
+#include "syzygy/pdb/gen/pdb_type_info_records.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/cvinfo_ext.h"
@@ -90,49 +91,6 @@ bool DumpTypeIndexField(const TypeInfoRecordMap& type_map,
                         uint8 indent_level) {
   DumpIndentedText(out, indent_level, "%s: 0x%04X, ", field_name, field_value);
   return DumpTypeIndexName(field_value, type_map, out, indent_level);
-}
-
-// Dump the "byte data[1]" field present in different leaf structures. The first
-// word of this field indicate its structure.
-bool DumpLeafNamedDataField(const TypeInfoRecordMap& type_map,
-                            FILE* out,
-                            PdbStream* stream,
-                            uint8 indent_level,
-                            const char* field_name) {
-  uint16 enum_data_type = 0;
-  if (!stream->Read(&enum_data_type, 1)) {
-    LOG(ERROR) << "Unable to read the type of the data of an enum leaf.";
-    return false;
-  }
-  // If the value of the data type is less than LF_NUMERIC , then the value data
-  // is just the value of that type.
-  if (enum_data_type < cci::LF_NUMERIC) {
-    DumpIndentedText(out, indent_level, "%s: %d\n", field_name, enum_data_type);
-    return true;
-  }
-  const char* value_type_name = NumericLeafName(enum_data_type);
-  if (value_type_name == NULL) {
-    if (type_map.find(enum_data_type) != type_map.end()) {
-      DumpIndentedText(out, indent_level, "Reference to another type info.\n");
-    } else {
-      LOG(ERROR) << "Invalid leaf type reference: " << enum_data_type;
-      return false;
-    }
-  } else {
-    DumpIndentedText(out, indent_level, "%s type: %s, value: ",
-                     field_name, value_type_name);
-    DumpNumericLeaf(out, enum_data_type, stream);
-    ::fprintf(out, "\n");
-  }
-  return true;
-}
-
-// Dump the "byte data[1]" field without any description
-bool DumpLeafDataField(const TypeInfoRecordMap& type_map,
-                       FILE* out,
-                       PdbStream* stream,
-                       uint8 indent_level) {
-  return DumpLeafNamedDataField(type_map, out, stream, indent_level, "Value");
 }
 
 // Dump a member attribute field.
@@ -277,8 +235,65 @@ bool DumpLeafVTShape(const TypeInfoRecordMap& type_map,
                      PdbStream* stream,
                      uint16 len,
                      uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  LeafVTShape type_info;
+  if (!type_info.Initialize(stream)) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  DumpIndentedText(out, indent_level, "Number of descriptors: %d\n",
+                   type_info.body().count);
+  uint8 current_byte = 0;
+  const uint8 kOddMask = 0x0F;
+  const uint8 kEvenMask = 0xF0;
+  for (size_t i = 0; i < type_info.body().count; i++) {
+    uint8 vts_desc = 0;
+
+    // VTShape descriptors are only 4 bits long so we read next byte only on an
+    // even descriptor.
+    if (i % 2 == 0) {
+      if (!ReadBasicType(stream, &current_byte))
+        return false;
+      vts_desc = (current_byte & kEvenMask) >> 4;
+    } else {
+      vts_desc = current_byte & kOddMask;
+    }
+
+    switch (vts_desc) {
+      case cci::CV_VTS_near: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_near\n");
+        break;
+      }
+      case cci::CV_VTS_far: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_far\n");
+        break;
+      }
+      case cci::CV_VTS_thin: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_thin\n");
+        break;
+      }
+      case cci::CV_VTS_outer: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_outer\n");
+        break;
+      }
+      case cci::CV_VTS_meta: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_meta\n");
+        break;
+      }
+      case cci::CV_VTS_near32: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_near32\n");
+        break;
+      }
+      case cci::CV_VTS_far32: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_far32\n");
+        break;
+      }
+      case cci::CV_VTS_unused: {
+        DumpIndentedText(out, indent_level + 1, "CV_VTS_unused\n");
+        break;
+      }
+    }
+  }
+  return true;
 }
 
 bool DumpLeafCobol1(const TypeInfoRecordMap& type_map,
@@ -331,21 +346,16 @@ bool DumpLeafModifier(const TypeInfoRecordMap& type_map,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  cci::LeafModifier type_info = {};
-  LeafModifierAttribute modifier_attributes = {};
-  size_t to_read = offsetof(cci::LeafModifier, attr);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      !stream->Read(&modifier_attributes, 1) ||
-      bytes_read != to_read) {
+  LeafModifier type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  if (!DumpTypeIndexField(type_map, out, "Modifier type index", type_info.type,
-                          indent_level)) {
+  if (!DumpTypeIndexField(type_map, out, "Modifier type index",
+                          type_info.body().type, indent_level)) {
     return false;
   }
-  DumpModifierAttribute(out, modifier_attributes, indent_level);
+  DumpModifierAttribute(out, type_info.attr(), indent_level);
   return true;
 }
 
@@ -354,16 +364,16 @@ bool DumpLeafPointer(const TypeInfoRecordMap& type_map,
                      PdbStream* stream,
                      uint16 len,
                      uint8 indent_level) {
-  cci::LeafPointer::LeafPointerBody type_info = {};
-  if (!stream->Read(&type_info, 1)) {
+  LeafPointer type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
 
   DumpTypeIndexField(type_map, out, "Type index of pointer value",
-                     type_info.utype, indent_level);
+                     type_info.body().utype, indent_level);
   DumpIndentedText(out, indent_level, "Pointer attributes:\n");
-  switch (type_info.attr & cci::ptrtype) {
+  switch (type_info.attr().ptrtype) {
     case cci::CV_PTR_BASE_SEG:
       DumpIndentedText(out, indent_level + 1, "CV_PTR_BASE_SEG\n");
       break;
@@ -396,7 +406,7 @@ bool DumpLeafPointer(const TypeInfoRecordMap& type_map,
       break;
   }
 
-  switch ((type_info.attr & cci::ptrmode) >> 5) {
+  switch (type_info.attr().ptrmode) {
     case cci::CV_PTR_MODE_PTR:
       DumpIndentedText(out, indent_level + 1, "CV_PTR_MODE_PTR\n");
       break;
@@ -414,16 +424,53 @@ bool DumpLeafPointer(const TypeInfoRecordMap& type_map,
       break;
   }
 
-  if (type_info.attr & cci::isflat32)
+  if (type_info.attr().isflat32)
     DumpIndentedText(out, indent_level + 1, "isflat32\n");
-  if (type_info.attr & cci::isvolatile)
+  if (type_info.attr().isvolatile)
     DumpIndentedText(out, indent_level + 1, "isvolatile\n");
-  if (type_info.attr & cci::isconst)
+  if (type_info.attr().isconst)
     DumpIndentedText(out, indent_level + 1, "isconst\n");
-  if (type_info.attr & cci::isunaligned)
+  if (type_info.attr().isunaligned)
     DumpIndentedText(out, indent_level + 1, "isunaligned\n");
-  if (type_info.attr & cci::isrestrict)
+  if (type_info.attr().isrestrict)
     DumpIndentedText(out, indent_level + 1, "isrestrict\n");
+
+  if (type_info.has_pmtype()) {
+    switch (type_info.pmtype()) {
+      case cci::CV_PMTYPE_Undef:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_Undef\n");
+        break;
+      case cci::CV_PMTYPE_D_Single:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_D_Single\n");
+        break;
+      case cci::CV_PMTYPE_D_Multiple:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_D_Multiple\n");
+        break;
+      case cci::CV_PMTYPE_D_Virtual:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_D_Virtual\n");
+        break;
+      case cci::CV_PMTYPE_D_General:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_D_General\n");
+        break;
+      case cci::CV_PMTYPE_F_Single:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_F_Single\n");
+        break;
+      case cci::CV_PMTYPE_F_Multiple:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_F_Multiple\n");
+        break;
+      case cci::CV_PMTYPE_F_Virtual:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_F_Virtual\n");
+        break;
+      case cci::CV_PMTYPE_F_General:
+        DumpIndentedText(out, indent_level + 1, "CV_PMTYPE_F_General\n");
+        break;
+    }
+  }
+
+  if (type_info.has_containing_class()) {
+    DumpTypeIndexField(type_map, out, "Type index of the containing class",
+                       type_info.containing_class(), indent_level);
+  }
 
   return true;
 }
@@ -433,24 +480,25 @@ bool DumpLeafMFunc(const TypeInfoRecordMap& type_map,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  cci::LeafMFunc type_info = {};
-  if (!stream->Read(&type_info, 1)) {
+  LeafMFunction type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
   DumpTypeIndexField(type_map, out, "Type index of return value",
-                     type_info.rvtype, indent_level);
+                     type_info.body().rvtype, indent_level);
   DumpTypeIndexField(type_map, out, "Type index of containing class",
-                     type_info.classtype, indent_level);
+                     type_info.body().classtype, indent_level);
   DumpTypeIndexField(type_map, out, "Type index of this pointer",
-                     type_info.thistype, indent_level);
+                     type_info.body().thistype, indent_level);
   DumpIndentedText(out, indent_level, "Calling convention: 0x%02X\n",
-                   type_info.calltype);
+                   type_info.body().calltype);
   DumpIndentedText(out, indent_level, "Number of parameters: %d\n",
-                   type_info.parmcount);
+                   type_info.body().parmcount);
   DumpTypeIndexField(type_map, out, "Type index of argument list",
-                     type_info.arglist, indent_level);
-  DumpIndentedText(out, indent_level, "Adjuster: %d\n", type_info.thisadjust);
+                     type_info.body().arglist, indent_level);
+  DumpIndentedText(out, indent_level, "Adjuster: %d\n",
+                   type_info.body().thisadjust);
   return true;
 }
 
@@ -514,20 +562,18 @@ bool DumpLeafArgList(const TypeInfoRecordMap& type_map,
                      uint16 len,
                      uint8 indent_level) {
   size_t leaf_end = stream->pos() + len;
-  cci::LeafArgList type_info = {};
-  size_t to_read = offsetof(cci::LeafArgList, arg);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafArgList type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
   DumpIndentedText(out, indent_level, "Number of arguments: %d\n",
-                   type_info.count);
+                   type_info.body().count);
   DumpIndentedText(out, indent_level, "Arguments:\n");
+
   while (stream->pos() < leaf_end) {
     uint32 arg_type_index = 0;
-    if (!stream->Read(&arg_type_index, 1)) {
+    if (!ReadBasicType(stream, &arg_type_index)) {
       LOG(ERROR) << "Unable to read the type index of an argument.";
       return false;
     }
@@ -545,7 +591,7 @@ bool DumpLeafFieldList(const TypeInfoRecordMap& type_map,
   size_t leaf_end = stream->pos() + len;
   while (stream->pos() < leaf_end) {
     uint16 leaf_type = 0;
-    if (!stream->Read(&leaf_type, 1)) {
+    if (!ReadBasicType(stream, &leaf_type)) {
       LOG(ERROR) << "Unable to read the type of a list field.";
       return false;
     }
@@ -577,20 +623,20 @@ bool DumpLeafBitfield(const TypeInfoRecordMap& type_map,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  cci::LeafBitfield type_info = {};
-  if (!stream->Read(&type_info, 1)) {
+  LeafBitfield type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
   if (!DumpTypeIndexField(type_map, out, "Type index of bitfield",
-                          type_info.type, indent_level)) {
+                          type_info.body().type, indent_level)) {
     return false;
   }
   DumpIndentedText(out, indent_level, "Length in bits: %u\n",
-                   type_info.length);
+                   type_info.body().length);
   DumpIndentedText(out, indent_level,
                    "Starting position of the object in the word: %u\n",
-                   type_info.position);
+                   type_info.body().position);
   return true;
 }
 
@@ -599,8 +645,26 @@ bool DumpLeafMethodList(const TypeInfoRecordMap& type_map,
                         PdbStream* stream,
                         uint16 len,
                         uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  size_t leaf_end = stream->pos() + len;
+  for (uint16 count = 1; stream->pos() < leaf_end; count++) {
+    MethodListRecord method_record;
+    if (!method_record.Initialize(stream)) {
+      LOG(ERROR) << "Unable to read type info record.";
+      return false;
+    }
+    DumpIndentedText(out, indent_level, "Method %u:\n", count);
+    DumpMemberAttributeField(out, method_record.attr(), indent_level + 1);
+    if (!DumpTypeIndexField(type_map, out, "Type index of the function type",
+                            method_record.body().index, indent_level + 1)) {
+      return false;
+    }
+    if (method_record.has_vbaseoff()) {
+      DumpIndentedText(out, indent_level + 1,
+                       "Starting position of the object in the word: %ull\n",
+                       method_record.vbaseoff());
+    }
+  }
+  return true;
 }
 
 bool DumpLeafDimCon(const TypeInfoRecordMap& type_map,
@@ -626,8 +690,20 @@ bool DumpLeafBClass(const TypeInfoRecordMap& type_map,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  LeafBClass type_info;
+  if (!type_info.Initialize(stream)) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  DumpMemberAttributeField(out, type_info.attr(), indent_level);
+  if (!DumpTypeIndexField(type_map, out, "Type index of base class",
+                          type_info.body().index, indent_level)) {
+    return false;
+  }
+
+  DumpIndentedText(out, indent_level, "Offset of base: %llu\n",
+                   type_info.offset());
+  return true;
 }
 
 bool DumpLeafVBClass(const TypeInfoRecordMap& type_map,
@@ -635,8 +711,27 @@ bool DumpLeafVBClass(const TypeInfoRecordMap& type_map,
                      PdbStream* stream,
                      uint16 len,
                      uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  LeafVBClass type_info;
+  if (!type_info.Initialize(stream)) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  DumpMemberAttributeField(out, type_info.attr(), indent_level);
+  if (!DumpTypeIndexField(type_map, out, "Type index of virtual base class",
+                          type_info.body().index, indent_level)) {
+    return false;
+  }
+  if (!DumpTypeIndexField(type_map, out, "Type index of virtual base pointer",
+                          type_info.body().vbptr, indent_level)) {
+    return false;
+  }
+
+  DumpIndentedText(out, indent_level, "Virtual base pointer offset: %llu\n",
+                   type_info.vbpoff());
+  DumpIndentedText(out, indent_level,
+                   "Virtual base offset from vbtable: %llu\n",
+                   type_info.vboff());
+  return true;
 }
 
 bool DumpLeafIndex(const TypeInfoRecordMap& type_map,
@@ -644,8 +739,16 @@ bool DumpLeafIndex(const TypeInfoRecordMap& type_map,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  LeafIndex type_info;
+  if (!type_info.Initialize(stream)) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  if (!DumpTypeIndexField(type_map, out, "Type index of fieldlist continuation",
+                          type_info.body().index, indent_level)) {
+    return false;
+  }
+  return true;
 }
 
 bool DumpLeafVFuncTab(const TypeInfoRecordMap& type_map,
@@ -653,8 +756,16 @@ bool DumpLeafVFuncTab(const TypeInfoRecordMap& type_map,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  LeafVFuncTab type_info;
+  if (!type_info.Initialize(stream)) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  if (!DumpTypeIndexField(type_map, out, "Type index of virtual table pointer",
+                          type_info.body().type, indent_level)) {
+    return false;
+  }
+  return true;
 }
 
 bool DumpLeafVFuncOff(const TypeInfoRecordMap& type_map,
@@ -680,20 +791,25 @@ bool DumpLeafEnumerate(const TypeInfoRecordMap& type_map,
                        PdbStream* stream,
                        uint16 len,
                        uint8 indent_level) {
-  cci::LeafEnumerate type_info = {};
-  if (!stream->Read(&type_info.attr, 1)) {
+  LeafEnumerate type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  LeafMemberAttributeField member_attributes = { type_info.attr };
-  DumpMemberAttributeField(out, member_attributes, indent_level);
-  DumpLeafDataField(type_map, out, stream, indent_level);
-  std::string leaf_name;
-  if (!ReadString(stream, &leaf_name)) {
-    LOG(ERROR) << "Unable to read the name of an enum leaf.";
-    return false;
+  DumpMemberAttributeField(out, type_info.attr(), indent_level);
+  switch (type_info.value().kind()) {
+    case NumericConstant::CONSTANT_SIGNED: {
+      DumpIndentedText(out, indent_level, "Value: %lld\n",
+                       type_info.value().signed_value());
+      break;
+    }
+    case NumericConstant::CONSTANT_UNSIGNED: {
+      DumpIndentedText(out, indent_level, "Value: %lld\n",
+                       type_info.value().signed_value());
+      break;
+    }
   }
-  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
   return true;
 }
 
@@ -702,50 +818,21 @@ bool DumpLeafArray(const TypeInfoRecordMap& type_map,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  cci::LeafArray type_info = {};
-  size_t to_read = offsetof(cci::LeafArray, data);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafArray type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
   if (!DumpTypeIndexField(type_map, out, "Type index of element type",
-                          type_info.elemtype, indent_level)) {
+                          type_info.body().elemtype, indent_level)) {
     return false;
   }
   if (!DumpTypeIndexField(type_map, out, "Type index of indexing type",
-                          type_info.idxtype, indent_level)) {
+                          type_info.body().idxtype, indent_level)) {
     return false;
   }
-  DumpLeafNamedDataField(type_map, out, stream, indent_level,
-                         "Length in bytes");
-  return true;
-}
-
-bool DumpLeafClassTail(const TypeInfoRecordMap& type_map,
-                       FILE* out,
-                       PdbStream* stream,
-                       uint16 len,
-                       uint8 indent_level,
-                       const LeafPropertyField& property_field) {
-  DumpLeafNamedDataField(type_map, out, stream, indent_level, "Size in bytes");
-  std::string leaf_name;
-  if (!ReadString(stream, &leaf_name)) {
-    LOG(ERROR) << "Unable to read the name of a class leaf.";
-    return false;
-  }
-  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
-  if (property_field.decorated_name_present != 0) {
-    std::string leaf_name_decorated;
-    if (!ReadString(stream, &leaf_name_decorated)) {
-      LOG(ERROR) << "Unable to read the decorated name of a class leaf ("
-                 << "undecorated name: " << leaf_name.c_str() << ").";
-      return false;
-    }
-    DumpIndentedText(out, indent_level, "Decorated name: %s\n",
-                     leaf_name_decorated.c_str());
-  }
+  DumpIndentedText(out, indent_level, "Length in bytes: %llu\n",
+                   type_info.size());
   return true;
 }
 
@@ -754,33 +841,34 @@ bool DumpLeafClass(const TypeInfoRecordMap& type_map,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  cci::LeafClass type_info = {};
-  size_t to_read = offsetof(cci::LeafClass, data);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafClass type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
   DumpIndentedText(out, indent_level, "Number of elements in class: %d\n",
-                   type_info.count);
-  LeafPropertyField property_field = {type_info.property};
-  DumpFieldProperty(out, property_field, indent_level);
+                   type_info.body().count);
+  DumpFieldProperty(out, type_info.property(), indent_level);
   if (!DumpTypeIndexField(type_map, out, "Type index of field descriptor",
-                          type_info.field, indent_level)) {
+                          type_info.body().field, indent_level)) {
     return false;
   }
-  if (type_info.derived != 0 &&
+  if (type_info.body().derived != 0 &&
       !DumpTypeIndexField(type_map, out, "Type index of derived from",
-                          type_info.derived, indent_level)) {
+                          type_info.body().derived, indent_level)) {
     return false;
   }
   if (!DumpTypeIndexField(type_map, out, "Type index of vshape table",
-                          type_info.vshape, indent_level)) {
+                          type_info.body().vshape, indent_level)) {
     return false;
   }
-  return DumpLeafClassTail(type_map, out, stream, len, indent_level,
-                           property_field);
+  DumpIndentedText(out, indent_level, "Size: %llu\n", type_info.size());
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
+  if (type_info.property().decorated_name_present != 0) {
+    DumpIndentedText(out, indent_level, "Decorated name: %ls\n",
+                     type_info.decorated_name().c_str());
+  }
+  return true;
 }
 
 bool DumpLeafUnion(const TypeInfoRecordMap& type_map,
@@ -788,24 +876,25 @@ bool DumpLeafUnion(const TypeInfoRecordMap& type_map,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  cci::LeafUnion type_info = {};
-  size_t to_read = offsetof(cci::LeafUnion, data);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafUnion type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  DumpIndentedText(out, indent_level, "Number of fields in the union: %d\n",
-                   type_info.count);
-  LeafPropertyField property_field = { type_info.property };
-  DumpFieldProperty(out, property_field, indent_level);
+  DumpIndentedText(out, indent_level, "Number of elements in union: %d\n",
+                   type_info.body().count);
+  DumpFieldProperty(out, type_info.property(), indent_level);
   if (!DumpTypeIndexField(type_map, out, "Type index of field descriptor",
-                          type_info.field, indent_level)) {
+                          type_info.body().field, indent_level)) {
     return false;
   }
-  return DumpLeafClassTail(type_map, out, stream, len, indent_level,
-                           property_field);
+  DumpIndentedText(out, indent_level, "Size: %llu\n", type_info.size());
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
+  if (type_info.property().decorated_name_present != 0) {
+    DumpIndentedText(out, indent_level, "Decorated name: %ls\n",
+                     type_info.decorated_name().c_str());
+  }
+  return true;
 }
 
 bool DumpLeafEnum(const TypeInfoRecordMap& type_map,
@@ -813,39 +902,28 @@ bool DumpLeafEnum(const TypeInfoRecordMap& type_map,
                   PdbStream* stream,
                   uint16 len,
                   uint8 indent_level) {
-  cci::LeafEnum type_info = {};
-  size_t to_read = offsetof(cci::LeafEnum, name);
-  size_t bytes_read = 0;
-  std::string enum_name;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      !ReadString(stream, &enum_name) ||
-      bytes_read != to_read) {
+  LeafEnum type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
   DumpIndentedText(out, indent_level, "Number of elements in class: %d\n",
-                   type_info.count);
-  LeafPropertyField property_field = {type_info.property};
-  DumpFieldProperty(out, property_field, indent_level);
+                   type_info.body().count);
+  DumpFieldProperty(out, type_info.property(), indent_level);
   if (!DumpTypeIndexField(type_map, out, "Underlying type",
-      type_info.utype, indent_level)) {
+                          type_info.body().utype, indent_level)) {
     return false;
   }
   if (!DumpTypeIndexField(type_map, out, "Type index of field descriptor",
-      type_info.field, indent_level)) {
+                          type_info.body().field, indent_level)) {
     return false;
   }
-  DumpIndentedText(out, indent_level, "Enum name: %s\n", enum_name.c_str());
+  DumpIndentedText(out, indent_level, "Enum name: %ls\n",
+                   type_info.name().c_str());
 
-  if (property_field.decorated_name_present != 0) {
-    std::string enum_name_decorated;
-    if (!ReadString(stream, &enum_name_decorated)) {
-      LOG(ERROR) << "Unable to read the decorated name of an enum (undecorated "
-                 << "name: " << enum_name.c_str() << ").";
-      return false;
-    }
-    DumpIndentedText(out, indent_level, "Enum name decorated: %s\n",
-                     enum_name_decorated.c_str());
+  if (type_info.has_decorated_name()) {
+    DumpIndentedText(out, indent_level, "Enum name decorated: %sS\n",
+                     type_info.decorated_name().c_str());
   }
   return true;
 }
@@ -900,28 +978,19 @@ bool DumpLeafMember(const TypeInfoRecordMap& type_map,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  cci::LeafMember type_info = {};
-  size_t to_read = offsetof(cci::LeafMember, offset);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafMember type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  LeafMemberAttributeField member_attributes = { type_info.attr };
-  DumpMemberAttributeField(out, member_attributes, indent_level);
+  DumpMemberAttributeField(out, type_info.attr(), indent_level);
   if (!DumpTypeIndexField(type_map, out, "Index of type record for field",
-                          type_info.index, indent_level)) {
+                          type_info.body().index, indent_level)) {
     return false;
   }
-  DumpLeafNamedDataField(type_map, out, stream, indent_level,
-                         "Offset of field");
-  std::string leaf_name;
-  if (!ReadString(stream, &leaf_name)) {
-    LOG(ERROR) << "Unable to read the name of an enum leaf.";
-    return false;
-  }
-  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
+  DumpIndentedText(out, indent_level, "Offset of field: %llu\n",
+                   type_info.offset());
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
   return true;
 }
 
@@ -930,22 +999,13 @@ bool DumpLeafSTMember(const TypeInfoRecordMap& type_map,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  cci::LeafSTMember type_info = {};
-  size_t to_read = offsetof(cci::LeafSTMember, name);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafSTMember type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  LeafMemberAttributeField member_attributes = {type_info.attr};
-  DumpMemberAttributeField(out, member_attributes, indent_level);
-  std::string leaf_name;
-  if (!ReadString(stream, &leaf_name)) {
-    LOG(ERROR) << "Unable to read the name of an enum leaf.";
-    return false;
-  }
-  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
+  DumpMemberAttributeField(out, type_info.attr(), indent_level);
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
   return true;
 }
 
@@ -954,24 +1014,16 @@ bool DumpLeafMethod(const TypeInfoRecordMap& type_map,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  cci::LeafMethod type_info = {};
-  size_t to_read = offsetof(cci::LeafMethod, name);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafMethod type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  DumpIndentedText(out, indent_level, "Number of occurrences %d.\n",
-                   type_info.count);
+  DumpIndentedText(out, indent_level, "Number of occurrences: %d\n",
+                   type_info.body().count);
   DumpTypeIndexField(type_map, out, "Index to LF_METHODLIST record",
-                     type_info.mList, indent_level);
-  std::string leaf_name;
-  if (!ReadString(stream, &leaf_name)) {
-    LOG(ERROR) << "Unable to read the name of a method leaf.";
-    return false;
-  }
-  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
+                     type_info.body().mList, indent_level);
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
   return true;
 }
 
@@ -980,27 +1032,17 @@ bool DumpLeafNestType(const TypeInfoRecordMap& type_map,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  cci::LeafNestTypeEx type_info = {};
-  size_t to_read = offsetof(cci::LeafNestTypeEx, name);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&type_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  LeafNestType type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-
-  LeafMemberAttributeField member_attributes = { type_info.attr };
-  DumpMemberAttributeField(out, member_attributes, indent_level);
+  DumpMemberAttributeField(out, type_info.attr(), indent_level);
   if (!DumpTypeIndexField(type_map, out, "Nested type index",
-                          type_info.index, indent_level)) {
+                          type_info.body().index, indent_level)) {
     return false;
   }
-  std::string leaf_name;
-  if (!ReadString(stream, &leaf_name)) {
-    LOG(ERROR) << "Unable to read the name of a nest type leaf.";
-    return false;
-  }
-  DumpIndentedText(out, indent_level, "Name: %s\n", leaf_name.c_str());
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
 
   return true;
 }
@@ -1010,8 +1052,20 @@ bool DumpLeafOneMethod(const TypeInfoRecordMap& type_map,
                        PdbStream* stream,
                        uint16 len,
                        uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this leaf.
-  return false;
+  LeafOneMethod type_info;
+  if (!type_info.Initialize(stream)) {
+    LOG(ERROR) << "Unable to read type info record.";
+    return false;
+  }
+  DumpMemberAttributeField(out, type_info.attr(), indent_level);
+  DumpTypeIndexField(type_map, out, "Type index of function type",
+                     type_info.body().index, indent_level);
+  if (type_info.has_vbaseoff()) {
+    DumpIndentedText(out, indent_level, "Virtual base offset: %llu\n",
+                     type_info.vbaseoff());
+  }
+  DumpIndentedText(out, indent_level, "Name: %ls\n", type_info.name().c_str());
+  return true;
 }
 
 bool DumpLeafNestTypeEx(const TypeInfoRecordMap& type_map,
@@ -1064,21 +1118,21 @@ bool DumpLeafProc(const TypeInfoRecordMap& type_map,
                   PdbStream* stream,
                   uint16 len,
                   uint8 indent_level) {
-  cci::LeafProc type_info = {};
-  if (!stream->Read(&type_info, 1)) {
+  LeafProcedure type_info;
+  if (!type_info.Initialize(stream)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
-  if (!DumpTypeIndexField(type_map, out, "Return value type index",
-                          type_info.rvtype, indent_level)) {
+  if (!DumpTypeIndexField(type_map, out, "Type index of the return value",
+                          type_info.body().rvtype, indent_level)) {
     return false;
   }
   DumpIndentedText(out, indent_level, "Calling convention: %d\n",
-                   type_info.calltype);
+                   type_info.body().calltype);
   DumpIndentedText(out, indent_level, "Number of parameters: %d\n",
-                   type_info.parmcount);
+                   type_info.body().parmcount);
   if (!DumpTypeIndexField(type_map, out, "Argument list type index",
-                          type_info.arglist, indent_level)) {
+                          type_info.body().arglist, indent_level)) {
     return false;
   }
   return true;

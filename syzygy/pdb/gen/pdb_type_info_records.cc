@@ -19,6 +19,19 @@
 
 namespace pdb {
 
+LeafArgList::LeafArgList() : body_{} {}
+
+bool LeafArgList::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafArgList, arg);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+
+  return true;
+}
+
 LeafArray::LeafArray() : body_{},
                          size_{},
                          name_{} {}
@@ -91,6 +104,27 @@ bool LeafClass::Initialize(PdbStream* stream) {
   return true;
 }
 
+LeafEnum::LeafEnum() : body_{},
+                       name_{},
+                       decorated_name_{} {}
+
+bool LeafEnum::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafEnum, name);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
+  if (!ReadWideString(stream, &name_))
+    return false;
+  if ((property().decorated_name_present != 0) &&
+      !ReadWideString(stream, &decorated_name_)) {
+    return false;
+  }
+
+  return true;
+}
+
 LeafEnumerate::LeafEnumerate() : body_{},
                                  value_{},
                                  name_{} {}
@@ -102,7 +136,7 @@ bool LeafEnumerate::Initialize(PdbStream* stream) {
       bytes_read != to_read) {
     return false;
   }
-  if (!ReadUnsignedNumeric(stream, &value_))
+  if (!ReadNumericConstant(stream, &value_))
     return false;
   if (!ReadWideString(stream, &name_))
     return false;
@@ -385,6 +419,19 @@ bool LeafVFuncTab::Initialize(PdbStream* stream) {
   }
   if (!ReadBasicType(stream, &index_))
     return false;
+
+  return true;
+}
+
+LeafVTShape::LeafVTShape() : body_{} {}
+
+bool LeafVTShape::Initialize(PdbStream* stream) {
+  size_t to_read = offsetof(Microsoft_Cci_Pdb::LeafVTShape, desc);
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    return false;
+  }
 
   return true;
 }

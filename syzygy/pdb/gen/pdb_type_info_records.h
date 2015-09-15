@@ -26,6 +26,25 @@ namespace pdb {
 // Forward declaration.
 class PdbStream;
 
+class LeafArgList {
+ public:
+  LeafArgList();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafArgList& body() const { return body_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafArgList body_;
+};
+
 class LeafArray {
  public:
   LeafArray();
@@ -126,6 +145,36 @@ class LeafClass {
   base::string16 decorated_name_;
 };
 
+class LeafEnum {
+ public:
+  LeafEnum();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafEnum& body() const { return body_; }
+  const base::string16& name() const { return name_; }
+  const base::string16& decorated_name() const { return decorated_name_; }
+  LeafPropertyField property() const { return {body_.property}; }
+  // @}
+
+  bool has_decorated_name() const {
+    return (property().decorated_name_present != 0);
+  }
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafEnum body_;
+
+  // Additional fields parsed from the pdb stream.
+  base::string16 name_;
+  base::string16 decorated_name_;
+};
+
 class LeafEnumerate {
  public:
   LeafEnumerate();
@@ -133,7 +182,7 @@ class LeafEnumerate {
   // @name Accessors.
   // @{
   const Microsoft_Cci_Pdb::LeafEnumerate& body() const { return body_; }
-  uint64_t value() const { return value_; }
+  const NumericConstant& value() const { return value_; }
   const base::string16& name() const { return name_; }
   LeafMemberAttributeField attr() const { return {body_.attr}; }
   // @}
@@ -148,7 +197,7 @@ class LeafEnumerate {
   Microsoft_Cci_Pdb::LeafEnumerate body_;
 
   // Additional fields parsed from the pdb stream.
-  uint64_t value_;
+  NumericConstant value_;
   base::string16 name_;
 };
 
@@ -543,6 +592,25 @@ class LeafVFuncTab {
 
   // Additional fields parsed from the pdb stream.
   uint32_t index_;
+};
+
+class LeafVTShape {
+ public:
+  LeafVTShape();
+
+  // @name Accessors.
+  // @{
+  const Microsoft_Cci_Pdb::LeafVTShape& body() const { return body_; }
+  // @}
+
+  // Initializes the class from the given pdb stream.
+  // @param stream pointer to the pdb stream.
+  // @returns true on success, false on failure.
+  bool Initialize(PdbStream* stream);
+
+ private:
+  // The struct from CVInfo.h which represents this record.
+  Microsoft_Cci_Pdb::LeafVTShape body_;
 };
 
 class MethodListRecord {
