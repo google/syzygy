@@ -76,7 +76,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantDirect) {
 }
 
 TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantChar) {
-  const int16_t kVal8 = -42;
+  const int8_t kVal8 = -42;
   const uint16_t kLfChar = Microsoft_Cci_Pdb::LF_CHAR;
   NumericConstant numeric;
 
