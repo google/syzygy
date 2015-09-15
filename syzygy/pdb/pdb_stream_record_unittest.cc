@@ -75,6 +75,19 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantDirect) {
   EXPECT_EQ(kVal16, numeric.unsigned_value());
 }
 
+TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantChar) {
+  const int16_t kVal8 = -42;
+  const uint16_t kLfChar = Microsoft_Cci_Pdb::LF_CHAR;
+  NumericConstant numeric;
+
+  // Test reading signed 8-bit values.
+  WriteData(kLfChar);
+  WriteData(kVal8);
+  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
+  EXPECT_EQ(kVal8, numeric.signed_value());
+}
+
 TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantUshort) {
   const uint16_t kVal16 = 42;
   const uint16_t kLfUshort = Microsoft_Cci_Pdb::LF_USHORT;

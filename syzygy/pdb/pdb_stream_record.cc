@@ -67,6 +67,14 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
 
   // Otherwise load the constant given its value type.
   switch (value_type) {
+    case Microsoft_Cci_Pdb::LF_CHAR: {
+      int8_t value = 0;
+      if (!stream->Read(&value, 1))
+        return false;
+      constant->kind_ = NumericConstant::CONSTANT_SIGNED;
+      constant->signed_value_ = value;
+      return true;
+    }
     case Microsoft_Cci_Pdb::LF_USHORT: {
       uint16_t value = 0;
       if (!stream->Read(&value, 1))
