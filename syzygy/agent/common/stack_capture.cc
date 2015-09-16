@@ -87,7 +87,7 @@ StackId StackCapture::relative_stack_id() const {
   // Note that 0 is a valid stack ID, in which case we'll always recompute it,
   // an undesired side effect that we accept.
   if (!relative_stack_id_)
-    relative_stack_id_ = ComputeRelativeStackId();
+    ComputeRelativeStackId();
   return relative_stack_id_;
 }
 
@@ -96,21 +96,7 @@ void StackCapture::Init() {
   bottom_frames_to_skip_ = ::common::kDefaultBottomFramesToSkip;
 }
 
-// static
-StackId StackCapture::ComputeAbsoluteStackId(const void* const* frames,
-                                             size_t num_frames) {
-  StackId absolute_stack_id = num_frames;
-
-  for (uint8 i = 0; i < num_frames; ++i)
-    absolute_stack_id = UpdateStackId(absolute_stack_id, frames[i]);
-
-  absolute_stack_id = FinalizeStackId(absolute_stack_id);
-
-  return absolute_stack_id;
-}
-
-void StackCapture::InitFromBuffer(StackId absolute_stack_id,
-                                  const void* const* frames,
+void StackCapture::InitFromBuffer(const void* const* frames,
                                   size_t num_frames) {
   DCHECK(frames != NULL);
   DCHECK_LT(0U, num_frames);
@@ -118,14 +104,25 @@ void StackCapture::InitFromBuffer(StackId absolute_stack_id,
   // Determine how many frames we can actually store.
   num_frames_ = std::min<uint8>(num_frames, max_num_frames_);
 
-  // Recalculate the stack ID if the full stack doesn't fit.
-  if (num_frames_ < num_frames) {
-    absolute_stack_id_ = ComputeAbsoluteStackId(frames, num_frames_);
-  } else {
-    absolute_stack_id_ = absolute_stack_id;
-  }
-
   ::memcpy(frames_, frames, num_frames_ * sizeof(*frames_));
+
+  ComputeAbsoluteStackId();
+}
+
+void StackCapture::InitFromExistingStack(const StackCapture& stack_capture) {
+  DCHECK(stack_capture.frames() != NULL);
+  DCHECK_LT(0U, stack_capture.num_frames());
+
+  // Determine how many frames we can actually store.
+  num_frames_ = std::min<uint8>(stack_capture.num_frames(), max_num_frames_);
+
+  ::memcpy(frames_, stack_capture.frames(), num_frames_ * sizeof(*frames_));
+
+  // If the number of frames differs, we recalculate the stack ID.
+  if (num_frames_ == stack_capture.num_frames())
+    absolute_stack_id_ = stack_capture.absolute_stack_id();
+  else
+    ComputeAbsoluteStackId();
 }
 
 // Disable optimizations so that this function generates a standard frame, and
@@ -137,7 +134,7 @@ void __declspec(noinline) StackCapture::InitFromStack() {
   num_frames_ = ::CaptureStackBackTrace(1, max_num_frames_, frames_, nullptr);
   num_frames_ -= std::min(static_cast<uint8>(bottom_frames_to_skip_),
                           num_frames_);
-  absolute_stack_id_ = ComputeAbsoluteStackId(frames_, num_frames_);
+  ComputeAbsoluteStackId();
 }
 #pragma optimize("", on)
 
@@ -194,7 +191,7 @@ size_t StackCapture::HashCompare::operator()(
   // make sure that's the case.
   COMPILE_ASSERT(sizeof(StackId) == sizeof(size_t),
                  stack_id_and_size_t_not_same_size);
-  return stack_capture->absolute_stack_id_;
+  return stack_capture->absolute_stack_id();
 }
 
 bool StackCapture::HashCompare::operator()(
@@ -202,17 +199,26 @@ bool StackCapture::HashCompare::operator()(
     const StackCapture* stack_capture2) const {
   DCHECK(stack_capture1 != NULL);
   DCHECK(stack_capture2 != NULL);
-  return stack_capture1->absolute_stack_id_ ==
-         stack_capture2->absolute_stack_id_;
+  return stack_capture1->absolute_stack_id() ==
+         stack_capture2->absolute_stack_id();
 }
 
-StackId StackCapture::ComputeRelativeStackId() const {
+void StackCapture::ComputeAbsoluteStackId() {
+  absolute_stack_id_ = num_frames_;
+
+  for (uint8 i = 0; i < num_frames_; ++i)
+    absolute_stack_id_ = UpdateStackId(absolute_stack_id_, frames_[i]);
+
+  absolute_stack_id_ = FinalizeStackId(absolute_stack_id_);
+}
+
+void StackCapture::ComputeRelativeStackId() const {
   // We want to ignore the frames relative to our module to be able to get the
   // same trace id even if we update our runtime.
   HANDLE asan_handle = reinterpret_cast<HANDLE>(&__ImageBase);
   DCHECK(asan_handle != NULL);
 
-  StackId stack_id = 0;
+  StackId relative_stack_id_ = 0;
   for (size_t i = 0; i < num_frames_; ++i) {
     // NULL stack frames may be returned from ::CaptureStackBackTrace.
     // This has been observed on Windows 8.
@@ -236,12 +242,11 @@ StackId StackCapture::ComputeRelativeStackId() const {
               reinterpret_cast<uintptr_t>(module);
     }
 
-    stack_id = UpdateStackId(stack_id, reinterpret_cast<void*>(frame));
+    relative_stack_id_ =
+        UpdateStackId(relative_stack_id_, reinterpret_cast<void*>(frame));
   }
 
-  stack_id = FinalizeStackId(stack_id);
-
-  return stack_id;
+  relative_stack_id_ = FinalizeStackId(relative_stack_id_);
 }
 
 }  // namespace common

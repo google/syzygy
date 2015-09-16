@@ -156,9 +156,10 @@ void StackCaptureCache::Init() {
 }
 
 const common::StackCapture* StackCaptureCache::SaveStackTrace(
-    StackId absolute_stack_id,
-    const void* const* frames,
-    size_t num_frames) {
+    const common::StackCapture& stack_capture) {
+  auto frames = stack_capture.frames();
+  auto num_frames = stack_capture.num_frames();
+  auto absolute_stack_id = stack_capture.absolute_stack_id();
   DCHECK_NE(static_cast<void**>(nullptr), frames);
   DCHECK_NE(num_frames, 0U);
   DCHECK_NE(static_cast<CachePage*>(nullptr), current_page_);
@@ -173,17 +174,17 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
     // bucket.
     base::AutoLock auto_lock(known_stacks_locks_[known_stack_shard]);
 
-    // Check if the stack capture is already in the cache map.
-    common::StackCapture capture;
-    capture.set_absolute_stack_id(absolute_stack_id);
-    StackSet::iterator result = known_stacks_[known_stack_shard].find(&capture);
+    // Check if the stack capture is already in the cache map. It's fine to
+    // remove the const as this call will not modify |stack_capture|.
+    StackSet::iterator result = known_stacks_[known_stack_shard].find(
+        const_cast<common::StackCapture*>(&stack_capture));
 
     // If this capture has not already been cached then we have to initialize
     // the data.
     if (result == known_stacks_[known_stack_shard].end()) {
       stack_trace = GetStackCapture(num_frames);
       DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_trace);
-      stack_trace->InitFromBuffer(absolute_stack_id, frames, num_frames);
+      stack_trace->InitFromExistingStack(stack_capture);
       auto result = known_stacks_[known_stack_shard].insert(stack_trace);
       DCHECK(result.second);
       DCHECK(stack_trace->HasNoRefs());
@@ -236,12 +237,6 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
 
   // Return the stack trace pointer that is now in the cache.
   return stack_trace;
-}
-
-const common::StackCapture* StackCaptureCache::SaveStackTrace(
-    const common::StackCapture& stack_capture) {
-  return SaveStackTrace(stack_capture.absolute_stack_id(),
-                        stack_capture.frames(), stack_capture.num_frames());
 }
 
 void StackCaptureCache::ReleaseStackTrace(

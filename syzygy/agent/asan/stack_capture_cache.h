@@ -92,19 +92,10 @@ class StackCaptureCache {
     return compression_reporting_period_;
   }
 
-  // Save (or retrieve) the stack capture (the first @p num_frames elements
-  // from  @p frames) into the cache using @p absolute_stack_id as the key.
-  // @param absolute_stack_id a unique identifier for this stack trace. It is
-  //     expected that identical stack traces will have the same @p
-  //     absolute_stack_id.
-  // @param frames an array of stack frame pointers.
-  // @param num_frames the number of valid elements in @p frames. Note that
-  //     at most StackCapture::kMaxNumFrames will be saved.
+  // Save (or retrieve) the stack capture into the cache using its
+  // absolute_stack_id as the key.
   // @param stack_capture The initialized stack capture to save.
   // @returns a pointer to the saved stack capture.
-  const common::StackCapture* SaveStackTrace(StackId absolute_stack_id,
-                                             const void* const* frames,
-                                             size_t num_frames);
   const common::StackCapture* SaveStackTrace(
       const common::StackCapture& stack_capture);
 

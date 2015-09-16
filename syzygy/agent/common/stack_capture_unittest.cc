@@ -33,7 +33,7 @@ class TestStackCapture : public StackCapture {
     relative_stack_id_ = relative_stack_id;
   }
 
-  MOCK_CONST_METHOD0(ComputeRelativeStackId, StackId());
+  MOCK_CONST_METHOD0(ComputeRelativeStackId, void(void));
 };
 
 class StackCaptureTest : public testing::Test {
@@ -57,23 +57,22 @@ TEST_F(StackCaptureTest, InitFromBuffer) {
   EXPECT_TRUE(capture.frames() != NULL);
 
   // Create some fake stack trace data.
-  ULONG absolute_stack_id = 10;
   void* frames[StackCapture::kMaxNumFrames + 1] = { 0 };
   for (size_t i = 0; i < arraysize(frames); ++i) {
     frames[i] = reinterpret_cast<void*>(i);
   }
 
   // Initialize the stack capture without using all of the frames.
-  capture.InitFromBuffer(absolute_stack_id, frames, 7);
+  capture.InitFromBuffer(frames, 7);
   EXPECT_TRUE(capture.IsValid());
-  EXPECT_EQ(10u, capture.absolute_stack_id());
+  EXPECT_EQ(0x9E172AA9u, capture.absolute_stack_id());
   EXPECT_EQ(7, capture.num_frames());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
   EXPECT_TRUE(capture.frames() != NULL);
 
   // Attempt to initialize the stack capture using too many frames; the
   // resulting capture should truncate to kMaxNumFrames.
-  capture.InitFromBuffer(absolute_stack_id, frames, arraysize(frames));
+  capture.InitFromBuffer(frames, arraysize(frames));
   EXPECT_TRUE(capture.IsValid());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.num_frames());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
@@ -92,6 +91,19 @@ TEST_F(StackCaptureTest, InitFromStack) {
   EXPECT_TRUE(capture.IsValid());
   EXPECT_LT(0u, capture.num_frames());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
+}
+
+TEST_F(StackCaptureTest, InitFromExistingStack) {
+  StackCapture capture;
+  capture.InitFromStack();
+  StackCapture copy;
+  copy.InitFromExistingStack(capture);
+  EXPECT_TRUE(copy.IsValid());
+  EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
+  EXPECT_EQ(capture.absolute_stack_id(), copy.absolute_stack_id());
+  EXPECT_EQ(capture.num_frames(), copy.num_frames());
+  for (size_t i = 0; i < capture.num_frames(); i++)
+    EXPECT_EQ(capture.frames()[i], copy.frames()[i]);
 }
 
 TEST_F(StackCaptureTest, RestrictedFrameCount) {

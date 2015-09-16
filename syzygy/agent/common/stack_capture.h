@@ -63,13 +63,6 @@ class StackCapture {
   // Static initialisation of StackCapture context.
   static void Init();
 
-  // Computes a simple hash of a given stack trace.
-  // @param frames The frames to be hashed.
-  // @param num_frames The number of frames to be hashed.
-  // @returns The computed stack trace ID.
-  static StackId ComputeAbsoluteStackId(const void* const* frames,
-                                        size_t num_frames);
-
   // Calculate the size necessary to store a StackCapture with the given
   // number of stack frames.
   // @param max_num_frames The maximum number of stack frames the object needs
@@ -126,12 +119,6 @@ class StackCapture {
     return max_num_frames_ != 0 ? frames_ : NULL;
   }
 
-  // Sets the stack ID for a given trace.
-  // @param The stack ID to set.
-  void set_absolute_stack_id(StackId absolute_stack_id) {
-    absolute_stack_id_ = absolute_stack_id;
-  }
-
   // Set the number of bottom frames to skip per stack trace. This is needed to
   // be able to improve the stack cache compression in Chrome's unittests where
   // the bottom of the stack traces is different for each test case.
@@ -144,17 +131,16 @@ class StackCapture {
   // Get the number of bottom frames to skip per stack trace.
   static size_t bottom_frames_to_skip() { return bottom_frames_to_skip_; }
 
-  // Initializes a stack trace from an array of frame pointers, a count and
-  // a StackId (such as returned by ::CaptureStackBackTrace).
-  // @param absolute_stack_id The ID of the stack back trace. This value will be
-  //     ignored and another ID calculated if the trace has to be truncated.
+  // Initializes a stack trace from an array of frame pointers and a count.
   // @param frames an array of frame pointers.
   // @param num_frames the number of valid frame pointers in @frames. Note
   //     that at most kMaxNumFrames frame pointers will be copied to this
   //     stack trace capture.
-  void InitFromBuffer(StackId absolute_stack_id,
-                      const void* const* frames,
-                      size_t num_frames);
+  void InitFromBuffer(const void* const* frames, size_t num_frames);
+
+  // Initializes a stack trace from an existing stack trace.
+  // @param stack_capture The existing stack trace that will be copied.
+  void InitFromExistingStack(const StackCapture& stack_capture);
 
   // Initializes a stack trace from the actual stack. Does not report the
   // frame created by 'InitFromStack' itself. This function must not be inlined
@@ -194,8 +180,8 @@ class StackCapture {
   StackId absolute_stack_id_;
 
   // The relative unique ID of this hash. This is used when persistence between
-  // runs is needed. Declared mutable as it's calculated on demand and cached
-  // when relative_stack_id is called.
+  // runs is needed. Should be only accessed through relative_stack_id() as it's
+  // computed on demand and cached (which is why it's declared as mutable).
   mutable StackId relative_stack_id_;
 
   // The number of valid frames in this stack trace capture, and the maximum
@@ -218,10 +204,13 @@ class StackCapture {
   void* frames_[kMaxNumFrames];
 
  private:
+  // Computes a simple hash of a given stack trace, referred to as the absolute
+  // stack id and sets the value in |absolute_stack_id_|.
+  void ComputeAbsoluteStackId();
+
   // Computes the hash of a stack trace using relative addresses of each stack
   // frame. Declared virtual for unittesting.
-  // @returns the relative hash of this stack trace.
-  virtual StackId ComputeRelativeStackId() const;
+  virtual void ComputeRelativeStackId() const;
 
   DISALLOW_COPY_AND_ASSIGN(StackCapture);
 };
