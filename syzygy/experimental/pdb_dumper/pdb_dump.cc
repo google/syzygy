@@ -195,6 +195,7 @@ const char kUsage[] =
     "    --dump-symbol-records if provided the symbol record stream will be\n"
     "       dumped. This is a big stream so it could take a lot of time to\n"
     "       process.\n"
+    "    --dump-fpo if provided, the FPO stream will be dumped\n"
     "    --dump-type-info if provided the type info stream will be dumped.\n"
     "       This is a big stream so it could take a lot of time to process.\n"
     "    --dump-modules if provided the module streams will be dumped. Note\n"
@@ -209,6 +210,7 @@ PdbDumpApp::PdbDumpApp()
     : application::AppImplBase("PDB Dumper"),
       explode_streams_(false),
       dump_symbol_record_(false),
+      dump_fpo_(false),
       dump_type_info_(false),
       dump_modules_(false) {
 }
@@ -218,6 +220,7 @@ bool PdbDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
 
   explode_streams_ = command_line->HasSwitch("explode-streams");
   dump_symbol_record_ = command_line->HasSwitch("dump-symbol-records");
+  dump_fpo_ = command_line->HasSwitch("dump-fpo");
   dump_type_info_ = command_line->HasSwitch("dump-type-info");
   dump_modules_ = command_line->HasSwitch("dump-modules");
 
@@ -279,6 +282,15 @@ int PdbDumpApp::Run() {
       return 1;
     }
 
+    if (dump_fpo_) {
+      scoped_refptr<pdb::PdbStream> fpo_stream =
+          pdb_file.GetStream(dbi_stream.dbg_header().fpo);
+
+      scoped_refptr<pdb::PdbStream> new_fpo_stream =
+          pdb_file.GetStream(dbi_stream.dbg_header().new_fpo);
+
+      DumpFpoStream(fpo_stream.get(), new_fpo_stream.get());
+    }
     // Read the type info stream.
     stream = pdb_file.GetStream(pdb::kTpiStream).get();
     TypeInfoEnumerator type_info_enum;
@@ -431,6 +443,35 @@ void PdbDumpApp::DumpDbiHeaders(const DbiStream& dbi_stream) {
 
 void PdbDumpApp::DumpDbiStream(const DbiStream& dbi_stream) {
   DumpDbiHeaders(dbi_stream);
+}
+
+void PdbDumpApp::DumpFpoStream(PdbStream* fpo_stream,
+                               PdbStream* new_fpo_stream) {
+  if (!fpo_stream) {
+    ::fprintf(out(), "No FPO stream!\n");
+  } else {
+    ::fprintf(out(), "FPO Records:\n");
+    FPO_DATA fpo_data = {};
+    while (fpo_stream->Read(&fpo_data, 1)) {
+      // A bit of indentation makes it easier to separate the records visually.
+      ::fprintf(out(), "  ulOffStart: 0x%08X\n", fpo_data.ulOffStart);
+      ::fprintf(out(), "  cbProcSize: 0x%08X\n", fpo_data.cbProcSize);
+      ::fprintf(out(), "    cdwLocals: 0x%08X\n", fpo_data.cdwLocals);
+      ::fprintf(out(), "    cdwParams: 0x%04X\n", fpo_data.cdwParams);
+      ::fprintf(out(), "    cbProlog: %d\n", fpo_data.cbProlog);
+      ::fprintf(out(), "    cbRegs: %d\n", fpo_data.cbRegs);
+      ::fprintf(out(), "    fHasSEH: %d\n", fpo_data.fHasSEH);
+      ::fprintf(out(), "    fUseBP: %d\n", fpo_data.fUseBP);
+      ::fprintf(out(), "    reserved: %d\n", fpo_data.reserved);
+      ::fprintf(out(), "    cbFrame: %d\n", fpo_data.cbFrame);
+    }
+  }
+
+  if (!new_fpo_stream) {
+    ::fprintf(out(), "No new FPO stream!\n");
+  } else {
+    ::fprintf(out(), "Don't know how to dump new FPO stream yet.\n");
+  }
 }
 
 }  // namespace pdb

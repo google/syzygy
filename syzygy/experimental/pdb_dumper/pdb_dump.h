@@ -20,6 +20,7 @@
 
 #include "base/files/file_path.h"
 #include "syzygy/application/application.h"
+#include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
@@ -58,6 +59,10 @@ class PdbDumpApp : public application::AppImplBase {
   // Dumps @p dbi_stream to out().
   void DumpDbiStream(const DbiStream& dbi_stream);
 
+  // Dumps @p fpo_stream to out().
+  void DumpFpoStream(pdb::PdbStream* fpo_stream,
+                     pdb::PdbStream* new_fpo_stream);
+
   // The PDB files to dump.
   std::vector<base::FilePath> pdb_files_;
 
@@ -67,6 +72,9 @@ class PdbDumpApp : public application::AppImplBase {
 
   // Iff true, the symbol record stream will be dumped. Default to false.
   bool dump_symbol_record_;
+
+  // Iff true, the FPO stream will be dumped. Default to false.
+  bool dump_fpo_;
 
   // Iff true, the type info stream will be dumped. Default to false.
   bool dump_type_info_;
