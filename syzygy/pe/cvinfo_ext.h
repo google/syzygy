@@ -43,12 +43,14 @@ const uint16 S_COMPILE3 = 0x113C;
 const uint16 S_MSTOOLENV_V3 = 0x113D;
 const uint16 S_LOCAL_VS2013 = 0x113E;
 
+// Provides the frame pointer offset for the S_LOCAL_VS2013 variables.
+const uint16 S_FPOFF_VS2013 = 0x1144;
+
 // Since VS2013 it seems that the compiler isn't emitting the same value as
 // those in cvinfo.h for the S_GPROC32 and S_LPROC32 types, the following 2
 // values should be used instead.
 const uint16 S_LPROC32_VS2013 = 0x1146;
 const uint16 S_GPROC32_VS2013 = 0x1147;
-
 }  // namespace Microsoft_Cci_Pdb
 
 // This macro allow the easy construction of switch statements over the symbol
@@ -175,6 +177,7 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_COMPILE3, CompileSym2) \
     decl(S_MSTOOLENV_V3, MSToolEnvV3) \
     decl(S_LOCAL_VS2013, LocalSym2013) \
+    decl(S_FPOFF_VS2013, FPOffs2013) \
     decl(S_LPROC32_VS2013, ProcSym32) \
     decl(S_GPROC32_VS2013, ProcSym32)
 
@@ -689,6 +692,12 @@ struct LocalSym2013 {
   uint8 name[1];       // Name of this symbol.
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym2013, 7);
+
+// Frame pointer offset for LocalSym2013 variable.
+struct FPOffs2013 {
+  int offs;
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(FPOffs2013, 4);
 
 // Defines flags used for export symbols, see EXPORTSYM_FLAGS.
 union ExportVarFlags {

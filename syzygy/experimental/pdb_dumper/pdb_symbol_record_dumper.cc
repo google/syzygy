@@ -121,8 +121,50 @@ bool DumpFrameProcSym(FILE* out,
                       PdbStream* stream,
                       uint16 len,
                       uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::FrameProcSym frame_proc_sym = {};
+  if (!stream->Read(&frame_proc_sym, 1))
+    return false;
+
+  DumpIndentedText(out, indent_level, "cbFrame: %d\n", frame_proc_sym.cbFrame);
+  DumpIndentedText(out, indent_level, "cbPad: %d\n", frame_proc_sym.cbPad);
+  DumpIndentedText(out, indent_level, "offPad: %d\n", frame_proc_sym.offPad);
+  DumpIndentedText(out, indent_level, "cbSaveRegs: %d\n",
+                   frame_proc_sym.cbSaveRegs);
+  DumpIndentedText(out, indent_level, "offExHdlr: %d\n",
+                   frame_proc_sym.offExHdlr);
+  DumpIndentedText(out, indent_level, "secExHdlr: %d\n",
+                   frame_proc_sym.secExHdlr);
+
+  FrameProcSymFlags convert = {frame_proc_sym.flags};
+  DumpIndentedText(out, indent_level, "Flags:\n");
+  DumpIndentedText(out, indent_level + 1, "HasAlloca              : %d\n",
+                   convert.fHasAlloca);
+  DumpIndentedText(out, indent_level + 1, "HasSetJmp              : %d\n",
+                   convert.fHasSetJmp);
+  DumpIndentedText(out, indent_level + 1, "HasLongJmp             : %d\n",
+                   convert.fHasLongJmp);
+  DumpIndentedText(out, indent_level + 1, "HasInlAsm              : %d\n",
+                   convert.fHasInlAsm);
+  DumpIndentedText(out, indent_level + 1, "HasEH                  : %d\n",
+                   convert.fHasEH);
+  DumpIndentedText(out, indent_level + 1, "InlSpec                : %d\n",
+                   convert.fInlSpec);
+  DumpIndentedText(out, indent_level + 1, "HasSEH                 : %d\n",
+                   convert.fHasSEH);
+  DumpIndentedText(out, indent_level + 1, "Naked                  : %d\n",
+                   convert.fNaked);
+  DumpIndentedText(out, indent_level + 1, "SecurityChecks         : %d\n",
+                   convert.fSecurityChecks);
+  DumpIndentedText(out, indent_level + 1, "AsyncEH                : %d\n",
+                   convert.fAsyncEH);
+  DumpIndentedText(out, indent_level + 1, "GSNoStackOrdering      : %d\n",
+                   convert.fGSNoStackOrdering);
+  DumpIndentedText(out, indent_level + 1, "WasInlined             : %d\n",
+                   convert.fWasInlined);
+  DumpIndentedText(out, indent_level + 1, "Reserved               : %d\n",
+                   convert.reserved);
+
+  return true;
 }
 
 bool DumpAnnotationSym(FILE* out,
@@ -278,8 +320,17 @@ bool DumpBpRelSym32(FILE* out,
                     PdbStream* stream,
                     uint16 len,
                     uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::BpRelSym32 bp_rel_sym = {};
+  std::string name;
+
+  if (!ReadSymbolAndName(stream, len, &bp_rel_sym, &name))
+    return false;
+
+  DumpIndentedText(out, indent_level, "off: %d\n", bp_rel_sym.off);
+  DumpIndentedText(out, indent_level, "typind: %d\n", bp_rel_sym.typind);
+  DumpIndentedText(out, indent_level, "Name: %s\n", name.c_str());
+
+  return true;
 }
 
 bool DumpProcSym32(FILE* out,
@@ -625,6 +676,18 @@ bool DumpLocalSym2013(FILE* out,
   return true;
 }
 
+bool DumpFPOffs2013(FILE* out,
+                    PdbStream* stream,
+                    uint16 len,
+                    uint8 indent_level) {
+  FPOffs2013 fp_offs = {};
+  if (!stream->Read(&fp_offs, 1))
+    return false;
+
+  DumpIndentedText(out, indent_level, "Offs: %d\n", fp_offs.offs);
+  return true;
+}
+
 bool DumpDefRangeSym(FILE* out,
                      PdbStream* stream,
                      uint16 len,
@@ -685,8 +748,33 @@ bool DumpExportSym(FILE* out,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::ExportSym export_sym;
+  std::string name;
+
+  if (!ReadSymbolAndName(stream, offsetof(cci::ExportSym, name), &export_sym,
+                         &name))
+    return false;
+
+  ExportVarFlags convert = {export_sym.flags};
+  DumpIndentedText(out, indent_level, "Ordinal: %d\n", export_sym.ordinal);
+  DumpIndentedText(out, indent_level, "Flags:\n");
+  DumpIndentedText(out, indent_level + 1, "Constant            : %d\n",
+                   convert.fConstant);
+  DumpIndentedText(out, indent_level + 1, "Data                : %d\n",
+                   convert.fData);
+  DumpIndentedText(out, indent_level + 1, "Private             : %d\n",
+                   convert.fPrivate);
+  DumpIndentedText(out, indent_level + 1, "NoName              : %d\n",
+                   convert.fNoName);
+  DumpIndentedText(out, indent_level + 1, "Ordinal             : %d\n",
+                   convert.fOrdinal);
+  DumpIndentedText(out, indent_level + 1, "Forwarder           : %d\n",
+                   convert.fForwarder);
+  DumpIndentedText(out, indent_level + 1, "Reserved            : %d\n",
+                   convert.reserved);
+  DumpIndentedText(out, indent_level, "name: %s\n", name.c_str());
+
+  return true;
 }
 
 bool DumpCallsiteInfo(FILE* out,
@@ -710,8 +798,18 @@ bool DumpFrameCookie(FILE* out,
                      PdbStream* stream,
                      uint16 len,
                      uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::FrameCookie frame_cookie = {};
+
+  if (!stream->Read(&frame_cookie, 1))
+    return false;
+
+  DumpIndentedText(out, indent_level, "Offs: %d\n", frame_cookie.off);
+  DumpIndentedText(out, indent_level, "Reg: %d\n", frame_cookie.reg);
+  DumpIndentedText(out, indent_level, "Cookietype: 0x%08X\n",
+                   frame_cookie.cookietype);
+  DumpIndentedText(out, indent_level, "Flags: 0x%02X\n", frame_cookie.flags);
+
+  return true;
 }
 
 bool DumpDiscardedSym(FILE* out,
