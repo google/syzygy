@@ -192,6 +192,7 @@ const char kUsage[] =
     "  output directory named '<PDB file>.streams'.\n"
     "\n"
     "  Optional Options:\n"
+    "    --dump-name-table if provided the name table will be dumped.\n"
     "    --dump-symbol-records if provided the symbol record stream will be\n"
     "       dumped. This is a big stream so it could take a lot of time to\n"
     "       process.\n"
@@ -209,6 +210,7 @@ const char kUsage[] =
 PdbDumpApp::PdbDumpApp()
     : application::AppImplBase("PDB Dumper"),
       explode_streams_(false),
+      dump_name_table_(false),
       dump_symbol_record_(false),
       dump_fpo_(false),
       dump_type_info_(false),
@@ -219,6 +221,7 @@ bool PdbDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
   DCHECK(command_line != NULL);
 
   explode_streams_ = command_line->HasSwitch("explode-streams");
+  dump_name_table_ = command_line->HasSwitch("dump-name-table");
   dump_symbol_record_ = command_line->HasSwitch("dump-symbol-records");
   dump_fpo_ = command_line->HasSwitch("dump-fpo");
   dump_type_info_ = command_line->HasSwitch("dump-type-info");
@@ -261,9 +264,7 @@ int PdbDumpApp::Run() {
     NameStreamMap::const_iterator it(name_streams.find("/names"));
     OffsetStringMap index_names;
     if (it != name_streams.end()) {
-      if (ReadNameStream(pdb_file.GetStream(it->second).get(), &index_names)) {
-        DumpNameTable(index_names);
-      } else {
+      if (!ReadNameStream(pdb_file.GetStream(it->second).get(), &index_names)) {
         LOG(ERROR) << "Unable to read the name table.";
         return 1;
       }
@@ -271,6 +272,9 @@ int PdbDumpApp::Run() {
       LOG(ERROR) << "No name table.";
       return 1;
     }
+
+    if (dump_name_table_)
+      DumpNameTable(index_names);
 
     // Read the dbi stream.
     DbiStream dbi_stream;
@@ -289,7 +293,7 @@ int PdbDumpApp::Run() {
       scoped_refptr<pdb::PdbStream> new_fpo_stream =
           pdb_file.GetStream(dbi_stream.dbg_header().new_fpo);
 
-      DumpFpoStream(fpo_stream.get(), new_fpo_stream.get());
+      DumpFpoStream(index_names, fpo_stream.get(), new_fpo_stream.get());
     }
     // Read the type info stream.
     stream = pdb_file.GetStream(pdb::kTpiStream).get();
@@ -445,7 +449,8 @@ void PdbDumpApp::DumpDbiStream(const DbiStream& dbi_stream) {
   DumpDbiHeaders(dbi_stream);
 }
 
-void PdbDumpApp::DumpFpoStream(PdbStream* fpo_stream,
+void PdbDumpApp::DumpFpoStream(const OffsetStringMap& string_table,
+                               PdbStream* fpo_stream,
                                PdbStream* new_fpo_stream) {
   if (!fpo_stream) {
     ::fprintf(out(), "No FPO stream!\n");
@@ -470,7 +475,43 @@ void PdbDumpApp::DumpFpoStream(PdbStream* fpo_stream,
   if (!new_fpo_stream) {
     ::fprintf(out(), "No new FPO stream!\n");
   } else {
-    ::fprintf(out(), "Don't know how to dump new FPO stream yet.\n");
+    // TODO(siggi): Complete this structure and move it to cvinfo_ext.h.
+    struct NewFPO {
+      DWORD off_start;
+      DWORD proc_size;
+      DWORD locals_size;
+      DWORD arg_size;
+      DWORD unknown1;
+      DWORD prog_string;
+      WORD unknown2;
+      WORD register_bytes;
+      WORD unknown3;
+      WORD unknown4;
+    };
+    COMPILE_ASSERT(sizeof(NewFPO) == 0x20, new_fpo_wrong_size);
+
+    ::fprintf(out(), "New FPO Records:\n");
+    NewFPO new_fpo = {};
+    // TODO(siggi): investigate duplicate entries in test_dll.dll.pdb.
+    while (new_fpo_stream->Read(&new_fpo, 1)) {
+      std::string prog_string;
+      auto it = string_table.find(new_fpo.prog_string);
+      if (it != string_table.end())
+        prog_string = it->second;
+
+      // A bit of indentation makes it easier to separate the records visually.
+      ::fprintf(out(), "  off_start: 0x%08X\n", new_fpo.off_start);
+      ::fprintf(out(), "  proc_size: 0x%04X\n", new_fpo.proc_size);
+      ::fprintf(out(), "    locals_size: 0x%04X\n", new_fpo.locals_size);
+      ::fprintf(out(), "    arg_size: 0x%04X\n", new_fpo.arg_size);
+      ::fprintf(out(), "    unknown1: 0x%08X\n", new_fpo.unknown1);
+      ::fprintf(out(), "    prog_string: 0x%04X: %s\n", new_fpo.prog_string,
+                prog_string.c_str());
+      ::fprintf(out(), "    unknown2: 0x%04X\n", new_fpo.unknown2);
+      ::fprintf(out(), "    register_bytes: 0x%04X\n", new_fpo.register_bytes);
+      ::fprintf(out(), "    unknown3: 0x%04X\n", new_fpo.unknown3);
+      ::fprintf(out(), "    unknown4: 0x%04X\n", new_fpo.unknown4);
+    }
   }
 }
 

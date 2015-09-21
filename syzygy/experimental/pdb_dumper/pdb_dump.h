@@ -60,8 +60,9 @@ class PdbDumpApp : public application::AppImplBase {
   void DumpDbiStream(const DbiStream& dbi_stream);
 
   // Dumps @p fpo_stream to out().
-  void DumpFpoStream(pdb::PdbStream* fpo_stream,
-                     pdb::PdbStream* new_fpo_stream);
+  void DumpFpoStream(const OffsetStringMap& string_table,
+                     PdbStream* fpo_stream,
+                     PdbStream* new_fpo_stream);
 
   // The PDB files to dump.
   std::vector<base::FilePath> pdb_files_;
@@ -69,6 +70,9 @@ class PdbDumpApp : public application::AppImplBase {
   // Iff true, will explode the streams from pdb_files_ to individual files.
   // Default to false.
   bool explode_streams_;
+
+  // Iff true, the name table will be dumped. Default to false.
+  bool dump_name_table_;
 
   // Iff true, the symbol record stream will be dumped. Default to false.
   bool dump_symbol_record_;
