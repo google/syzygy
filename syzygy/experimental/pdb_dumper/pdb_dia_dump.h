@@ -47,14 +47,20 @@ class PdbDiaDumpApp : public application::AppImplBase {
   // @returns false.
   bool Usage(const char* message);
 
+  bool DumpSymbols(IDiaSession* session);
   bool DumpSymbol(uint8 indent_level, IDiaSymbol* symbol);
 
+  bool DumpAllFrameData(IDiaSession* session);
+  bool DumpFrameData(uint8 indent_level, IDiaFrameData* frame_data);
+
   base::FilePath pdb_path_;
+
+  bool dump_symbol_data_;
+  bool dump_frame_data_;
 
   // Tracks previously visited symbols on the path from the root to the current
   // symbol, for cycle detection during the the recursive traversal of the
   // symbol graph.
-  // TODO(manzagop): replace by unordered_set once allowed.
   base::hash_set<uint32_t> visited_symbols_;
 };
 

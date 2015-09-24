@@ -14,8 +14,11 @@
 
 #include "syzygy/experimental/pdb_dumper/pdb_dia_dump.h"
 
+#include <dia2.h>
+
 #include "base/bind.h"
 #include "base/logging.h"
+#include "base/strings/string_piece.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
@@ -23,6 +26,7 @@
 #include "syzygy/common/com_utils.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/pe/dia_util.h"
+#include "syzygy/pe/find.h"
 
 namespace pdb {
 
@@ -82,11 +86,32 @@ bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type) {
   return true;
 }
 
-const char kUsage[] = "Usage: pdb_dia_dump [options] <PDB file>...\n";
+void DumpProperty(FILE* out,
+                  uint8 indent_level,
+                  const char* name,
+                  DWORD value,
+                  HRESULT hr) {
+  if (hr == S_OK) {
+    DumpIndentedText(out, indent_level, "%s (0x%04x)\n", name, value);
+  } else if (hr == S_FALSE) {
+    DumpIndentedText(out, indent_level, "%s (not supported)\n", name);
+  } else {
+    LOG(ERROR) << "Unable to retrieve " << name << ": " << common::LogHr(hr);
+  }
+}
+
+const char kUsage[] =
+    "Usage: pdb_dia_dump [options] <PDB file>...\n"
+    "  Options:\n"
+    "    --dump-symbols if provided, symbols will be dumped\n"
+    "    --dump-frame-data if provided, frame data will be dumped\n";
 
 }  // namespace
 
-PdbDiaDumpApp::PdbDiaDumpApp() : application::AppImplBase("PDB Dia Dumper") {
+PdbDiaDumpApp::PdbDiaDumpApp()
+    : application::AppImplBase("PDB Dia Dumper"),
+      dump_symbol_data_(false),
+      dump_frame_data_(false) {
 }
 
 bool PdbDiaDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
@@ -95,8 +120,12 @@ bool PdbDiaDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
   base::CommandLine::StringVector args = command_line->GetArgs();
   if (args.size() != 1U)
     return Usage("You must provide one input file.");
-
   pdb_path_ = base::FilePath(args[0]);
+
+  dump_symbol_data_ = command_line->HasSwitch("dump-symbols");
+  dump_frame_data_ = command_line->HasSwitch("dump-frame-data");
+  if (!dump_symbol_data_ && !dump_frame_data_)
+    return Usage("You must select one type of data to dump.");
 
   return true;
 }
@@ -110,24 +139,51 @@ int PdbDiaDumpApp::Run() {
   if (!pe::CreateDiaSession(pdb_path_, source.get(), session.Receive()))
     return 1;
 
+  bool success = true;
+
+  if (dump_symbol_data_) {
+    if (!DumpSymbols(session.get())) {
+      LOG(ERROR) << "Failed to dump symbols.";
+      success = false;
+    }
+  }
+
+  if (dump_frame_data_) {
+    if (!DumpAllFrameData(session.get())) {
+      LOG(ERROR) << "Failed to dump frame data.";
+      success = false;
+    }
+  }
+
+  return success ? 0 : 1;
+}
+
+bool PdbDiaDumpApp::Usage(const char* message) {
+  ::fprintf(err(), "%s\n%s", message, kUsage);
+  return false;
+}
+
+bool PdbDiaDumpApp::DumpSymbols(IDiaSession* session) {
+  DCHECK(session);
+
   // Get the global scope.
   base::win::ScopedComPtr<IDiaSymbol> scope;
   HRESULT hr = session->get_globalScope(scope.Receive());
   if (!SUCCEEDED(hr) || !scope)
-    return 1;
+    return false;
 
-  // Search for the thing of interest.
+  // Search for symbols of interest: all symbols.
   base::win::ScopedComPtr<IDiaEnumSymbols> matching_types;
   hr = scope->findChildren(SymTagNull, nullptr, nsNone,
                            matching_types.Receive());
   if (!SUCCEEDED(hr))
-    return 1;
+    return false;
 
   // Dump!
   LONG count = 0;
   hr = matching_types->get_Count(&count);
   if (!SUCCEEDED(hr))
-    return 1;
+    return false;
 
   for (LONG i = 0; i < count; ++i) {
     base::win::ScopedComPtr<IDiaSymbol> symbol;
@@ -135,17 +191,12 @@ int PdbDiaDumpApp::Run() {
     hr = matching_types->Next(1, symbol.Receive(), &received);
     if (!SUCCEEDED(hr) || received != 1) {
       LOG(ERROR) << "Failed to get next type";
-      return 1;
+      return false;
     }
     DumpSymbol(0, symbol.get());
   }
 
-  return 0;
-}
-
-bool PdbDiaDumpApp::Usage(const char* message) {
-  ::fprintf(err(), "%s\n%s", message, kUsage);
-  return false;
+  return true;
 }
 
 bool PdbDiaDumpApp::DumpSymbol(uint8 indent_level, IDiaSymbol* symbol) {
@@ -195,6 +246,90 @@ bool PdbDiaDumpApp::DumpSymbol(uint8 indent_level, IDiaSymbol* symbol) {
   }
 
   CHECK_EQ(visited_symbols_.erase(index_id), 1U);
+  return success;
+}
+
+bool PdbDiaDumpApp::DumpAllFrameData(IDiaSession* session) {
+  // Get the table that is a frame data enumerator.
+  base::win::ScopedComPtr<IDiaEnumFrameData> frame_enumerator;
+  pe::SearchResult result = pe::FindDiaTable(IID_IDiaEnumFrameData, session,
+                                             frame_enumerator.ReceiveVoid());
+  if (result != pe::kSearchSucceeded) {
+    LOG(ERROR) << "Failed to get the frame table.";
+    return false;
+  }
+
+  bool success = true;
+  ULONG received = 0U;
+  base::win::ScopedComPtr<IDiaFrameData> frame_data;
+  HRESULT hr = frame_enumerator->Next(1, frame_data.Receive(), &received);
+  while (hr == S_OK && received == 1) {
+    if (!DumpFrameData(0, frame_data.get()))
+      success = false;
+    frame_data.Release();
+    hr = frame_enumerator->Next(1, frame_data.Receive(), &received);
+  }
+
+  if (!SUCCEEDED(hr) || (hr == S_OK && received != 1))
+    return false;
+
+  return success;
+}
+
+bool PdbDiaDumpApp::DumpFrameData(uint8 indent_level,
+                                  IDiaFrameData* frame_data) {
+  bool success = true;
+
+  ULONGLONG code_va = 0ULL;
+  CHECK_EQ(S_OK, frame_data->get_virtualAddress(&code_va));
+  DWORD code_len = 0U;
+  CHECK_EQ(S_OK, frame_data->get_lengthBlock(&code_len));
+  DumpIndentedText(out(), indent_level,
+                   "IDiaFrameData - code VA(0x%08llx) len(0x%04x)\n", code_va,
+                   code_len);
+
+  DWORD frame_type = 0U;
+  CHECK_EQ(S_OK, frame_data->get_type(&frame_type));
+  BOOL function_start = false;
+  CHECK_EQ(S_OK, frame_data->get_functionStart(&function_start));
+  DumpIndentedText(out(), indent_level + 1,
+                   "frame type (%u), has function start (%d)\n", frame_type,
+                   function_start);
+
+  DWORD params_bytes = 0U;
+  CHECK_EQ(S_OK, frame_data->get_lengthParams(&params_bytes));
+  DWORD prolog_bytes = 0U;
+  CHECK_EQ(S_OK, frame_data->get_lengthProlog(&prolog_bytes));
+  DWORD registers_bytes = 0U;
+  CHECK_EQ(S_OK, frame_data->get_lengthSavedRegisters(&registers_bytes));
+  DumpIndentedText(out(), indent_level + 1,
+                   "params (0x%04x), prolog (0x%04x), registers (0x%04x)\n",
+                   params_bytes, prolog_bytes, registers_bytes);
+
+  DWORD locals_bytes = 0U;
+  CHECK_EQ(S_OK, frame_data->get_lengthLocals(&locals_bytes));
+  DumpIndentedText(out(), indent_level + 1, "locals (0x%04x)\n", locals_bytes);
+
+  DWORD max_stack_bytes = 0U;
+  HRESULT hr = frame_data->get_maxStack(&max_stack_bytes);
+  DumpProperty(out(), indent_level + 1, "max stack", max_stack_bytes, hr);
+  if (hr != S_OK && hr != S_FALSE)
+    success = false;
+
+  base::win::ScopedBstr program_bstr;
+  hr = frame_data->get_program(program_bstr.Receive());
+  if (hr == S_OK) {
+    DumpIndentedText(out(), indent_level + 1, "program (%ls)\n",
+                     common::ToString(program_bstr));
+  } else if (hr == S_FALSE) {
+    DumpIndentedText(out(), indent_level + 1, "program (not supported)\n");
+  } else {
+    LOG(ERROR) << "Unable to retrieve program: " << common::LogHr(hr);
+    success = false;
+  }
+
+  // TODO(manzagop): dump SEH info and parent.
+
   return success;
 }
 

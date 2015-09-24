@@ -66,6 +66,7 @@
         'pdb_dumper_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/application/application.gyp:application_lib',
+        '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/version/version.gyp:syzygy_version',
