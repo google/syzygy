@@ -53,6 +53,8 @@ class StackWalkHelper : public IDiaStackWalkHelper,
 
   // @name IDiaStackWalkHelper implementation
   // @{
+  // TODO(manzagop): investigate for possible improvements in terms of
+  // error codes returned by the current implementation.
   STDMETHOD(get_registerValue)(DWORD index, ULONGLONG* pRetVal);
   STDMETHOD(put_registerValue)(DWORD index, ULONGLONG NewVal);
   STDMETHOD(readMemory)(MemoryTypeEnum type,
@@ -84,6 +86,22 @@ class StackWalkHelper : public IDiaStackWalkHelper,
   // @}
 
  private:
+  // Reads from a memory range using the actual modules as backing memory.
+  // First determines how many bytes are available from the head of a range,
+  // then optionally retrieves them.
+  // @pre @p range must be a valid range.
+  // @param range the requested range.
+  // @param data_cnt on success, contains the number of bytes returned from the
+  //   head of @p range.
+  // @param data_ptr a buffer of size at least that of @p range or nullptr. On
+  //   success, a valid buffer contains the returned data.
+  // @returns true iff some data is available from the head of @p range.
+  // TODO(manzagop): actually implement. Current implementation successfully
+  // reads 0 bytes if the address range falls within a module.
+  bool ReadFromModule(const AddressRange& range,
+                      size_t* bytes_read,
+                      void* buffer);
+
   bool EnsurePdbSessionCached(const pe::PEFile::Signature& signature,
                               std::wstring* cache_key);
   bool GetDiaSessionByVa(ULONGLONG va, IDiaSession** session);

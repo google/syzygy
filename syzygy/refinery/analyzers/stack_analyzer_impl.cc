@@ -23,8 +23,10 @@
 #include "base/memory/scoped_ptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string16.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
+#include "base/win/scoped_bstr.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/find.h"
 #include "syzygy/refinery/core/addressed_data.h"
@@ -67,7 +69,7 @@ bool GetModuleSignature(ModuleRecordPtr module_record,
   const AddressRange& module_range = module_record->range();
   const Module& module = module_record->data();
 
-  // Get the module's basename.
+  // Get the module's path.
   const std::string& module_path = module.name();
   base::string16 module_path_wide;
   if (!base::UTF8ToUTF16(module_path.c_str(), module_path.size(),
@@ -75,7 +77,6 @@ bool GetModuleSignature(ModuleRecordPtr module_record,
     LOG(ERROR) << "base::UTF8ToUTF16(\"" << module_path << "\" failed.";
     return false;
   }
-  base::string16 basename = base::FilePath(module_path_wide).BaseName().value();
 
   // Get the module's address.
   if (!base::IsValueInRangeForNumericType<uint32>(module_range.start())) {
@@ -86,9 +87,9 @@ bool GetModuleSignature(ModuleRecordPtr module_record,
   pe::PEFile::AbsoluteAddress module_address(
       base::checked_cast<uint32>(module_range.start()));
 
-  signature->reset(
-      new pe::PEFile::Signature(basename, module_address, module_range.size(),
-                                module.checksum(), module.timestamp()));
+  signature->reset(new pe::PEFile::Signature(
+      module_path_wide, module_address, module_range.size(), module.checksum(),
+      module.timestamp()));
   return true;
 }
 
@@ -181,9 +182,18 @@ STDMETHODIMP StackWalkHelper::QueryInterface(REFIID riid, PVOID* ptr_void) {
     *ptr_void = static_cast<IDiaStackWalkHelper*>(this);
     AddRef();
     return S_OK;
+  } else {
+    // Know it if another interface is requested.
+    const int kGUIDSize = 39;
+    std::wstring riid_str;
+    int result =
+        StringFromGUID2(riid, base::WriteInto(&riid_str, kGUIDSize), kGUIDSize);
+    DCHECK_GT(result, 0);
+    LOG(ERROR) << base::StringPrintf(L"StackWalkHelper::QueryInterface for %ls",
+                                     riid_str.c_str());
+    DCHECK(false);
+    return base::win::IUnknownImpl::QueryInterface(riid, ptr_void);
   }
-
-  return base::win::IUnknownImpl::QueryInterface(riid, ptr_void);
 }
 
 STDMETHODIMP StackWalkHelper::get_registerValue(DWORD index,
@@ -201,8 +211,9 @@ STDMETHODIMP StackWalkHelper::get_registerValue(DWORD index,
 
   // Even though this isn't in the function's contract, this ensures we'll pick
   // up on unexpected register retrieval attempts.
+  // TODO(manzagop): add symbolic names for the registers.
+  LOG(ERROR) << base::StringPrintf("Failed to get register value (%u).", index);
   DCHECK(false);
-
   return E_FAIL;
 }
 
@@ -216,21 +227,45 @@ STDMETHODIMP StackWalkHelper::readMemory(MemoryTypeEnum unused_type,
                                          DWORD cbData,
                                          DWORD* pcbData,
                                          BYTE* pbData) {
+  DCHECK(pcbData != NULL);
+
   // Handle the 0 size case.
   if (cbData == 0) {
     *pcbData = 0;
     return S_OK;
   }
 
+  // Ensure range validity.
   AddressRange range(va, cbData);
-  if (!range.IsValid())
+  if (!range.IsValid()) {
+    LOG(ERROR) << "Invalid memory range.";
     return E_FAIL;
-  size_t bytes_read = 0U;
-  if (!process_state_->GetFrom(range, &bytes_read, pbData))
-    return E_FAIL;
+  }
 
-  *pcbData = bytes_read;
-  return S_OK;
+  // Read from the backing process state.
+  size_t bytes_read = 0U;
+  if (process_state_->GetFrom(range, &bytes_read, pbData)) {
+    // Note: this may only be a partial read.
+    *pcbData = bytes_read;
+    return S_OK;
+  }
+
+  // If the memory comes from a module's range, attempt to service from the
+  // module.
+  // TODO(manzagop): success should depend on whether the module's memory mathes
+  // the requested memory type.
+  bytes_read = 0U;
+  if (ReadFromModule(range, &bytes_read, pbData)) {
+    LOG(INFO) << "Servicing read from module. May not reflect actual memory.";
+    *pcbData = bytes_read;
+    return S_OK;
+  }
+
+  // TODO(manzagop): introduce a function for logging VA to avoid crashing on
+  // unexercised code when the error case occurs.
+  LOG(ERROR) << base::StringPrintf("\n Read failed (va: %08llx, size: %04x)",
+                                   va, cbData);
+  return E_FAIL;
 }
 
 STDMETHODIMP StackWalkHelper::searchForReturnAddress(IDiaFrameData* frame,
@@ -248,27 +283,61 @@ STDMETHODIMP StackWalkHelper::searchForReturnAddressStart(
 STDMETHODIMP StackWalkHelper::frameForVA(ULONGLONG va,
                                          IDiaFrameData** frame_data) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!GetDiaSessionByVa(va, session.Receive()))
+  if (!GetDiaSessionByVa(va, session.Receive())) {
+    LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
+  }
 
   // Get the table that is a frame data enumerator.
   base::win::ScopedComPtr<IDiaEnumFrameData> frame_enumerator;
   pe::SearchResult result =
       pe::FindDiaTable(__uuidof(IDiaEnumFrameData), session.get(),
                        frame_enumerator.ReceiveVoid());
-  if (result != pe::kSearchSucceeded)
+  if (result != pe::kSearchSucceeded) {
+    LOG(ERROR) << "Failed to obtain frame data from the pdb.";
     return E_FAIL;
+  }
 
   // Get the frame data.
-  return frame_enumerator->frameByVA(va, frame_data);
+  HRESULT hr = frame_enumerator->frameByVA(va, frame_data);
+  if (hr != S_OK) {
+    if (hr == S_FALSE) {
+      LOG(ERROR) << "No frame data matches specified address.";
+    } else {
+      LOG(ERROR) << "Failed to get frame data.";
+    }
+  }
+
+  return hr;
 }
 
 STDMETHODIMP StackWalkHelper::symbolForVA(ULONGLONG va, IDiaSymbol** ppSymbol) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!GetDiaSessionByVa(va, session.Receive()))
+  if (!GetDiaSessionByVa(va, session.Receive())) {
+    LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
+  }
 
-  HRESULT hr = session->findSymbolByVA(va, SymTagFunctionType, ppSymbol);
+  // Search for a function.
+  base::win::ScopedComPtr<IDiaSymbol> function;
+  HRESULT hr = session->findSymbolByVA(va, SymTagFunction, function.Receive());
+  if (hr == S_OK) {
+    // Get the associated function type.
+    base::win::ScopedComPtr<IDiaSymbol> function_type;
+    if (function->get_type(function_type.Receive()) != S_OK) {
+      LOG(ERROR) << "Failed to get function's type.";
+      return E_FAIL;
+    }
+    DWORD symtag = 0U;
+    DCHECK_EQ(S_OK, function_type->get_symTag(&symtag));
+    DCHECK(symtag == SymTagFunctionType);
+
+    *ppSymbol = function_type.Detach();
+  } else {
+    // Note: not having symbols is to be expected sometimes.
+    LOG(INFO) << base::StringPrintf("No symbols for VA (%08llx).", va);
+  }
+
   return hr;
 }
 
@@ -285,8 +354,10 @@ STDMETHODIMP StackWalkHelper::imageForVA(ULONGLONG vaContext,
   // Get module's base address.
   // TODO(manzagop): set up indexing to optimize this.
   ModuleRecordPtr module_record;
-  if (!process_state_->FindSingleRecord(vaContext, &module_record))
-    return false;
+  if (!process_state_->FindSingleRecord(vaContext, &module_record)) {
+    LOG(ERROR) << "Failed to find module for VA.";
+    return E_FAIL;
+  }
   *pvaImageStart = module_record->range().start();
   return S_OK;
 }
@@ -295,10 +366,34 @@ STDMETHODIMP StackWalkHelper::addressForVA(ULONGLONG va,
                                            _Out_ DWORD* pISect,
                                            _Out_ DWORD* pOffset) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!GetDiaSessionByVa(va, session.Receive()))
+  if (!GetDiaSessionByVa(va, session.Receive())) {
+    LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
+  }
 
-  return session->addressForVA(va, pISect, pOffset);
+  HRESULT hr = session->addressForVA(va, pISect, pOffset);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to get address for va.";
+  }
+
+  return hr;
+}
+
+bool StackWalkHelper::ReadFromModule(const AddressRange& range,
+                                     size_t* bytes_read,
+                                     void* buffer) {
+  DCHECK(bytes_read);
+  *bytes_read = 0U;
+
+  // Identify the module
+  ModuleRecordPtr module_record;
+  if (!process_state_->FindSingleRecord(range.start(), &module_record))
+    return false;
+
+  // TODO(manzagop): actually implement the read instead of successfully
+  // reading 0 bytes.
+
+  return true;
 }
 
 bool StackWalkHelper::EnsurePdbSessionCached(
@@ -383,8 +478,7 @@ bool StackWalkHelper::GetDiaSessionByVa(ULONGLONG va,
   // Set the load address (the same module might be loaded at multiple VAs).
   HRESULT hr = session->put_loadAddress(signature->base_address.value());
   if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to set session's load address: "
-               << common::LogHr(hr);
+    LOG(ERROR) << "Unable to set session's load address: " << common::LogHr(hr);
     return false;
   }
 

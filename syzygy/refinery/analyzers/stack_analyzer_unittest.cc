@@ -72,8 +72,7 @@ const MINIDUMP_TYPE kSmallDumpType = static_cast<MINIDUMP_TYPE>(
     MiniDumpWithProcessThreadData |  // Get PEB and TEB.
     MiniDumpWithUnloadedModules);    // Get unloaded modules when available.
 
-__declspec(noinline)
-DWORD GetEip() {
+__declspec(noinline) DWORD GetEip() {
   return reinterpret_cast<DWORD>(_ReturnAddress());
 }
 
@@ -250,7 +249,13 @@ class StackAnalyzerTest : public testing::Test {
   testing::ScopedEnvironmentVariable scoped_env_variable_;
 };
 
+// This test fails under coverage instrumentation which is probably not friendly
+// to stackwalking.
+#ifdef _COVERAGE_BUILD
 TEST_F(StackAnalyzerTest, DISABLED_AnalyzeMinidump) {
+#else
+TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
+#endif
   base::win::ScopedCOMInitializer com_initializer;
   base::FilePath path;
 
@@ -259,10 +264,16 @@ TEST_F(StackAnalyzerTest, DISABLED_AnalyzeMinidump) {
   // TODO(manzagop): set up some stack state.
   CONTEXT context = {};
   ::RtlCaptureContext(&context);
-  // RtlCaptureContext sets the instruction pointer to a value in this
-  // function's callee (similar to _ReturnAddress). Override it so the
-  // instruction pointer and the context actually match.
+
+  // RtlCaptureContext sets the instruction pointer, stack pointer and base
+  // pointer to values from this function's callee (similar to _ReturnAddress).
+  // Override them so they actually match the context.
   context.Eip = GetEip();
+  __asm {
+    mov context.Ebp, ebp
+    mov context.Esp, esp
+  }
+
   ASSERT_TRUE(GenerateMinidump(&context));
 
   Minidump minidump;
@@ -292,8 +303,8 @@ TEST_F(StackAnalyzerTest, DISABLED_AnalyzeMinidump) {
   // process state.
   StackRecordPtr stack;
   DWORD thread_id = ::GetCurrentThreadId();
-  ASSERT_TRUE(process_state.FindStackRecord(static_cast<size_t>(thread_id),
-                                            &stack));
+  ASSERT_TRUE(
+      process_state.FindStackRecord(static_cast<size_t>(thread_id), &stack));
   ASSERT_TRUE(stack->data().stack_walk_success());
 }
 
