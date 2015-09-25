@@ -1714,6 +1714,16 @@ TEST_P(BlockHeapManagerTest, GetHeapTypeUnlocked) {
   }
 }
 
+TEST_P(BlockHeapManagerTest, ComputeRelativeStackId) {
+  // This test is done here and not in stack_capture_unittest, as the latter
+  // doesn't have the provision for faking the module address and would
+  // therefore ignore all the frames.
+  common::StackCapture stack;
+  stack.InitFromStack();
+
+  EXPECT_NE(0U, stack.relative_stack_id());
+}
+
 namespace {
 
 bool ShadowIsConsistentPostAlloc(

@@ -84,8 +84,7 @@ void StackCapture::RemoveRef() {
 }
 
 StackId StackCapture::relative_stack_id() const {
-  // Note that 0 is a valid stack ID, in which case we'll always recompute it,
-  // an undesired side effect that we accept.
+  // Note that by design 0 is a not a valid stack ID.
   if (!relative_stack_id_)
     ComputeRelativeStackId();
   return relative_stack_id_;
@@ -217,8 +216,9 @@ void StackCapture::ComputeRelativeStackId() const {
   // same trace id even if we update our runtime.
   HANDLE asan_handle = reinterpret_cast<HANDLE>(&__ImageBase);
   DCHECK(asan_handle != NULL);
+  DCHECK(!relative_stack_id_);
 
-  StackId relative_stack_id_ = 0;
+  relative_stack_id_ = 0;
   for (size_t i = 0; i < num_frames_; ++i) {
     // NULL stack frames may be returned from ::CaptureStackBackTrace.
     // This has been observed on Windows 8.
@@ -247,6 +247,11 @@ void StackCapture::ComputeRelativeStackId() const {
   }
 
   relative_stack_id_ = FinalizeStackId(relative_stack_id_);
+
+  // We could end up with the value 0, in which case we set it to something
+  // else, as 0 is considered uninitialized.
+  if (!relative_stack_id_)
+    relative_stack_id_ = ~relative_stack_id_;
 }
 
 }  // namespace common
