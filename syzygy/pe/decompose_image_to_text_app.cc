@@ -320,24 +320,32 @@ void DecomposeImageToTextApp::DumpEndBBToText(
 
 void DecomposeImageToTextApp::DumpBlockToText(
     core::RelativeAddress addr, const BlockGraph::Block* block) {
-  ::fprintf(out(), "0x%08X(%d): %s\n",
-            addr.value(),
-            block->size(),
-            block->name().c_str());
+  ::fprintf(out(), "0x%08X(%d): %s\n  %s\n", addr.value(), block->size(),
+            block->name().c_str(),
+            block_graph::BlockGraph::BlockAttributesToString(
+                block->attributes()).c_str());
 
   pe::PETransformPolicy policy;
 
+  // Allow inline assembly for dumping.
+  policy.set_allow_inline_assembly(true);
+
   // Attempt basic block decomposition if BB-dumping is requested.
   // Note that on success we return early from here.
-  if (dump_basic_blocks_ && policy.BlockIsSafeToBasicBlockDecompose(block)) {
-    BasicBlockSubGraph subgraph;
-    BasicBlockDecomposer decomposer(block, &subgraph);
+  if (dump_basic_blocks_) {
+    if (policy.BlockIsSafeToBasicBlockDecompose(block)) {
+      BasicBlockSubGraph subgraph;
+      BasicBlockDecomposer decomposer(block, &subgraph);
 
-    if (decomposer.Decompose()) {
-      DumpSubGraphToText(subgraph);
-      return;
+      if (decomposer.Decompose()) {
+        DumpSubGraphToText(subgraph);
+        return;
+      }
+      // Fall through on failure to decompose.
+      ::fprintf(out(), "  Basic-block decomposition failure.\n");
+    } else {
+      ::fprintf(out(), "  Unsafe to basic-block decompose.\n");
     }
-    // Fall through on failure to decompose.
   }
 
   BlockGraph::Block::LabelMap::const_iterator
