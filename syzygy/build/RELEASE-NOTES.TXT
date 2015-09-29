@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.10.3
+
+[----------] Fixed a unittest failure.
+
 Version 0.8.10.2
 
 [e208902143] Only set early crash keys for sufficiently modern Chrome.
