@@ -21,8 +21,11 @@
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
+#include "base/file_version_info.h"
 #include "base/logging.h"
+#include "base/path_service.h"
 #include "base/rand_util.h"
+#include "base/version.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/sys_string_conversions.h"
@@ -257,6 +260,46 @@ void SetEarlyCrashKeys(BreakpadFunctions breakpad_functions,
   }
 }
 
+// This sets early crash keys for sufficiently modern versions of Chrome that
+// are known to support this.
+void SetEarlyCrashKeysForModernChrome(BreakpadFunctions breakpad_functions,
+                                      AsanRuntime* runtime) {
+  // Modern Chrome versions use SetCrashKeyValueImpl exclusively.
+  if (breakpad_functions.set_crash_key_value_impl_ptr == nullptr)
+    return;
+
+  // The process needs to be an instance of "chrome.exe".
+  base::FilePath path;
+  if (!PathService::Get(base::FILE_EXE, &path))
+    return;
+  if (path.BaseName().value() != L"chrome.exe")
+    return;
+
+  scoped_ptr<FileVersionInfo> version_info(
+      FileVersionInfo::CreateFileVersionInfo(path));
+  if (!version_info.get())
+    return;
+
+  // The version string may have the format "0.1.2.3 (baadf00d)". The
+  // revision hash must be stripped in order to use base::Version.
+  std::string v = base::WideToUTF8(version_info->product_version());
+  size_t offset = v.find_first_not_of("0123456789.");
+  if (offset != v.npos)
+    v.resize(offset);
+
+  // Ensure the version is sufficiently new.
+  base::Version version(v);
+  if (!version.IsValid())
+    return;
+  if (version.IsOlderThan("36.0.0.0"))
+    return;
+
+  // Set a crash key that indicates that early crash keys were successfully
+  // set and then set the remaining early crash keys themselves.
+  SetCrashKeyValuePair(breakpad_functions, "asan-early-keys", "true");
+  SetEarlyCrashKeys(breakpad_functions, runtime);
+}
+
 // Writes the appropriate crash keys for the given error. The breakpad
 // functions are passed by value so a stack copy is made.
 void SetCrashKeys(BreakpadFunctions breakpad_functions,
@@ -266,6 +309,9 @@ void SetCrashKeys(BreakpadFunctions breakpad_functions,
          breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr !=
              NULL);
   DCHECK(error_info != NULL);
+
+  // Reset the early crash keys, as they may not actually have been set.
+  SetEarlyCrashKeys(breakpad_functions, AsanRuntime::runtime());
 
   SetCrashKeyValuePair(breakpad_functions,
                        "asan-error-type",
@@ -585,7 +631,7 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // which is already initialized by the time we get here.
   // TODO(chrisha): Either do this via an instrumented module entry hook, or
   // expose a client API in Kasko.
-  SetEarlyCrashKeys(breakpad_functions, this);
+  SetEarlyCrashKeysForModernChrome(breakpad_functions, this);
 
   return true;
 }
