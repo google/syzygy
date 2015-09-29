@@ -26,6 +26,9 @@ using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
 using StackLayerPtr = scoped_refptr<ProcessState::Layer<Stack>>;
 using StackRecordPtr = ProcessState::Layer<Stack>::RecordPtr;
 
+using StackFrameLayerPtr = scoped_refptr<ProcessState::Layer<StackFrame>>;
+using StackFrameRecordPtr = ProcessState::Layer<StackFrame>::RecordPtr;
+
 using ModuleLayerPtr = scoped_refptr<ProcessState::Layer<Module>>;
 using ModuleRecordPtr = ProcessState::Layer<Module>::RecordPtr;
 

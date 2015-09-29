@@ -139,6 +139,33 @@ bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag);
 // @returns true on success, false on failure.
 bool GetSymName(IDiaSymbol* symbol, base::string16* name);
 
+// Gets the frame's base address.
+// @param frame the stack frame.
+// @param frame_base on success, returns @p frame's base address.
+// @returns true on sucess, false on failure.
+bool GetFrameBase(IDiaStackFrame* frame, uint64_t* frame_base);
+
+// Gets a register's value for the frame.
+// @param frame the stack frame.
+// @param register_index the index of the desired register.
+// @param frame_base on success, returns the register's value.
+// @returns true on sucess, false on failure.
+bool GetRegisterValue(IDiaStackFrame* frame,
+                      CV_HREG_e register_index,
+                      uint64_t* register_value);
+
+// Gets the stack frame's size.
+// @param frame the stack frame.
+// @param frame_size on success, returns @p frame's size.
+// @returns true on sucess, false on failure.
+bool GetSize(IDiaStackFrame* frame, uint32_t* frame_size);
+
+// Gets the stack frame's locals base address.
+// @param frame the stack frame.
+// @param size on success, returns the base address of the locals.
+// @returns true on sucess, false on failure.
+bool GetLocalsBase(IDiaStackFrame* frame, uint64_t* locals_base);
+
 // A worker class that makes it easy to visit specific children of a given
 // DIA symbol.
 class ChildVisitor {

@@ -76,7 +76,23 @@ message Stack {
   optional bool stack_walk_success = 2;
 }
 
+// A stack frame spans from the top of the stack prior to calling a function
+// (including callee's arguments) to its return address (excluded). Stack frames
+// are thus separated by the regions corresponding to return addresses.
 message StackFrame {
+  optional uint64 instruction_pointer = 1;
+
+  // TODO(manzagop): figure out whether these attributes from IDiaStackFrame are
+  // really needed. The rest can be obtained from IDiaFrameData.
+
+  // Size of the frame, excluding any part used for a callee's parameters (the
+  // sum of sizes for locals, register and ebp).
+  optional uint32 frame_size_bytes = 2;
+
+  // Base address of the local variables.
+  optional uint64 locals_base = 3;
+
+  // TODO(manzagop): add register values with a notion of their validity.
 }
 
 message HeapSnippet {

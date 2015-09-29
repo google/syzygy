@@ -14,12 +14,92 @@
 
 #include "syzygy/refinery/analyzers/stack_analyzer.h"
 
+#include "base/numerics/safe_math.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/com_utils.h"
+#include "syzygy/pe/dia_util.h"
 #include "syzygy/refinery/analyzers/stack_analyzer_impl.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
+
+namespace {
+
+// TODO(manzagop): revise when support expands beyond x86.
+bool InsertStackFrameRecord(IDiaStackFrame* stack_frame,
+                            ProcessState* process_state) {
+  // Get the frame's base.
+  uint64_t frame_base = 0ULL;
+  if (!pe::GetFrameBase(stack_frame, &frame_base))
+    return false;
+
+  // Get frame's top.
+  uint64_t frame_top = 0ULL;
+  if (!pe::GetRegisterValue(stack_frame, CV_REG_ESP, &frame_top))
+    return false;
+
+  // Get instruction pointer.
+  uint64_t instruction_pointer = 0ULL;
+  if (!pe::GetRegisterValue(stack_frame, CV_REG_EIP, &instruction_pointer)) {
+    return false;
+  }
+
+  // Get the frame's size. Note: this differs from the difference between
+  // top of frame and base in that it excludes callee parameter size.
+  uint32_t frame_size = 0U;
+  if (!pe::GetSize(stack_frame, &frame_size))
+    return false;
+
+  // Get base address of locals.
+  uint64_t locals_base = 0ULL;
+  if (!pe::GetLocalsBase(stack_frame, &locals_base))
+    return false;
+
+  // TODO(manzagop): get register values and some notion about their validity.
+
+  // Populate the stack frame layer.
+
+  // Compute the frame's full size.
+  DCHECK_LE(frame_top, frame_base);
+  base::CheckedNumeric<Size> frame_full_size =
+      base::CheckedNumeric<Size>::cast(frame_base - frame_top);
+  if (!frame_full_size.IsValid()) {
+    LOG(ERROR) << "Frame full size doesn't fit a 32bit integer.";
+    return false;
+  }
+
+  // Create the stack frame record.
+  AddressRange range(static_cast<Address>(frame_top),
+                     static_cast<Size>(frame_full_size.ValueOrDie()));
+  if (!range.IsValid()) {
+    LOG(ERROR) << "Invalid frame range.";
+    return false;
+  }
+
+  StackFrameLayerPtr frame_layer;
+  process_state->FindOrCreateLayer(&frame_layer);
+
+  StackFrameRecordPtr frame_record;
+  frame_layer->CreateRecord(range, &frame_record);
+  StackFrame* frame_proto = frame_record->mutable_data();
+
+  // Populate the stack frame record.
+  base::CheckedNumeric<uint32> checked_instruction_pointer =
+      base::CheckedNumeric<uint32>::cast(instruction_pointer);
+  if (!checked_instruction_pointer.IsValid()) {
+    LOG(ERROR) << "instruction_pointer is not a 32 bit value.";
+    return false;
+  }
+  frame_proto->set_instruction_pointer(
+      checked_instruction_pointer.ValueOrDie());
+
+  frame_proto->set_frame_size_bytes(frame_size);
+  frame_proto->set_locals_base(locals_base);
+
+  return true;
+}
+
+}  // namespace
 
 // static
 const char StackAnalyzer::kStackAnalyzerName[] = "StackAnalyzer";
@@ -81,6 +161,7 @@ Analyzer::AnalysisResult StackAnalyzer::StackWalk(StackRecordPtr stack_record,
   frame_enumerator->Reset();
 
   // Walk the stack frames.
+  // TODO(manzagop): changes for non-X86 platforms (eg registers).
   while (true) {
     base::win::ScopedComPtr<IDiaStackFrame> stack_frame;
     DWORD retrieved_cnt = 0;
@@ -93,22 +174,18 @@ Analyzer::AnalysisResult StackAnalyzer::StackWalk(StackRecordPtr stack_record,
     if (hr == S_FALSE || retrieved_cnt != 1)
       break;  // No frame.
 
-    DWORD frame_size = 0;
-    ULONGLONG frame_base = 0ULL;
+    if (!InsertStackFrameRecord(stack_frame.get(), process_state))
+      return ANALYSIS_ERROR;
+
+    // WinDBG seems to use a null return address as a termination criterion.
     ULONGLONG frame_return_addr = 0ULL;
-    if (stack_frame->get_size(&frame_size) != S_OK ||
-        stack_frame->get_base(&frame_base) != S_OK ||
-        stack_frame->get_returnAddress(&frame_return_addr) != S_OK) {
-      LOG(ERROR) << "Failed to get stack_frame properties.";
+    hr = stack_frame->get_returnAddress(&frame_return_addr);
+    if (hr != S_OK) {
+      LOG(ERROR) << "Failed to get frame's return address: "
+                 << common::LogHr(hr) << ".";
       return ANALYSIS_ERROR;
     }
-
-    // TODO(manzagop): populate process state with stack frame information.
-
     if (frame_return_addr == 0ULL) {
-      // WinDBG seems to use this as a termination criterion.
-      // TODO(manzagop): Remove. Temporary sentinel for stack walk success, used
-      // for unittests.
       stack_record->mutable_data()->set_stack_walk_success(true);
       break;
     }

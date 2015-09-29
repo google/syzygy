@@ -237,6 +237,72 @@ bool GetSymName(IDiaSymbol* symbol, base::string16* name) {
   return true;
 }
 
+bool GetFrameBase(IDiaStackFrame* frame, uint64_t* frame_base) {
+  DCHECK(frame != NULL);
+  DCHECK(frame_base != NULL);
+
+  ULONGLONG base = 0ULL;
+  HRESULT hr = frame->get_base(&base);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to get stack frame's base address: "
+               << common::LogHr(hr) << ".";
+    return false;
+  }
+
+  *frame_base = static_cast<uint64_t>(base);
+  return true;
+}
+
+bool GetRegisterValue(IDiaStackFrame* frame,
+                      CV_HREG_e register_index,
+                      uint64_t* register_value) {
+  DCHECK(frame != NULL);
+  DCHECK(register_value != NULL);
+
+  ULONGLONG value = 0ULL;
+  HRESULT hr = frame->get_registerValue(register_index, &value);
+  if (hr != S_OK) {
+    // TODO(manzagop): print human readable register names.
+    LOG(ERROR) << "Failed to get register value for index: "
+               << register_index << ". Error: " << common::LogHr(hr) << ".";
+    return false;
+  }
+
+  *register_value = static_cast<uint64_t>(value);
+  return true;
+}
+
+bool GetSize(IDiaStackFrame* frame, uint32_t* frame_size) {
+  DCHECK(frame != NULL);
+  DCHECK(frame_size != NULL);
+
+  DWORD size = 0U;
+  HRESULT hr = frame->get_size(&size);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to get frame size: " << common::LogHr(hr) << ".";
+    return false;
+  }
+
+  *frame_size = static_cast<uint32_t>(size);
+  return true;
+}
+
+bool GetLocalsBase(IDiaStackFrame* frame, uint64_t* locals_base) {
+  DCHECK(frame != NULL);
+  DCHECK(locals_base != NULL);
+
+  ULONGLONG base = 0ULL;
+  HRESULT hr = frame->get_localsBase(&base);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Failed to get base address of locals: " << common::LogHr(hr)
+               << ".";
+    return false;
+  }
+
+  *locals_base = static_cast<uint64_t>(base);
+  return true;
+}
+
 ChildVisitor::ChildVisitor(IDiaSymbol* parent, enum SymTagEnum type)
     : parent_(parent), type_(type), child_callback_(NULL) {
   DCHECK(parent != NULL);

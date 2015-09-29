@@ -18,6 +18,7 @@
 #include <DbgHelp.h>
 
 #include <string>
+#include <vector>
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
@@ -197,20 +198,37 @@ class StackAnalyzerTest : public testing::Test {
     // Determine minidump path.
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
     minidump_path_ = temp_dir_.path().Append(kMinidumpFileName);
+
+    expected_esp_ = 0U;
+    eip_lowerbound_ = 0U;
+    eip_upperbound_ = 0U;
   }
 
   base::FilePath temp_dir() { return temp_dir_.path(); }
   base::FilePath minidump_path() { return minidump_path_; }
+  uint32 expected_esp() { return expected_esp_; }
+  uint32 eip_lowerbound() { return eip_lowerbound_; }
+  uint32 eip_upperbound() { return eip_upperbound_; }
 
-  bool GenerateMinidump(CONTEXT* context) {
-    DCHECK(context);
+  bool GenerateMinidump() {
+    // Grab a context. RtlCaptureContext sets the instruction pointer, stack
+    // pointer and base pointer to values from this function's callee (similar
+    // to _ReturnAddress). Override them so they actually match the context.
+    // TODO(manzagop): package this to a utility function.
+    CONTEXT context = {};
+    ::RtlCaptureContext(&context);
+    __asm {
+      mov context.Ebp, ebp
+      mov context.Esp, esp
+    }
+    context.Eip = GetEip();
 
     // Build the exception information.
     EXCEPTION_RECORD exception = {};
     exception.ExceptionCode = 0xCAFEBABE;  // Note: a random error code.
-    exception.ExceptionAddress = reinterpret_cast<PVOID>(context->Eip);
+    exception.ExceptionAddress = reinterpret_cast<PVOID>(context.Eip);
 
-    EXCEPTION_POINTERS exception_pointers = {&exception, context};
+    EXCEPTION_POINTERS exception_pointers = {&exception, &context};
 
     // Build the dumper's command line.
     base::CommandLine dumper_command_line(
@@ -242,9 +260,34 @@ class StackAnalyzerTest : public testing::Test {
     return exit_code == 0;
   }
 
+  bool SetupStackFrameAndGenerateMinidump() {
+    bool success = true;
+
+    // Copy esp to expected_esp_. Note: esp must not be changed prior to calling
+    // GenerateMinidump.
+    __asm {
+      mov ebx, this
+      mov [ebx].expected_esp_, esp
+    }
+
+    eip_lowerbound_ = GetEip();
+
+    // Note: GenerateMinidump takes no parameters. This means when the frame is
+    // walked, its top should equal the captured esp.
+    success = GenerateMinidump();
+
+    eip_upperbound_ = GetEip();
+
+    return success;
+  }
+
  private:
   base::ScopedTempDir temp_dir_;
   base::FilePath minidump_path_;
+
+  uint32 expected_esp_;
+  uint32 eip_lowerbound_;
+  uint32 eip_upperbound_;
 
   testing::ScopedEnvironmentVariable scoped_env_variable_;
 };
@@ -257,33 +300,25 @@ TEST_F(StackAnalyzerTest, DISABLED_AnalyzeMinidump) {
 TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
 #endif
   base::win::ScopedCOMInitializer com_initializer;
-  base::FilePath path;
+
+  // Compute expected frame base for SetupStackFrameAndGenerateMinidump. It
+  // should be sizeof(void*) off of this frame's esp immediately prior to the
+  // call, as it has no arguments.
+  uint32 expected_frame_base = 0U;
+  __asm {
+    mov expected_frame_base, esp
+  }
+  expected_frame_base -= sizeof(void*);
 
   // Generate a minidump.
-
-  // TODO(manzagop): set up some stack state.
-  CONTEXT context = {};
-  ::RtlCaptureContext(&context);
-
-  // RtlCaptureContext sets the instruction pointer, stack pointer and base
-  // pointer to values from this function's callee (similar to _ReturnAddress).
-  // Override them so they actually match the context.
-  context.Eip = GetEip();
-  __asm {
-    mov context.Ebp, ebp
-    mov context.Esp, esp
-  }
-
-  ASSERT_TRUE(GenerateMinidump(&context));
-
-  Minidump minidump;
-  ASSERT_TRUE(minidump.Open(minidump_path()));
+  ASSERT_TRUE(SetupStackFrameAndGenerateMinidump());
 
   // Analyze.
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(minidump_path()));
   ProcessState process_state;
 
   AnalysisRunner runner;
-
   scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
   runner.AddAnalyzer(analyzer.Pass());
   analyzer.reset(new refinery::ThreadAnalyzer());
@@ -299,13 +334,38 @@ TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
             runner.Analyze(minidump, &process_state));
 
   // Ensure the test's thread was successfully walked.
-  // TODO(manzagop): actual validation of stack walk result once added to
-  // process state.
   StackRecordPtr stack;
   DWORD thread_id = ::GetCurrentThreadId();
   ASSERT_TRUE(
       process_state.FindStackRecord(static_cast<size_t>(thread_id), &stack));
   ASSERT_TRUE(stack->data().stack_walk_success());
+
+  // Validate SetupStackFrameAndGenerateMinidump's frame.
+  StackFrameLayerPtr frame_layer;
+  process_state.FindOrCreateLayer(&frame_layer);
+  std::vector<StackFrameRecordPtr> matching_records;
+  frame_layer->GetRecordsAt(static_cast<Address>(expected_esp()),
+                            &matching_records);
+  ASSERT_EQ(1, matching_records.size());
+
+  StackFrameRecordPtr frame_record = matching_records[0];
+  ASSERT_LT(expected_esp(), expected_frame_base);
+  ASSERT_EQ(expected_frame_base - expected_esp(), frame_record->range().size());
+
+  const StackFrame& frame = matching_records[0]->data();
+  ASSERT_LT(eip_lowerbound(), frame.instruction_pointer());
+  ASSERT_GT(eip_upperbound(), frame.instruction_pointer());
+
+  // Sanity and tightness check.
+  ASSERT_GT(eip_upperbound(), eip_lowerbound());
+  ASSERT_LT(eip_upperbound() - eip_lowerbound(), 100);
+
+  // TODO(manzagop): validate frame_size_bytes. It should be sizeof(void*)
+  // smaller than expected_frame_base - expected_esp(), to account for ebp
+  // and since the function called into has no parameters.
+
+  // TODO(manzagop): validate locals_base. It should be sizeof(void*) off of
+  // the frame base, to account for ebp.
 }
 
 }  // namespace refinery

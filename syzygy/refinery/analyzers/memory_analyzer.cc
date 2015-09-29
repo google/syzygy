@@ -18,6 +18,7 @@
 #include <string>
 
 #include "base/memory/scoped_ptr.h"
+#include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
@@ -29,7 +30,7 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
     const Minidump& minidump, ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 
-  scoped_refptr<ProcessState::Layer<Bytes>> bytes_layer;
+  BytesLayerPtr bytes_layer;
   process_state->FindOrCreateLayer(&bytes_layer);
 
   Minidump::Stream memory_list =
@@ -64,7 +65,7 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
       return ANALYSIS_ERROR;
 
     // Create the memory record.
-    scoped_refptr<ProcessState::Record<Bytes>> bytes_record;
+    BytesRecordPtr bytes_record;
     bytes_layer->CreateRecord(range, &bytes_record);
     Bytes* bytes_proto = bytes_record->mutable_data();
     bytes_proto->mutable_data()->swap(bytes);
