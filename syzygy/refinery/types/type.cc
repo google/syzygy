@@ -245,6 +245,20 @@ TypePtr FunctionType::GetContainingClassType() const {
   return repository()->GetType(containing_class_id_);
 }
 
+GlobalType::GlobalType(const base::string16& name,
+                       uint64_t rva,
+                       TypeId data_type_id,
+                       size_t size)
+    : Type(GLOBAL_TYPE_KIND, name, size),
+      rva_(rva),
+      data_type_id_(data_type_id) {
+}
+
+TypePtr GlobalType::GetDataType() const {
+  DCHECK(repository());
+  return repository()->GetType(data_type_id_);
+}
+
 WildcardType::WildcardType(const base::string16& name, size_t size)
     : Type(WILDCARD_TYPE_KIND, name, size) {
 }

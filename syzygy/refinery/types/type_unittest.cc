@@ -393,6 +393,28 @@ TEST_F(TypesTest, FunctionType) {
   EXPECT_EQ(1, basic_type->size());
 }
 
+TEST_F(TypesTest, GlobalType) {
+  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"int", 4));
+  uint64_t kRVA = 0xCAFEBABE;
+  TypePtr type = new GlobalType(L"foo", kRVA, kBasicTypeId, 4);
+  EXPECT_EQ(Type::GLOBAL_TYPE_KIND, type->kind());
+  EXPECT_EQ(L"foo", type->name());
+  EXPECT_EQ(4, type->size());
+
+  ASSERT_NE(0U, repo_.AddType(type));
+
+  // Cast it down.
+  GlobalTypePtr global;
+  ASSERT_TRUE(type->CastTo(&global));
+
+  EXPECT_EQ(kRVA, global->rva());
+  EXPECT_EQ(kBasicTypeId, global->data_type_id());
+
+  TypePtr data_type = global->GetDataType();
+  ASSERT_NE(nullptr, data_type);
+  EXPECT_EQ(L"int", data_type->name());
+}
+
 TEST_F(TypesTest, WildcardType) {
   // Build a wildcard instance.
   TypePtr type = new WildcardType(L"Wildcard", 4);

@@ -46,6 +46,7 @@ class Type : public base::RefCounted<Type> {
     POINTER_TYPE_KIND,
     ARRAY_TYPE_KIND,
     FUNCTION_TYPE_KIND,
+    GLOBAL_TYPE_KIND,
     WILDCARD_TYPE_KIND,
   };
 
@@ -427,14 +428,43 @@ class FunctionType : public Type {
   // The calling convention of this function.
   CallConvention call_convention_;
 
-  // The type index of the containing class or KNoTypeId if this is not a member
-  // function.
+  // The type index of the containing class or KNoTypeId if this is not a
+  // member function.
   TypeId containing_class_id_;
 
   DISALLOW_COPY_AND_ASSIGN(FunctionType);
 };
 
 using FunctionTypePtr = scoped_refptr<FunctionType>;
+
+class GlobalType : public Type {
+ public:
+  static const TypeKind ID = GLOBAL_TYPE_KIND;
+
+  // TODO(siggi): Does it even make sense to have size here?
+  GlobalType(const base::string16& name,
+             uint64_t rva,
+             TypeId data_type_id,
+             size_t size);
+
+  // @name Accessors.
+  // @{
+  uint64_t rva() const { return rva_; }
+  TypeId data_type_id() const { return data_type_id_; }
+  // @}
+
+  // @name Retrieve the data type.
+  // @pre SetRepository has been called.
+  TypePtr GetDataType() const;
+
+ private:
+  uint64_t rva_;
+  TypeId data_type_id_;
+
+  DISALLOW_COPY_AND_ASSIGN(GlobalType);
+};
+
+using GlobalTypePtr = scoped_refptr<GlobalType>;
 
 // Enum representing different calling conventions, the values are the same as
 // the ones used in the PDB stream.
