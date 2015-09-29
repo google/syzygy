@@ -726,7 +726,8 @@ BlockGraph::Block* CreateGetProcessHeapReplacement(
 
   // Create a data block containing the address of the new code block, it'll be
   // use to call it via an indirect reference.
-  base::StringPiece data_block_name = thunk_name.as_string() + "_data";
+  std::string data_block_name =
+      base::StringPrintf("%s_data", thunk_name.data());
   BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, 4, code_block, 0, 0);
   BlockGraph::Block* data_block = block_graph->AddBlock(BlockGraph::DATA_BLOCK,
                                                         ref.size(),
