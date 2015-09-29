@@ -21,6 +21,7 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "base/strings/string_piece.h"
 #include "syzygy/block_graph/filterable.h"
@@ -32,6 +33,7 @@
 #include "syzygy/common/asan_parameters.h"
 #include "syzygy/instrument/transforms/asan_interceptor_filter.h"
 #include "syzygy/instrument/transforms/asan_intercepts.h"
+#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 
 namespace instrument {
 namespace transforms {
@@ -128,7 +130,7 @@ class AsanBasicBlockTransform
   static const char kTransformName[];
 
   // @name BasicBlockSubGraphTransformInterface method.
-  virtual bool TransformBasicBlockSubGraph(
+  bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) override;
@@ -203,7 +205,7 @@ class HotPatchingAsanBasicBlockTransform
       AsanBasicBlockTransform* asan_bb_transform);
 
   // @name BasicBlockSubGraphTransformInterface method.
-  virtual bool TransformBasicBlockSubGraph(
+  bool TransformBasicBlockSubGraph(
       const TransformPolicyInterface* policy,
       BlockGraph* block_graph,
       BasicBlockSubGraph* basic_block_subgraph) override;
@@ -417,14 +419,9 @@ class AsanTransform
   // a successful PostBlockGraphIteration. This is a unittesting seam.
   block_graph::BlockGraph::Block* asan_parameters_block_;
 
-  // Pointers to the heap initialization block and the block of the CRT heap
-  // pointer. These are determined during PreBlockGraphIteration, and are either
-  // both present or both nullptr. The heap initialization block is skipped
-  // during OnBlock, then transformed in PostBlockGraphIteration
-  // (via PatchCRTHeapInitialization). The block of the CRT heap pointer
-  // is needed for this transformation.
-  BlockGraph::Block* heap_init_block_;
-  BlockGraph::Block* crtheap_block_;
+  // Vector of CRT heap initialization blocks. These are determined during
+  // PreBlockGraphIteration.
+  std::vector<BlockGraph::Block*> heap_init_blocks_;
 
   // Statically linked functions that need to be intercepted. Populated by
   // PeFindStaticallyLinkedFunctionsToIntercept. Block in this set are skipped

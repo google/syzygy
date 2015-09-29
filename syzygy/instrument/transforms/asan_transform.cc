@@ -36,7 +36,6 @@
 #include "syzygy/pe/transforms/add_hot_patching_metadata_transform.h"
 #include "syzygy/pe/transforms/coff_add_imports_transform.h"
 #include "syzygy/pe/transforms/coff_rename_symbols_transform.h"
-#include "syzygy/pe/transforms/pe_add_imports_transform.h"
 #include "syzygy/pe/transforms/pe_hot_patching_basic_block_transform.h"
 #include "third_party/distorm/files/include/mnemonics.h"
 #include "third_party/distorm/files/src/x86defs.h"
@@ -64,6 +63,7 @@ using assm::Register32;
 using pe::transforms::CoffAddImportsTransform;
 using pe::transforms::ImportedModule;
 using pe::transforms::PEAddImportsTransform;
+using pe::transforms::PECoffAddImportsTransform;
 
 // A simple struct that can be used to let us access strings using TypedBlock.
 struct StringStruct {
@@ -663,120 +663,175 @@ bool ImportAsanCheckAccessHooks(
   return true;
 }
 
-// Since MSVS 2012 the implementation of the CRT _heap_init function has changed
-// and as a result the CRT defers all its allocation to the process heap.
+// Create a thunk that does the following call:
+//   ::HeapCreate(0, 0x1000, 0);
 //
-// As we don't want to replace the process heap by an Asan heap we need to patch
-// this function to make it use ::HeapCreate instead of ::GetProcessHeap. We
-// can't simply intercept it like we do for the other functions because we need
-// to update the value of the _crtheap variable, adding an export for it will
-// make the instrumentation agent depend on the instrumented image.
+// This block has the same signature as the ::GetProcessHeap function.
 //
-// Here's the assembly code that we're injecting to replace this function.
+// As the ::GetProcessHeap function is usually called via an indirect reference
+// (i.e. it's an entry in the IAT) this function returns also an indirect
+// reference to the replacement block. To do this it first creates a code block,
+// and then a data block containing a reference t it. It returns the data block.
 //
-// push    0
-// push    1000h
-// push    0
-// call    syzyasan_rtl!asan_HeapCreate
-// mov     dword ptr [module!crt_heap], eax
-// mov     eax,1
-// ret
-//
-// TODO(sebmarchand): Also patch the _heap_term function. This function isn't
-//     always present and is just used to reset the crt_heap pointer and free
-//     the underlying heap. This isn't so important in this case because it only
-//     happen when the process terminate and the heap will be automatically
-//     freed when we unload the SyzyAsan agent DLL.
-//
-// @param block_graph The block-graph to populate with the stub.
-// @param header_block the header block of @p block_graph.
-// @param policy the policy object restricting how the transform is applied.
-// @param heap_init_block The original _heap_init block. Set to nullptr after
-//     deletion.
-// @param crtheap_block The data block to _crtheap.
-// @param asan_dll_name the name of the asan_rtl DLL we import.
-// @returns true on success, false otherwise.
-// @pre heap_init_block and crtheap_block must not be nullptr.
-bool PatchCRTHeapInitialization(
+// @param block_graph the block graph that should receive this thunk.
+// @param thunk_name The name of the thunk to create. This name will be used to
+//     name the code block that gets created, the data block will append '_data'
+//     to it.
+// @param heap_create_ref The reference to the heap create function.
+// @returns a pointer to a data block that contains a reference to this block,
+//     nullptr otherwise.
+BlockGraph::Block* CreateGetProcessHeapReplacement(
     BlockGraph* block_graph,
-    BlockGraph::Block* header_block,
-    const TransformPolicyInterface* policy,
-    BlockGraph::Block* heap_init_block,
-    BlockGraph::Block* crtheap_block,
-    const base::StringPiece& heap_create_dll_name,
-    const base::StringPiece& heap_create_function_name) {
-  DCHECK_NE(static_cast<BlockGraph*>(nullptr), block_graph);
-  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), header_block);
-  DCHECK_NE(static_cast<const TransformPolicyInterface*>(nullptr), policy);
-  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), heap_init_block);
-  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), crtheap_block);
-
+    base::StringPiece thunk_name,
+    const BlockGraph::Reference& heap_create_ref) {
   // Find or create the section we put our thunks in.
   BlockGraph::Section* thunk_section = block_graph->FindOrAddSection(
       common::kThunkSectionName, pe::kCodeCharacteristics);
 
   if (thunk_section == NULL) {
     LOG(ERROR) << "Unable to find or create .thunks section.";
-    return false;
+    return nullptr;
   }
 
-  // Find the asan_HeapCreate import.
-  PEAddImportsTransform find_imports;
-  ImportedModule kernel32_module(heap_create_dll_name);
-  kernel32_module.AddSymbol(heap_create_function_name,
-                            ImportedModule::kAlwaysImport);
-  find_imports.AddModule(&kernel32_module);
-  if (!find_imports.TransformBlockGraph(policy, block_graph, header_block)) {
-    LOG(ERROR) << "Unable to find the import " << heap_create_function_name
-               << " in " << heap_create_dll_name
-               << ", that is required to patch the CRT heap initialization.";
-    return false;
-  }
-  BlockGraph::Reference heap_create_ref;
-  CHECK(kernel32_module.GetSymbolReference(0, &heap_create_ref));
+  BasicBlockSubGraph code_bbsg;
+  BasicBlockSubGraph::BlockDescription* code_block_desc =
+      code_bbsg.AddBlockDescription(thunk_name,
+                                    thunk_section->name(),
+                                    BlockGraph::CODE_BLOCK,
+                                    thunk_section->id(),
+                                    1,
+                                    0);
 
-  std::string stub_name = "asan_heap_init";
-  BasicBlockSubGraph bbsg;
-  BasicBlockSubGraph::BlockDescription* block_desc = bbsg.AddBlockDescription(
-      stub_name,
-      thunk_section->name(),
-      BlockGraph::CODE_BLOCK,
-      thunk_section->id(),
-      1,
-      0);
-
-  BasicCodeBlock* bb = bbsg.AddBasicCodeBlock(stub_name);
-  block_desc->basic_block_order.push_back(bb);
-  BasicBlockAssembler assm(bb->instructions().begin(), &bb->instructions());
+  BasicCodeBlock* code_bb = code_bbsg.AddBasicCodeBlock(thunk_name);
+  code_block_desc->basic_block_order.push_back(code_bb);
+  BasicBlockAssembler assm(code_bb->instructions().begin(),
+                           &code_bb->instructions());
   assm.push(Immediate(0U, assm::kSize32Bit));
   assm.push(Immediate(0x1000U, assm::kSize32Bit));
   assm.push(Immediate(0U, assm::kSize32Bit));
   assm.call(Operand(Displacement(heap_create_ref.referenced(),
                                  heap_create_ref.offset())));
-  assm.mov(Operand(Displacement(crtheap_block, 0U)), assm::eax);
-  assm.mov(assm::eax, Immediate(1U));
   assm.ret();
 
   // Condense into a block.
   BlockBuilder block_builder(block_graph);
-  if (!block_builder.Merge(&bbsg)) {
+  if (!block_builder.Merge(&code_bbsg)) {
     LOG(ERROR) << "Failed to build thunk block.";
-    return false;
+    return nullptr;
   }
 
   // Exactly one new block should have been created.
   DCHECK_EQ(1u, block_builder.new_blocks().size());
-  BlockGraph::Block* heap_init_thunk = block_builder.new_blocks().front();
+  BlockGraph::Block* code_block = block_builder.new_blocks().front();
 
-  heap_init_block->TransferReferrers(0U, heap_init_thunk,
-      BlockGraph::Block::kTransferInternalReferences);
+  // Create a data block containing the address of the new code block, it'll be
+  // use to call it via an indirect reference.
+  base::StringPiece data_block_name = thunk_name.as_string() + "_data";
+  BlockGraph::Reference ref(BlockGraph::ABSOLUTE_REF, 4, code_block, 0, 0);
+  BlockGraph::Block* data_block = block_graph->AddBlock(BlockGraph::DATA_BLOCK,
+                                                        ref.size(),
+                                                        data_block_name);
+  data_block->set_section(thunk_section->id());
+  data_block->SetReference(0, ref);
 
-  if (!heap_init_block->RemoveAllReferences() ||
-      !block_graph->RemoveBlock(heap_init_block)) {
-    LOG(ERROR) << "Unable to remove the original _heap_init block.";
+  return data_block;
+}
+
+// Since MSVS 2012 the implementation of the CRT _heap_init function has
+// changed and as a result the CRT defers all its allocation to the process
+// heap.
+//
+// As we don't want to replace the process heap by an Asan heap we need to
+// patch this function to make it use ::HeapCreate instead of
+// ::GetProcessHeap.
+//
+// We do this by replacing the reference to ::GetProcessHeap by a reference
+// to a thunk that calls ::HeapCreate.
+//
+// TODO(sebmarchand): Also patch the _heap_term function. This function
+//     isn't always present and is just used to reset the crt_heap pointer
+//     and free the underlying heap. This isn't so important in this case
+//     because it only happens when the process terminates and the heap will
+//     be automatically freed when we unload the SyzyAsan agent DLL.
+//
+// @param block_graph The block-graph to populate with the stub.
+// @param header_block the header block of @p block_graph.
+// @param policy the policy object restricting how the transform is applied.
+// @param heap_create_dll_name the name of the DLL exporting the ::HeapCreate
+//     function, it is either kernel32.dll or the name of the agent DLL used
+//     by this transform.
+// @param heap_create_function_name the name of the ::HeapCreate export in
+//     |heap_create_dll_name|.
+// @param heap_init_blocks The heap initialization functions that we want to
+//     patch.
+// @returns true on success, false otherwise.
+bool PatchCRTHeapInitialization(
+    BlockGraph* block_graph,
+    BlockGraph::Block* header_block,
+    const TransformPolicyInterface* policy,
+    base::StringPiece heap_create_dll_name,
+    base::StringPiece heap_create_function_name,
+    const std::vector<BlockGraph::Block*>& heap_init_blocks) {
+  DCHECK_NE(static_cast<BlockGraph*>(nullptr), block_graph);
+  DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), header_block);
+  DCHECK_NE(static_cast<const TransformPolicyInterface*>(nullptr), policy);
+
+  // Add the |heap_create_dll_name| module.
+  ImportedModule heap_create_module(heap_create_dll_name);
+  size_t heap_create_idx = heap_create_module.AddSymbol(
+      heap_create_function_name, ImportedModule::kAlwaysImport);
+
+  // Add the module containing the GetProcessHeap function.
+  ImportedModule* kernel32_module = nullptr;
+  // This scoped pointer will only be used if we need to dynamically allocate
+  // the kernel32 module to make sure that it gets correctly freed.
+  const char* kKernel32 = "kernel32.dll";
+  scoped_ptr<ImportedModule> scoped_get_process_heap_module;
+  if (base::CompareCaseInsensitiveASCII(heap_create_dll_name,
+                                        kKernel32) != 0) {
+    scoped_get_process_heap_module.reset(new ImportedModule(kKernel32));
+    kernel32_module = scoped_get_process_heap_module.get();
+  } else {
+    kernel32_module = &heap_create_module;
+  }
+  size_t get_process_heap_idx = kernel32_module->AddSymbol(
+      "GetProcessHeap", ImportedModule::kFindOnly);
+
+  // Apply the AddImport transform to add or find the required modules.
+  PEAddImportsTransform transform;
+  transform.AddModule(&heap_create_module);
+  if (kernel32_module != &heap_create_module)
+    transform.AddModule(kernel32_module);
+  if (!ApplyBlockGraphTransform(&transform, policy,
+                                block_graph, header_block)) {
+    LOG(ERROR) << "Unable to add or find the imports required to patch the CRT "
+               << "heap initialization.";
     return false;
   }
 
+  BlockGraph::Reference heap_create_ref;
+  CHECK(heap_create_module.GetSymbolReference(heap_create_idx,
+                                              &heap_create_ref));
+
+  // Create the GetProcessHeap replacement function.
+  BlockGraph::Block* get_process_heap_stub = CreateGetProcessHeapReplacement(
+      block_graph, "asan_get_process_heap_replacement", heap_create_ref);
+
+  BlockGraph::Reference get_process_heap_ref;
+  CHECK(kernel32_module->GetSymbolReference(get_process_heap_idx,
+                                            &get_process_heap_ref));
+
+  BlockGraph::Reference new_ref(BlockGraph::ABSOLUTE_REF,
+                                get_process_heap_ref.size(),
+                                get_process_heap_stub, 0U, 0U);
+  // Iterates over the list of blocks to patch.
+  for (auto iter : heap_init_blocks) {
+    VLOG(1) << "Patching " << iter->name() << ".";
+    for (const auto& ref : iter->references()) {
+      if (ref.second == get_process_heap_ref)
+        iter->SetReference(ref.first, new_ref);
+    }
+  }
   return true;
 }
 
@@ -1153,7 +1208,6 @@ bool AsanBasicBlockTransform::InstrumentBasicBlock(
       InjectAsanHook(
           &bb_asm, info, operand, &hook->second, state, image_format);
     }
-
   }
 
   DCHECK(iter_state == states.end());
@@ -1255,8 +1309,6 @@ AsanTransform::AsanTransform()
       asan_parameters_(nullptr),
       check_access_hooks_ref_(),
       asan_parameters_block_(nullptr),
-      heap_init_block_(nullptr),
-      crtheap_block_(nullptr),
       hot_patching_(false) {
 }
 
@@ -1283,9 +1335,7 @@ bool AsanTransform::PreBlockGraphIteration(
     return false;
   }
 
-  // Initialize heap_init_block_ and crtheap_block_. heap_init_block_ must be
-  // skipped in OnBlock in hot patching mode because PostBlockGraphIteration
-  // deletes it.
+  // Initialize heap initialization blocks.
   FindHeapInitAndCrtHeapBlocks(block_graph);
 
   // Add an import entry for the Asan runtime.
@@ -1399,21 +1449,20 @@ bool AsanTransform::PostBlockGraphIteration(
 
   // If the heap initialization blocks were encountered in the
   // PreBlockGraphIteration, patch them now.
-  if (heap_init_block_ != nullptr && crtheap_block_ != nullptr) {
+  if (!heap_init_blocks_.empty()) {
     // We don't instrument HeapCreate in hot patching mode.
     base::StringPiece heap_create_dll_name =
         !hot_patching_ ? instrument_dll_name() : "kernel32.dll";
     base::StringPiece heap_create_function_name =
         !hot_patching_ ? "asan_HeapCreate" : "HeapCreate";
-
-    if (!PatchCRTHeapInitialization(block_graph, header_block, policy,
-                                    heap_init_block_, crtheap_block_,
+    if (!PatchCRTHeapInitialization(block_graph,
+                                    header_block,
+                                    policy,
                                     heap_create_dll_name,
-                                    heap_create_function_name)) {
+                                    heap_create_function_name,
+                                    heap_init_blocks_)) {
       return false;
     }
-    heap_init_block_ = nullptr;
-    crtheap_block_ = nullptr;
   }
 
   if (hot_patching_) {
@@ -1444,31 +1493,22 @@ base::StringPiece AsanTransform::instrument_dll_name() const {
 }
 
 void AsanTransform::FindHeapInitAndCrtHeapBlocks(BlockGraph* block_graph) {
-  BlockGraph::Block* heap_init_block = nullptr;
-  BlockGraph::Block* crtheap_block = nullptr;
-
   for (auto& iter : block_graph->blocks_mutable()) {
-    if (::strcmp(iter.second.name().c_str(), "_heap_init") == 0) {
-      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), heap_init_block);
-      heap_init_block = &(iter.second);
-    } else if (::strcmp(iter.second.name().c_str(), "_crtheap") == 0) {
-      DCHECK_EQ(static_cast<BlockGraph::Block*>(nullptr), crtheap_block);
-      crtheap_block = &(iter.second);
-    }
-
-    if (heap_init_block != nullptr && crtheap_block != nullptr) {
-      heap_init_block_ = heap_init_block;
-      crtheap_block_ = crtheap_block;
-      return;
+    if (iter.second.name().find("_heap_init") != std::string::npos) {
+      DCHECK(std::find(heap_init_blocks_.begin(),
+          heap_init_blocks_.end(), &(iter.second)) == heap_init_blocks_.end());
+      heap_init_blocks_.push_back(&(iter.second));
     }
   }
 }
 
 bool AsanTransform::ShouldSkipBlock(const TransformPolicyInterface* policy,
                                     BlockGraph::Block* block) {
-  // Blocks of _heap_init and intercepted blocks must be skipped.
-  if (block == heap_init_block_)
+  // Heap initialization blocks and intercepted blocks must be skipped.
+  if (std::find(heap_init_blocks_.begin(),
+                heap_init_blocks_.end(), block) != heap_init_blocks_.end()) {
     return true;
+  }
   if (static_intercepted_blocks_.count(block))
     return true;
 

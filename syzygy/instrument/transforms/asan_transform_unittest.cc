@@ -80,8 +80,7 @@ class TestAsanInterceptorFilter : public AsanInterceptorFilter {
 class TestAsanTransform : public AsanTransform {
  public:
   using AsanTransform::asan_parameters_block_;
-  using AsanTransform::crtheap_block_;
-  using AsanTransform::heap_init_block_;
+  using AsanTransform::heap_init_blocks_;
   using AsanTransform::hot_patched_blocks_;
   using AsanTransform::static_intercepted_blocks_;
   using AsanTransform::use_interceptors_;
@@ -1708,14 +1707,9 @@ TEST_F(AsanTransformTest, FindHeapInitAndCrtHeapBlocks) {
 
   asan_transform_.FindHeapInitAndCrtHeapBlocks(&block_graph_);
 
-  ASSERT_NE(nullptr, asan_transform_.heap_init_block_);
-  EXPECT_EQ(std::string("_heap_init"),
-            asan_transform_.heap_init_block_->name());
-  EXPECT_EQ(BlockGraph::CODE_BLOCK, asan_transform_.heap_init_block_->type());
-
-  ASSERT_NE(nullptr, asan_transform_.crtheap_block_);
-  EXPECT_EQ(std::string("_crtheap"), asan_transform_.crtheap_block_->name());
-  EXPECT_EQ(BlockGraph::DATA_BLOCK, asan_transform_.crtheap_block_->type());
+  ASSERT_FALSE(asan_transform_.heap_init_blocks_.empty());
+  for (const auto& iter : asan_transform_.heap_init_blocks_)
+    EXPECT_NE(std::string::npos, iter->name().find("_heap_init"));
 }
 
 TEST_F(AsanTransformTest, ShouldSkipBlock) {
@@ -1732,9 +1726,9 @@ TEST_F(AsanTransformTest, ShouldSkipBlock) {
   EXPECT_FALSE(asan_transform_.ShouldSkipBlock(&policy, b1));
 
   // _heap_init block should be skipped.
-  asan_transform_.heap_init_block_ = b1;
+  asan_transform_.heap_init_blocks_.push_back(b1);
   EXPECT_TRUE(asan_transform_.ShouldSkipBlock(&policy, b1));
-  asan_transform_.heap_init_block_ = nullptr;
+  asan_transform_.heap_init_blocks_.clear();
   EXPECT_FALSE(asan_transform_.ShouldSkipBlock(&policy, b1));
 
   // A block in static_intercepted_blocks_ should be skipped.
@@ -1750,20 +1744,37 @@ TEST_F(AsanTransformTest, ShouldSkipBlock) {
 TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
   ASSERT_NO_FATAL_FAILURE(DecomposeTestDll());
 
-  // Get the heap ID of the original _heap_init block and the list of its
-  // referrers.
-  BlockGraph::BlockId heap_init_id = SIZE_MAX;
-  BlockGraph::Block::ReferrerSet heap_init_referrers;
+  // Keep a reference to all the heap initialization blocks that should be
+  // patched.
+
+  std::map<const BlockGraph::Block*,
+           std::pair<BlockGraph::Offset, BlockGraph::Reference>>
+      heap_init_blocks;
+
+  pe::transforms::ImportedModule kernel32("kernel32.dll");
+  pe::transforms::PEAddImportsTransform kernel32_transform;
+
+  size_t get_process_heap_idx = kernel32.AddSymbol(
+      "GetProcessHeap", pe::transforms::ImportedModule::kFindOnly);
+  kernel32_transform.AddModule(&kernel32);
+
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(&kernel32_transform,
+                                                    policy_,
+                                                    &block_graph_,
+                                                    header_block_));
+  BlockGraph::Reference get_process_heap_ref;
+  EXPECT_TRUE(kernel32.GetSymbolReference(get_process_heap_idx,
+      &get_process_heap_ref));
+
   for (const auto& iter : block_graph_.blocks()) {
-    if (::strcmp(iter.second.name().c_str(), "_heap_init") == 0) {
-      heap_init_id = iter.first;
-      heap_init_referrers.insert(iter.second.referrers().begin(),
-                                 iter.second.referrers().end());
-      break;
+    if (iter.second.name().find("_heap_init") == std::string::npos)
+      continue;
+    for (const auto& ref : iter.second.references()) {
+      if (ref.second == get_process_heap_ref)
+        heap_init_blocks[&iter.second] = ref;
     }
   }
-  EXPECT_NE(SIZE_MAX, heap_init_id);
-  EXPECT_NE(0U, heap_init_referrers.size());
+  EXPECT_FALSE(heap_init_blocks.empty());
 
   // Apply the Asan transform.
   asan_transform_.use_interceptors_ = true;
@@ -1771,43 +1782,55 @@ TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(
       &asan_transform_, &pe_policy_, &block_graph_, header_block_));
 
-  // The original _heap_init block should have been removed.
-  EXPECT_EQ(nullptr, block_graph_.GetBlockById(heap_init_id));
+  // Get a referenece to the heap create function that has been used to patch
+  // these blocks.
+  pe::transforms::ImportedModule asan_module(
+      AsanTransform::kSyzyAsanDll);
+  pe::transforms::PEAddImportsTransform asan_import_transform;
+  size_t asan_heap_create_idx = asan_module.AddSymbol(
+      "asan_HeapCreate", pe::transforms::ImportedModule::kFindOnly);
+  asan_import_transform.AddModule(&asan_module);
+  EXPECT_TRUE(block_graph::ApplyBlockGraphTransform(&asan_import_transform,
+                                                    policy_,
+                                                    &block_graph_,
+                                                    header_block_));
+  BlockGraph::Reference asan_heap_create_ref;
+  EXPECT_TRUE(asan_module.GetSymbolReference(asan_heap_create_idx,
+                                             &asan_heap_create_ref));
 
-  // The heap_init_block_ member should be nullptr because the block is deleted.
-  EXPECT_EQ(nullptr, asan_transform_.heap_init_block_);
+  // Verify that the patched blocks contains a reference to this heap create
+  // function.
+  for (const auto& iter : heap_init_blocks) {
+    const BlockGraph::Block* block = iter.first;
+    BlockGraph::Offset offset = iter.second.first;
 
-  // Search for the asan_heap_init block.
-  const BlockGraph::Block* asan_heap_init_block = NULL;
-  BlockGraph::Block::ReferrerSet asan_heap_init_referrers;
-  for (const auto& iter : block_graph_.blocks()) {
-    if (::strcmp(iter.second.name().c_str(), "asan_heap_init") == 0) {
-      asan_heap_init_block = &iter.second;
-      asan_heap_init_referrers.insert(iter.second.referrers().begin(),
-                                      iter.second.referrers().end());
-      break;
-    }
+    // The blocks should contain a reference to a data block in the Syzygy thunk
+    // section.
+    BlockGraph::Reference thunk_data_ref;
+    EXPECT_TRUE(block->GetReference(offset, &thunk_data_ref));
+    BlockGraph::SectionId syzygy_section =
+        block_graph_.FindSection(common::kThunkSectionName)->id();
+    EXPECT_EQ(syzygy_section, thunk_data_ref.referenced()->section());
+    EXPECT_EQ(BlockGraph::DATA_BLOCK, thunk_data_ref.referenced()->type());
+    EXPECT_EQ(1, thunk_data_ref.referenced()->references().size());
+
+    // This data block should refer to a code block also in the Syzygy thunk
+    // section.
+    BlockGraph::Reference thunk_code_ref;
+    EXPECT_TRUE(thunk_data_ref.referenced()->GetReference(0,
+                                                          &thunk_code_ref));
+    EXPECT_EQ(syzygy_section, thunk_code_ref.referenced()->section());
+    EXPECT_EQ(BlockGraph::CODE_BLOCK, thunk_code_ref.referenced()->type());
+    EXPECT_EQ(1, thunk_code_ref.referenced()->references().size());
+
+    // And lastly, this code block should refer to the HeapCreate function.
+    BlockGraph::Reference thunk_heap_create_ref;
+    BlockGraph::Offset ref_idx =
+        thunk_code_ref.referenced()->references().begin()->first;
+    EXPECT_TRUE(thunk_code_ref.referenced()->GetReference(ref_idx,
+        &thunk_heap_create_ref));
+    EXPECT_EQ(asan_heap_create_ref, thunk_heap_create_ref);
   }
-  EXPECT_NE(nullptr, asan_heap_init_block);
-
-  // Make sure that all the blocks that referred to _heap_init now refer to the
-  // patched function.
-  ASSERT_EQ(heap_init_referrers.size(), asan_heap_init_referrers.size());
-  EXPECT_TRUE(std::equal(heap_init_referrers.begin(), heap_init_referrers.end(),
-                         asan_heap_init_referrers.begin()));
-
-  // Verify that the patched block contains a reference to asan_HeapCreate.
-  bool refers_to_heap_create = false;
-  for (const auto& iter : asan_heap_init_block->references()) {
-    BlockGraph::Offset ref_offset = iter.second.offset();
-    BlockGraph::Label ref_label;
-    EXPECT_TRUE(iter.second.referenced()->GetLabel(ref_offset, &ref_label));
-    if (ref_label.name().find("asan_HeapCreate") != std::string::npos) {
-      refers_to_heap_create = true;
-      break;
-    }
-  }
-  EXPECT_TRUE(refers_to_heap_create);
 }
 
 TEST_F(AsanTransformTest, HotPatchingSection) {
@@ -1819,7 +1842,7 @@ TEST_F(AsanTransformTest, HotPatchingSection) {
 
   // Look for the presence of the hot patching section.
   const BlockGraph::Section* hp_section = nullptr;
-  for (const auto& entry: block_graph_.sections()) {
+  for (const auto& entry : block_graph_.sections()) {
     const BlockGraph::Section* sect = &entry.second;
     if (sect->name() == common::kHotPatchingMetadataSectionName) {
       hp_section = sect;
