@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.10.2
+
+[e208902143] Only set early crash keys for sufficiently modern Chrome.
+[8ce23ad741] Fix the interception of the heap_init function.
+
 Version 0.8.10.1
 
 [d5431ad295] Fixed the build configuration.
