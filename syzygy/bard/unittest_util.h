@@ -51,7 +51,7 @@ void CheckTraceLiveMapNotContain(const TraceLiveMap<T>& const_trace_live_map,
 }
 
 template <typename Event>
-scoped_ptr<Event> TestEventSerialization(const Event& original_data) {
+void TestEventSerialization(const Event& original_data) {
   core::ByteVector bytes;
 
   core::ScopedOutStreamPtr out_stream;
@@ -66,7 +66,8 @@ scoped_ptr<Event> TestEventSerialization(const Event& original_data) {
   scoped_ptr<Event> data_copy = Event::Load(&in_archive).Pass();
   EXPECT_NE(static_cast<Event*>(nullptr), data_copy.get());
 
-  return data_copy;
+  // Expect equality.
+  EXPECT_TRUE(original_data.Equals(data_copy.get()));
 }
 
 }  // namespace testing

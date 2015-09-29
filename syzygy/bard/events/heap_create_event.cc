@@ -96,5 +96,20 @@ bool HeapCreateEvent::Play(void* backdrop) {
   return true;
 }
 
+bool HeapCreateEvent::Equals(const EventInterface* rhs) const {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), rhs);
+
+  if (rhs->type() != kHeapCreateEvent)
+    return false;
+
+  const auto e = reinterpret_cast<const HeapCreateEvent*>(rhs);
+  if (options_ != e->options_ || initial_size_ != e->initial_size_ ||
+      maximum_size_ != e->maximum_size_ || trace_heap_ != e->trace_heap_) {
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace events
 }  // namespace bard

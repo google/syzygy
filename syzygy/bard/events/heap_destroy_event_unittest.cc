@@ -84,14 +84,19 @@ TEST_F(HeapDestroyEventTest, TestInconsistentReturn) {
                                      kLiveHeap);
 }
 
+TEST_F(HeapDestroyEventTest, Equals) {
+  HeapDestroyEvent e1(kTraceHeap, false);
+  HeapDestroyEvent e2(kTraceHeap, false);
+  HeapDestroyEvent e3(kTraceHeap, true);
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
+
 TEST_F(HeapDestroyEventTest, TestSerialization) {
   HeapDestroyEvent heap_destroy_event(kTraceHeap, true);
-
-  scoped_ptr<HeapDestroyEvent> copy =
-      testing::TestEventSerialization(heap_destroy_event);
-
-  EXPECT_EQ(heap_destroy_event.trace_heap(), copy->trace_heap());
-  EXPECT_EQ(heap_destroy_event.trace_succeeded(), copy->trace_succeeded());
+  testing::TestEventSerialization(heap_destroy_event);
 }
 
 }  // namespace events

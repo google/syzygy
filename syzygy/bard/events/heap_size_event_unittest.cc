@@ -72,14 +72,18 @@ TEST_F(HeapSizeEventTest, TestFailCall) {
   EXPECT_FALSE(heap_size_event_.Play(reinterpret_cast<void*>(&backdrop_)));
 }
 
-TEST_F(HeapSizeEventTest, TestSerialization) {
-  scoped_ptr<HeapSizeEvent> copy =
-      testing::TestEventSerialization(heap_size_event_);
+TEST_F(HeapSizeEventTest, Equals) {
+  HeapSizeEvent e1(kTraceHeap, kFlags, kTraceAlloc, kSize);
+  HeapSizeEvent e2(kTraceHeap, kFlags, kTraceAlloc, kSize);
+  HeapSizeEvent e3(kTraceHeap, kFlags + 1, kTraceAlloc, kSize + 1);
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
 
-  EXPECT_EQ(heap_size_event_.trace_heap(), copy->trace_heap());
-  EXPECT_EQ(heap_size_event_.flags(), copy->flags());
-  EXPECT_EQ(heap_size_event_.trace_alloc(), copy->trace_alloc());
-  EXPECT_EQ(heap_size_event_.trace_size(), copy->trace_size());
+TEST_F(HeapSizeEventTest, TestSerialization) {
+  testing::TestEventSerialization(heap_size_event_);
 }
 
 }  // namespace events

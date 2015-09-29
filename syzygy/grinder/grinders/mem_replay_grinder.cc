@@ -30,10 +30,6 @@ const char* kAsanHeapFunctionNames[] = {
     "asan_HeapSize",
 };
 
-static_assert(arraysize(kAsanHeapFunctionNames) ==
-                  bard::EventInterface::EventType::kMaxEventType,
-              "MemReplayGrinder is not supporting all HeapEvents!");
-
 }  // namespace
 
 bool MemReplayGrinder::ParseCommandLine(
@@ -94,7 +90,7 @@ void MemReplayGrinder::LoadAsanFunctionNames() {
   function_enum_map_.clear();
   for (size_t i = 0; i < EventType::kMaxEventType; ++i) {
     function_enum_map_[kAsanHeapFunctionNames[static_cast<EventType>(i)]] =
-        static_cast<EventType>(i);
+        static_cast<EventType>(EventInterface::kGetProcessHeapEvent + i);
   }
 }
 

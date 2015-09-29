@@ -20,7 +20,6 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/bard/event.h"
-#include "syzygy/core/serialization.h"
 
 namespace bard {
 namespace events {
@@ -35,6 +34,7 @@ class GetProcessHeapEvent : public EventInterface {
   // @{
   EventType type() const override { return kGetProcessHeapEvent; }
   bool Play(void* backdrop) override;
+  bool Equals(const EventInterface* rhs) const override;
   // @}
 
   // @name Serialization methods.

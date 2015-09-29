@@ -85,19 +85,20 @@ TEST_F(HeapSetInformationEventTest, TestInconsistentReturn) {
       heap_set_information_event.Play(reinterpret_cast<void*>(&backdrop_)));
 }
 
+TEST_F(HeapSetInformationEventTest, Equals) {
+  HeapSetInformationEvent e1(kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
+  HeapSetInformationEvent e2(kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
+  HeapSetInformationEvent e3(kTraceHeap, kInfoClass, kInfo, kInfoLength, false);
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
+
 TEST_F(HeapSetInformationEventTest, TestSerialization) {
   HeapSetInformationEvent heap_set_information_event(
       kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
-
-  scoped_ptr<HeapSetInformationEvent> copy =
-      testing::TestEventSerialization(heap_set_information_event);
-
-  EXPECT_EQ(heap_set_information_event.trace_heap(), copy->trace_heap());
-  EXPECT_EQ(heap_set_information_event.info_class(), copy->info_class());
-  EXPECT_EQ(heap_set_information_event.info(), copy->info());
-  EXPECT_EQ(heap_set_information_event.info_length(), copy->info_length());
-  EXPECT_EQ(heap_set_information_event.trace_succeeded(),
-            copy->trace_succeeded());
+  testing::TestEventSerialization(heap_set_information_event);
 }
 
 }  // namespace events

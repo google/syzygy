@@ -18,6 +18,9 @@
 #ifndef SYZYGY_BARD_EVENT_H_
 #define SYZYGY_BARD_EVENT_H_
 
+#include "base/memory/scoped_ptr.h"
+#include "syzygy/core/serialization.h"
+
 namespace bard {
 
 // Interface for storing and playing events.
@@ -28,6 +31,7 @@ class EventInterface {
   // kMaxEventType), to maintain backwards compatibility for
   // serialization/deserialization.
   enum EventType {
+    kLinkedEvent,
     kGetProcessHeapEvent,
     kHeapAllocEvent,
     kHeapCreateEvent,
@@ -36,6 +40,8 @@ class EventInterface {
     kHeapReAllocEvent,
     kHeapSetInformationEvent,
     kHeapSizeEvent,
+    // New events must be added strictly to the end in order for serialization
+    // to maintain backwards compatibility.
     // This must come last.
     kMaxEventType
   };
@@ -54,14 +60,16 @@ class EventInterface {
   // @returns true if Play succeeds without any problems, false otherwise.
   virtual bool Play(void* backdrop) = 0;
 
+  // Equality comparator.
+  virtual bool Equals(const EventInterface* rhs) const = 0;
+
   // NOTE: Every non-abstract class that extends Event should
-  // also implement two static serialization functions:
+  // also implement the following functions:
   //
   // Serialize an Event in an OutArchive.
   // @param event a ponter to the event to be serialized.
   // @param out_archive where to serialize the event.
   // @returns true on success, false otherwise.
-  //
   // static bool Save(const EventInterface* const event,
   //                  core::OutArchive* out_archive);
   //
@@ -69,16 +77,16 @@ class EventInterface {
   // @param in_archive from where to deserialize this event.
   // @returns a scoped__ptr to the newly created event on success,
   //     an nullptr scoped_ptr otherwise.
-  //
-  // static std::scoped_ptr<DerivedEvent> Load(core::InArchive* in_archive);
-  //
-  // This is done instead of creating virtual methods, for those would require
-  // empty constructors and initialization checks, requiring way more effort
-  // to maintain.
+  // static scoped_ptr<DerivedEvent> Load(core::InArchive* in_archive);
   //
   // NOTE: A DerivedEvent event should NOT save its own type in the Save method.
   // That should be done by a root serialization, which will need to read the
   // type to call the appropriate static save method from the appropriate class.
+
+  // Serialization of an event. These will automatically dispatch to the
+  // appropriately typed serialization mechanism.
+  static bool Save(const EventInterface* event, core::OutArchive* out_archive);
+  static scoped_ptr<EventInterface> Load(core::InArchive* in_archive);
 };
 
 }  // namespace bard

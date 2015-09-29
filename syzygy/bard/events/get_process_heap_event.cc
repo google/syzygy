@@ -73,5 +73,18 @@ bool GetProcessHeapEvent::Play(void* backdrop) {
   return true;
 }
 
+bool GetProcessHeapEvent::Equals(const EventInterface* rhs) const {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), rhs);
+
+  if (rhs->type() != kGetProcessHeapEvent)
+    return false;
+
+  const auto e = reinterpret_cast<const GetProcessHeapEvent*>(rhs);
+  if (trace_heap_ != e->trace_heap_)
+    return false;
+
+  return true;
+}
+
 }  // namespace events
 }  // namespace bard

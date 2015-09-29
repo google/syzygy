@@ -91,16 +91,19 @@ TEST_F(HeapFreeEventTest, TestInconsistentReturn) {
                                      kLiveAlloc);
 }
 
+TEST_F(HeapFreeEventTest, Equals) {
+  HeapFreeEvent e1(kTraceHeap, kFlags, kTraceAlloc, true);
+  HeapFreeEvent e2(kTraceHeap, kFlags, kTraceAlloc, true);
+  HeapFreeEvent e3(kTraceHeap, kFlags + 1, kTraceAlloc, false);
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
+
 TEST_F(HeapFreeEventTest, TestSerialization) {
   HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, true);
-
-  scoped_ptr<HeapFreeEvent> copy =
-      testing::TestEventSerialization(heap_free_event);
-
-  EXPECT_EQ(heap_free_event.trace_heap(), copy->trace_heap());
-  EXPECT_EQ(heap_free_event.flags(), copy->flags());
-  EXPECT_EQ(heap_free_event.trace_alloc(), copy->trace_alloc());
-  EXPECT_EQ(heap_free_event.trace_succeeded(), copy->trace_succeeded());
+  testing::TestEventSerialization(heap_free_event);
 }
 
 }  // namespace events

@@ -20,7 +20,6 @@
 
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/bard/event.h"
-#include "syzygy/core/serialization.h"
 
 namespace bard {
 namespace events {
@@ -42,6 +41,7 @@ class HeapDestroyEvent : public EventInterface {
   static bool Save(const EventInterface* const event,
                    core::OutArchive* out_archive);
   static scoped_ptr<HeapDestroyEvent> Load(core::InArchive* in_archive);
+  bool Equals(const EventInterface* rhs) const override;
   // @}
 
   // @name Accessors.

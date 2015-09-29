@@ -78,14 +78,18 @@ TEST_F(HeapAllocEventTest, TestFailCall) {
                                        kLiveAlloc);
 }
 
-TEST_F(HeapAllocEventTest, TestSerialization) {
-  scoped_ptr<HeapAllocEvent> copy =
-      testing::TestEventSerialization(heap_alloc_event_);
+TEST_F(HeapAllocEventTest, Equals) {
+  HeapAllocEvent e1(kTraceHeap, kFlags, kBytes, kTraceAlloc);
+  HeapAllocEvent e2(kTraceHeap, kFlags, kBytes, kTraceAlloc);
+  HeapAllocEvent e3(kTraceHeap, kFlags, kBytes + 3, kTraceAlloc);
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
 
-  EXPECT_EQ(heap_alloc_event_.trace_heap(), copy->trace_heap());
-  EXPECT_EQ(heap_alloc_event_.flags(), copy->flags());
-  EXPECT_EQ(heap_alloc_event_.bytes(), copy->bytes());
-  EXPECT_EQ(heap_alloc_event_.trace_alloc(), copy->trace_alloc());
+TEST_F(HeapAllocEventTest, TestSerialization) {
+  testing::TestEventSerialization(heap_alloc_event_);
 }
 
 }  // namespace events

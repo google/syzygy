@@ -84,5 +84,20 @@ bool HeapDestroyEvent::Play(void* backdrop) {
   return true;
 }
 
+bool HeapDestroyEvent::Equals(const EventInterface* rhs) const {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), rhs);
+
+  if (rhs->type() != kHeapDestroyEvent)
+    return false;
+
+  const auto e = reinterpret_cast<const HeapDestroyEvent*>(rhs);
+  if (trace_heap_ != e->trace_heap_ ||
+      trace_succeeded_ != e->trace_succeeded_) {
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace events
 }  // namespace bard

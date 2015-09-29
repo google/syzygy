@@ -99,5 +99,21 @@ bool HeapFreeEvent::Play(void* backdrop) {
   return true;
 }
 
+bool HeapFreeEvent::Equals(const EventInterface* rhs) const {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), rhs);
+
+  if (rhs->type() != kHeapFreeEvent)
+    return false;
+
+  const auto e = reinterpret_cast<const HeapFreeEvent*>(rhs);
+  if (trace_heap_ != e->trace_heap_ || flags_ != e->flags_ ||
+      trace_alloc_ != e->trace_alloc_ ||
+      trace_succeeded_ != e->trace_succeeded_) {
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace events
 }  // namespace bard

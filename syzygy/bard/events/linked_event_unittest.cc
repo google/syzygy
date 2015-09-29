@@ -35,6 +35,11 @@ class TestEvent : public EventInterface {
     return true;
   }
 
+  bool Equals(const EventInterface* rhs) const override {
+    NOTREACHED();
+    return false;
+  }
+
   bool played() const {
     base::AutoLock auto_lock(const_cast<base::Lock&>(lock_));
     return played_;
@@ -85,7 +90,7 @@ TEST_F(LinkedEventTest, TestOneLink) {
   base::DelegateSimpleThread thread1(&runner1_, "First Thread");
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
 
-  linked_event2_.AddPrequel(&linked_event1_);
+  linked_event2_.AddDep(&linked_event1_);
 
   thread2.Start();
 
@@ -110,8 +115,8 @@ TEST_F(LinkedEventTest, TestChainLink) {
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
   base::DelegateSimpleThread thread3(&runner3_, "Third Thread");
 
-  linked_event2_.AddPrequel(&linked_event1_);
-  linked_event3_.AddPrequel(&linked_event2_);
+  linked_event2_.AddDep(&linked_event1_);
+  linked_event3_.AddDep(&linked_event2_);
 
   thread3.Start();
 
@@ -149,8 +154,8 @@ TEST_F(LinkedEventTest, TestMultipleDependency) {
   base::DelegateSimpleThread thread2(&runner2_, "Second Thread");
   base::DelegateSimpleThread thread3(&runner3_, "Third Thread");
 
-  linked_event3_.AddPrequel(&linked_event1_);
-  linked_event3_.AddPrequel(&linked_event2_);
+  linked_event3_.AddDep(&linked_event1_);
+  linked_event3_.AddDep(&linked_event2_);
 
   thread3.Start();
 

@@ -91,15 +91,19 @@ TEST_F(HeapReAllocEventTest, TestFailCall) {
                                        kLiveReAlloc);
 }
 
-TEST_F(HeapReAllocEventTest, TestSerialization) {
-  scoped_ptr<HeapReAllocEvent> copy =
-      testing::TestEventSerialization(heap_realloc_event_);
+TEST_F(HeapReAllocEventTest, Equals) {
+  HeapReAllocEvent e1(kTraceHeap, kFlags, kTraceAlloc, kBytes, kTraceReAlloc);
+  HeapReAllocEvent e2(kTraceHeap, kFlags, kTraceAlloc, kBytes, kTraceReAlloc);
+  HeapReAllocEvent e3(kTraceHeap, kFlags + 1, kTraceAlloc, kBytes,
+                      kTraceReAlloc);
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
 
-  EXPECT_EQ(heap_realloc_event_.trace_heap(), copy->trace_heap());
-  EXPECT_EQ(heap_realloc_event_.flags(), copy->flags());
-  EXPECT_EQ(heap_realloc_event_.trace_alloc(), copy->trace_alloc());
-  EXPECT_EQ(heap_realloc_event_.bytes(), copy->bytes());
-  EXPECT_EQ(heap_realloc_event_.trace_realloc(), copy->trace_realloc());
+TEST_F(HeapReAllocEventTest, TestSerialization) {
+  testing::TestEventSerialization(heap_realloc_event_);
 }
 
 }  // namespace events

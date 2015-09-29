@@ -75,14 +75,18 @@ TEST_F(HeapCreateEventTest, TestFailCall) {
                                        kLiveHeap);
 }
 
-TEST_F(HeapCreateEventTest, TestSerialization) {
-  scoped_ptr<HeapCreateEvent> copy =
-      testing::TestEventSerialization(heap_create_event_);
+TEST_F(HeapCreateEventTest, Equals) {
+  HeapCreateEvent e1(kOptions, kInitialSize, kMaximumSize, kTraceHeap);
+  HeapCreateEvent e2(kOptions, kInitialSize, kMaximumSize, kTraceHeap);
+  HeapCreateEvent e3(kOptions, kInitialSize + 1, kMaximumSize + 1, kTraceHeap);
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
 
-  EXPECT_EQ(heap_create_event_.options(), copy->options());
-  EXPECT_EQ(heap_create_event_.initial_size(), copy->initial_size());
-  EXPECT_EQ(heap_create_event_.maximum_size(), copy->maximum_size());
-  EXPECT_EQ(heap_create_event_.trace_heap(), copy->trace_heap());
+TEST_F(HeapCreateEventTest, TestSerialization) {
+  testing::TestEventSerialization(heap_create_event_);
 }
 
 }  // namespace events

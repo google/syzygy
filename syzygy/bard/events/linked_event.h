@@ -26,36 +26,54 @@
 namespace bard {
 namespace events {
 
-// Composition of Event interface that admits dependencies between
-// events.
-class LinkedEvent {
+// Specialization of EventInterface that allows for cross-event dependencies to
+// be expressed.
+class LinkedEvent : public EventInterface {
  public:
+  // Constructor.
+  // @param event Wrapped event.
   explicit LinkedEvent(scoped_ptr<EventInterface> event);
+  ~LinkedEvent() override {}
 
-  // LinkedEvent dependencies setter.
-  // @param prequel an event that must happen before this one.
-  void AddPrequel(LinkedEvent* prequel);
+  // @name EventInterface implementation.
+  // @{
+  EventType type() const override { return kLinkedEvent; }
+  bool Play(void* backdrop) override;
+  bool Equals(const EventInterface* rhs) const override;
+  // @}
 
-  // Plays the recorded function call, possibly modifying the current
-  // backdrop.
-  // @note The backdrop is a piece of user data, specific to a set of
-  // events, whose exact type is dictated by convention.
-  // @param backdrop the backdrop.
-  // @returns true if Play succeeds without any problems, false otherwise.
-  bool Play(void* backdrop);
+  // @name Serialization methods.
+  // @{
+  // This method only saves the contained event, and not the actual list of
+  // deps.
+  static bool Save(const EventInterface* const event,
+                   core::OutArchive* out_archive);
+  static scoped_ptr<LinkedEvent> Load(core::InArchive* in_archive);
+  // @}
+
+  // Adds a dependency to this event.
+  // @param dep an event that must happen before this one. This must itself
+  //     be a linked event.
+  // @returns true on success, false otherwise.
+  // @note This method is not thread safe, so BYOL.
+  bool AddDep(EventInterface* dep);
 
   // @name Accessors.
   // @{
   const EventInterface* event() const { return event_.get(); }
+  const std::vector<LinkedEvent*>& deps() const { return deps_; }
   // @}
 
  private:
-  base::WaitableEvent waitable_event_;
+  // This is only allocated if this event becomes an output dependency of any
+  // others.
+  scoped_ptr<base::WaitableEvent> waitable_event_;
 
   // The event that this LinkedEvent refers to.
   scoped_ptr<EventInterface> event_;
-  // The prequel events must be played before this one.
-  std::set<LinkedEvent*> prequels_;
+  // The list of input dependencies. These are events that must be played
+  // before this event is played.
+  std::vector<LinkedEvent*> deps_;
 
   DISALLOW_COPY_AND_ASSIGN(LinkedEvent);
 };

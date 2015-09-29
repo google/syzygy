@@ -105,5 +105,21 @@ bool HeapSetInformationEvent::Play(void* backdrop) {
   return true;
 }
 
+bool HeapSetInformationEvent::Equals(const EventInterface* rhs) const {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), rhs);
+
+  if (rhs->type() != kHeapSetInformationEvent)
+    return false;
+
+  const auto e = reinterpret_cast<const HeapSetInformationEvent*>(rhs);
+  if (trace_heap_ != e->trace_heap_ || info_class_ != e->info_class_ ||
+      info_ != e->info_ || info_length_ != e->info_length_ ||
+      trace_succeeded_ != e->trace_succeeded_) {
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace events
 }  // namespace bard

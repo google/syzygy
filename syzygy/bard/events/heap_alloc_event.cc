@@ -102,5 +102,20 @@ bool HeapAllocEvent::Play(void* backdrop) {
   return true;
 }
 
+bool HeapAllocEvent::Equals(const EventInterface* rhs) const {
+  DCHECK_NE(static_cast<EventInterface*>(nullptr), rhs);
+
+  if (rhs->type() != kHeapAllocEvent)
+    return false;
+
+  const auto e = reinterpret_cast<const HeapAllocEvent*>(rhs);
+  if (trace_heap_ != e->trace_heap_ || flags_ != e->flags_ ||
+      bytes_ != e->bytes_ || trace_alloc_ != e->trace_alloc_) {
+    return false;
+  }
+
+  return true;
+}
+
 }  // namespace events
 }  // namespace bard

@@ -71,11 +71,18 @@ TEST_F(GetProcessHeapEventTest, TestFailCall) {
                                        kLiveHeap);
 }
 
-TEST_F(GetProcessHeapEventTest, TestSerialization) {
-  scoped_ptr<GetProcessHeapEvent> copy =
-      testing::TestEventSerialization(get_process_heap_event_);
+TEST_F(GetProcessHeapEventTest, Equals) {
+  GetProcessHeapEvent e1(reinterpret_cast<HANDLE>(0x1000));
+  GetProcessHeapEvent e2(reinterpret_cast<HANDLE>(0x1000));
+  GetProcessHeapEvent e3(reinterpret_cast<HANDLE>(0x2000));
+  EXPECT_TRUE(e1.Equals(&e1));
+  EXPECT_TRUE(e1.Equals(&e2));
+  EXPECT_FALSE(e1.Equals(&e3));
+  EXPECT_FALSE(e2.Equals(&e3));
+}
 
-  EXPECT_EQ(get_process_heap_event_.trace_heap(), copy->trace_heap());
+TEST_F(GetProcessHeapEventTest, TestSerialization) {
+  testing::TestEventSerialization(get_process_heap_event_);
 }
 
 }  // namespace events
