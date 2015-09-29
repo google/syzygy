@@ -22,7 +22,7 @@ namespace {
 const char* kAsanHeapFunctionNames[] = {
     "asan_GetProcessHeap",
     "asan_HeapAlloc",
-    "asan_HeapCreateap",
+    "asan_HeapCreateHeap",
     "asan_HeapDestroy",
     "asan_HeapFree",
     "asan_HeapReAlloc",
@@ -88,8 +88,8 @@ void MemReplayGrinder::OnFunctionNameTableEntry(
 
 void MemReplayGrinder::LoadAsanFunctionNames() {
   function_enum_map_.clear();
-  for (size_t i = 0; i < EventType::kMaxEventType; ++i) {
-    function_enum_map_[kAsanHeapFunctionNames[static_cast<EventType>(i)]] =
+  for (size_t i = 0; i < arraysize(kAsanHeapFunctionNames); ++i) {
+    function_enum_map_[kAsanHeapFunctionNames[i]] =
         static_cast<EventType>(EventInterface::kGetProcessHeapEvent + i);
   }
 }
