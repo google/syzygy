@@ -17,6 +17,7 @@
 #include <algorithm>
 
 #include "base/logging.h"
+#include "syzygy/agent/common/stack_walker_x86.h"
 #include "syzygy/core/address_space.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
@@ -128,9 +129,9 @@ void StackCapture::InitFromExistingStack(const StackCapture& stack_capture) {
 // don't allow it to be inlined.
 #pragma optimize("", off)
 void __declspec(noinline) StackCapture::InitFromStack() {
-  // TODO(chrisha): Make this use WalkStack. This breaks some unittests, which
-  //     are more involved to fix and will require another CL.
-  num_frames_ = ::CaptureStackBackTrace(1, max_num_frames_, frames_, nullptr);
+  // TODO(chrisha): Make this calculate the ID while walking the stack, as this
+  // is slightly more efficient then doing it separately.
+  num_frames_ = agent::common::WalkStack(1, max_num_frames_, frames_);
   num_frames_ -= std::min(static_cast<uint8>(bottom_frames_to_skip_),
                           num_frames_);
   ComputeAbsoluteStackId();
