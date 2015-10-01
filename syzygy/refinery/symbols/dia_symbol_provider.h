@@ -24,8 +24,12 @@
 #include "base/strings/string16.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/pe/pe_file.h"
+#include "syzygy/refinery/core/address.h"
 
 namespace refinery {
+
+// Fwd.
+class ProcessState;
 
 // The DiaSymbolProvider provides symbol information via the DIA interfaces.
 class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
@@ -33,7 +37,19 @@ class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
   DiaSymbolProvider();
   ~DiaSymbolProvider();
 
+  // Retrieves an IDiaSession for the module within @p process_state
+  // corresponding to @p va.
+  // @note on success, the session's load address is set.
+  // @param va virtual address for which to get a session.
+  // @param process_state the process state within which to interpret @p va.
+  // @param session on success, returns a session for the module.
+  // @returns true on success, false on failure.
+  bool GetDiaSession(const Address va,
+                     ProcessState* process_state,
+                     base::win::ScopedComPtr<IDiaSession>* session);
+
   // Retrieves an IDiaSession for the module corresponding to @p signature.
+  // @note on success, the session's load address is not set.
   // @param signature the signature of the module for which to get a session.
   // @param session on success, returns a session for the module.
   // @returns true on success, false on failure.

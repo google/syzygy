@@ -102,12 +102,6 @@ class StackWalkHelper : public IDiaStackWalkHelper,
                       size_t* bytes_read,
                       void* buffer);
 
-  // Retrieves a DIA session for the module spannning @p va.
-  // @param va the virtual address for which to retrieve a DIA session.
-  // @param session on success, returns the dia session.
-  // @returns true on success, false on failure.
-  bool GetDiaSessionByVa(ULONGLONG va, IDiaSession** session);
-
   // Backing memory for registers.
   base::hash_map<CV_HREG_e, ULONGLONG> registers_;
 

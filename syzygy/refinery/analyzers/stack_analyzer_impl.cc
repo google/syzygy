@@ -35,40 +35,6 @@
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
-namespace {
-
-bool GetModuleSignature(ModuleRecordPtr module_record,
-                        scoped_ptr<pe::PEFile::Signature>* signature) {
-  DCHECK(signature);
-
-  const AddressRange& module_range = module_record->range();
-  const Module& module = module_record->data();
-
-  // Get the module's path.
-  const std::string& module_path = module.name();
-  base::string16 module_path_wide;
-  if (!base::UTF8ToUTF16(module_path.c_str(), module_path.size(),
-                         &module_path_wide)) {
-    LOG(ERROR) << "base::UTF8ToUTF16(\"" << module_path << "\" failed.";
-    return false;
-  }
-
-  // Get the module's address.
-  if (!base::IsValueInRangeForNumericType<uint32>(module_range.start())) {
-    LOG(ERROR) << "PE::Signature doesn't support 64bit addresses. Address: "
-               << module_range.start();
-    return false;
-  }
-  pe::PEFile::AbsoluteAddress module_address(
-      base::checked_cast<uint32>(module_range.start()));
-
-  signature->reset(new pe::PEFile::Signature(
-      module_path_wide, module_address, module_range.size(), module.checksum(),
-      module.timestamp()));
-  return true;
-}
-
-}  // namespace
 
 StackWalkHelper::StackWalkHelper(
     scoped_refptr<DiaSymbolProvider> symbol_provider)
@@ -234,7 +200,7 @@ STDMETHODIMP StackWalkHelper::searchForReturnAddressStart(
 STDMETHODIMP StackWalkHelper::frameForVA(ULONGLONG va,
                                          IDiaFrameData** frame_data) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!GetDiaSessionByVa(va, session.Receive())) {
+  if (!symbol_provider_->GetDiaSession(va, process_state_, &session)) {
     LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
   }
@@ -264,7 +230,7 @@ STDMETHODIMP StackWalkHelper::frameForVA(ULONGLONG va,
 
 STDMETHODIMP StackWalkHelper::symbolForVA(ULONGLONG va, IDiaSymbol** ppSymbol) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!GetDiaSessionByVa(va, session.Receive())) {
+  if (!symbol_provider_->GetDiaSession(va, process_state_, &session)) {
     LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
   }
@@ -317,7 +283,7 @@ STDMETHODIMP StackWalkHelper::addressForVA(ULONGLONG va,
                                            _Out_ DWORD* pISect,
                                            _Out_ DWORD* pOffset) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!GetDiaSessionByVa(va, session.Receive())) {
+  if (!symbol_provider_->GetDiaSession(va, process_state_, &session)) {
     LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
   }
@@ -344,34 +310,6 @@ bool StackWalkHelper::ReadFromModule(const AddressRange& range,
   // TODO(manzagop): actually implement the read instead of successfully
   // reading 0 bytes.
 
-  return true;
-}
-
-bool StackWalkHelper::GetDiaSessionByVa(ULONGLONG va, IDiaSession** session) {
-  DCHECK(session != nullptr);
-  DCHECK(*session == nullptr);
-
-  // Get the module's signature.
-  ModuleRecordPtr module_record;
-  if (!process_state_->FindSingleRecord(va, &module_record))
-    return false;
-  scoped_ptr<pe::PEFile::Signature> signature;
-  if (!GetModuleSignature(module_record, &signature))
-    return false;
-
-  // Retrieve the session.
-  base::win::ScopedComPtr<IDiaSession> session_temp;
-  if (!symbol_provider_->GetDiaSession(*signature, &session_temp))
-    return false;
-
-  // Set the load address (the same module might be loaded at multiple VAs).
-  HRESULT hr = session_temp->put_loadAddress(signature->base_address.value());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to set session's load address: " << common::LogHr(hr);
-    return false;
-  }
-
-  *session = session_temp.Detach();
   return true;
 }
 
