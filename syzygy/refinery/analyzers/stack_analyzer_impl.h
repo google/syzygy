@@ -18,15 +18,15 @@
 #include <dia2.h>
 
 #include <hash_map>
-#include <map>
 #include <string>
 
 #include "base/containers/hash_tables.h"
 #include "base/files/file_path.h"
+#include "base/memory/ref_counted.h"
 #include "base/win/iunknown_impl.h"
-#include "base/win/scoped_comptr.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
+#include "syzygy/refinery/symbols/dia_symbol_provider.h"
 
 namespace refinery {
 
@@ -36,7 +36,7 @@ class ProcessState;
 class StackWalkHelper : public IDiaStackWalkHelper,
                         public base::win::IUnknownImpl {
  public:
-  StackWalkHelper();
+  explicit StackWalkHelper(scoped_refptr<DiaSymbolProvider> symbol_provider);
   ~StackWalkHelper() override;
 
   // Sets up the stack walk helper's state.
@@ -102,20 +102,16 @@ class StackWalkHelper : public IDiaStackWalkHelper,
                       size_t* bytes_read,
                       void* buffer);
 
-  bool EnsurePdbSessionCached(const pe::PEFile::Signature& signature,
-                              std::wstring* cache_key);
+  // Retrieves a DIA session for the module spannning @p va.
+  // @param va the virtual address for which to retrieve a DIA session.
+  // @param session on success, returns the dia session.
+  // @returns true on success, false on failure.
   bool GetDiaSessionByVa(ULONGLONG va, IDiaSession** session);
 
   // Backing memory for registers.
   base::hash_map<CV_HREG_e, ULONGLONG> registers_;
 
-  // Caching for dia pdb file sources and sessions (matching entries). The cache
-  // key is "<basename>:<size>:<checksum>:<timestamp>". The cache may contain
-  // negative entries (indicating a failed attempt at creating a session) in the
-  // form of null pointers.
-  std::map<std::wstring, base::win::ScopedComPtr<IDiaDataSource>> pdb_sources_;
-  std::map<std::wstring, base::win::ScopedComPtr<IDiaSession>> pdb_sessions_;
-
+  scoped_refptr<DiaSymbolProvider> symbol_provider_;
   ProcessState* process_state_;  // Not owned.
 };
 

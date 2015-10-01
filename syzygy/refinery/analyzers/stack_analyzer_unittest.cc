@@ -49,6 +49,7 @@
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
+#include "syzygy/refinery/symbols/dia_symbol_provider.h"
 #include "testing/multiprocess_func_list.h"
 
 namespace refinery {
@@ -327,7 +328,7 @@ TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
   runner.AddAnalyzer(analyzer.Pass());
   analyzer.reset(new refinery::ModuleAnalyzer());
   runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::StackAnalyzer());
+  analyzer.reset(new refinery::StackAnalyzer(new DiaSymbolProvider()));
   runner.AddAnalyzer(analyzer.Pass());
 
   ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,

@@ -22,6 +22,7 @@
 #include "base/win/scoped_comptr.h"
 #include "syzygy/refinery/analyzers/analyzer.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
+#include "syzygy/refinery/symbols/dia_symbol_provider.h"
 
 namespace refinery {
 
@@ -33,7 +34,7 @@ class StackWalkHelper;
 // TODO(manzagop): Introduce a system for managing analyzer order prerequisites?
 class StackAnalyzer : public Analyzer {
  public:
-  StackAnalyzer();
+  explicit StackAnalyzer(scoped_refptr<DiaSymbolProvider> symbol_provider);
 
   const char* name() const override { return kStackAnalyzerName; }
 
@@ -46,6 +47,7 @@ class StackAnalyzer : public Analyzer {
 
   static const char kStackAnalyzerName[];
 
+  scoped_refptr<DiaSymbolProvider> symbol_provider_;
   base::win::ScopedComPtr<IDiaStackWalker> stack_walker_;
   scoped_refptr<StackWalkHelper> stack_walk_helper_;
 

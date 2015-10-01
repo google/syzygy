@@ -104,7 +104,9 @@ bool InsertStackFrameRecord(IDiaStackFrame* stack_frame,
 // static
 const char StackAnalyzer::kStackAnalyzerName[] = "StackAnalyzer";
 
-StackAnalyzer::StackAnalyzer() {
+StackAnalyzer::StackAnalyzer(scoped_refptr<DiaSymbolProvider> symbol_provider)
+    : symbol_provider_(symbol_provider) {
+  DCHECK(symbol_provider.get() != nullptr);
 }
 
 Analyzer::AnalysisResult StackAnalyzer::Analyze(const Minidump& minidump,
@@ -118,7 +120,7 @@ Analyzer::AnalysisResult StackAnalyzer::Analyze(const Minidump& minidump,
                << ".";
     return ANALYSIS_ERROR;
   }
-  stack_walk_helper_ = new StackWalkHelper();
+  stack_walk_helper_ = new StackWalkHelper(symbol_provider_);
 
   // Get the stack layer - it must already have been populated.
   StackLayerPtr stack_layer;

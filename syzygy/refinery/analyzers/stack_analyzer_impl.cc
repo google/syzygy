@@ -18,7 +18,6 @@
 #include <string>
 #include <vector>
 
-#include "base/environment.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/numerics/safe_conversions.h"
@@ -27,8 +26,9 @@
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
+#include "base/win/scoped_comptr.h"
+#include "syzygy/common/com_utils.h"
 #include "syzygy/pe/dia_util.h"
-#include "syzygy/pe/find.h"
 #include "syzygy/refinery/core/addressed_data.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
@@ -36,31 +36,6 @@
 
 namespace refinery {
 namespace {
-
-// TODO(manzagop): this probably exists somewhere?
-bool GetEnvVar(const char* name, std::wstring* value) {
-  DCHECK(name != NULL);
-  DCHECK(value != NULL);
-  value->clear();
-
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  if (env.get() == NULL) {
-    LOG(ERROR) << "base::Environment::Create returned NULL.";
-    return false;
-  }
-
-  // If this fails, the environment variable simply does not exist.
-  std::string var;
-  if (!env->GetVar(name, &var))
-    return true;
-
-  if (!base::UTF8ToWide(var.c_str(), var.size(), value)) {
-    LOG(ERROR) << "base::UTF8ToWide(\"" << var << "\" failed.";
-    return false;
-  }
-
-  return true;
-}
 
 bool GetModuleSignature(ModuleRecordPtr module_record,
                         scoped_ptr<pe::PEFile::Signature>* signature) {
@@ -93,36 +68,12 @@ bool GetModuleSignature(ModuleRecordPtr module_record,
   return true;
 }
 
-bool GetPdbPath(const pe::PEFile::Signature& signature,
-                base::FilePath* pdb_path) {
-  DCHECK(pdb_path);
-
-  // Get the module's path.
-  std::wstring symbol_paths;
-  GetEnvVar("_NT_SYMBOL_PATH", &symbol_paths);
-  base::FilePath module_local_path;
-  if (!pe::FindModuleBySignature(signature, symbol_paths, &module_local_path) ||
-      module_local_path.empty()) {
-    LOG(ERROR) << "Failed to find module (name, size, timestamp): "
-               << signature.path << ", " << signature.module_size << ", "
-               << signature.module_time_date_stamp;
-    return false;
-  }
-
-  // Get the pdb's path.
-  if (!pe::FindPdbForModule(module_local_path, symbol_paths, pdb_path) ||
-      pdb_path->empty()) {
-    LOG(ERROR) << "Failed to find pdb for module " << signature.path;
-    return false;
-  }
-
-  return true;
-}
-
 }  // namespace
 
-StackWalkHelper::StackWalkHelper() {
-  registers_.clear();
+StackWalkHelper::StackWalkHelper(
+    scoped_refptr<DiaSymbolProvider> symbol_provider)
+    : symbol_provider_(symbol_provider) {
+  DCHECK(symbol_provider.get() != nullptr);
 }
 
 StackWalkHelper::~StackWalkHelper() {
@@ -396,61 +347,9 @@ bool StackWalkHelper::ReadFromModule(const AddressRange& range,
   return true;
 }
 
-bool StackWalkHelper::EnsurePdbSessionCached(
-    const pe::PEFile::Signature& signature,
-    std::wstring* cache_key) {
-  // Determine the cache key. Note that the cache key does not contain the
-  // module's base address.
-  base::SStringPrintf(cache_key, L"%ls:%d:%d:%d", signature.path,
-                      signature.module_size, signature.module_checksum,
-                      signature.module_time_date_stamp);
-  auto session_it = pdb_sessions_.find(*cache_key);
-  if (session_it != pdb_sessions_.end())
-    return true;  // A session (or lack thereof) is cached.
-
-  // The module is not in the cache. Attempt to create a dia session for the
-  // module.
-
-  // Create negative cache entries, which will be replaced on success.
-  pdb_sources_[*cache_key] = base::win::ScopedComPtr<IDiaDataSource>();
-  pdb_sessions_[*cache_key] = base::win::ScopedComPtr<IDiaSession>();
-
-  base::FilePath pdb_path;
-  if (!GetPdbPath(signature, &pdb_path))
-    return false;
-
-  // Get a source for the pdb.
-  base::win::ScopedComPtr<IDiaDataSource> pdb_source;
-  HRESULT hr = pdb_source.CreateInstance(CLSID_DiaSource);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to create DIA source: " << common::LogHr(hr);
-    return false;
-  }
-  hr = pdb_source->loadDataFromPdb(pdb_path.value().c_str());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to load PDB: " << common::LogHr(hr);
-    return false;
-  }
-
-  // Get the session.
-  base::win::ScopedComPtr<IDiaSession> pdb_session;
-  hr = pdb_source->openSession(pdb_session.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to open session: " << common::LogHr(hr);
-    return false;
-  }
-
-  // Cache source and session.
-  pdb_sources_[*cache_key] = pdb_source;
-  pdb_sessions_[*cache_key] = pdb_session;
-
-  return true;
-}
-
-bool StackWalkHelper::GetDiaSessionByVa(ULONGLONG va,
-                                        IDiaSession** retrieved_session) {
-  DCHECK(retrieved_session != NULL);
-  *retrieved_session = NULL;
+bool StackWalkHelper::GetDiaSessionByVa(ULONGLONG va, IDiaSession** session) {
+  DCHECK(session != nullptr);
+  DCHECK(*session == nullptr);
 
   // Get the module's signature.
   ModuleRecordPtr module_record;
@@ -461,27 +360,18 @@ bool StackWalkHelper::GetDiaSessionByVa(ULONGLONG va,
     return false;
 
   // Retrieve the session.
-  std::wstring cache_key;
-  if (!EnsurePdbSessionCached(*signature, &cache_key))
+  base::win::ScopedComPtr<IDiaSession> session_temp;
+  if (!symbol_provider_->GetDiaSession(*signature, &session_temp))
     return false;
 
-  auto session_it = pdb_sessions_.find(cache_key);
-  DCHECK(session_it != pdb_sessions_.end());
-  base::win::ScopedComPtr<IDiaSession> session = session_it->second;
-
-  if (!session.get())
-    return false;  // Negative cache entry.
-
-  *retrieved_session = session.get();
-  (*retrieved_session)->AddRef();
-
   // Set the load address (the same module might be loaded at multiple VAs).
-  HRESULT hr = session->put_loadAddress(signature->base_address.value());
+  HRESULT hr = session_temp->put_loadAddress(signature->base_address.value());
   if (FAILED(hr)) {
     LOG(ERROR) << "Unable to set session's load address: " << common::LogHr(hr);
     return false;
   }
 
+  *session = session_temp.Detach();
   return true;
 }
 
