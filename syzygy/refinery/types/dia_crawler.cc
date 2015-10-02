@@ -153,29 +153,6 @@ bool GetSymFlags(IDiaSymbol* symbol, Type::Flags* flags) {
   return true;
 }
 
-bool GetSymLocType(IDiaSymbol* symbol, uint32_t* loc_type) {
-  DCHECK(symbol); DCHECK(loc_type);
-
-  DWORD temp = 0;
-  HRESULT hr = symbol->get_locationType(&temp);
-  if (hr != S_OK)
-    return false;
-
-  *loc_type = static_cast<uint32_t>(temp);
-  return true;
-}
-
-bool GetSymName(IDiaSymbol* symbol, base::string16* name) {
-  DCHECK(symbol); DCHECK(name);
-  base::win::ScopedBstr tmp;
-  HRESULT hr = symbol->get_name(tmp.Receive());
-  if (hr != S_OK)
-    return false;
-
-  *name = tmp ? tmp : L"";
-  return true;
-}
-
 bool GetSymSize(IDiaSymbol* symbol, size_t* size) {
   DCHECK(symbol); DCHECK(size);
 
@@ -197,55 +174,6 @@ bool GetSymBitPos(IDiaSymbol* symbol, size_t* bit_position) {
     return false;
 
   *bit_position = static_cast<size_t>(temp);
-  return true;
-}
-
-bool GetSymOffset(IDiaSymbol* symbol, ptrdiff_t* offset) {
-  DCHECK(symbol); DCHECK(offset);
-
-  LONG tmp = 0;
-  HRESULT hr = symbol->get_offset(&tmp);
-  if (hr != S_OK)
-    return false;
-
-  *offset = static_cast<ptrdiff_t>(tmp);
-  return true;
-}
-
-bool GetSymDataKind(IDiaSymbol* symbol, DataKind* data_kind) {
-  DCHECK(symbol); DCHECK(data_kind);
-
-  DWORD tmp = 0;
-  HRESULT hr = symbol->get_dataKind(&tmp);
-  if (hr != S_OK)
-    return false;
-
-  *data_kind = static_cast<DataKind>(tmp);
-  return true;
-}
-
-bool GetSymType(IDiaSymbol* symbol,
-                base::win::ScopedComPtr<IDiaSymbol>* type) {
-  DCHECK(symbol); DCHECK(type);
-  base::win::ScopedComPtr<IDiaSymbol> tmp;
-  HRESULT hr = symbol->get_type(tmp.Receive());
-  if (hr != S_OK)
-    return false;
-
-  *type = tmp;
-  return true;
-}
-
-bool GetSymClassParent(IDiaSymbol* symbol,
-                       base::win::ScopedComPtr<IDiaSymbol>* type) {
-  DCHECK(symbol);
-  DCHECK(type);
-  base::win::ScopedComPtr<IDiaSymbol> tmp;
-  HRESULT hr = symbol->get_classParent(tmp.Receive());
-  if (hr != S_OK)
-    return false;
-
-  *type = tmp;
   return true;
 }
 
@@ -690,7 +618,7 @@ TypePtr TypeCreator::CreateUDT(IDiaSymbol* symbol) {
   base::string16 name;
   size_t size = 0;
   UserDefinedType::UdtKind udt_kind;
-  if (!GetSymName(symbol, &name) || !GetSymSize(symbol, &size) ||
+  if (!pe::GetSymName(symbol, &name) || !GetSymSize(symbol, &size) ||
       !GetSymUdtKind(symbol, &udt_kind)) {
     return nullptr;
   }
@@ -704,7 +632,7 @@ TypePtr TypeCreator::CreateEnum(IDiaSymbol* symbol) {
 
   base::string16 name;
   size_t size = 0;
-  if (!GetSymName(symbol, &name) || !GetSymSize(symbol, &size))
+  if (!pe::GetSymName(symbol, &name) || !GetSymSize(symbol, &size))
     return nullptr;
 
   // TODO(siggi): Implement an enum type.
@@ -744,7 +672,7 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
     if (sym_tag == SymTagData) {
       // TODO(siggi): Also process VTables?
       DataKind data_kind = DataIsUnknown;
-      if (!GetSymDataKind(field_sym.get(), &data_kind))
+      if (!pe::GetDataKind(field_sym.get(), &data_kind))
         return false;
       // We only care about member data.
       if (data_kind != DataIsMember)
@@ -753,8 +681,8 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
       // The location udt and the symbol udt are a little conflated in the case
       // of bitfields. For bitfieds, the bit length and bit offset of the udt
       // are stored against the data symbol, and not its udt.
-      uint32_t loc_type = LocIsNull;
-      if (!GetSymLocType(field_sym.get(), &loc_type))
+      LocationType loc_type = LocIsNull;
+      if (!pe::GetLocationType(field_sym.get(), &loc_type))
         return false;
       DCHECK(loc_type == LocIsThisRel || loc_type == LocIsBitField);
 
@@ -763,9 +691,9 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
       ptrdiff_t field_offset = 0;
       size_t field_size = 0;
       Type::Flags field_flags = 0;
-      if (!GetSymType(field_sym.get(), &field_type_sym) ||
-          !GetSymName(field_sym.get(), &field_name) ||
-          !GetSymOffset(field_sym.get(), &field_offset) ||
+      if (!pe::GetSymType(field_sym.get(), &field_type_sym) ||
+          !pe::GetSymName(field_sym.get(), &field_name) ||
+          !pe::GetSymOffset(field_sym.get(), &field_offset) ||
           !GetSymSize(field_type_sym.get(), &field_size) ||
           !GetSymFlags(field_type_sym.get(), &field_flags)) {
         return false;
@@ -792,8 +720,8 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
       base::win::ScopedComPtr<IDiaSymbol> function_type_sym;
       base::string16 function_name;
 
-      if (!GetSymType(field_sym.get(), &function_type_sym) ||
-          !GetSymName(field_sym.get(), &function_name)) {
+      if (!pe::GetSymType(field_sym.get(), &function_type_sym) ||
+          !pe::GetSymName(field_sym.get(), &function_name)) {
         return false;
       }
 
@@ -805,7 +733,6 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
       functions.push_back(
           UserDefinedType::Function(function_name, function_type->type_id()));
     }
-
   }
 
   DCHECK_EQ(0UL, udt->fields().size());
@@ -820,7 +747,7 @@ bool TypeCreator::FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr) {
   DCHECK(pe::IsSymTag(symbol, SymTagPointerType));
 
   base::win::ScopedComPtr<IDiaSymbol> contained_type_sym;
-  if (!GetSymType(symbol, &contained_type_sym))
+  if (!pe::GetSymType(symbol, &contained_type_sym))
     return false;
 
   Type::Flags flags = 0;
@@ -849,7 +776,7 @@ bool TypeCreator::FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr array) {
     return false;
 
   base::win::ScopedComPtr<IDiaSymbol> element_type_sym;
-  if (!GetSymType(symbol, &element_type_sym))
+  if (!pe::GetSymType(symbol, &element_type_sym))
     return false;
 
   Type::Flags flags = 0;
@@ -875,7 +802,7 @@ bool TypeCreator::FinalizeFunction(IDiaSymbol* symbol,
   DCHECK(pe::IsSymTag(symbol, SymTagFunctionType));
 
   base::win::ScopedComPtr<IDiaSymbol> return_type_sym;
-  if (!GetSymType(symbol, &return_type_sym))
+  if (!pe::GetSymType(symbol, &return_type_sym))
     return false;
 
   Type::Flags return_flags = 0;
@@ -888,7 +815,7 @@ bool TypeCreator::FinalizeFunction(IDiaSymbol* symbol,
 
   TypeId containing_class_id = kNoTypeId;
   base::win::ScopedComPtr<IDiaSymbol> parent_type_sym;
-  if (GetSymClassParent(symbol, &parent_type_sym)) {
+  if (pe::GetSymClassParent(symbol, &parent_type_sym)) {
     TypePtr parent_type = FindOrCreateType(parent_type_sym.get());
     if (!parent_type)
       return false;
@@ -908,7 +835,7 @@ bool TypeCreator::FinalizeFunction(IDiaSymbol* symbol,
   FunctionType::Arguments args;
   while (hr == S_OK) {
     base::win::ScopedComPtr<IDiaSymbol> arg_type_sym;
-    if (!GetSymType(arg_sym.get(), &arg_type_sym))
+    if (!pe::GetSymType(arg_sym.get(), &arg_type_sym))
       return false;
 
     TypePtr arg_type = FindOrCreateType(arg_type_sym.get());
@@ -980,7 +907,7 @@ TypePtr TypeCreator::CreateTypedefType(IDiaSymbol* symbol) {
   DCHECK(pe::IsSymTag(symbol, SymTagTypedef));
 
   base::string16 name;
-  if (!GetSymName(symbol, &name))
+  if (!pe::GetSymName(symbol, &name))
     return nullptr;
 
   // TODO(siggi): Implement a typedef type.

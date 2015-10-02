@@ -139,6 +139,44 @@ bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag);
 // @returns true on success, false on failure.
 bool GetSymName(IDiaSymbol* symbol, base::string16* name);
 
+// Gets the symbol's data kind.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's data kind.
+// @returns true on success, false on failure.
+bool GetDataKind(IDiaSymbol* symbol, enum DataKind* kind);
+
+// Gets the symbol's location type.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's location type.
+// @returns true on success, false on failure.
+bool GetLocationType(IDiaSymbol* symbol, enum LocationType* location_type);
+
+// Gets the symbol's offset.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's offset.
+// @returns true on success, false on failure.
+bool GetSymOffset(IDiaSymbol* symbol, ptrdiff_t* offset);
+
+// Gets the symbol's type.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's type.
+// @returns true on success, false on failure.
+bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type);
+
+// Gets the symbol's class parent.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's class parent.
+// @returns true on success, false on failure.
+bool GetSymClassParent(IDiaSymbol* symbol,
+                       base::win::ScopedComPtr<IDiaSymbol>* parent);
+
+// Gets the symbol's lexical parent.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's lexical parent.
+// @returns true on success, false on failure.
+bool GetSymLexicalParent(IDiaSymbol* symbol,
+                         base::win::ScopedComPtr<IDiaSymbol>* parent);
+
 // Gets the frame's base address.
 // @param frame the stack frame.
 // @param frame_base on success, returns @p frame's base address.

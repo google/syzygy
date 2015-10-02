@@ -226,14 +226,102 @@ bool GetSymName(IDiaSymbol* symbol, base::string16* name) {
 
   base::win::ScopedBstr tmp;
   HRESULT hr = symbol->get_name(tmp.Receive());
-  if (FAILED(hr)) {
+  if (hr != S_OK) {
     LOG(ERROR) << "Error getting symbol's name: " << common::LogHr(hr) << ".";
     return false;
   }
-  if (hr == S_FALSE)
-    return false;  // Name is an unsupported property.
 
   *name = common::ToString(tmp);
+  return true;
+}
+
+bool GetDataKind(IDiaSymbol* symbol, enum DataKind* data_kind) {
+  DCHECK(symbol); DCHECK(data_kind);
+
+  DWORD tmp = 0;
+  HRESULT hr = symbol->get_dataKind(&tmp);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's data kind: " << common::LogHr(hr)
+               << ".";
+    return false;
+  }
+
+  *data_kind = static_cast<DataKind>(tmp);
+  return true;
+}
+
+bool GetLocationType(IDiaSymbol* symbol, enum LocationType* location_type) {
+  DCHECK(symbol); DCHECK(location_type);
+
+  DWORD tmp = 0;
+  HRESULT hr = symbol->get_locationType(&tmp);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's location type: " << common::LogHr(hr)
+               << ".";
+    return false;
+  }
+
+  *location_type = static_cast<LocationType>(tmp);
+  return true;
+}
+
+bool GetSymOffset(IDiaSymbol* symbol, ptrdiff_t* offset) {
+  DCHECK(symbol); DCHECK(offset);
+
+  LONG tmp = 0;
+  HRESULT hr = symbol->get_offset(&tmp);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's offset: " << common::LogHr(hr) << ".";
+    return false;
+  }
+
+  *offset = static_cast<ptrdiff_t>(tmp);
+  return true;
+}
+
+bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type) {
+  DCHECK(symbol); DCHECK(type);
+
+  base::win::ScopedComPtr<IDiaSymbol> tmp;
+  HRESULT hr = symbol->get_type(tmp.Receive());
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's type: " << common::LogHr(hr) << ".";
+    return false;
+  }
+
+  *type = tmp;
+  return true;
+}
+
+bool GetSymClassParent(IDiaSymbol* symbol,
+                       base::win::ScopedComPtr<IDiaSymbol>* parent) {
+  DCHECK(symbol); DCHECK(parent);
+
+  base::win::ScopedComPtr<IDiaSymbol> tmp;
+  HRESULT hr = symbol->get_classParent(tmp.Receive());
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's class parent: " << common::LogHr(hr)
+               << ".";
+    return false;
+  }
+
+  *parent = tmp;
+  return true;
+}
+
+bool GetSymLexicalParent(IDiaSymbol* symbol,
+                         base::win::ScopedComPtr<IDiaSymbol>* parent) {
+  DCHECK(symbol); DCHECK(parent);
+
+  base::win::ScopedComPtr<IDiaSymbol> tmp;
+  HRESULT hr = symbol->get_lexicalParent(tmp.Receive());
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's lexical parent: " << common::LogHr(hr)
+               << ".";
+    return false;
+  }
+
+  *parent = tmp;
   return true;
 }
 

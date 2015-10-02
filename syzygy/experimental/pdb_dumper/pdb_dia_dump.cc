@@ -73,19 +73,6 @@ bool GetSymTagName(enum SymTagEnum sym_tag, std::string* sym_tag_name) {
   }
 }
 
-bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type) {
-  DCHECK(symbol);
-  DCHECK(type);
-
-  base::win::ScopedComPtr<IDiaSymbol> tmp;
-  HRESULT hr = symbol->get_type(tmp.Receive());
-  if (hr != S_OK)
-    return false;
-
-  *type = tmp;
-  return true;
-}
-
 void DumpProperty(FILE* out,
                   uint8 indent_level,
                   const char* name,
@@ -173,6 +160,7 @@ bool PdbDiaDumpApp::DumpSymbols(IDiaSession* session) {
     return false;
 
   // Search for symbols of interest: all symbols.
+  // TODO(manzagop): Look into refactoring as a pe::ChildVisitor.
   base::win::ScopedComPtr<IDiaEnumSymbols> matching_types;
   hr = scope->findChildren(SymTagNull, nullptr, nsNone,
                            matching_types.Receive());
@@ -232,7 +220,7 @@ bool PdbDiaDumpApp::DumpSymbol(uint8 indent_level, IDiaSymbol* symbol) {
   // TODO(manzagop): flesh this out.
   if (sym_tag == SymTagFunction) {
     base::win::ScopedComPtr<IDiaSymbol> sym_type;
-    CHECK(GetSymType(symbol, &sym_type));
+    CHECK(pe::GetSymType(symbol, &sym_type));
     DumpSymbol(indent_level + 1, sym_type.get());
   }
 
