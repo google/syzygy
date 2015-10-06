@@ -28,6 +28,9 @@
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/dbghelp_util.h"
 #include "syzygy/common/rpc/helpers.h"
+#include "syzygy/kasko/minidump.h"
+#include "syzygy/kasko/minidump_request.h"
+#include "syzygy/kasko/api/client.h"
 #include "syzygy/pe/find.h"
 
 namespace trace {
@@ -359,13 +362,41 @@ bool AgentLogger::Write(const base::StringPiece& message) {
   return true;
 }
 
-bool AgentLogger::SaveMiniDump(HANDLE process,
-                               base::ProcessId pid,
-                               DWORD tid,
-                               DWORD exc_ptr,
-                               DWORD flags) {
-  DCHECK(!minidump_dir_.empty());
+bool AgentLogger::SaveMinidumpWithProtobufAndMemoryRanges(
+    HANDLE process,
+    base::ProcessId pid,
+    DWORD tid,
+    DWORD exc_ptr,
+    const byte* protobuf,
+    size_t protobuf_length,
+    const void* const* memory_ranges_base_addresses,
+    const size_t* memory_ranges_lengths,
+    size_t memory_ranges_count) {
+  DCHECK_NE(static_cast<const byte*>(nullptr), protobuf);
+  DCHECK_NE(static_cast<const void* const*>(nullptr),
+            memory_ranges_base_addresses);
+  DCHECK_NE(static_cast<const size_t*>(nullptr), memory_ranges_lengths);
 
+  // Copy the memory ranges into a vector.
+  std::vector<kasko::api::MemoryRange> memory_ranges;
+  for (size_t i = 0; i < memory_ranges_count; ++i) {
+    kasko::api::MemoryRange memory_range = {memory_ranges_base_addresses[i],
+                                            memory_ranges_lengths[i]};
+    memory_ranges.push_back(memory_range);
+  }
+
+  kasko::MinidumpRequest request;
+  request.client_exception_pointers = true;
+  request.exception_info_address = exc_ptr;
+  if (protobuf_length) {
+    kasko::MinidumpRequest::CustomStream custom_stream = {
+        kasko::api::kProtobufStreamType, protobuf, protobuf_length};
+    request.custom_streams.push_back(custom_stream);
+  }
+
+  request.type = kasko::MinidumpRequest::LARGER_DUMP_TYPE;
+
+  DCHECK(!minidump_dir_.empty());
   // Create a temporary file to which to write the minidump. We'll rename it
   // to something recognizable when we're finished writing to it.
   base::FilePath temp_file_path;
@@ -376,36 +407,8 @@ bool AgentLogger::SaveMiniDump(HANDLE process,
   }
 
   {
-    // Open the temp file in write mode. It will only stay open in this scope.
-    // Outside of this scope, we'll access file by name.
-    base::win::ScopedHandle temp_file(
-        ::CreateFile(temp_file_path.value().c_str(), GENERIC_WRITE, 0, NULL,
-                     CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL));
-    if (!temp_file.IsValid()) {
-      LOG(ERROR) << "Could not open mini dump file in "
-                 << minidump_dir_.value() << " for writing.";
-      return false;
-    }
-
-    // Access to ::MiniDumpWriteDump (and all DbgHelp functions) must be
-    // serialized.
     base::AutoLock auto_lock(symbol_lock_);
-
-    // Generate the minidump.
-    MINIDUMP_EXCEPTION_INFORMATION exc_info = {
-        tid, reinterpret_cast<EXCEPTION_POINTERS*>(exc_ptr), true };
-    if (!::MiniDumpWriteDump(process, pid, temp_file.Get(), ::MiniDumpNormal,
-                             &exc_info, NULL, NULL)) {
-      // Note that the error set by ::MiniDumpWriteDump is an HRESULT, not a
-      // Windows error. even though it is returned via ::GetLastError().
-      // http://msdn.microsoft.com/en-us/library/windows/desktop/ms680360.aspx
-      HRESULT error = ::GetLastError();
-      LOG(ERROR) << "::MiniDumpWriteDump failed: " << ::common::LogHr(error)
-                 << ".";
-      return false;
-    }
-
-    // The temporary file is closed here, and the symbol lock released.
+    CHECK(kasko::GenerateMinidump(temp_file_path, pid, tid, request));
   }
 
   // Rename the temporary file so that its recognizable as a dump.

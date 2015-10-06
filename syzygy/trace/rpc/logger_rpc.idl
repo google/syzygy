@@ -78,12 +78,25 @@ interface Logger {
   // @param exception A pointer to an EXCEPTION_POINTERS record describing the
   //     reason for the minidump, or NULL, cast to an unsigned long. The logger
   //     peek into the calling process to read the exception pointers.
-  // @param flags Reserved.
-  boolean SaveMiniDump(
+  // @param protobuf The protobuf to include in the minidump.
+  // @param protobuf_length The length of the protobuf.
+  // @param memory_ranges_base_addresses An array containing the base addresses
+  //     of the memory ranges to include in the protobuf.
+  // @param memory_ranges_lengths An array containing the size of these memory
+  //     ranges.
+  // @param memory_ranges_count The number of memory ranges to report.
+  // @returns true on success, false otherwise.
+  boolean SaveMinidumpWithProtobufAndMemoryRanges(
       [in] handle_t binding,
       [in] unsigned long thread_id,
       [in] unsigned long exception,
-      [in] unsigned long flags);
+      [in, size_is(protobuf_length)] const byte protobuf[*],
+      [in] unsigned long protobuf_length,
+      [in, size_is(memory_ranges_count)]
+          const unsigned long memory_ranges_base_addresses[*],
+      [in, size_is(memory_ranges_count)] const unsigned long
+          memory_ranges_lengths[*],
+      [in] unsigned long memory_ranges_count);
 }
 
 // Defines the Logger's RPC Control interface.

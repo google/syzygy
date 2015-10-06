@@ -44,6 +44,7 @@
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_transform_policy.h"
 #include "syzygy/pe/unittest_util.h"
+#include "syzygy/poirot/minidump_processor.h"
 #include "syzygy/testing/laa.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/common/unittest_util.h"
@@ -1223,6 +1224,11 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     int exit_code = 0;
     EXPECT_TRUE(process.WaitForExit(&exit_code));
     EXPECT_EQ(0u, exit_code);
+
+    // Check if the minidump contains a valid protobuf.
+    poirot::MinidumpProcessor poirot_processor(
+        base::FilePath::FromUTF8Unsafe(minidump_path));
+    EXPECT_TRUE(poirot_processor.ProcessDump());
 
     env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
   }

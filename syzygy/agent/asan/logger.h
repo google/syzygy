@@ -18,6 +18,7 @@
 #include <string>
 
 #include "base/logging.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/common/rpc/helpers.h"
 
 namespace agent {
@@ -66,9 +67,17 @@ class AsanLogger {
                            const void* const* trace_data,
                            size_t trace_length);
 
-  // Ask the logger to capture a minidump of the process for the given
-  // @p context and @p error_info.
-  void SaveMiniDump(CONTEXT* context, AsanErrorInfo* error_info);
+  // Ask the logger to capture a minidump of the process for a given context.
+  // @param context The context for which we want a minidump.
+  // @param error_info The information about the error.
+  // @param protobuf The crashdata protobuf to include in the minidump.
+  // @param memory_ranges The memory ranges that we want to include in this
+  //     report.
+  void SaveMinidumpWithProtobufAndMemoryRanges(
+      CONTEXT* context,
+      AsanErrorInfo* error_info,
+      const std::string& protobuf,
+      const MemoryRanges& memory_ranges);
 
  protected:
   // The RPC binding.

@@ -183,12 +183,16 @@ boolean LoggerService_WriteWithTrace(
   return true;
 }
 
-// RPC entrypoint for AgentLogger::SaveMinidump().
-boolean LoggerService_SaveMiniDump(
+// RPC entrypoint for AgentLogger::SaveMinidumpWithProtobufAndMemoryRanges().
+boolean LoggerService_SaveMinidumpWithProtobufAndMemoryRanges(
     /* [in] */ handle_t binding,
     /* [in] */ unsigned long thread_id,
     /* [in] */ unsigned long exception,
-    /* [in] */ unsigned long flags) {
+    /* [size_is][in] */ const byte protobuf[],
+    /* [in] */ unsigned long protobuf_length,
+    /* [size_is][in] */ const unsigned long memory_ranges_base_addresses[],
+    /* [size_is][in] */ const unsigned long memory_ranges_lengths[],
+    /* [in] */ unsigned long memory_ranges_count) {
   if (binding == NULL) {
     LOG(ERROR) << "Invalid input parameter(s).";
     return false;
@@ -200,9 +204,15 @@ boolean LoggerService_SaveMiniDump(
   if (!GetClientInfo(binding, &pid, &handle))
     return false;
 
+  std::string protobuf_data(reinterpret_cast<const char*>(protobuf));
   AgentLogger* instance = RpcLoggerInstanceManager::GetInstance();
-  if (!instance->SaveMiniDump(handle.Get(), pid, thread_id, exception, flags))
+  if (!instance->SaveMinidumpWithProtobufAndMemoryRanges(
+          handle.Get(), pid, thread_id, exception, protobuf, protobuf_length,
+          reinterpret_cast<const void* const*>(memory_ranges_base_addresses),
+          reinterpret_cast<const size_t*>(memory_ranges_lengths),
+          memory_ranges_count)) {
     return false;
+  }
 
   return true;
 }

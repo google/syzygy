@@ -24,7 +24,9 @@
 #include "base/threading/thread.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/error_info.h"
 #include "syzygy/common/rpc/helpers.h"
+#include "syzygy/crashdata/crashdata.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 
 namespace trace {
@@ -209,11 +211,25 @@ void DoRpcCreateMiniDump(handle_t rpc_binding) {
   exc_rec.ExceptionAddress = reinterpret_cast<void*>(ctx.Eip);
   exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
   EXCEPTION_POINTERS exc_ptrs = { &exc_rec, &ctx };
-  ASSERT_TRUE(
-      LoggerClient_SaveMiniDump(rpc_binding,
-                                ::GetCurrentThreadId(),
-                                reinterpret_cast<unsigned long>(&exc_ptrs),
-                                0));
+
+  crashdata::Value protobuf;
+  crashdata::Dictionary* dict = crashdata::ValueGetDict(&protobuf);
+  crashdata::LeafGetAddress(crashdata::DictAddLeaf("foo", dict))
+      ->set_address(0xDABBAD00);
+  crashdata::LeafGetAddress(crashdata::DictAddLeaf("bar", dict))
+      ->set_address(0xDEADC0DE);
+  std::string protobuf_str;
+  ASSERT_TRUE(protobuf.SerializeToString(&protobuf_str));
+  agent::asan::MemoryRanges memory_ranges;
+  memory_ranges.push_back(
+      std::make_pair(protobuf_str.data(), protobuf_str.size()));
+  unsigned long proto_size = protobuf_str.size();
+  ASSERT_TRUE(LoggerClient_SaveMinidumpWithProtobufAndMemoryRanges(
+      rpc_binding, ::GetCurrentThreadId(),
+      reinterpret_cast<unsigned long>(&exc_ptrs),
+      reinterpret_cast<const byte*>(protobuf_str.data()), protobuf_str.size(),
+      reinterpret_cast<const unsigned long*>(protobuf_str.data()), &proto_size,
+      1));
 }
 
 }  // namespace

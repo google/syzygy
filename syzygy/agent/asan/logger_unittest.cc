@@ -30,6 +30,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/runtime.h"
+#include "syzygy/crashdata/crashdata.h"
 #include "syzygy/trace/agent_logger/agent_logger.h"
 #include "syzygy/trace/agent_logger/agent_logger_rpc_impl.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -95,7 +96,19 @@ TEST_F(AsanLoggerTest, EndToEnd) {
     CONTEXT ctx = {};
     ::RtlCaptureContext(&ctx);
     AsanErrorInfo info = {};
-    client_.SaveMiniDump(&ctx, &info);
+    crashdata::Value protobuf;
+    crashdata::Dictionary* dict = crashdata::ValueGetDict(&protobuf);
+    crashdata::LeafGetAddress(crashdata::DictAddLeaf("foo", dict))
+        ->set_address(0xDABBAD00);
+    crashdata::LeafGetAddress(crashdata::DictAddLeaf("bar", dict))
+        ->set_address(0xDEADC0DE);
+    std::string protobuf_str;
+    ASSERT_TRUE(protobuf.SerializeToString(&protobuf_str));
+    MemoryRanges memory_ranges;
+    memory_ranges.push_back(
+        std::make_pair(protobuf_str.data(), protobuf_str.size()));
+    client_.SaveMinidumpWithProtobufAndMemoryRanges(&ctx, &info, protobuf_str,
+                                                    memory_ranges);
     client_.Write(kMessage);
 
     // Shutdown the logging service.

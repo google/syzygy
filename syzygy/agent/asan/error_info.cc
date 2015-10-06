@@ -517,11 +517,10 @@ void PopulateShadowMemoryBlob(const Shadow* shadow,
   }
 }
 
-void PopulatePageBitsBlob(
-    const Shadow* shadow,
-    const AsanErrorInfo& error_info,
-    crashdata::Dictionary* dict,
-    std::vector<std::pair<const char*, size_t>>* memory_ranges) {
+void PopulatePageBitsBlob(const Shadow* shadow,
+                          const AsanErrorInfo& error_info,
+                          crashdata::Dictionary* dict,
+                          MemoryRanges* memory_ranges) {
   DCHECK_NE(static_cast<crashdata::Dictionary*>(nullptr), dict);
 
   // Emit information about page protections surround the address in question.
@@ -613,11 +612,10 @@ void PopulateAsanParameters(const AsanErrorInfo& error_info,
 // TODO(chrisha): Only emit information that makes sense for the given error
 //                type. For example, wild-access errors have no associated
 //                block information.
-void PopulateErrorInfo(
-    const Shadow* shadow,
-    const AsanErrorInfo& error_info,
-    crashdata::Value* value,
-    std::vector<std::pair<const char*, size_t>>* memory_ranges) {
+void PopulateErrorInfo(const Shadow* shadow,
+                       const AsanErrorInfo& error_info,
+                       crashdata::Value* value,
+                       MemoryRanges* memory_ranges) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<crashdata::Value*>(nullptr), value);
 

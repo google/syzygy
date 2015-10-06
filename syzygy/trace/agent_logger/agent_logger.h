@@ -92,13 +92,24 @@ class AgentLogger : public trace::common::Service {
   // @param exc_ptr The pointer value (in the memory address space of the
   //     process to dump) of the exception record for which the dump is being
   //     generated.
-  // @param flags Reserved.
+  // @param protobuf The protobuf to include in the minidump.
+  // @param protobuf_length The length of this protobuf.
+  // @param memory_ranges_base_addresses An array containing the base addresses
+  //     of the memory ranges to include in this report.
+  // @param memory_ranges_lengths An array containing the lengths of these
+  //     memory ranges.
+  // @param memory_ranges_count The number of memory ranges to report.
   // @returns true on success, false otherwise.
-  bool SaveMiniDump(HANDLE process,
-                    base::ProcessId pid,
-                    DWORD tid,
-                    DWORD exc_ptr,
-                    DWORD flags);
+  bool SaveMinidumpWithProtobufAndMemoryRanges(
+      HANDLE process,
+      base::ProcessId pid,
+      DWORD tid,
+      DWORD exc_ptr,
+      const byte* protobuf,
+      size_t protobuf_length,
+      const void* const* memory_ranges_base_addresses,
+      const size_t* memory_ranges_lengths,
+      size_t memory_ranges_count);
 
   // Generate an event name used to signal that the logger is ready.
   // @param id The process id.

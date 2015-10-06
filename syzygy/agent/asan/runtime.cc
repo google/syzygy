@@ -353,10 +353,9 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
 
 // Creates a serialized protobuf representing crash data. Also populates
 // |memory_ranges| with memory contents related to the crash.
-bool PopulateProtobufAndMemoryRanges(
-    const AsanErrorInfo& error_info,
-    std::string* protobuf,
-    std::vector<std::pair<const char*, size_t>>* memory_ranges) {
+bool PopulateProtobufAndMemoryRanges(const AsanErrorInfo& error_info,
+                                     std::string* protobuf,
+                                     MemoryRanges* memory_ranges) {
   DCHECK_NE(static_cast<std::string*>(nullptr), protobuf);
   crashdata::Value value;
   PopulateErrorInfo(AsanRuntime::runtime()->shadow(), error_info, &value,
@@ -388,7 +387,7 @@ void BreakpadErrorHandler(BreakpadFunctions breakpad_functions,
 
   if (breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr) {
     std::string protobuf;
-    std::vector<std::pair<const char*, size_t>> memory_ranges;
+    MemoryRanges memory_ranges;
     PopulateProtobufAndMemoryRanges(*error_info, &protobuf, &memory_ranges);
 
     // Convert the memory ranges to arrays.
@@ -669,7 +668,12 @@ void AsanRuntime::OnErrorImpl(AsanErrorInfo* error_info) {
 
   if (params_.minidump_on_failure) {
     DCHECK(logger_.get() != NULL);
-    logger_->SaveMiniDump(&error_info->context, error_info);
+    std::string protobuf;
+    MemoryRanges memory_ranges;
+    PopulateProtobufAndMemoryRanges(*error_info, &protobuf, &memory_ranges);
+
+    logger_->SaveMinidumpWithProtobufAndMemoryRanges(
+        &error_info->context, error_info, protobuf, memory_ranges);
   }
 
   if (params_.exit_on_failure) {

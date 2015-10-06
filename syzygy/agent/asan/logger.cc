@@ -30,7 +30,7 @@ namespace asan {
 
 namespace {
 
-using common::rpc::GetInstanceString;
+using ::common::rpc::GetInstanceString;
 
 AsanLogger* logger_instance = NULL;
 
@@ -72,10 +72,9 @@ void AsanLogger::Init() {
         "PID=%d; cmd-line='%ls'\n",
         ::GetCurrentProcessId(),
         command_line->GetCommandLineString().c_str());
-    success = common::rpc::InvokeRpc(
-        &LoggerClient_Write,
-        rpc_binding_.Get(),
-        reinterpret_cast<const unsigned char*>(message.c_str())).succeeded();
+    success = ::common::rpc::InvokeRpc(&LoggerClient_Write, rpc_binding_.Get(),
+                                       reinterpret_cast<const unsigned char*>(
+                                           message.c_str())).succeeded();
     if (!success)
       rpc_binding_.Close();
   }
@@ -83,18 +82,15 @@ void AsanLogger::Init() {
 
 void AsanLogger::Stop() {
   if (rpc_binding_.Get() != NULL) {
-    common::rpc::InvokeRpc(
-        &LoggerClient_Stop,
-        rpc_binding_.Get());
+    ::common::rpc::InvokeRpc(&LoggerClient_Stop, rpc_binding_.Get());
   }
 }
 
 void AsanLogger::Write(const std::string& message) {
   // If we're bound to a logging endpoint, log the message there.
   if (rpc_binding_.Get() != NULL) {
-    common::rpc::InvokeRpc(
-        &LoggerClient_Write,
-        rpc_binding_.Get(),
+    ::common::rpc::InvokeRpc(
+        &LoggerClient_Write, rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()));
   }
 }
@@ -105,11 +101,9 @@ void AsanLogger::WriteWithContext(const std::string& message,
   if (rpc_binding_.Get() != NULL) {
     ExecutionContext exec_context = {};
     InitExecutionContext(context, &exec_context);
-    common::rpc::InvokeRpc(
-        &LoggerClient_WriteWithContext,
-        rpc_binding_.Get(),
-        reinterpret_cast<const unsigned char*>(message.c_str()),
-        &exec_context);
+    ::common::rpc::InvokeRpc(
+        &LoggerClient_WriteWithContext, rpc_binding_.Get(),
+        reinterpret_cast<const unsigned char*>(message.c_str()), &exec_context);
   }
 }
 
@@ -118,21 +112,31 @@ void AsanLogger::WriteWithStackTrace(const std::string& message,
                                      size_t trace_length) {
   // If we're bound to a logging endpoint, log the message there.
   if (rpc_binding_.Get() != NULL) {
-    common::rpc::InvokeRpc(
-        &LoggerClient_WriteWithTrace,
-        rpc_binding_.Get(),
+    ::common::rpc::InvokeRpc(
+        &LoggerClient_WriteWithTrace, rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()),
-        reinterpret_cast<const DWORD*>(trace_data),
-        trace_length);
+        reinterpret_cast<const DWORD*>(trace_data), trace_length);
   }
 }
 
-void AsanLogger::SaveMiniDump(CONTEXT* context, AsanErrorInfo* error_info) {
-  DCHECK(context != NULL);
-  DCHECK(error_info != NULL);
+void AsanLogger::SaveMinidumpWithProtobufAndMemoryRanges(
+    CONTEXT* context,
+    AsanErrorInfo* error_info,
+    const std::string& protobuf,
+    const MemoryRanges& memory_ranges) {
+  CHECK_NE(static_cast<CONTEXT*>(nullptr), context);
+  CHECK_NE(static_cast<AsanErrorInfo*>(nullptr), error_info);
 
   if (rpc_binding_.Get() == NULL)
     return;
+
+  // Convert the memory ranges to arrays.
+  std::vector<const void*> base_addresses;
+  std::vector<size_t> range_lengths;
+  for (const auto& val : memory_ranges) {
+    base_addresses.push_back(val.first);
+    range_lengths.push_back(val.second);
+  }
 
   EXCEPTION_RECORD exception = {};
   exception.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
@@ -142,9 +146,14 @@ void AsanLogger::SaveMiniDump(CONTEXT* context, AsanErrorInfo* error_info) {
   exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
 
   const EXCEPTION_POINTERS pointers = { &exception, context };
-  common::rpc::InvokeRpc(&LoggerClient_SaveMiniDump, rpc_binding_.Get(),
-                         ::GetCurrentThreadId(),
-                         reinterpret_cast<unsigned long>(&pointers), 0);
+  ::common::rpc::InvokeRpc(
+      &LoggerClient_SaveMinidumpWithProtobufAndMemoryRanges, rpc_binding_.Get(),
+      ::GetCurrentThreadId(), reinterpret_cast<unsigned long>(&pointers),
+      reinterpret_cast<const byte*>(protobuf.data()),
+      static_cast<unsigned long>(protobuf.size()),
+      reinterpret_cast<const unsigned long*>(base_addresses.data()),
+      reinterpret_cast<const unsigned long*>(range_lengths.data()),
+      memory_ranges.size());
 }
 
 }  // namespace asan
