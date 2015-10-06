@@ -39,14 +39,14 @@ struct GetAlignment {
 
 template <class DataType>
 bool BinaryBufferParser::GetAtImplicitAlignment(
-    size_t pos, size_t size, const DataType** data_ptr) {
+    size_t pos, size_t size, const DataType** data_ptr) const {
   const size_t kAlign = detail::GetAlignment<DataType>::kAlignment;
   return GetAtExplicitAlignment(pos, size, kAlign, data_ptr);
 }
 
 template <class DataType>
 bool BinaryBufferParser::GetAtExplicitAlignment(
-    size_t pos, size_t size, size_t align, const DataType** data_ptr) {
+    size_t pos, size_t size, size_t align, const DataType** data_ptr) const {
   if (!common::IsAligned(data_ + pos, align))
     return false;
   return GetAt(pos, size, reinterpret_cast<const void**>(data_ptr));

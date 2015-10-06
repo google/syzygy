@@ -24,7 +24,17 @@ namespace common {
 // A binary buffer parser
 class BinaryBufferParser {
  public:
+  // This object is allowed to have copy constructors.
+
+  BinaryBufferParser();
   BinaryBufferParser(const void* data, size_t data_len);
+
+  // Sets the data associated to be parsed. Allows initializing this object
+  // after construction.
+  //
+  // @param data the data to be parsed.
+  // @param data_len the length of the data.
+  void SetData(const void* data, size_t data_len);
 
   // Accessors.
   const void* data() const { return data_; }
@@ -35,7 +45,7 @@ class BinaryBufferParser {
   // @param pos the byte position of the start of the data range.
   // @param data_len the byte length of the data range.
   // @returns true iff the range of bytes from @p pos to @p pos + @p data_len.
-  bool Contains(size_t pos, size_t data_len);
+  bool Contains(size_t pos, size_t data_len) const;
 
   // Retrieve a pointer into the buffer if the requested data is contained
   // in our buffer.
@@ -44,7 +54,7 @@ class BinaryBufferParser {
   // @param data_ptr on success will contain a pointer to @p pos in data.
   // @returns true iff Contains(pos, data_len).
   // @note No alignment constraints are checked.
-  bool GetAt(size_t pos, size_t data_len, const void** data_ptr);
+  bool GetAt(size_t pos, size_t data_len, const void** data_ptr) const;
 
   // Retrieve a typed pointer into the buffer if the requested data
   // is contained in our buffer.
@@ -55,12 +65,12 @@ class BinaryBufferParser {
   // @note The basic version of the function checks @p pos for alignment,
   //     whereas the IgnoreAlignment version ignores it.
   template <class DataType>
-  bool GetAt(size_t pos, size_t data_len, const DataType** data_ptr) {
+  bool GetAt(size_t pos, size_t data_len, const DataType** data_ptr) const {
     return GetAtImplicitAlignment(pos, data_len, data_ptr);
   }
   template <class DataType>
   bool GetAtIgnoreAlignment(
-      size_t pos, size_t data_len, const DataType** data_ptr) {
+      size_t pos, size_t data_len, const DataType** data_ptr) const {
     return GetAtExplicitAlignment(pos, data_len, 1, data_ptr);
   }
 
@@ -72,11 +82,11 @@ class BinaryBufferParser {
   // @note The basic version of the function checks @p pos for alignment,
   //     whereas the IgnoreAlignment version ignores it.
   template <class DataType>
-  bool GetAt(size_t pos, const DataType** data_ptr) {
+  bool GetAt(size_t pos, const DataType** data_ptr) const {
     return GetAtImplicitAlignment(pos, sizeof(DataType), data_ptr);
   }
   template <class DataType>
-  bool GetAtIgnoreAlignment(size_t pos, const DataType** data_ptr) {
+  bool GetAtIgnoreAlignment(size_t pos, const DataType** data_ptr) const {
     return GetAtExplicitAlignment(pos, sizeof(DataType), 1, data_ptr);
   }
 
@@ -89,12 +99,12 @@ class BinaryBufferParser {
   // @note The basic version of the function checks @p pos for alignment,
   //     whereas the IgnoreAlignment version ignores it.
   template <class DataType>
-  bool GetCountAt(size_t pos, size_t count, const DataType** data_ptr) {
+  bool GetCountAt(size_t pos, size_t count, const DataType** data_ptr) const {
     return GetAtImplicitAlignment(pos, sizeof(DataType) * count, data_ptr);
   }
   template <class DataType>
   bool GetCountAtIgnoreAlignment(
-      size_t pos, size_t count, const DataType** data_ptr) {
+      size_t pos, size_t count, const DataType** data_ptr) const {
     return GetAtExplicitAlignment(pos, sizeof(DataType) * count, 1, data_ptr);
   }
 
@@ -108,19 +118,19 @@ class BinaryBufferParser {
   // @note this function does not check @pos for appropriate alignment.
   // @note The basic version of the function checks @p pos for alignment,
   //     whereas the IgnoreAlignment version ignores it.
-  bool GetStringAt(size_t pos, const char** ptr, size_t* len);
-  bool GetStringAt(size_t pos, const wchar_t** ptr, size_t* len);
+  bool GetStringAt(size_t pos, const char** ptr, size_t* len) const;
+  bool GetStringAt(size_t pos, const wchar_t** ptr, size_t* len) const;
   bool GetStringAtIgnoreAlignment(
-      size_t pos, const wchar_t** ptr, size_t* len);
+      size_t pos, const wchar_t** ptr, size_t* len) const;
 
  protected:
   template <class DataType>
   bool GetAtImplicitAlignment(
-      size_t pos, size_t size, const DataType** data_ptr);
+      size_t pos, size_t size, const DataType** data_ptr) const;
 
   template <class DataType>
   bool GetAtExplicitAlignment(
-      size_t pos, size_t size, size_t align, const DataType** data_ptr);
+      size_t pos, size_t size, size_t align, const DataType** data_ptr) const;
 
   const int8* data_;
   size_t data_len_;

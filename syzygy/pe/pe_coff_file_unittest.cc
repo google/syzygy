@@ -36,32 +36,23 @@ class TestPECoffFile : public PECoffFile<AddressSpaceTraits> {
  public:
   // Partial initialization, for common parts.
   bool Init(const base::FilePath& path, bool has_pe_headers) {
-    PECoffFile::Init(path);
-
-    FILE* file = base::OpenFile(path, "rb");
-    if (file == NULL) {
-      LOG(ERROR) << "Failed to open file " << path.value() << ".";
+    if (!PECoffFile::Init(path))
       return false;
-    }
 
     FileOffsetAddress file_header_start(0);
     if (has_pe_headers) {
       // Read NT header position at 0x3C according to the spec.
       uint32 nt_header_pos = 0;
-      if (!ReadAt(file, 0x3C, &nt_header_pos, sizeof(nt_header_pos))) {
-        LOG(ERROR) << "Unable to read NT header offset.";
+      if (!ReadAt(0x3C, &nt_header_pos, sizeof(nt_header_pos)))
         return false;
-      }
 
       file_header_start.set_value(nt_header_pos +
                                   offsetof(IMAGE_NT_HEADERS, FileHeader));
     }
 
-    bool success = ReadCommonHeaders(file, file_header_start);
+    bool success = ReadCommonHeaders(file_header_start);
     if (success)
-      success = ReadSections(file);
-
-    base::CloseFile(file);
+      success = ReadSections();
 
     return success;
   }
@@ -284,6 +275,18 @@ TEST_F(PECoffFileTest, GetImageData) {
       EXPECT_TRUE(coff_image_file_.GetImageData(section_start, 1) != NULL);
     }
   }
+
+  // Get arbitrary image data spanning across sections. Expect this to fail
+  // with GetImageData, but to succeed with GetImageDataFromFileOffset.
+  AbsoluteAddress header_abs(ShiftedVirtualAddressTraits::header_address());
+  FileOffsetAddress header_off(
+      ShiftedFileOffsetAddressTraits::header_address());
+  size_t len = (ShiftedFileOffsetAddressTraits::GetSectionAddress(
+                    *coff_image_file_.section_header(0)) -
+                header_off) +
+               1;
+  EXPECT_FALSE(pe_image_file_.GetImageData(header_abs, len));
+  EXPECT_TRUE(pe_image_file_.GetImageDataByFileOffset(header_off, len));
 }
 
 }  // namespace pe

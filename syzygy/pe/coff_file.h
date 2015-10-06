@@ -227,9 +227,8 @@ class CoffFile : public PECoffFile<CoffAddressSpaceTraits> {
   // Add data outside of sections (relocations, symbols, strings) to
   // the address space.
   //
-  // @param file the input file stream.
   // @returns true on success, false on error.
-  bool ReadNonSections(FILE* file);
+  bool ReadNonSections();
 
   // A pointer to the internal symbol table data.
   IMAGE_SYMBOL* symbols_;

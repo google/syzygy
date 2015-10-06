@@ -21,8 +21,8 @@ namespace common {
 namespace {
 
 template <class CharType>
-bool GetStringAtImpl(BinaryBufferParser* parser, size_t pos, size_t alignment,
-                     const CharType** ptr, size_t* len) {
+bool GetStringAtImpl(const BinaryBufferParser* parser, size_t pos,
+                     size_t alignment, const CharType** ptr, size_t* len) {
   DCHECK_NE(static_cast<BinaryBufferParser*>(nullptr), parser);
   DCHECK_NE(static_cast<CharType**>(nullptr), ptr);
   DCHECK_NE(static_cast<size_t*>(nullptr), len);
@@ -50,11 +50,18 @@ bool GetStringAtImpl(BinaryBufferParser* parser, size_t pos, size_t alignment,
 
 }  // namespace
 
+BinaryBufferParser::BinaryBufferParser() : data_(nullptr), data_len_(0) {}
+
 BinaryBufferParser::BinaryBufferParser(const void* data, size_t data_len)
     : data_(reinterpret_cast<const int8*>(data)), data_len_(data_len) {
 }
 
-bool BinaryBufferParser::Contains(size_t pos, size_t data_len) {
+void BinaryBufferParser::SetData(const void* data, size_t data_len) {
+  data_ = reinterpret_cast<const int8*>(data);
+  data_len_ = data_len;
+}
+
+bool BinaryBufferParser::Contains(size_t pos, size_t data_len) const {
   // Guard against overflow.
   if (pos < 0 || pos > data_len_)
     return false;
@@ -70,7 +77,7 @@ bool BinaryBufferParser::Contains(size_t pos, size_t data_len) {
 
 bool BinaryBufferParser::GetAt(size_t pos,
                                size_t data_len,
-                               const void** data_ptr) {
+                               const void** data_ptr) const {
   if (!Contains(pos, data_len))
     return false;
 
@@ -79,17 +86,17 @@ bool BinaryBufferParser::GetAt(size_t pos,
 }
 
 bool BinaryBufferParser::GetStringAt(size_t pos, const char** ptr,
-    size_t* len) {
+    size_t* len) const {
   return GetStringAtImpl(this, pos, sizeof(char), ptr, len);
 }
 
 bool BinaryBufferParser::GetStringAt(size_t pos, const wchar_t** ptr,
-    size_t* len) {
+    size_t* len) const {
   return GetStringAtImpl(this, pos, sizeof(wchar_t), ptr, len);
 }
 
 bool BinaryBufferParser::GetStringAtIgnoreAlignment(
-    size_t pos, const wchar_t** ptr, size_t* len) {
+    size_t pos, const wchar_t** ptr, size_t* len) const {
   return GetStringAtImpl(this, pos, 1, ptr, len);
 }
 

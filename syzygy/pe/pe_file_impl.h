@@ -20,21 +20,13 @@ namespace pe {
 template <class ImageNtHeaders, DWORD MagicValidation>
 bool PEFileBase<ImageNtHeaders, MagicValidation>::Init(
     const base::FilePath& path) {
-  PECoffFile::Init(path);
-
-  FILE* file = base::OpenFile(path, "rb");
-  if (file == NULL) {
-    LOG(ERROR) << "Failed to open file " << path.value() << ".";
+  if (!PECoffFile::Init(path))
     return false;
-  }
-
-  bool success = ReadHeaders(file);
-  if (success)
-    success = ReadSections(file);
-
-  base::CloseFile(file);
-
-  return success;
+  if (!ReadHeaders())
+    return false;
+  if (!ReadSections())
+    return false;
+  return true;
 }
 
 template <class ImageNtHeaders, DWORD MagicValidation>
@@ -504,36 +496,20 @@ size_t PEFileBase<ImageNtHeaders, MagicValidation>::AbsToRelDisplacement(
 }
 
 template <class ImageNtHeaders, DWORD MagicValidation>
-bool PEFileBase<ImageNtHeaders, MagicValidation>::ReadHeaders(FILE* file) {
+bool PEFileBase<ImageNtHeaders, MagicValidation>::ReadHeaders() {
   // Read the DOS header.
-  IMAGE_DOS_HEADER dos_header = {};
-  if (!ReadAt(file, 0, &dos_header, sizeof(dos_header))) {
-    LOG(ERROR) << "Unable to read DOS header.";
+  if (!parser_.GetAt(0, &dos_header_))
     return false;
-  }
 
-  // And the NT headers.
-  ImageNtHeaders nt_headers = {};
-  size_t pos = dos_header.e_lfanew;
-  if (!ReadAt(file, pos, &nt_headers, sizeof(nt_headers))) {
-    LOG(ERROR) << "Unable to read NT headers.";
+  // And the NT headers, checking alignment.
+  FileOffsetAddress nt_off(dos_header_->e_lfanew);
+  if (!parser_.GetAt(nt_off.value(), &nt_headers_))
     return false;
-  }
 
-  FileOffsetAddress file_header_start(
-      pos + offsetof(ImageNtHeaders, FileHeader));
-  if (!ReadCommonHeaders(file, file_header_start)) {
+  FileOffsetAddress file_header_start(dos_header_->e_lfanew +
+                                      offsetof(ImageNtHeaders, FileHeader));
+  if (!ReadCommonHeaders(file_header_start))
     return false;
-  }
-
-  ImageAddressSpace::RangeMap::iterator it = image_data_.begin();
-  DCHECK(it != image_data_.end());
-  SectionBuffer& header = it->second.buffer;
-
-  // TODO(siggi): Validate these pointers!
-  dos_header_ = reinterpret_cast<IMAGE_DOS_HEADER*>(&header.at(0));
-  nt_headers_ =
-      reinterpret_cast<ImageNtHeaders*>(&header.at(dos_header_->e_lfanew));
 
   return nt_headers_->OptionalHeader.Magic == MagicValidation;
 }

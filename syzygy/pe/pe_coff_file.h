@@ -25,18 +25,20 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "syzygy/common/buffer_parser.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/core/serialization.h"
 
 namespace pe {
 
-// This duplicates a similar constant in the core namespace, declared by
+// These duplicate similar constants in the block_graph namespace, declared by
 // block_graph.h. We duplicate it here so as not to add an uneccessary
 // dependency.
 // Header data and other data not from a regular section is considered as
 // being from an invalid section.
 const size_t kInvalidSection = SIZE_MAX;
+const size_t kPointerSize = sizeof(void*);
 
 // Base class for PE and COFF file readers, parameterized with an
 // address and a size type, wrapped in a traits class. The base class
@@ -120,6 +122,19 @@ class PECoffFile {
   // @param str the string to write the data to.
   // @returns true on success, false on error.
   bool ReadImageString(AddressType addr, std::string* str) const;
+
+  // Retrieve a pointer to the internal buffer containing image data. If the
+  // specified range to read is not wholly contained within the image this will
+  // return nullptr. This allows reading across arbitrary section boundaries,
+  // and also allows reading "unmapped" data.
+  //
+  // @param addr the address of the data.
+  // @param len the number of bytes that will be accessed through the
+  //     returned pointer.
+  // @returns a pointer into the internal buffer for the data, nullptr on
+  //     failure.
+  const uint8* GetImageDataByFileOffset(FileOffsetAddress addr,
+                                        SizeType len) const;
 
   // Retrieve a pointer to the internal buffer containing mapped
   // data. The specified range to read must be contained within the
@@ -213,13 +228,12 @@ class PECoffFile {
   }
 
  protected:
-  typedef std::vector<uint8> SectionBuffer;
-
   struct SectionInfo {
-    SectionInfo() : id(kInvalidSection) {
-    }
+    SectionInfo() : id(kInvalidSection), parser(nullptr, 0) {}
+    SectionInfo(size_t id, const void* data, size_t length)
+        : id(id), parser(data, length) {}
     size_t id;
-    SectionBuffer buffer;
+    common::BinaryBufferParser parser;
   };
 
   typedef core::AddressSpace<AddressType, SizeType, SectionInfo>
@@ -234,55 +248,62 @@ class PECoffFile {
   ~PECoffFile() {
   }
 
-  // Set the file path.
+  // Set the file path and read all of its data.
   //
   // @param path the path to the input file.
-  void Init(const base::FilePath& path);
+  // @returns true on success, false on failure.
+  bool Init(const base::FilePath& path);
 
   // Read headers common to both PE and COFF. Insert a range covering
   // all headers, including unread headers; the range spans from the
   // beginning of the file to the end of the known fixed headers (the
   // section table).
   //
-  // @param file the input file stream.
   // @param file_header_start the offset where the COFF file header
   // (IMAGE_FILE_HEADER) starts.
   // @returns true on success, false on error.
-  bool ReadCommonHeaders(FILE* file, FileOffsetAddress file_header_start);
+  bool ReadCommonHeaders(FileOffsetAddress file_header_start);
 
   // Read section headers and insert a range for each section.
   //
-  // @param file the input file stream.
   // @returns true on success, false on error.
-  bool ReadSections(FILE* file);
+  bool ReadSections();
 
-  // Insert a range into the address map, populated by data read from
-  // @p file.
+  // Insert a section into the address map, backed by data in image_data_.
   //
-  // @param file the input file stream.
+  // @param id the id of the section.
   // @param start the file offset to start reading at.
   // @param size the number of bytes to read.
   // @param range the range to insert.
   // @returns true on success, false on error.
-  bool InsertRangeReadAt(FILE* file, FileOffsetAddress start, size_t size,
-                         const typename ImageAddressSpace::Range& range);
+  bool InsertSection(size_t id,
+                     FileOffsetAddress start,
+                     size_t size,
+                     const typename ImageAddressSpace::Range& range);
 
-  // Read bytes from @p file into the specified buffer.
+  // Reads data from the file at the given offset.
   //
-  // @param file the input file stream.
-  // @param pos the file offset to start reading at.
-  // @param buf the buffer where to place data.
-  // @param len the number of bytes to read.
-  static bool ReadAt(FILE* file, size_t pos, void* buf, size_t len);
+  // @param offset the offset to read.
+  // @param destination the variable to be populated with the result.
+  // @param size the number of bytes to read.
+  // @returns true on success, false otherwise.
+  bool ReadAt(size_t offset, void* destination, size_t size) const;
 
   base::FilePath path_;
   const IMAGE_FILE_HEADER* file_header_;
   const IMAGE_SECTION_HEADER* section_headers_;
 
-  // Contains all data in the image. The address space has a range defined
-  // for the header and each section in the image, with its associated
-  // SectionBuffer as the data.
-  ImageAddressSpace image_data_;
+  // Contains all of the data in the image, as a single contiguous buffer.
+  std::string image_data_;
+
+  // A parser for the image data. This takes care of bounds and alignment
+  // checking.
+  common::BinaryBufferParser parser_;
+
+  // Contains all addressable data in the image. The address space has a range
+  // defined for the header and each section in the image, backed by data in
+  // |image_data_|.
+  ImageAddressSpace address_space_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PECoffFile);

@@ -16,10 +16,17 @@
 
 #include "base/logging.h"
 #include "base/files/file_util.h"
+#include "syzygy/block_graph/block_graph.h"
 
 namespace pe {
 
+namespace {
+
+const size_t kDummySection = 0;
+
 using core::FileOffsetAddress;
+
+}  // namespace
 
 CoffFile::CoffFile()
     : symbols_(NULL),
@@ -35,21 +42,15 @@ CoffFile::~CoffFile() {
 }
 
 bool CoffFile::Init(const base::FilePath& path) {
-  PECoffFile::Init(path);
-
-  base::ScopedFILE file(base::OpenFile(path, "rb"));
-  if (file.get() == NULL) {
-    LOG(ERROR) << "Failed to open file " << path.value() << ".";
+  if (!PECoffFile::Init(path))
     return false;
-  }
-
-  bool success = ReadCommonHeaders(file.get(), FileOffsetAddress(0));
-  if (success)
-    success = ReadSections(file.get());
-  if (success)
-    success = ReadNonSections(file.get());
-
-  return success;
+  if (!ReadCommonHeaders(FileOffsetAddress(0)))
+    return false;
+  if (!ReadSections())
+    return false;
+  if (!ReadNonSections())
+    return false;
+  return true;
 }
 
 bool CoffFile::FileOffsetToSectionOffset(FileOffsetAddress addr,
@@ -59,8 +60,8 @@ bool CoffFile::FileOffsetToSectionOffset(FileOffsetAddress addr,
   DCHECK(offset != NULL);
 
   ImageAddressSpace::RangeMap::const_iterator it =
-      image_data_.FindContaining(ImageAddressSpace::Range(addr, 1));
-  if (it == image_data_.ranges().end())
+      address_space_.FindContaining(ImageAddressSpace::Range(addr, 1));
+  if (it == address_space_.ranges().end())
     return false;
   if (it->second.id == kInvalidSection || addr >= it->first.end())
     return false;
@@ -90,16 +91,17 @@ bool CoffFile::SectionOffsetToFileOffset(size_t section_index,
   return true;
 }
 
-bool CoffFile::ReadNonSections(FILE* file) {
-  DCHECK(file != NULL);
+bool CoffFile::ReadNonSections() {
   DCHECK(file_header_ != NULL);
 
   // Map the symbol table into our address space.
   FileOffsetAddress symbols_start(file_header_->PointerToSymbolTable);
   size_t symbols_size = file_header_->NumberOfSymbols * sizeof(*symbols_);
   ImageAddressSpace::Range symbols_range(symbols_start, symbols_size);
-  if (!InsertRangeReadAt(file, symbols_start, symbols_size, symbols_range))
+  if (!InsertSection(kDummySection, symbols_start, symbols_size,
+                     symbols_range)) {
     return false;
+  }
 
   // Get the pointer to our internal data range.
   CHECK(GetImageData(symbols_start, symbols_size, &symbols_));
@@ -109,15 +111,16 @@ bool CoffFile::ReadNonSections(FILE* file) {
   // Map the string table into our address space.
   FileOffsetAddress strings_start(symbols_start + symbols_size);
   uint32 strings_size = 0;
-  if (!ReadAt(file, strings_start.value(),
-              &strings_size, sizeof(strings_size))) {
+  if (!ReadAt(strings_start.value(), &strings_size, sizeof(strings_size))) {
     LOG(ERROR) << "Unable to read string table size.";
     return false;
   }
   if (strings_size > 0) {
     ImageAddressSpace::Range strings_range(strings_start, strings_size);
-    if (!InsertRangeReadAt(file, strings_start, strings_size, strings_range))
+    if (!InsertSection(kDummySection, strings_start, strings_size,
+                       strings_range)) {
       return false;
+    }
 
     CHECK(GetImageData(strings_start, strings_size, &strings_));
   }
@@ -135,8 +138,7 @@ bool CoffFile::ReadNonSections(FILE* file) {
     if ((header->Characteristics & IMAGE_SCN_LNK_NRELOC_OVFL) != 0) {
       DCHECK_EQ(num_relocs, 0xffffu);
       IMAGE_RELOCATION reloc;
-      if (!ReadAt(file, header->PointerToRelocations,
-                  &reloc, sizeof(reloc))) {
+      if (!ReadAt(header->PointerToRelocations, &reloc, sizeof(reloc))) {
         LOG(ERROR) << "Unable to read extended relocation count.";
         return false;
       }
@@ -148,8 +150,10 @@ bool CoffFile::ReadNonSections(FILE* file) {
     size_t relocs_size = num_relocs * sizeof(IMAGE_RELOCATION);
 
     ImageAddressSpace::Range relocs_range(relocs_start, relocs_size);
-    if (!InsertRangeReadAt(file, relocs_start, relocs_size, relocs_range))
+    if (!InsertSection(kDummySection, relocs_start, relocs_size,
+                       relocs_range)) {
       return false;
+    }
 
     // Save section relocation info to avoid recomputing pointer and
     // size from headers.

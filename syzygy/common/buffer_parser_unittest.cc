@@ -54,6 +54,17 @@ static_assert(detail::GetAlignment<Align1>::kAlignment == 1,
 
 }  // namespace
 
+TEST(BinaryBufferParser, ConstructorAndSetData) {
+  BinaryBufferParser parser1(kDataBuffer, kDataBufferSize);
+  BinaryBufferParser parser2;
+  EXPECT_EQ(static_cast<void*>(nullptr), parser2.data());
+  EXPECT_EQ(0u, parser2.data_len());
+
+  parser2.SetData(kDataBuffer, kDataBufferSize);
+  EXPECT_EQ(parser1.data(), parser2.data());
+  EXPECT_EQ(parser1.data_len(), parser2.data_len());
+}
+
 TEST(BinaryBufferParser, ContainsSucceedsInBuffer) {
   BinaryBufferParser parser(kDataBuffer, kDataBufferSize);
 

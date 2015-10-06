@@ -18,18 +18,27 @@
 #ifndef SYZYGY_PE_PE_COFF_FILE_IMPL_H_
 #define SYZYGY_PE_PE_COFF_FILE_IMPL_H_
 
+#include "base/files/file_util.h"
+
+#include "syzygy/block_graph/block_graph.h"
+
 namespace pe {
 
 template <typename AddressSpaceTraits>
-void PECoffFile<AddressSpaceTraits>::Init(const base::FilePath& path) {
+bool PECoffFile<AddressSpaceTraits>::Init(const base::FilePath& path) {
   path_ = path;
+  // ReadFileToString doesn't like relative paths.
+  if (!base::ReadFileToString(base::MakeAbsoluteFilePath(path), &image_data_))
+    return false;
+  parser_.SetData(image_data_.c_str(), image_data_.size());
+  return true;
 }
 
 template <typename AddressSpaceTraits>
 bool PECoffFile<AddressSpaceTraits>::Contains(AddressType addr,
                                               SizeType len) const {
   const ImageAddressSpace::Range range(addr, len);
-  return image_data_.FindContaining(range) != image_data_.ranges().end();
+  return address_space_.FindContaining(range) != address_space_.ranges().end();
 }
 
 template <typename AddressSpaceTraits>
@@ -37,8 +46,8 @@ size_t PECoffFile<AddressSpaceTraits>::GetSectionIndex(AddressType addr,
                                                        SizeType len) const {
   const ImageAddressSpace::Range range(addr, len);
   ImageAddressSpace::RangeMap::const_iterator it =
-      image_data_.FindContaining(range);
-  if (it == image_data_.ranges().end())
+      address_space_.FindContaining(range);
+  if (it == address_space_.ranges().end())
     return kInvalidSection;
   return it->second.id;
 }
@@ -48,7 +57,7 @@ const IMAGE_SECTION_HEADER* PECoffFile<AddressSpaceTraits>::GetSectionHeader(
     AddressType addr, SizeType len) const {
   size_t id = GetSectionIndex(addr, len);
   if (id == kInvalidSection)
-    return NULL;
+    return nullptr;
   DCHECK_LT(id, file_header_->NumberOfSections);
   return section_headers_ + id;
 }
@@ -71,73 +80,63 @@ std::string PECoffFile<AddressSpaceTraits>::GetSectionName(
 
 template <typename AddressSpaceTraits>
 bool PECoffFile<AddressSpaceTraits>::ReadCommonHeaders(
-    FILE* file, FileOffsetAddress file_header_start) {
+    FileOffsetAddress file_header_start) {
   // Test for unsupported object files.
-  uint16 obj_sig[2];
-  if (!ReadAt(file, 0, obj_sig, sizeof(obj_sig))) {
-    LOG(ERROR) << "Unable to read first 4 bytes from object file.";
+  const uint16* obj_sig = nullptr;
+  if (!parser_.GetCountAt(0, 2, &obj_sig))
     return false;
-  }
   if (obj_sig[0] == 0 && obj_sig[1] == 0xFFFF) {
     LOG(ERROR) << "Unsupported anonymous object file.";
     return false;
   }
 
   // Read the COFF file header.
-  IMAGE_FILE_HEADER file_header = {};
-  if (!ReadAt(file, file_header_start.value(),
-              &file_header, sizeof(file_header))) {
-    LOG(ERROR) << "Unable to read COFF file header.";
+  if (!parser_.GetAt(file_header_start.value(), &file_header_))
     return false;
-  }
 
   // Compute size of all headers, from the beginning of the file to
   // the end of the section table.
   FileOffsetAddress opt_header_start(file_header_start.value() +
-                                     sizeof(file_header));
+                                     sizeof(IMAGE_FILE_HEADER));
   FileOffsetAddress section_table_start(opt_header_start +
-                                        file_header.SizeOfOptionalHeader);
-  SizeType section_table_size(
-      file_header.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
+                                        file_header_->SizeOfOptionalHeader);
+  SizeType section_table_size(file_header_->NumberOfSections *
+                              sizeof(IMAGE_SECTION_HEADER));
   FileOffsetAddress header_end(section_table_start + section_table_size);
+
+  // Read the section headers.
+  if (!parser_.GetCountAt(section_table_start.value(),
+                          file_header_->NumberOfSections,
+                          &section_headers_)) {
+    return false;
+  }
+
   SizeType header_size = header_end.value();
-  if (file_header.SizeOfOptionalHeader != 0) {
-    IMAGE_OPTIONAL_HEADER opt_header = {};
-    if (!ReadAt(file, opt_header_start.value(),
-                &opt_header, sizeof(opt_header))) {
-      LOG(ERROR) << "Unable to read optional header.";
+  if (file_header_->SizeOfOptionalHeader != 0) {
+    const IMAGE_OPTIONAL_HEADER* opt_header = nullptr;
+    if (!parser_.GetAt(opt_header_start.value(), &opt_header))
       return false;
-    }
     // In a sane world the stated header size will match that manually
     // calculated by walking the headers and aligning up by the file alignment.
     // However, this is not necessary for the PE file to be valid, and there may
     // be a gap between the two.
-    header_size = opt_header.SizeOfHeaders;
+    header_size = opt_header->SizeOfHeaders;
   }
 
   // We now know how large the headers are, so create a range for them.
   ImageAddressSpace::Range header_range(header_address(), header_size);
-  if (!InsertRangeReadAt(file, FileOffsetAddress(0), header_size,
-                         header_range)) {
+  if (!InsertSection(kInvalidSection, FileOffsetAddress(0), header_size,
+                     header_range)) {
     return false;
   }
 
-  bool success = GetImageData(header_address() + file_header_start.value(),
-                              SizeType(sizeof(*file_header_)),
-                              &file_header_);
-  DCHECK(success);
-  success = GetImageData(header_address() + section_table_start.value(),
-                         section_table_size,
-                         &section_headers_);
-  DCHECK(success);
-
-  return success;
+  return true;
 }
 
 template <typename AddressSpaceTraits>
-bool PECoffFile<AddressSpaceTraits>::ReadSections(FILE* file) {
-  DCHECK(file_header_ != NULL);
-  DCHECK(section_headers_ != NULL);
+bool PECoffFile<AddressSpaceTraits>::ReadSections() {
+  DCHECK(file_header_ != nullptr);
+  DCHECK(section_headers_ != nullptr);
 
   size_t num_sections = file_header_->NumberOfSections;
   for (size_t i = 0; i < num_sections; ++i) {
@@ -160,20 +159,9 @@ bool PECoffFile<AddressSpaceTraits>::ReadSections(FILE* file) {
 
     // Insert the range for the new section.
     ImageAddressSpace::Range section_range(addr, section_size);
-    ImageAddressSpace::RangeMap::iterator it;
-    if (!image_data_.Insert(section_range, SectionInfo(), &it)) {
+    FileOffsetAddress off(hdr->PointerToRawData);
+    if (!InsertSection(i, off, hdr->SizeOfRawData, section_range)) {
       LOG(ERROR) << "Unable to insert range for section " << hdr->Name << ".";
-      return false;
-    }
-
-    it->second.id = i;
-    SectionBuffer& buf = it->second.buffer;
-    if (hdr->SizeOfRawData == 0)
-      continue;
-
-    buf.resize(hdr->SizeOfRawData);
-    if (!ReadAt(file, hdr->PointerToRawData, &buf.at(0), hdr->SizeOfRawData)) {
-      LOG(ERROR) << "Unable to read data for section " << hdr->Name << ".";
       return false;
     }
   }
@@ -182,36 +170,35 @@ bool PECoffFile<AddressSpaceTraits>::ReadSections(FILE* file) {
 }
 
 template <typename AddressSpaceTraits>
-bool PECoffFile<AddressSpaceTraits>::InsertRangeReadAt(
-    FILE* file, FileOffsetAddress start, size_t size,
+bool PECoffFile<AddressSpaceTraits>::InsertSection(
+    size_t id,
+    FileOffsetAddress start,
+    size_t size,
     const typename ImageAddressSpace::Range& range) {
+  const void* section_data = nullptr;
+  if (!parser_.GetAt(start.value(), size, &section_data))
+    return false;
+  SectionInfo section_info(id, section_data, size);
+
   ImageAddressSpace::RangeMap::iterator it;
-  bool inserted = image_data_.Insert(range, SectionInfo(), &it);
+  bool inserted = address_space_.Insert(range, section_info, &it);
   if (!inserted) {
     LOG(ERROR) << "Unable to create new range in address space.";
     return false;
   }
 
-  SectionBuffer& buffer = it->second.buffer;
-  buffer.resize(size);
-  if (!ReadAt(file, start.value(), &buffer[0], size)) {
-    LOG(ERROR) << "Unable to file data.";
-    return false;
-  }
-
   return true;
 }
 
 template <typename AddressSpaceTraits>
-bool PECoffFile<AddressSpaceTraits>::ReadAt(FILE* file, size_t pos,
-                                            void* buf, size_t len) {
-  if (fseek(file, pos, SEEK_SET) != 0)
+bool PECoffFile<AddressSpaceTraits>::ReadAt(size_t offset,
+                                            void* destination,
+                                            size_t size) const {
+  // TODO(chrisha): Use BinaryBufferParser::CopyAt when that's available.
+  const void* data = nullptr;
+  if (!parser_.GetAt(offset, size, &data))
     return false;
-
-  size_t read = fread(buf, 1, len, file);
-  if (read != len)
-    return false;
-
+  ::memcpy(destination, data, size);
   return true;
 }
 
@@ -220,18 +207,18 @@ const uint8* PECoffFile<AddressSpaceTraits>::GetImageData(AddressType addr,
                                                           SizeType len) const {
   ImageAddressSpace::Range range(addr, len);
   ImageAddressSpace::RangeMap::const_iterator it(
-      image_data_.FindContaining(range));
+      address_space_.FindContaining(range));
 
-  if (it != image_data_.ranges().end()) {
-    ptrdiff_t offs = addr - it->first.start();
-    DCHECK_GE(offs, 0);
+  if (it == address_space_.ranges().end())
+    return nullptr;
 
-    const SectionBuffer& buf = it->second.buffer;
-    if (offs + len <= buf.size())
-      return &buf.at(offs);
-  }
+  ptrdiff_t offs = addr - it->first.start();
+  DCHECK_GE(offs, 0);
+  const uint8* data = nullptr;
+  if (!it->second.parser.GetCountAt(offs, len, &data))
+    return nullptr;
 
-  return NULL;
+  return data;
 }
 
 template <typename AddressSpaceTraits>
@@ -246,7 +233,7 @@ template <typename ItemType>
 bool PECoffFile<AddressSpaceTraits>::GetImageData(
     AddressType addr, SizeType len, const ItemType** item_ptr) const {
   const uint8* ptr = GetImageData(addr, len);
-  if (ptr == NULL)
+  if (ptr == nullptr)
     return false;
   *item_ptr = reinterpret_cast<const ItemType*>(ptr);
   return true;
@@ -257,7 +244,7 @@ template <typename ItemType>
 bool PECoffFile<AddressSpaceTraits>::GetImageData(
     AddressType addr, SizeType len, ItemType** item_ptr) {
   uint8* ptr = GetImageData(addr, len);
-  if (ptr == NULL)
+  if (ptr == nullptr)
     return false;
   *item_ptr = reinterpret_cast<ItemType*>(ptr);
   return true;
@@ -266,48 +253,48 @@ bool PECoffFile<AddressSpaceTraits>::GetImageData(
 template <typename AddressSpaceTraits>
 bool PECoffFile<AddressSpaceTraits>::ReadImage(AddressType addr,
                                                void* data, SizeType len) const {
-  DCHECK(data != NULL);
+  DCHECK(data != nullptr);
+  // TODO(chrisha): Make this use BinaryBufferParser::CopyAt when it's ready.
   const uint8* buf = GetImageData(addr, len);
-  if (buf == NULL)
+  if (buf == nullptr)
     return false;
-
-  memcpy(data, buf, len);
+  ::memcpy(data, buf, len);
   return true;
 }
 
 template <typename AddressSpaceTraits>
 bool PECoffFile<AddressSpaceTraits>::ReadImageString(AddressType addr,
                                                      std::string* str) const {
-  DCHECK(file_header_ != NULL);
+  DCHECK(file_header_ != nullptr);
   str->clear();
 
   // Locate the range that contains the first byte of the string.
   ImageAddressSpace::Range range(addr, 1);
   ImageAddressSpace::RangeMap::const_iterator it(
-      image_data_.FindContaining(range));
+      address_space_.FindContaining(range));
+  if (it == address_space_.ranges().end())
+    return false;
 
-  if (it != image_data_.ranges().end()) {
-    ptrdiff_t offs = addr - it->first.start();
-    DCHECK_GE(offs, 0);
-    // Stash the start position.
-    const SectionBuffer& buf = it->second.buffer;
-    const char* begin = reinterpret_cast<const char*>(&buf.at(offs));
-    // And loop through until we find a zero-terminating byte,
-    // or run off the end.
-    for (; static_cast<size_t>(offs) < buf.size() && buf.at(offs); ++offs) {
-      // Intentionally empty.
-    }
+  ptrdiff_t offs = addr - it->first.start();
+  DCHECK_GE(offs, 0);
+  size_t length = 0;
+  const char* data = nullptr;
+  if (!it->second.parser.GetStringAt(offs, &data, &length))
+    return false;
 
-    if (static_cast<size_t>(offs) == buf.size())
-      return false;
-
-    str->assign(begin);
-    return true;
-  }
-
-  return false;
+  str->assign(data, length);
+  return true;
 }
 
-}  // namespace  pe
+template <typename AddressSpaceTraits>
+const uint8* PECoffFile<AddressSpaceTraits>::GetImageDataByFileOffset(
+    FileOffsetAddress addr, SizeType len) const {
+  const uint8* data = nullptr;
+  if (!parser_.GetCountAt(addr.value(), len, &data))
+    return nullptr;
+  return data;
+}
+
+}  // namespace pe
 
 #endif  // SYZYGY_PE_PE_COFF_FILE_IMPL_H_

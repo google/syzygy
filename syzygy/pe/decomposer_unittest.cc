@@ -39,8 +39,6 @@ using block_graph::ConstTypedBlock;
 using core::RelativeAddress;
 using testing::ContainerEq;
 
-const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
-
 static const BlockGraph::BlockAttributes kGapOrPadding =
     BlockGraph::GAP_BLOCK | BlockGraph::PADDING_BLOCK;
 

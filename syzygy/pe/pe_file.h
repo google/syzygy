@@ -255,9 +255,8 @@ class PEFileBase : public PECoffFile<PEAddressSpaceTraits> {
   // Read all NT headers, including common COFF headers. Insert
   // a range covering all headers.
   //
-  // @param file the input file stream.
   // @returns true on success, false on error.
-  bool ReadHeaders(FILE* file);
+  bool ReadHeaders();
 
   const IMAGE_DOS_HEADER* dos_header_;
   const ImageNtHeaders* nt_headers_;
