@@ -26,6 +26,32 @@ const char kDataBuffer[] = {
 };
 size_t kDataBufferSize = sizeof(kDataBuffer);
 
+struct Align8 {
+  uint8_t ui8;
+  uint64_t ui64;
+};
+
+#pragma pack(push, 1)
+struct Align1 {
+  uint8_t ui8;
+  uint64_t ui64;
+};
+#pragma pack(pop)
+
+// These are effectively unittests for detail::GetAlignment.
+static_assert(detail::GetAlignment<uint8_t>::kAlignment == 1,
+              "GetAlignment<uint8_t> is broken.");
+static_assert(detail::GetAlignment<uint16_t>::kAlignment == 2,
+              "GetAlignment<uint16_t> is broken.");
+static_assert(detail::GetAlignment<uint32_t>::kAlignment == 4,
+              "GetAlignment<uint32_t> is broken.");
+static_assert(detail::GetAlignment<uint64_t>::kAlignment == 8,
+              "GetAlignment<uint64_t> is broken.");
+static_assert(detail::GetAlignment<Align8>::kAlignment == 8,
+              "GetAlignment<Align4> is broken.");
+static_assert(detail::GetAlignment<Align1>::kAlignment == 1,
+              "GetAlignment<Align1> is broken.");
+
 }  // namespace
 
 TEST(BinaryBufferParser, ContainsSucceedsInBuffer) {
@@ -77,17 +103,34 @@ TEST(BinaryBufferParser, GetAtSucceedsInBuffer) {
   }
 }
 
+namespace {
+struct Foo { int a; int b; };
+}  // namespace
+
 TEST(BinaryBufferParser, GetAtTyped) {
-  struct Foo { int a; int b; };
   static const char kBuffer[sizeof(Foo) + 1];
   BinaryBufferParser parser(kBuffer, sizeof(kBuffer));
 
-  const Foo* foo = NULL;
-  ASSERT_TRUE(parser.GetAt(0, &foo));
-  ASSERT_EQ(parser.data(), foo);
+  const Foo* foo = nullptr;
+  EXPECT_TRUE(parser.GetAt(0, &foo));
+  EXPECT_EQ(parser.data(), foo);
 
-  ASSERT_TRUE(parser.GetAt(1, &foo));
-  ASSERT_FALSE(parser.GetAt(2, &foo));
+  EXPECT_FALSE(parser.GetAt(1, &foo));
+  EXPECT_TRUE(parser.GetAtIgnoreAlignment(1, &foo));
+  EXPECT_FALSE(parser.GetAt(2, &foo));
+}
+
+TEST(BinaryBufferParser, GetCountAtTyped) {
+  static const char kBuffer[3 * sizeof(Foo) + 1];
+  BinaryBufferParser parser(kBuffer, sizeof(kBuffer));
+
+  const Foo* foo = nullptr;
+  EXPECT_TRUE(parser.GetCountAt(0, 3, &foo));
+  EXPECT_EQ(parser.data(), foo);
+
+  EXPECT_FALSE(parser.GetCountAt(1, 3, &foo));
+  EXPECT_TRUE(parser.GetCountAtIgnoreAlignment(1, 3, &foo));
+  EXPECT_FALSE(parser.GetCountAt(0, 4, &foo));
 }
 
 template <class CharType>

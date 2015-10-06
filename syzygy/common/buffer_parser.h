@@ -43,22 +43,59 @@ class BinaryBufferParser {
   // @param data_len the amount of data expected behind @p pos.
   // @param data_ptr on success will contain a pointer to @p pos in data.
   // @returns true iff Contains(pos, data_len).
+  // @note No alignment constraints are checked.
   bool GetAt(size_t pos, size_t data_len, const void** data_ptr);
 
   // Retrieve a typed pointer into the buffer if the requested data
   // is contained in our buffer.
-  // @note Does not check @p pos for appropriate alignment.
+  // @param pos the position to get a pointer to.
+  // @param data_len the amount of data expected behind @p pos.
+  // @param data_ptr on success will contain a pointer to @p pos in data.
+  // @returns true on success, false otherwise.
+  // @note The basic version of the function checks @p pos for alignment,
+  //     whereas the IgnoreAlignment version ignores it.
   template <class DataType>
   bool GetAt(size_t pos, size_t data_len, const DataType** data_ptr) {
-    return GetAt(pos, data_len, reinterpret_cast<const void**>(data_ptr));
+    return GetAtImplicitAlignment(pos, data_len, data_ptr);
+  }
+  template <class DataType>
+  bool GetAtIgnoreAlignment(
+      size_t pos, size_t data_len, const DataType** data_ptr) {
+    return GetAtExplicitAlignment(pos, data_len, 1, data_ptr);
   }
 
   // Retrieve a typed pointer into the buffer if the requested structure
   // fits into our buffer at position @pos.
-  // @note Does not check @p pos for appropriate alignment.
+  // @param pos the position to get a pointer to.
+  // @param data_ptr on success will contain a pointer to @p pos in data.
+  // @returns true on success, false otherwise.
+  // @note The basic version of the function checks @p pos for alignment,
+  //     whereas the IgnoreAlignment version ignores it.
   template <class DataType>
   bool GetAt(size_t pos, const DataType** data_ptr) {
-    return GetAt(pos, sizeof(**data_ptr), data_ptr);
+    return GetAtImplicitAlignment(pos, sizeof(DataType), data_ptr);
+  }
+  template <class DataType>
+  bool GetAtIgnoreAlignment(size_t pos, const DataType** data_ptr) {
+    return GetAtExplicitAlignment(pos, sizeof(DataType), 1, data_ptr);
+  }
+
+  // Retrieve a typed pointer to an array if the requested array fits into
+  // the buffer at the given position.
+  // @param pos the position to get a pointer to.
+  // @param count the number of elements to retrieve.
+  // @param data_ptr on success will contain a pointer to @p pos in data.
+  // @returns true on success, false otherwise.
+  // @note The basic version of the function checks @p pos for alignment,
+  //     whereas the IgnoreAlignment version ignores it.
+  template <class DataType>
+  bool GetCountAt(size_t pos, size_t count, const DataType** data_ptr) {
+    return GetAtImplicitAlignment(pos, sizeof(DataType) * count, data_ptr);
+  }
+  template <class DataType>
+  bool GetCountAtIgnoreAlignment(
+      size_t pos, size_t count, const DataType** data_ptr) {
+    return GetAtExplicitAlignment(pos, sizeof(DataType) * count, 1, data_ptr);
   }
 
   // Get a zero terminated string starting at the byte offset @p pos.
@@ -69,10 +106,22 @@ class BinaryBufferParser {
   //    after @p pos, or false on failure, when @p pos is outside the buffer
   //    or there is no zero terminator in the buffer after @p pos.
   // @note this function does not check @pos for appropriate alignment.
+  // @note The basic version of the function checks @p pos for alignment,
+  //     whereas the IgnoreAlignment version ignores it.
   bool GetStringAt(size_t pos, const char** ptr, size_t* len);
   bool GetStringAt(size_t pos, const wchar_t** ptr, size_t* len);
+  bool GetStringAtIgnoreAlignment(
+      size_t pos, const wchar_t** ptr, size_t* len);
 
  protected:
+  template <class DataType>
+  bool GetAtImplicitAlignment(
+      size_t pos, size_t size, const DataType** data_ptr);
+
+  template <class DataType>
+  bool GetAtExplicitAlignment(
+      size_t pos, size_t size, size_t align, const DataType** data_ptr);
+
   const int8* data_;
   size_t data_len_;
 };
@@ -145,5 +194,7 @@ class BinaryBufferReader {
 };
 
 }  // namespace common
+
+#include "syzygy/common/buffer_parser_impl.h"
 
 #endif  // SYZYGY_COMMON_BUFFER_PARSER_H_

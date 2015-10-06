@@ -21,9 +21,17 @@ namespace common {
 namespace {
 
 template <class CharType>
-bool GetStringAtImpl(BinaryBufferParser* parser, size_t pos,
-    const CharType** ptr, size_t* len) {
-  DCHECK(parser != NULL);
+bool GetStringAtImpl(BinaryBufferParser* parser, size_t pos, size_t alignment,
+                     const CharType** ptr, size_t* len) {
+  DCHECK_NE(static_cast<BinaryBufferParser*>(nullptr), parser);
+  DCHECK_NE(static_cast<CharType**>(nullptr), ptr);
+  DCHECK_NE(static_cast<size_t*>(nullptr), len);
+
+  if (!common::IsAligned(reinterpret_cast<const uint8*>(parser->data()) + pos,
+                         alignment)) {
+    return false;
+  }
+
   const CharType* start = NULL;
   if (!parser->GetAt(pos, sizeof(*start), &start))
     return false;
@@ -72,14 +80,18 @@ bool BinaryBufferParser::GetAt(size_t pos,
 
 bool BinaryBufferParser::GetStringAt(size_t pos, const char** ptr,
     size_t* len) {
-  return GetStringAtImpl(this, pos, ptr, len);
+  return GetStringAtImpl(this, pos, sizeof(char), ptr, len);
 }
 
 bool BinaryBufferParser::GetStringAt(size_t pos, const wchar_t** ptr,
     size_t* len) {
-  return GetStringAtImpl(this, pos, ptr, len);
+  return GetStringAtImpl(this, pos, sizeof(wchar_t), ptr, len);
 }
 
+bool BinaryBufferParser::GetStringAtIgnoreAlignment(
+    size_t pos, const wchar_t** ptr, size_t* len) {
+  return GetStringAtImpl(this, pos, 1, ptr, len);
+}
 
 BinaryBufferReader::BinaryBufferReader(const void* data, size_t data_len)
     : parser_(data, data_len), pos_(0) {

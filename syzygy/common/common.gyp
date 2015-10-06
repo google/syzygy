@@ -29,6 +29,7 @@
         'assertions.h',
         'buffer_parser.cc',
         'buffer_parser.h',
+        'buffer_parser_impl.h',
         'buffer_writer.cc',
         'buffer_writer.h',
         'com_utils.cc',

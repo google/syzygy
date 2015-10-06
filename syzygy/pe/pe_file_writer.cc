@@ -41,7 +41,8 @@ bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
   BinaryBufferParser parser(&data->at(0), data->size());
 
   Type* ref_ptr = NULL;
-  if (!parser.GetAt(start, const_cast<const Type**>(&ref_ptr))) {
+  if (!parser.GetAtIgnoreAlignment(start,
+                                   const_cast<const Type**>(&ref_ptr))) {
     LOG(ERROR) << "Reference data not in block";
     return false;
   }
