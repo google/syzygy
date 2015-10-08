@@ -109,4 +109,111 @@ TEST(AddressTest, Serialization) {
   EXPECT_TRUE(testing::TestSerialization(address));
 }
 
+TEST(AddressTest, AddressVariant) {
+  AddressVariant a0;
+  EXPECT_EQ(kRelativeAddressType, a0.type());
+  EXPECT_EQ(0u, a0.value());
+
+  AddressVariant a1(kRelativeAddressType, 0);
+  EXPECT_EQ(kRelativeAddressType, a1.type());
+  EXPECT_EQ(0u, a1.value());
+
+  AddressVariant a2(kAbsoluteAddressType, 0);
+  EXPECT_EQ(kAbsoluteAddressType, a2.type());
+  EXPECT_EQ(0u, a2.value());
+
+  AddressVariant a3(kFileOffsetAddressType, 0);
+  EXPECT_EQ(kFileOffsetAddressType, a3.type());
+  EXPECT_EQ(0u, a3.value());
+
+  AddressVariant a3_copy(a3);
+  EXPECT_EQ(kFileOffsetAddressType, a3_copy.type());
+  EXPECT_EQ(0u, a3_copy.value());
+
+  EXPECT_NE(a1, a2);
+  EXPECT_NE(a1, a3);
+  EXPECT_NE(a2, a1);
+  EXPECT_NE(a2, a3);
+  EXPECT_NE(a3, a1);
+  EXPECT_NE(a3, a2);
+
+  // Comparisons.
+
+  EXPECT_TRUE(a1 < a2);
+  EXPECT_TRUE(a1 <= a3);
+  EXPECT_TRUE(a3 > a2);
+  EXPECT_TRUE(a3 >= a1);
+
+  // Mutators.
+
+  a2.set_type(kRelativeAddressType);
+  EXPECT_EQ(kRelativeAddressType, a2.type());
+  EXPECT_EQ(a1, a2);
+
+  a2.set_value(0xBAAD);
+  EXPECT_EQ(0xBAADu, a2.value());
+  a2.set_value(0);
+  EXPECT_EQ(0u, a2.value());
+
+  // Arithmetic operations.
+
+  a2 += 1;
+  EXPECT_EQ(1u, a2.value());
+  EXPECT_NE(a1, a2);
+
+  a2 -= 1;
+  EXPECT_EQ(0u, a2.value());
+  EXPECT_EQ(a1, a2);
+
+  a1 = a3;
+  EXPECT_EQ(kFileOffsetAddressType, a1.type());
+  EXPECT_EQ(0u, a3.value());
+  EXPECT_EQ(a1, a3);
+
+  a2 = a3 + 2;
+  EXPECT_EQ(2u, a2.value());
+  EXPECT_NE(a2, a3);
+
+  a3 += 2;
+  EXPECT_EQ(2u, a3.value());
+  EXPECT_EQ(a2, a3);
+
+  a3 = a3.AlignUp(4);
+  EXPECT_EQ(4u, a3.value());
+  a3 = a3.AlignUp(4);
+  EXPECT_EQ(4u, a3.value());
+
+  // Assignment from concrete types.
+
+  RelativeAddress rel(47);
+  AbsoluteAddress abso(82);
+  FileOffsetAddress off(13);
+
+  a1 = rel;
+  EXPECT_EQ(rel.type(), a1.type());
+  EXPECT_EQ(rel.value(), a1.value());
+
+  a2 = abso;
+  EXPECT_EQ(abso.type(), a2.type());
+  EXPECT_EQ(abso.value(), a2.value());
+
+  a3 = off;
+  EXPECT_EQ(off.type(), a3.type());
+  EXPECT_EQ(off.value(), a3.value());
+
+  // Extraction of concrete types.
+
+  RelativeAddress rel2;
+  AbsoluteAddress abso2;
+  FileOffsetAddress off2;
+  EXPECT_TRUE(a1.Extract(&rel2));
+  EXPECT_EQ(rel, rel2);
+  EXPECT_TRUE(a2.Extract(&abso2));
+  EXPECT_EQ(abso, abso2);
+  EXPECT_TRUE(a3.Extract(&off2));
+  EXPECT_EQ(off, off2);
+  EXPECT_FALSE(a1.Extract(&abso));
+  EXPECT_FALSE(a1.Extract(&off));
+}
+
 }  // namespace core

@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #include "syzygy/core/address.h"
 
 #include <iostream>
@@ -18,33 +19,108 @@
 
 namespace core {
 
-// Host function for compile asserts.
-void CompileAsserts() {
-  COMPILE_ASSERT(sizeof(RelativeAddress) == sizeof(uint32),
-                 relative_address_must_be_4_byte);
-  COMPILE_ASSERT(sizeof(AbsoluteAddress) == sizeof(uint32),
-                 absolute_address_must_be_4_byte);
-  COMPILE_ASSERT(sizeof(FileOffsetAddress) == sizeof(uint32),
-                 file_offset_must_be_4_byte);
+static_assert(sizeof(RelativeAddress) == sizeof(uint32_t),
+              "RelativeAddress has the wrong size.");
+static_assert(sizeof(AbsoluteAddress) == sizeof(uint32_t),
+              "AbsoluteAddress has the wrong size.");
+static_assert(sizeof(FileOffsetAddress) == sizeof(uint32_t),
+              "FileOffsetAddress has the wrong size.");
+
+namespace detail {
+
+template <>
+const AddressImpl<kRelativeAddressType>
+    AddressImpl<kRelativeAddressType>::kInvalidAddress(~0U);
+
+template <>
+const AddressImpl<kAbsoluteAddressType>
+    AddressImpl<kAbsoluteAddressType>::kInvalidAddress(~0U);
+
+template <>
+const AddressImpl<kFileOffsetAddressType>
+    AddressImpl<kFileOffsetAddressType>::kInvalidAddress(~0U);
+
+std::ostream& operator<<(std::ostream& str,
+                         const AddressImpl<kRelativeAddressType>& addr) {
+  return str << base::StringPrintf("Relative(0x%08X)", addr.value_);
 }
 
-const RelativeAddress RelativeAddress::kInvalidAddress(~0U);
-const AbsoluteAddress AbsoluteAddress::kInvalidAddress(~0U);
-const FileOffsetAddress FileOffsetAddress::kInvalidAddress(~0U);
-
-std::ostream& operator<<(std::ostream& str, RelativeAddress addr) {
-  str << base::StringPrintf("Relative(0x%08X)", addr.value());
-  return str;
+std::ostream& operator<<(std::ostream& str,
+                         const AddressImpl<kAbsoluteAddressType>& addr) {
+  return str << base::StringPrintf("Absolute(0x%08X)", addr.value_);
 }
 
-std::ostream& operator<<(std::ostream& str, AbsoluteAddress addr) {
-  str << base::StringPrintf("Absolute(0x%08X)", addr.value());
-  return str;
+std::ostream& operator<<(std::ostream& str,
+                         const AddressImpl<kFileOffsetAddressType>& addr) {
+  return str << base::StringPrintf("FileOffset(0x%08X)", addr.value_);
 }
 
-std::ostream& operator<<(std::ostream& str, FileOffsetAddress addr) {
-  str << base::StringPrintf("FileOffset(0x%08X)", addr.value());
-  return str;
+}  // namespace detail
+
+namespace {
+
+int Compare(const AddressVariant& av1, const AddressVariant& av2) {
+  if (av1.type() < av2.type())
+    return -1;
+  if (av1.type() > av2.type())
+    return 1;
+  if (av1.value() < av2.value())
+    return -1;
+  if (av1.value() > av2.value())
+    return 1;
+  return 0;
+}
+
+}  // namespace
+
+AddressVariant& AddressVariant::operator=(const AddressVariant& other) {
+  type_ = other.type_;
+  value_ = other.value_;
+  return *this;
+}
+
+bool AddressVariant::operator<(const AddressVariant& other) const {
+  return Compare(*this, other) < 0;
+}
+
+bool AddressVariant::operator<=(const AddressVariant& other) const {
+  return Compare(*this, other) <= 0;
+}
+
+bool AddressVariant::operator>(const AddressVariant& other) const {
+  return Compare(*this, other) > 0;
+}
+
+bool AddressVariant::operator>=(const AddressVariant& other) const {
+  return Compare(*this, other) >= 0;
+}
+
+bool AddressVariant::operator==(const AddressVariant& other) const {
+  return Compare(*this, other) == 0;
+}
+
+bool AddressVariant::operator!=(const AddressVariant& other) const {
+  return Compare(*this, other) != 0;
+}
+
+bool AddressVariant::Save(OutArchive* out_archive) const {
+  uint8_t type = static_cast<uint8_t>(type_);
+  return out_archive->Save(type) && out_archive->Save(value_);
+}
+
+bool AddressVariant::Load(InArchive* in_archive) {
+  uint8_t type = 0;
+  if (!in_archive->Load(&type))
+    return false;
+  type_ = static_cast<AddressType>(type);
+  return in_archive->Load(&value_);
+}
+
+std::ostream& operator<<(std::ostream& str, const AddressVariant& addr) {
+  static const char* kTypes[] = {"Relative", "Absolute", "FileOffset"};
+  DCHECK_GT(arraysize(kTypes), addr.type_);
+  return str << base::StringPrintf("AddressVariant(%s(0x%08X))",
+                                   kTypes[addr.type_], addr.value_);
 }
 
 }  // namespace core

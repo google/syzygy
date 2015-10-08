@@ -23,11 +23,13 @@
 
 namespace core {
 
-enum AddressType {
+enum AddressType : uint8_t {
   kRelativeAddressType,
   kAbsoluteAddressType,
   kFileOffsetAddressType,
 };
+
+namespace detail {
 
 // This class implements an address in a PE image file.
 // Addresses are of three varieties:
@@ -46,83 +48,77 @@ enum AddressType {
 // copied. The different address types are deliberately assignment
 // incompatible, which helps to avoid confusion when handling different
 // types of addresses in implementation.
-template <AddressType type> class AddressImpl {
+template <AddressType kType>
+class AddressImpl {
  public:
   static const AddressImpl kInvalidAddress;
 
-  AddressImpl() : value_(0) {
-  }
-  explicit AddressImpl(uint32 value) : value_(value) {
-  }
-  AddressImpl(const AddressImpl<type>& other)  // NOLINT
-      : value_(other.value_) {
+  AddressImpl() : value_(0) {}
+  explicit AddressImpl(uint32_t value) : value_(value) {}
+  AddressImpl(const AddressImpl<kType>& other)  // NOLINT
+      : value_(other.value_) {}
+
+  AddressImpl<kType>& operator=(const AddressImpl<kType>& other) {
+    value_ = other.value_;
+    return *this;
   }
 
-  bool operator<(const AddressImpl<type>& other) const {
+  // Comparison operators to other concrete addresses.
+  bool operator<(const AddressImpl<kType>& other) const {
     return value_ < other.value_;
   }
-  bool operator<=(const AddressImpl<type>& other) const {
+  bool operator<=(const AddressImpl<kType>& other) const {
     return value_ <= other.value_;
   }
-  bool operator>(const AddressImpl<type>& other) const {
+  bool operator>(const AddressImpl<kType>& other) const {
     return value_ > other.value_;
   }
-  bool operator>=(const AddressImpl<type>& other) const {
+  bool operator>=(const AddressImpl<kType>& other) const {
     return value_ >= other.value_;
   }
-
-  bool operator==(const AddressImpl<type>& other) const {
+  bool operator==(const AddressImpl<kType>& other) const {
     return value_ == other.value_;
   }
-  bool operator!=(const AddressImpl<type>& other) const {
+  bool operator!=(const AddressImpl<kType>& other) const {
     return value_ != other.value_;
   }
 
-  void operator=(const AddressImpl<type>& other) {
-    value_ = other.value_;
+  // Arithmetic operators.
+  void operator+=(int32_t offset) { value_ += offset; }
+  void operator-=(int32_t offset) { value_ -= offset; }
+  AddressImpl<kType> operator+(size_t offset) const {
+    return AddressImpl<kType>(value_ + offset);
   }
-  void operator+=(int32 offset) {
-    value_ += offset;
+  AddressImpl<kType> operator-(size_t offset) const {
+    return AddressImpl<kType>(value_ - offset);
   }
-  void operator-=(int32 offset) {
-    value_ -= offset;
-  }
-
-  AddressImpl<type> operator+(size_t offset) const {
-    return AddressImpl<type>(value() + offset);
-  }
-
-  AddressImpl<type> operator-(size_t offset) const {
-    return AddressImpl<type>(value() - offset);
-  }
-
-  int32 operator-(const AddressImpl<type>& other) const {
+  int32_t operator-(const AddressImpl<kType>& other) const {
     return value_ - other.value_;
   }
 
-  uint32 value() const { return value_; }
-  void set_value(uint32 value) {
-    value_ = value;
+  // Accessors and mutators.
+  static AddressType type() { return kType; }
+  uint32_t value() const { return value_; }
+  void set_value(uint32_t value) { value_ = value; }
+
+  // @param alignment the alignment to be provided.
+  // @returns an address that has been increased minimally to have the requested
+  //     @p alignment.
+  AddressImpl<kType> AlignUp(size_t alignment) const {
+    return AddressImpl<kType>(common::AlignUp(value_, alignment));
   }
 
-  AddressImpl<type> AlignUp(size_t alignment) const {
-    DCHECK_NE(0U, alignment);
-    // Round up to nearest multiple of alignment.
-    uint32 value = ((value_ + alignment - 1) / alignment) * alignment;
-    return AddressImpl<type>(value);
-  }
-
+  // Determines if this address has the provided @p alignment.
+  // @param alignment the alignment to be tested against.
+  // @returns true if the address is aligned to @p alignment, false otherwise.
   bool IsAligned(size_t alignment) const {
-    DCHECK_NE(0U, alignment);
-    return (value_ % alignment) == 0;
+    return common::IsAligned(value_, alignment);
   }
 
   // Determines the address alignment. If the value of the address is 0 then we
   // return the maximum alignment for a 32-bit address (0x80000000).
   // @returns the alignment of the address.
-  uint32 GetAlignment() const {
-    return common::GetAlignment(value_);
-  }
+  uint32_t GetAlignment() const { return common::GetAlignment(value_); }
 
   // For serialization.
   bool Save(OutArchive *out_archive) const {
@@ -132,23 +128,118 @@ template <AddressType type> class AddressImpl {
     return in_archive->Load(&value_);
   }
 
+  friend std::ostream& operator<<(std::ostream& str,
+                                  const AddressImpl<kType>& addr);
+
  private:
-  uint32 value_;
+  uint32_t value_;
 };
+
+}  // namespace detail
 
 // These types represent the different addressing formats used in PE images.
 
-// A virtual address relative to the image base, often termed
-// RVA in documentation and in data structure comments.
-typedef AddressImpl<kRelativeAddressType> RelativeAddress;
+// A virtual address relative to the image base, often termed RVA in
+// documentation and in data structure comments.
+using RelativeAddress = detail::AddressImpl<kRelativeAddressType>;
 // An absolute address.
-typedef AddressImpl<kAbsoluteAddressType> AbsoluteAddress;
+using AbsoluteAddress = detail::AddressImpl<kAbsoluteAddressType>;
 // A file offset within an image file.
-typedef AddressImpl<kFileOffsetAddressType> FileOffsetAddress;
+using FileOffsetAddress = detail::AddressImpl<kFileOffsetAddressType>;
 
-std::ostream& operator<<(std::ostream& str, RelativeAddress addr);
-std::ostream& operator<<(std::ostream& str, AbsoluteAddress addr);
-std::ostream& operator<<(std::ostream& str, FileOffsetAddress addr);
+// An address variant that can house any of the concrete address types.
+class AddressVariant {
+ public:
+  AddressVariant() : type_(kRelativeAddressType), value_(0) {}
+  AddressVariant(AddressType type, uint32_t value)
+      : type_(type), value_(value) {}
+  AddressVariant(const AddressVariant& other)  // NOLINT
+      : type_(other.type_), value_(other.value_) {}
+  template <AddressType kType>
+  explicit AddressVariant(const detail::AddressImpl<kType>& other)
+      : type_(kType), value_(other.value()) {}
+
+  // Allow assignment from any address type.
+  template <AddressType kType>
+  AddressVariant& operator=(const detail::AddressImpl<kType>& other) {
+    type_ = kType;
+    value_ = other.value();
+    return *this;
+  }
+  AddressVariant& operator=(const AddressVariant& other);
+
+  // Accessors and mutators.
+  AddressType type() const { return type_; }
+  uint32_t value() const { return value_; }
+  void set_type(AddressType type) { type_ = type; }
+  void set_value(uint32_t value) { value_ = value; }
+
+  // Comparison operators.
+  bool operator<(const AddressVariant& other) const;
+  bool operator<=(const AddressVariant& other) const;
+  bool operator>(const AddressVariant& other) const;
+  bool operator>=(const AddressVariant& other) const;
+  bool operator==(const AddressVariant& other) const;
+  bool operator!=(const AddressVariant& other) const;
+
+  // Arithmetic operators.
+  void operator+=(int32_t offset) { value_ += offset; }
+  void operator-=(int32_t offset) { value_ -= offset; }
+  AddressVariant operator+(size_t offset) const {
+    return AddressVariant(type_, value_ + offset);
+  }
+  AddressVariant operator-(size_t offset) const {
+    return AddressVariant(type_, value_ - offset);
+  }
+
+  // NOTE: No operator-(const AddressVariant&) is provided as the types may
+  // not be consistent and the result may not make sense.
+
+  // For extracting concrete address types.
+  // @tparam kType the concrete address type.
+  // @param addr the concrete address instance to be populated with the
+  //     address in this variant.
+  // @returns true on success (the type of this variant matches the type of
+  //     the concrete class), false otherwise.
+  template <AddressType kType>
+  bool Extract(detail::AddressImpl<kType>* addr) const {
+    DCHECK_NE(static_cast<detail::AddressImpl<kType>*>(nullptr), addr);
+    if (kType != type_)
+      return false;
+    addr->set_value(value_);
+    return true;
+  }
+
+  // @param alignment the alignment to be provided.
+  // @returns an address that has been increased minimally to have the requested
+  //     @p alignment.
+  AddressVariant AlignUp(size_t alignment) const {
+    return AddressVariant(type_, common::AlignUp(value_, alignment));
+  }
+
+  // Determines if this address has the provided @p alignment.
+  // @param alignment the alignment to be tested against.
+  // @returns true if the address is aligned to @p alignment, false otherwise.
+  bool IsAligned(size_t alignment) const {
+    return common::IsAligned(value_, alignment);
+  }
+
+  // Determines the address alignment. If the value of the address is 0 then we
+  // return the maximum alignment for a 32-bit address (0x80000000).
+  // @returns the alignment of the address.
+  uint32_t GetAlignment() const { return common::GetAlignment(value_); }
+
+  // For serialization.
+  bool Save(OutArchive* out_archive) const;
+  bool Load(InArchive* in_archive);
+
+  friend std::ostream& operator<<(std::ostream& str,
+                                  const AddressVariant& addr);
+
+ private:
+  AddressType type_;
+  uint32_t value_;
+};
 
 }  // namespace core
 
