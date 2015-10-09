@@ -75,6 +75,7 @@ extern const wchar_t kProfileInstrumentedTestDllName[];
 extern const wchar_t kProfileInstrumentedTestDllPdbName[];
 extern const wchar_t kRandomizedTestDllName[];
 extern const wchar_t kRandomizedTestDllPdbName[];
+extern const wchar_t kSignedTestDllName[];
 
 // Name of the various trace files.
 extern const wchar_t *kBBEntryTraceFiles[4];

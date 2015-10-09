@@ -322,6 +322,36 @@
         },
       ],
     },
+    {
+      'target_name': 'signed_test_dll',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        'copy_test_dll',
+      ],
+      'actions': [
+        {
+          'action_name': 'sign_test_dll',
+          'inputs': [
+            '<(src)/syzygy/test_data/syzygy.pfx',
+            '<(src)/syzygy/test_data/sign_image.bat',
+            '<(PRODUCT_DIR)/test_data/test_dll.dll',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/signed_test_dll.dll',
+          ],
+          'action': [
+            '<(src)/syzygy/test_data/sign_image.bat',
+            # This tool requires Windows-style paths, hence the use of
+            # backslashes.
+            '<(PRODUCT_DIR)\\test_data\\test_dll.dll',
+            '<(PRODUCT_DIR)\\test_data\\signed_test_dll.dll',
+          ],
+        },
+      ],
+    },
     # TODO(rogerm): The GYP snippets to generate the trace files are all
     #     pretty much identical to one other if parameterized by the mode,
     #     dll/pdb name, and output directory. Find a way to consolidate to

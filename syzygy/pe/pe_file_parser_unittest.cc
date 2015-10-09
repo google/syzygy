@@ -548,4 +548,30 @@ TEST_F(PEFileParserTest, ParseImageHeadersFromDifferentWindowsSDKs) {
   }
 }
 
+TEST_F(PEFileParserTest, ParseSignedImage) {
+  base::FilePath signed_test_dll = testing::GetExeTestDataRelativePath(
+      testing::kSignedTestDllName);
+  pe::PEFile image_file;
+  ASSERT_TRUE(image_file.Init(signed_test_dll));
+
+  // Expect the security directory to be non-empty in the source file.
+  auto data_dir = image_file.nt_headers()->OptionalHeader.DataDirectory[
+      IMAGE_DIRECTORY_ENTRY_SECURITY];
+  EXPECT_NE(0u, data_dir.Size);
+  EXPECT_NE(0u, data_dir.VirtualAddress);
+
+  TestPEFileParser parser(image_file, &address_space_, add_reference_);
+  PEFileParser::PEHeader header;
+  EXPECT_TRUE(parser.ParseImage(&header));
+
+  // Expect it to be empty in the parsed file.
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(header.nt_headers->data());
+  EXPECT_FALSE(header.data_directory[IMAGE_DIRECTORY_ENTRY_SECURITY]);
+  data_dir = nt_headers->OptionalHeader.DataDirectory[
+      IMAGE_DIRECTORY_ENTRY_SECURITY];
+  EXPECT_EQ(0u, data_dir.Size);
+  EXPECT_EQ(0u, data_dir.VirtualAddress);
+}
+
 }  // namespace pe

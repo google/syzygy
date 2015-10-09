@@ -193,10 +193,9 @@ const wchar_t kProfileInstrumentedTestDllName[] =
     L"profile_instrumented_test_dll.dll";
 const wchar_t kProfileInstrumentedTestDllPdbName[] =
     L"profile_instrumented_test_dll.dll.pdb";
-const wchar_t kRandomizedTestDllName[] =
-    L"randomized_test_dll.dll";
-const wchar_t kRandomizedTestDllPdbName[] =
-    L"randomized_test_dll.dll.pdb";
+const wchar_t kRandomizedTestDllName[] = L"randomized_test_dll.dll";
+const wchar_t kRandomizedTestDllPdbName[] = L"randomized_test_dll.dll.pdb";
+const wchar_t kSignedTestDllName[] = L"signed_test_dll.dll";
 
 const wchar_t *kBBEntryTraceFiles[4] = {
     L"basic_block_entry_traces\\trace-1.bin",

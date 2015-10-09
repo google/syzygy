@@ -361,13 +361,29 @@ bool PEFileParser::ParseImage(PEHeader* pe_header) {
 
     if (entry.Size != 0) {
       DCHECK(entry.VirtualAddress != 0);
-      BlockGraph::Block* block = (this->*parser.parser)(entry);
-      if (block == NULL) {
-        LOG(ERROR) << "Failed to parse data directory " << parser.name << ".";
-        return false;
-      }
 
-      pe_header->data_directory[parser.entry] = block;
+      // TODO(chrisha): Once ImageLayout/AddressSpace/etc. can support blocks
+      // that are not mappable, then support this properly. In the meantime
+      // simply ignore the security directory entry entirely and null it out so
+      // that the toolchain doesn't produce binaries with bad signatures.
+      if (parser.entry == IMAGE_DIRECTORY_ENTRY_SECURITY) {
+        LOG(WARNING) << "Ignoring security directory (image signature)!";
+        uint8* data = pe_header->nt_headers->GetMutableData();
+        DCHECK_NE(static_cast<uint8*>(nullptr), data);
+        IMAGE_NT_HEADERS* nt_headers =
+            reinterpret_cast<IMAGE_NT_HEADERS*>(data);
+        auto& data_dir = nt_headers->OptionalHeader.DataDirectory[parser.entry];
+        data_dir.Size = 0;
+        data_dir.VirtualAddress = 0;
+      } else {
+        BlockGraph::Block* block = (this->*parser.parser)(entry);
+        if (block == nullptr) {
+          LOG(ERROR) << "Failed to parse data directory " << parser.name << ".";
+          return false;
+        }
+
+        pe_header->data_directory[parser.entry] = block;
+      }
     }
   }
 
