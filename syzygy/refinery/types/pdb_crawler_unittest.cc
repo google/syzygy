@@ -14,9 +14,13 @@
 
 #include "syzygy/refinery/types/pdb_crawler.h"
 
+#include <hash_map>
+#include <vector>
+
 #include "base/path_service.h"
 #include "base/debug/alias.h"
 #include "base/files/file_path.h"
+#include "base/memory/ref_counted.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "gtest/gtest.h"
@@ -53,8 +57,9 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
   void LoadTypes() {
     ASSERT_TRUE(crawler_.InitializeForFile(test_types_file_));
 
-    ASSERT_TRUE(crawler_.GetTypes(&types_));
-    ASSERT_LE(1U, types_.size());
+    types_ = new TypeRepository();
+    ASSERT_TRUE(crawler_.GetTypes(types_.get()));
+    ASSERT_LE(1U, types_->size());
   }
 
   // For a given type name, this function returns size of the type as encoded in
@@ -138,7 +143,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
 
   std::vector<TypePtr> FindTypesBySuffix(const base::string16& suffix) {
     std::vector<TypePtr> found_types;
-    for (auto it = types_.begin(); it != types_.end(); ++it) {
+    for (auto it = types_->begin(); it != types_->end(); ++it) {
       if (base::EndsWith((*it)->name(), suffix, base::CompareCase::SENSITIVE)) {
         found_types.push_back(*it);
       }
@@ -156,7 +161,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
   PdbCrawler crawler_;
   base::FilePath test_types_file_;
   base::hash_map<base::string16, size_t> constants_;
-  TypeRepository types_;
+  scoped_refptr<TypeRepository> types_;
 };
 
 void ValidateField(const UserDefinedType::Field& field,

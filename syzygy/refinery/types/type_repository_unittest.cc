@@ -14,19 +14,20 @@
 
 #include "syzygy/refinery/types/type_repository.h"
 
+#include "base/memory/ref_counted.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/types/type.h"
 
 namespace refinery {
 
 TEST(TypeRepositoryTest, AddType) {
-  TypeRepository repo;
-  EXPECT_EQ(0U, repo.size());
+  scoped_refptr<TypeRepository> repo = new TypeRepository();
+  EXPECT_EQ(0U, repo->size());
 
   // Returns a NULL type for unknown TypeId.
-  EXPECT_FALSE(repo.GetType(1));
+  EXPECT_FALSE(repo->GetType(1));
 
-  for (auto type : repo)
+  for (auto type : *repo)
     FAIL() << "Non-empty enumeration in an empty TypeRepository";
 
   TypePtr t1 = new BasicType(L"uint", 4);
@@ -34,27 +35,27 @@ TEST(TypeRepositoryTest, AddType) {
   EXPECT_EQ(nullptr, t1->repository());
   EXPECT_EQ(nullptr, t2->repository());
 
-  TypeId id1 = repo.AddType(t1);
-  TypeId id2 = repo.AddType(t2);
-  EXPECT_EQ(2U, repo.size());
+  TypeId id1 = repo->AddType(t1);
+  TypeId id2 = repo->AddType(t2);
+  EXPECT_EQ(2U, repo->size());
 
   EXPECT_NE(id1, id2);
 
-  EXPECT_EQ(&repo, t1->repository());
-  EXPECT_EQ(&repo, t2->repository());
+  EXPECT_EQ(repo.get(), t1->repository());
+  EXPECT_EQ(repo.get(), t2->repository());
 
-  EXPECT_EQ(t1, repo.GetType(id1));
-  EXPECT_EQ(t2, repo.GetType(id2));
+  EXPECT_EQ(t1, repo->GetType(id1));
+  EXPECT_EQ(t2, repo->GetType(id2));
 }
 
 TEST(TypeRepositoryTest, AddTypeWithId) {
-  TypeRepository repo;
-  EXPECT_EQ(0U, repo.size());
+  scoped_refptr<TypeRepository> repo = new TypeRepository();
+  EXPECT_EQ(0U, repo->size());
 
   // Returns a NULL type for unknown TypeId.
-  EXPECT_FALSE(repo.GetType(1));
+  EXPECT_FALSE(repo->GetType(1));
 
-  for (auto type : repo)
+  for (auto type : *repo)
     FAIL() << "Non-empty enumeration in an empty TypeRepository";
 
   TypePtr t1 = new BasicType(L"uint", 4);
@@ -66,33 +67,33 @@ TEST(TypeRepositoryTest, AddTypeWithId) {
   EXPECT_EQ(nullptr, t1->repository());
   EXPECT_EQ(nullptr, t2->repository());
 
-  EXPECT_TRUE(repo.AddTypeWithId(t1, kId1));
-  EXPECT_TRUE(repo.AddTypeWithId(t2, kId2));
-  EXPECT_EQ(2U, repo.size());
+  EXPECT_TRUE(repo->AddTypeWithId(t1, kId1));
+  EXPECT_TRUE(repo->AddTypeWithId(t2, kId2));
+  EXPECT_EQ(2U, repo->size());
 
-  EXPECT_EQ(&repo, t1->repository());
-  EXPECT_EQ(&repo, t2->repository());
+  EXPECT_EQ(repo.get(), t1->repository());
+  EXPECT_EQ(repo.get(), t2->repository());
 
   // There is still no object with id 1.
-  EXPECT_FALSE(repo.GetType(1));
+  EXPECT_FALSE(repo->GetType(1));
 
   // This index is already taken.
-  EXPECT_FALSE(repo.AddTypeWithId(t3, kId1));
+  EXPECT_FALSE(repo->AddTypeWithId(t3, kId1));
 
-  EXPECT_EQ(t1, repo.GetType(kId1));
-  EXPECT_EQ(t2, repo.GetType(kId2));
+  EXPECT_EQ(t1, repo->GetType(kId1));
+  EXPECT_EQ(t2, repo->GetType(kId2));
 }
 
 TEST(TypeRepositoryTest, Iteration) {
-  TypeRepository repo;
+  scoped_refptr<TypeRepository> repo = new TypeRepository();
 
-  repo.AddType(new BasicType(L"one", 4));
-  repo.AddType(new BasicType(L"two", 4));
-  repo.AddType(new BasicType(L"three", 4));
-  EXPECT_EQ(3U, repo.size());
+  repo->AddType(new BasicType(L"one", 4));
+  repo->AddType(new BasicType(L"two", 4));
+  repo->AddType(new BasicType(L"three", 4));
+  EXPECT_EQ(3U, repo->size());
 
   size_t iterated = 0;
-  for (auto type : repo) {
+  for (auto type : *repo) {
     ++iterated;
 
     ASSERT_TRUE(type);

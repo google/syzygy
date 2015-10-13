@@ -19,10 +19,12 @@
 #include "syzygy/experimental/heap_enumerate/heap_enumerate.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/containers/hash_tables.h"
+#include "base/memory/ref_counted.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/refinery/core/address.h"
@@ -770,12 +772,12 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
   if (!Initialize())
     return;
 
-  TypeRepository repo;
-  if (!GetNtdllTypes(&repo))
+  scoped_refptr<TypeRepository> repo = new TypeRepository();
+  if (!GetNtdllTypes(repo.get()))
     return;
 
   HeapEnumerator enumerator;
-  if (!enumerator.Initialize(heap_, &repo))
+  if (!enumerator.Initialize(heap_, repo.get()))
     return;
 
   // Dump the heap structure itself.

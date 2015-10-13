@@ -17,6 +17,7 @@
 #include "base/path_service.h"
 #include "base/debug/alias.h"
 #include "base/files/file_path.h"
+#include "base/memory/ref_counted.h"
 #include "base/strings/string_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
@@ -35,18 +36,19 @@ class DiaCrawlerTest : public testing::Test {
     ASSERT_TRUE(crawler.InitializeForFile(testing::GetSrcRelativePath(
         L"syzygy\\refinery\\test_data\\test_types.dll.pdb")));
 
-    ASSERT_TRUE(crawler.GetTypes(&types_));
+    types_ = new TypeRepository();
+    ASSERT_TRUE(crawler.GetTypes(types_.get()));
   }
 
   TypePtr FindTypeEndingWith(const base::string16& str) {
-    for (auto it : types_) {
+    for (auto it : *types_) {
       if (base::EndsWith(it->name(), str, base::CompareCase::SENSITIVE))
         return it;
     }
     return nullptr;
   }
 
-  TypeRepository types_;
+  scoped_refptr<TypeRepository> types_;
 };
 
 }  // namespace

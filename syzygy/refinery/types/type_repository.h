@@ -28,12 +28,11 @@ class Type;
 using TypePtr = scoped_refptr<Type>;
 
 // Keeps type instances, assigns them an ID and vends them out by ID on demand.
-class TypeRepository {
+class TypeRepository : public base::RefCounted<TypeRepository> {
  public:
   class Iterator;
 
   TypeRepository();
-  ~TypeRepository();
 
   // Retrieve a type by @p id.
   TypePtr GetType(TypeId id);
@@ -55,6 +54,9 @@ class TypeRepository {
   // @}
 
  private:
+  friend class base::RefCounted<TypeRepository>;
+  ~TypeRepository();
+
   base::hash_map<TypeId, TypePtr> types_;
 
   DISALLOW_COPY_AND_ASSIGN(TypeRepository);

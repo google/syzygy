@@ -15,8 +15,10 @@
 #include "syzygy/experimental/pdb_dumper/pdb_type_dump.h"
 
 #include <algorithm>
+#include <vector>
 
 #include "base/logging.h"
+#include "base/memory/ref_counted.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/refinery/types/dia_crawler.h"
 #include "syzygy/refinery/types/pdb_crawler.h"
@@ -324,7 +326,8 @@ void PdbTypeDumpApp::DumpType(refinery::TypePtr type, uint8_t indent_level) {
 }
 
 int PdbTypeDumpApp::Run() {
-  refinery::TypeRepository repository;
+  scoped_refptr<refinery::TypeRepository> repository =
+      new refinery::TypeRepository();
 
   // Load the types.
   if (dump_with_dia_) {
@@ -332,24 +335,24 @@ int PdbTypeDumpApp::Run() {
     if (!crawler.InitializeForFile(pdb_path_))
       return 1;
 
-    if (!crawler.GetTypes(&repository))
+    if (!crawler.GetTypes(repository.get()))
       return 1;
   } else {
     refinery::PdbCrawler crawler;
     if (!crawler.InitializeForFile(pdb_path_))
       return 1;
 
-    if (!crawler.GetTypes(&repository))
+    if (!crawler.GetTypes(repository.get()))
       return 1;
   }
 
   DumpIndentedText(out(), 0, "%d types parsed from the PDB stream:\n",
-                   repository.size());
+                   repository->size());
 
   if (dump_in_order_) {
     // We need to sort the repository.
-    std::vector<refinery::TypePtr> ordered_repository(repository.begin(),
-                                                      repository.end());
+    std::vector<refinery::TypePtr> ordered_repository(repository->begin(),
+                                                      repository->end());
     std::sort(ordered_repository.begin(), ordered_repository.end(),
               [](const refinery::TypePtr& a, const refinery::TypePtr& b)
                   -> bool { return a->type_id() < b->type_id(); });
@@ -358,7 +361,7 @@ int PdbTypeDumpApp::Run() {
       DumpType(type, 1);
     }
   } else {
-    for (refinery::TypePtr type : repository) {
+    for (refinery::TypePtr type : *repository) {
       DumpType(type, 1);
     }
   }

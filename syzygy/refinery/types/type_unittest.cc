@@ -14,6 +14,7 @@
 
 #include "syzygy/refinery/types/type.h"
 
+#include "base/memory/ref_counted.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/types/type_repository.h"
 
@@ -23,6 +24,11 @@ namespace {
 
 class TypesTest : public testing::Test {
  protected:
+  void SetUp() override {
+    Test::SetUp();
+    repo_ = new TypeRepository();
+  }
+
   TypePtr CreatePointerType(const wchar_t* name,
                             size_t size,
                             PointerType::Mode ptr_mode,
@@ -34,7 +40,7 @@ class TypesTest : public testing::Test {
     return ptr;
   }
 
-  TypeRepository repo_;
+  scoped_refptr<TypeRepository> repo_;
 };
 
 }  // namespace
@@ -66,24 +72,24 @@ TEST_F(TypesTest, UserDefinedType) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
 
-  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"int", 4));
+  const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
   fields.push_back(
       UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId));
   fields.push_back(UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, 0, 0,
                                           kBasicTypeId));
-  const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
+  const TypeId kShortTypeId = repo_->AddType(new BasicType(L"short", 2));
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt =
       new UserDefinedType(L"foo", 10, UserDefinedType::UDT_CLASS);
 
-  const TypeId kClassId = repo_.AddType(udt);
+  const TypeId kClassId = repo_->AddType(udt);
 
   // Set up a member function.
   FunctionTypePtr function = new FunctionType(FunctionType::CALL_NEAR_C);
   function->Finalize(FunctionType::ArgumentType(kNoTypeFlags, kShortTypeId),
                      FunctionType::Arguments(), kClassId);
   function->SetName(L"short (foo::)()");
-  const TypeId kFunctionId = repo_.AddType(function);
+  const TypeId kFunctionId = repo_->AddType(function);
 
   UserDefinedType::Functions functions;
   functions.push_back(
@@ -145,18 +151,18 @@ TEST_F(TypesTest, UserDefinedType) {
 TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
-  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"int", 4));
+  const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
   fields.push_back(
       UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId));
   fields.push_back(UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, 0, 0,
                                           kBasicTypeId));
-  const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
+  const TypeId kShortTypeId = repo_->AddType(new BasicType(L"short", 2));
   fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 10,
                                                UserDefinedType::UDT_STRUCT);
   udt->Finalize(fields, UserDefinedType::Functions());
 
-  repo_.AddType(udt);
+  repo_->AddType(udt);
 
   // Up-cast it.
   TypePtr type(udt);
@@ -208,7 +214,7 @@ TEST_F(TypesTest, UserDefineTypeForwardDeclaration) {
                                                UserDefinedType::UDT_STRUCT);
   udt->SetIsForwardDeclaration();
 
-  repo_.AddType(udt);
+  repo_->AddType(udt);
 
   // Up-cast it.
   TypePtr type(udt);
@@ -230,10 +236,10 @@ TEST_F(TypesTest, UserDefineTypeForwardDeclaration) {
 
 TEST_F(TypesTest, PointerType) {
   // Build a Pointer instance.
-  const TypeId kPtrTypeId = repo_.AddType(new BasicType(L"void", 0));
+  const TypeId kPtrTypeId = repo_->AddType(new BasicType(L"void", 0));
   TypePtr type = CreatePointerType(L"void*", 4, PointerType::PTR_MODE_PTR,
                                    Type::FLAG_VOLATILE, kPtrTypeId);
-  repo_.AddType(type);
+  repo_->AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
@@ -258,14 +264,14 @@ TEST_F(TypesTest, PointerType) {
 
 TEST_F(TypesTest, PointerTypeWithDecoratedName) {
   // Build a Pointer instance.
-  const TypeId kPtrTypeId = repo_.AddType(new BasicType(L"void", 0));
+  const TypeId kPtrTypeId = repo_->AddType(new BasicType(L"void", 0));
   PointerTypePtr ptr_type = new PointerType(4, PointerType::PTR_MODE_PTR);
   ptr_type->SetName(L"void*");
   ptr_type->SetDecoratedName(L"decorated_void*");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kPtrTypeId);
 
   TypePtr type = ptr_type;
-  repo_.AddType(type);
+  repo_->AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
@@ -292,15 +298,15 @@ TEST_F(TypesTest, PointerTypeWithDecoratedName) {
 
 TEST_F(TypesTest, ArrayType) {
   TypePtr int_type = new BasicType(L"int32_t", 0);
-  const TypeId kIntTypeId = repo_.AddType(int_type);
+  const TypeId kIntTypeId = repo_->AddType(int_type);
   PointerTypePtr ptr_type = new PointerType(4, PointerType::PTR_MODE_PTR);
   ptr_type->SetName(L"aName");
   ptr_type->SetDecoratedName(L"aDecoratedName");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kIntTypeId);
-  const TypeId kPtrTypeId = repo_.AddType(ptr_type);
+  const TypeId kPtrTypeId = repo_->AddType(ptr_type);
 
   ArrayTypePtr array = new ArrayType(10 * ptr_type->size());
-  repo_.AddType(array);
+  repo_->AddType(array);
   array->Finalize(Type::FLAG_CONST, kIntTypeId, 10, kPtrTypeId);
   ASSERT_EQ(L"", array->name());
   array->SetName(L"ArrayName");
@@ -320,16 +326,16 @@ TEST_F(TypesTest, ArrayType) {
 TEST_F(TypesTest, FunctionType) {
   // Build a UDT instance.
   FunctionType::Arguments args;
-  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"uint32_t", 4));
+  const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"uint32_t", 4));
   args.push_back(FunctionType::ArgumentType(Type::FLAG_CONST, kBasicTypeId));
   args.push_back(FunctionType::ArgumentType(Type::FLAG_VOLATILE, kBasicTypeId));
-  const TypeId kShortTypeId = repo_.AddType(new BasicType(L"short", 2));
+  const TypeId kShortTypeId = repo_->AddType(new BasicType(L"short", 2));
   args.push_back(FunctionType::ArgumentType(kNoTypeFlags, kShortTypeId));
 
-  const TypeId kBoolTypeId = repo_.AddType(new BasicType(L"bool", 1));
+  const TypeId kBoolTypeId = repo_->AddType(new BasicType(L"bool", 1));
   FunctionType::ArgumentType ret_value(Type::FLAG_CONST, kBoolTypeId);
 
-  const TypeId kClassType = repo_.AddType(new UserDefinedType(
+  const TypeId kClassType = repo_->AddType(new UserDefinedType(
       L"foo", L"decorated_foo", 10, UserDefinedType::UDT_CLASS));
 
   FunctionTypePtr function = new FunctionType(FunctionType::CALL_NEAR_C);
@@ -337,7 +343,7 @@ TEST_F(TypesTest, FunctionType) {
   function->SetName(L"FunctionName");
   function->SetDecoratedName(L"decorated@@FunctionName");
 
-  repo_.AddType(function);
+  repo_->AddType(function);
 
   // Up-cast it.
   TypePtr type(function);
@@ -394,14 +400,14 @@ TEST_F(TypesTest, FunctionType) {
 }
 
 TEST_F(TypesTest, GlobalType) {
-  const TypeId kBasicTypeId = repo_.AddType(new BasicType(L"int", 4));
+  const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
   uint64_t kRVA = 0xCAFEBABE;
   TypePtr type = new GlobalType(L"foo", kRVA, kBasicTypeId, 4);
   EXPECT_EQ(Type::GLOBAL_TYPE_KIND, type->kind());
   EXPECT_EQ(L"foo", type->name());
   EXPECT_EQ(4, type->size());
 
-  ASSERT_NE(0U, repo_.AddType(type));
+  ASSERT_NE(0U, repo_->AddType(type));
 
   // Cast it down.
   GlobalTypePtr global;
@@ -418,7 +424,7 @@ TEST_F(TypesTest, GlobalType) {
 TEST_F(TypesTest, WildcardType) {
   // Build a wildcard instance.
   TypePtr type = new WildcardType(L"Wildcard", 4);
-  repo_.AddType(type);
+  repo_->AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);

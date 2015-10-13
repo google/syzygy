@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "base/memory/ref_counted.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/core/bit_source.h"
 #include "syzygy/refinery/types/type.h"
@@ -110,14 +111,16 @@ class TypedDataTest : public testing::Test {
 
  private:
   void CreateTypes() {
+    repo_ = new TypeRepository();
+
     TypePtr uint8_type = new BasicType(L"uint8_t", sizeof(uint8_t));
     TypePtr uint16_type = new BasicType(L"uint16_t", sizeof(uint16_t));
     uint32_type_ = new BasicType(L"uint32_t", sizeof(uint32_t));
     TypePtr int32_type = new BasicType(L"int32_t", sizeof(int32_t));
-    repo_.AddType(uint8_type);
-    repo_.AddType(uint16_type);
-    repo_.AddType(uint32_type_);
-    repo_.AddType(int32_type);
+    repo_->AddType(uint8_type);
+    repo_->AddType(uint16_type);
+    repo_->AddType(uint32_type_);
+    repo_->AddType(int32_type);
 
     UserDefinedType::Fields fields;
     UserDefinedTypePtr inner(new UserDefinedType(
@@ -129,14 +132,14 @@ class TypedDataTest : public testing::Test {
         L"inner_two", offsetof(TestUDT::InnerUDT, inner_two), 0, 0, 0,
         uint32_type_->type_id()));
     inner->Finalize(fields, UserDefinedType::Functions());
-    repo_.AddType(inner);
+    repo_->AddType(inner);
 
     fields.clear();
     UserDefinedTypePtr outer(new UserDefinedType(L"TestUDT", sizeof(TestUDT),
                                                  UserDefinedType::UDT_STRUCT));
     PointerTypePtr ptr_type(
         new PointerType(sizeof(TestUDT*), PointerType::PTR_MODE_PTR));
-    repo_.AddType(ptr_type);
+    repo_->AddType(ptr_type);
 
     fields.push_back(UserDefinedType::Field(L"one", offsetof(TestUDT, one), 0,
                                             0, 0, uint16_type->type_id()));
@@ -154,13 +157,13 @@ class TypedDataTest : public testing::Test {
     ArrayTypePtr array_type = new ArrayType(sizeof(test_instance.six));
     array_type->Finalize(kNoTypeFlags, uint32_type_->type_id(),
                          arraysize(test_instance.six), int32_type->type_id());
-    repo_.AddType(array_type);
+    repo_->AddType(array_type);
 
     fields.push_back(UserDefinedType::Field(L"six", offsetof(TestUDT, six),
                                             kNoTypeFlags, 0, 0,
                                             array_type->type_id()));
     outer->Finalize(fields, UserDefinedType::Functions());
-    repo_.AddType(outer);
+    repo_->AddType(outer);
 
     ptr_type->Finalize(Type::FLAG_CONST, outer->type_id());
 
@@ -172,7 +175,7 @@ class TypedDataTest : public testing::Test {
   UserDefinedTypePtr udt_;
   TypePtr uint32_type_;
   TestBitSource test_bit_source_;
-  TypeRepository repo_;
+  scoped_refptr<TypeRepository> repo_;
 };
 
 }  // namespace
