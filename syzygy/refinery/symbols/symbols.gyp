@@ -27,11 +27,16 @@
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
         '<(src)/syzygy/'
             'refinery/process_state/process_state.gyp:process_state_lib',
+        '<(src)/syzygy/refinery/types/types.gyp:types_lib',
       ],
       'sources': [
         'dia_symbol_provider.cc',
         'dia_symbol_provider.h',
-     ],
+        'symbol_provider.cc',
+        'symbol_provider.h',
+        'symbol_provider_util.cc',
+        'symbol_provider_util.h',
+      ],
     },
   ],
 }

@@ -63,7 +63,7 @@ class ProcessState : public BitSource {
   // @param addr the address the desired record contains.
   // @param record on success, the returned record.
   // @returns true on success, false if there is no single record containing @p
-  //   addr.
+  //     addr.
   template <typename RecordType>
   bool FindSingleRecord(Address addr,
                         scoped_refptr<Record<RecordType>>* record);
@@ -88,7 +88,7 @@ class ProcessState : public BitSource {
   // @pre @p exception must have a thread id set.
   // @param exception the exception
   // @returns true on success, false if the excepting thread doesn't exist or if
-  //    an exception is already set.
+  //     an exception is already set.
   bool SetException(const Exception& exception);
 
   // Returns the id of the excepting thread.

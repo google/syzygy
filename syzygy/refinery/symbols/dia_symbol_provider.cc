@@ -16,101 +16,13 @@
 
 #include <string>
 
-#include "base/environment.h"
 #include "base/strings/stringprintf.h"
-#include "base/strings/utf_string_conversions.h"
 #include "syzygy/common/com_utils.h"
-#include "syzygy/pe/find.h"
+#include "syzygy/pe/dia_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
-#include "syzygy/refinery/process_state/process_state_util.h"
+#include "syzygy/refinery/symbols/symbol_provider_util.h"
 
 namespace refinery {
-
-namespace {
-
-// TODO(manzagop): this probably exists somewhere?
-bool GetEnvVar(const char* name, base::string16* value) {
-  DCHECK(name != NULL);
-  DCHECK(value != NULL);
-  value->clear();
-
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  if (env.get() == NULL) {
-    LOG(ERROR) << "base::Environment::Create returned NULL.";
-    return false;
-  }
-
-  // If this fails, the environment variable simply does not exist.
-  std::string var;
-  if (!env->GetVar(name, &var))
-    return true;
-
-  if (!base::UTF8ToUTF16(var.c_str(), var.size(), value)) {
-    LOG(ERROR) << "base::UTF8ToUTF16(\"" << var << "\" failed.";
-    return false;
-  }
-
-  return true;
-}
-
-bool GetModuleSignature(ModuleRecordPtr module_record,
-                        scoped_ptr<pe::PEFile::Signature>* signature) {
-  DCHECK(signature);
-
-  const AddressRange& module_range = module_record->range();
-  const Module& module = module_record->data();
-
-  // Get the module's path.
-  const std::string& module_path = module.name();
-  base::string16 module_path_wide;
-  if (!base::UTF8ToUTF16(module_path.c_str(), module_path.size(),
-                         &module_path_wide)) {
-    LOG(ERROR) << "base::UTF8ToUTF16(\"" << module_path << "\" failed.";
-    return false;
-  }
-
-  // Get the module's address.
-  if (!base::IsValueInRangeForNumericType<uint32>(module_range.start())) {
-    LOG(ERROR) << "PE::Signature doesn't support 64bit addresses. Address: "
-               << module_range.start();
-    return false;
-  }
-  pe::PEFile::AbsoluteAddress module_address(
-      base::checked_cast<uint32>(module_range.start()));
-
-  signature->reset(new pe::PEFile::Signature(
-      module_path_wide, module_address, module_range.size(), module.checksum(),
-      module.timestamp()));
-  return true;
-}
-
-bool GetPdbPath(const pe::PEFile::Signature& signature,
-                base::FilePath* pdb_path) {
-  DCHECK(pdb_path);
-
-  // Get the module's path.
-  base::string16 symbol_paths;
-  GetEnvVar("_NT_SYMBOL_PATH", &symbol_paths);
-  base::FilePath module_local_path;
-  if (!pe::FindModuleBySignature(signature, symbol_paths, &module_local_path) ||
-      module_local_path.empty()) {
-    LOG(ERROR) << "Failed to find module (name, size, timestamp): "
-               << signature.path << ", " << signature.module_size << ", "
-               << signature.module_time_date_stamp;
-    return false;
-  }
-
-  // Get the pdb's path.
-  if (!pe::FindPdbForModule(module_local_path, symbol_paths, pdb_path) ||
-      pdb_path->empty()) {
-    LOG(ERROR) << "Failed to find pdb for module " << signature.path;
-    return false;
-  }
-
-  return true;
-}
-
-}  // namespace
 
 DiaSymbolProvider::DiaSymbolProvider() {
 }
@@ -118,28 +30,26 @@ DiaSymbolProvider::DiaSymbolProvider() {
 DiaSymbolProvider::~DiaSymbolProvider() {
 }
 
-bool DiaSymbolProvider::GetDiaSession(
+bool DiaSymbolProvider::FindOrCreateDiaSession(
     const Address va,
     ProcessState* process_state,
     base::win::ScopedComPtr<IDiaSession>* session) {
   DCHECK(process_state != nullptr);
   DCHECK(session != nullptr);
+  *session = nullptr;
 
   // Get the module's signature.
-  ModuleRecordPtr module_record;
-  if (!process_state->FindSingleRecord(va, &module_record))
-    return false;
-  scoped_ptr<pe::PEFile::Signature> signature;
-  if (!GetModuleSignature(module_record, &signature))
+  pe::PEFile::Signature signature;
+  if (!GetModuleSignature(va, process_state, &signature))
     return false;
 
   // Retrieve the session.
   base::win::ScopedComPtr<IDiaSession> session_temp;
-  if (!GetDiaSession(*signature, &session_temp))
+  if (!FindOrCreateDiaSession(signature, &session_temp))
     return false;
 
   // Set the load address (the same module might be loaded at multiple VAs).
-  HRESULT hr = session_temp->put_loadAddress(signature->base_address.value());
+  HRESULT hr = session_temp->put_loadAddress(signature.base_address.value());
   if (FAILED(hr)) {
     LOG(ERROR) << "Unable to set session's load address: " << common::LogHr(hr);
     return false;
@@ -149,77 +59,53 @@ bool DiaSymbolProvider::GetDiaSession(
   return true;
 }
 
-bool DiaSymbolProvider::GetDiaSession(
+// TODO(manzagop): revise this function using the code from dia_util.h.
+bool DiaSymbolProvider::FindOrCreateDiaSession(
     const pe::PEFile::Signature& signature,
     base::win::ScopedComPtr<IDiaSession>* session) {
   DCHECK(session != nullptr);
-
-  base::string16 cache_key;
-  if (!EnsurePdbSessionCached(signature, &cache_key))
-    return false;
-
-  auto session_it = pdb_sessions_.find(cache_key);
-  DCHECK(session_it != pdb_sessions_.end());
-  *session = session_it->second;
-
-  if (!session->get())
-    return false;  // Negative cache entry.
-
-  return true;
-}
-
-// TODO(manzagop): revise this function using the code from dia_util.h.
-bool DiaSymbolProvider::EnsurePdbSessionCached(
-    const pe::PEFile::Signature& signature,
-    base::string16* cache_key) {
-  DCHECK(cache_key != NULL);
+  *session = nullptr;
 
   // Determine the cache key. Note that the cache key does not contain the
   // module's base address.
-  // TODO(manzagop): use module's basename instead of module's path?
-  base::SStringPrintf(cache_key, L"%ls:%d:%d:%d", signature.path,
+  base::string16 cache_key;
+  base::SStringPrintf(&cache_key, L"%ls:%d:%d:%d",
+                      base::FilePath(signature.path).BaseName().value().c_str(),
                       signature.module_size, signature.module_checksum,
                       signature.module_time_date_stamp);
-  auto session_it = pdb_sessions_.find(*cache_key);
-  if (session_it != pdb_sessions_.end())
-    return true;  // A session (or lack thereof) is cached.
 
-  // The module is not in the cache. Attempt to create a dia session for the
-  // module.
+  // Look for a pre-existing entry.
+  auto session_it = pdb_sessions_.find(cache_key);
+  if (session_it != pdb_sessions_.end()) {
+    *session = session_it->second;
+    return true;
+  }
 
-  // Create negative cache entries, which will be replaced on success.
-  pdb_sources_[*cache_key] = base::win::ScopedComPtr<IDiaDataSource>();
-  pdb_sessions_[*cache_key] = base::win::ScopedComPtr<IDiaSession>();
+  // The module is not in the cache. Create negative cache entries, which will
+  // be replaced on success.
+  pdb_sources_[cache_key] = base::win::ScopedComPtr<IDiaDataSource>();
+  pdb_sessions_[cache_key] = base::win::ScopedComPtr<IDiaSession>();
 
+  // Attempt to create a dia session for the module.
   base::FilePath pdb_path;
   if (!GetPdbPath(signature, &pdb_path))
     return false;
 
   // Get a source for the pdb.
   base::win::ScopedComPtr<IDiaDataSource> pdb_source;
-  HRESULT hr = pdb_source.CreateInstance(CLSID_DiaSource);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to create DIA source: " << common::LogHr(hr);
+  if (!pe::CreateDiaSource(pdb_source.Receive()))
     return false;
-  }
-  hr = pdb_source->loadDataFromPdb(pdb_path.value().c_str());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to load PDB: " << common::LogHr(hr);
-    return false;
-  }
 
   // Get the session.
   base::win::ScopedComPtr<IDiaSession> pdb_session;
-  hr = pdb_source->openSession(pdb_session.Receive());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to open session: " << common::LogHr(hr);
+  if (!pe::CreateDiaSession(pdb_path, pdb_source.get(), pdb_session.Receive()))
     return false;
-  }
 
   // Cache source and session.
-  pdb_sources_[*cache_key] = pdb_source;
-  pdb_sessions_[*cache_key] = pdb_session;
+  pdb_sources_[cache_key] = pdb_source;
+  pdb_sessions_[cache_key] = pdb_session;
 
+  *session = pdb_session;
   return true;
 }
 

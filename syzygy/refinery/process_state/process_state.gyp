@@ -65,6 +65,8 @@
       'sources': [
         'process_state.cc',
         'process_state.h',
+        'process_state_util.cc',
+        'process_state_util.h',
         'record_traits.h',
         '<(SHARED_INTERMEDIATE_DIR)/syzygy/'
             'refinery/process_state/refinery.pb.cc',

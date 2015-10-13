@@ -15,6 +15,9 @@
 #ifndef SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_
 #define SYZYGY_REFINERY_PROCESS_STATE_PROCESS_STATE_UTIL_H_
 
+#include <string>
+
+#include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
@@ -31,6 +34,12 @@ using StackFrameRecordPtr = ProcessState::Layer<StackFrame>::RecordPtr;
 
 using ModuleLayerPtr = scoped_refptr<ProcessState::Layer<Module>>;
 using ModuleRecordPtr = ProcessState::Layer<Module>::RecordPtr;
+
+void AddModuleRecord(const AddressRange& range,
+                     const uint32 checksum,
+                     const uint32 timestamp,
+                     const std::string& path,
+                     ProcessState* process_state);
 
 }  // namespace refinery
 

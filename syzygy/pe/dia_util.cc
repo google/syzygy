@@ -265,6 +265,21 @@ bool GetLocationType(IDiaSymbol* symbol, enum LocationType* location_type) {
   return true;
 }
 
+bool GetRegisterId(IDiaSymbol* symbol, uint32_t* register_id) {
+  DCHECK(symbol); DCHECK(register_id);
+
+  DWORD tmp = 0;
+  HRESULT hr = symbol->get_registerId(&tmp);
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's register id: " << common::LogHr(hr)
+               << ".";
+    return false;
+  }
+
+  *register_id = static_cast<uint32_t>(tmp);
+  return true;
+}
+
 bool GetSymOffset(IDiaSymbol* symbol, ptrdiff_t* offset) {
   DCHECK(symbol); DCHECK(offset);
 

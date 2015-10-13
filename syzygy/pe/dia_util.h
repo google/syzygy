@@ -141,38 +141,44 @@ bool GetSymName(IDiaSymbol* symbol, base::string16* name);
 
 // Gets the symbol's data kind.
 // @param symbol the symbol to examine.
-// @param name on success, returns @p symbol's data kind.
+// @param kind on success, returns @p symbol's data kind.
 // @returns true on success, false on failure.
 bool GetDataKind(IDiaSymbol* symbol, enum DataKind* kind);
 
 // Gets the symbol's location type.
 // @param symbol the symbol to examine.
-// @param name on success, returns @p symbol's location type.
+// @param location_type on success, returns @p symbol's location type.
 // @returns true on success, false on failure.
 bool GetLocationType(IDiaSymbol* symbol, enum LocationType* location_type);
 
+// Gets the symbol's register id.
+// @param symbol the symbol to examine.
+// @param register_id on success, returns @p symbol's register id.
+// @returns true on success, false on failure.
+bool GetRegisterId(IDiaSymbol* symbol, uint32_t* register_id);
+
 // Gets the symbol's offset.
 // @param symbol the symbol to examine.
-// @param name on success, returns @p symbol's offset.
+// @param offset on success, returns @p symbol's offset.
 // @returns true on success, false on failure.
 bool GetSymOffset(IDiaSymbol* symbol, ptrdiff_t* offset);
 
 // Gets the symbol's type.
 // @param symbol the symbol to examine.
-// @param name on success, returns @p symbol's type.
+// @param type on success, returns @p symbol's type.
 // @returns true on success, false on failure.
 bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type);
 
 // Gets the symbol's class parent.
 // @param symbol the symbol to examine.
-// @param name on success, returns @p symbol's class parent.
+// @param parent on success, returns @p symbol's class parent.
 // @returns true on success, false on failure.
 bool GetSymClassParent(IDiaSymbol* symbol,
                        base::win::ScopedComPtr<IDiaSymbol>* parent);
 
 // Gets the symbol's lexical parent.
 // @param symbol the symbol to examine.
-// @param name on success, returns @p symbol's lexical parent.
+// @param parent on success, returns @p symbol's lexical parent.
 // @returns true on success, false on failure.
 bool GetSymLexicalParent(IDiaSymbol* symbol,
                          base::win::ScopedComPtr<IDiaSymbol>* parent);

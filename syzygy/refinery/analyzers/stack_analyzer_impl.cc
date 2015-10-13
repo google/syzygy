@@ -200,7 +200,7 @@ STDMETHODIMP StackWalkHelper::searchForReturnAddressStart(
 STDMETHODIMP StackWalkHelper::frameForVA(ULONGLONG va,
                                          IDiaFrameData** frame_data) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!symbol_provider_->GetDiaSession(va, process_state_, &session)) {
+  if (!symbol_provider_->FindOrCreateDiaSession(va, process_state_, &session)) {
     LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
   }
@@ -230,7 +230,7 @@ STDMETHODIMP StackWalkHelper::frameForVA(ULONGLONG va,
 
 STDMETHODIMP StackWalkHelper::symbolForVA(ULONGLONG va, IDiaSymbol** ppSymbol) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!symbol_provider_->GetDiaSession(va, process_state_, &session)) {
+  if (!symbol_provider_->FindOrCreateDiaSession(va, process_state_, &session)) {
     LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
   }
@@ -283,7 +283,7 @@ STDMETHODIMP StackWalkHelper::addressForVA(ULONGLONG va,
                                            _Out_ DWORD* pISect,
                                            _Out_ DWORD* pOffset) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!symbol_provider_->GetDiaSession(va, process_state_, &session)) {
+  if (!symbol_provider_->FindOrCreateDiaSession(va, process_state_, &session)) {
     LOG(ERROR) << "Failed to get dia session by va.";
     return E_FAIL;
   }

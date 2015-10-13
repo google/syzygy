@@ -17,9 +17,8 @@
 
 #include <dia2.h>
 
-#include <hash_map>
-
 #include "base/macros.h"
+#include "base/containers/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/string16.h"
 #include "base/win/scoped_comptr.h"
@@ -37,29 +36,29 @@ class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
   DiaSymbolProvider();
   ~DiaSymbolProvider();
 
-  // Retrieves an IDiaSession for the module within @p process_state
+  // Retrieves or creates an IDiaSession for the module within @p process_state
   // corresponding to @p va.
   // @note on success, the session's load address is set.
   // @param va virtual address for which to get a session.
   // @param process_state the process state within which to interpret @p va.
-  // @param session on success, returns a session for the module.
+  // @param session on success, returns a session for the module. On failure,
+  //   contains nullptr.
   // @returns true on success, false on failure.
-  bool GetDiaSession(const Address va,
-                     ProcessState* process_state,
-                     base::win::ScopedComPtr<IDiaSession>* session);
+  bool FindOrCreateDiaSession(const Address va,
+                              ProcessState* process_state,
+                              base::win::ScopedComPtr<IDiaSession>* session);
 
-  // Retrieves an IDiaSession for the module corresponding to @p signature.
+  // Retrieves or creates an IDiaSession for the module corresponding to @p
+  // signature.
   // @note on success, the session's load address is not set.
   // @param signature the signature of the module for which to get a session.
-  // @param session on success, returns a session for the module.
+  // @param session on success, returns a session for the module. On failure,
+  //   contains nullptr.
   // @returns true on success, false on failure.
-  bool GetDiaSession(const pe::PEFile::Signature& signature,
-                     base::win::ScopedComPtr<IDiaSession>* session);
+  bool FindOrCreateDiaSession(const pe::PEFile::Signature& signature,
+                              base::win::ScopedComPtr<IDiaSession>* session);
 
  private:
-  bool EnsurePdbSessionCached(const pe::PEFile::Signature& signature,
-                              base::string16* cache_key);
-
   // Caching for dia pdb file sources and sessions (matching entries). The cache
   // key is "<basename>:<size>:<checksum>:<timestamp>". The cache may contain
   // negative entries (indicating a failed attempt at creating a session) in the

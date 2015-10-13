@@ -33,9 +33,6 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(const Minidump& minidump,
                                                  ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 
-  ModuleLayerPtr module_layer;
-  process_state->FindOrCreateLayer(&module_layer);
-
   // Retrieve the unique module list stream.
   Minidump::Stream module_list =
       minidump.FindNextStream(nullptr, ModuleListStream);
@@ -77,12 +74,8 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(const Minidump& minidump,
     // TODO(manzagop): get version / debug info by also reading VersionInfo,
     // CvRecord and MiscRecord.
 
-    ModuleRecordPtr module_record;
-    module_layer->CreateRecord(range, &module_record);
-    Module* module_proto = module_record->mutable_data();
-    module_proto->set_checksum(module.CheckSum);
-    module_proto->set_timestamp(module.TimeDateStamp);
-    module_proto->set_name(module_name);
+    AddModuleRecord(range, module.CheckSum, module.TimeDateStamp, module_name,
+                    process_state);
   }
 
   return ANALYSIS_COMPLETE;
