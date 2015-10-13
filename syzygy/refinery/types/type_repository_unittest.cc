@@ -105,4 +105,37 @@ TEST(TypeRepositoryTest, Iteration) {
   EXPECT_EQ(3U, iterated);
 }
 
+TEST(TypeNameIndexTest, BasicTest) {
+  const wchar_t kNotATypeName[] = L"not";
+  const wchar_t kTypeNameOne[] = L"one";
+  const wchar_t kTypeNameTwo[] = L"two";
+
+  // Create a TypeRepository.
+  scoped_refptr<TypeRepository> repo = new TypeRepository();
+  TypePtr one = new BasicType(kTypeNameOne, 4);
+  repo->AddType(one);
+  TypePtr other_one = new BasicType(kTypeNameOne, 4);
+  repo->AddType(other_one);
+  TypePtr two = new BasicType(kTypeNameTwo, 4);
+  repo->AddType(two);
+
+  // Create index.
+  TypeNameIndex index(repo);
+
+  // No match when not a type name.
+  std::vector<TypePtr> matching_types;
+  index.GetTypes(kNotATypeName, &matching_types);
+  ASSERT_EQ(0, matching_types.size());
+
+  // Match with multiple hits.
+  index.GetTypes(kTypeNameOne, &matching_types);
+  ASSERT_EQ(2, matching_types.size());
+
+  // Match with single hit.
+  matching_types.clear();
+  index.GetTypes(kTypeNameTwo, &matching_types);
+  ASSERT_EQ(1, matching_types.size());
+  ASSERT_EQ(two.get(), matching_types[0].get());
+}
+
 }  // namespace refinery

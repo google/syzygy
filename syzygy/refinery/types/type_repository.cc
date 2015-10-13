@@ -25,7 +25,7 @@ TypeRepository::TypeRepository() {
 TypeRepository::~TypeRepository() {
 }
 
-TypePtr TypeRepository::GetType(TypeId id) {
+TypePtr TypeRepository::GetType(TypeId id) const {
   auto it = types_.find(id);
   if (it == types_.end())
     return nullptr;
@@ -67,6 +67,25 @@ TypeRepository::Iterator TypeRepository::begin() const {
 
 TypeRepository::Iterator TypeRepository::end() const {
   return Iterator(types_.end());
+}
+
+TypeNameIndex::TypeNameIndex(scoped_refptr<TypeRepository> repository) {
+  DCHECK(repository);
+  for (auto type : *repository)
+    name_index_.insert(std::make_pair(type->name(), type));
+}
+
+TypeNameIndex::~TypeNameIndex() {
+}
+
+void TypeNameIndex::GetTypes(const base::string16& name,
+                             std::vector<TypePtr>* types) const {
+  DCHECK(types);
+  types->clear();
+
+  auto match = name_index_.equal_range(name);
+  for (auto it = match.first; it != match.second; ++it)
+    types->push_back(it->second);
 }
 
 }  // namespace refinery

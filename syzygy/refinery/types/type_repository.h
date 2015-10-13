@@ -16,6 +16,8 @@
 #define SYZYGY_REFINERY_TYPES_TYPE_REPOSITORY_H_
 
 #include <iterator>
+#include <map>
+#include <vector>
 
 #include "base/macros.h"
 #include "base/containers/hash_tables.h"
@@ -28,6 +30,7 @@ class Type;
 using TypePtr = scoped_refptr<Type>;
 
 // Keeps type instances, assigns them an ID and vends them out by ID on demand.
+// TODO(manzagop): cleave the interface so as to obtain something immutable.
 class TypeRepository : public base::RefCounted<TypeRepository> {
  public:
   class Iterator;
@@ -35,7 +38,7 @@ class TypeRepository : public base::RefCounted<TypeRepository> {
   TypeRepository();
 
   // Retrieve a type by @p id.
-  TypePtr GetType(TypeId id);
+  TypePtr GetType(TypeId id) const;
 
   // Add @p type and get its assigned id.
   // @pre @p type must not be in any repository.
@@ -84,6 +87,26 @@ class TypeRepository::Iterator
       : it_(it) {}
 
   base::hash_map<TypeId, TypePtr>::const_iterator it_;
+};
+
+// The TypeNameIndex provides name-based indexing for types.
+// @note The underlying TypeRepository should not be modified.
+// @note Name-based indexing, as well as support for name collisions (using a
+//     multimap) are necessary as long as we rely on DIA. DIA does not expose
+//     mangled names (at least not the fully mangled names?) nor the PDB ids
+//     (DIA ids are not stable as they're based on the parse order).
+// TODO(manzagop): relocate to where this is used once it exists.
+// TODO(manzagop): remove once DIA is no-longer used.
+class TypeNameIndex {
+ public:
+  explicit TypeNameIndex(scoped_refptr<TypeRepository> repository);
+  ~TypeNameIndex();
+
+  // Retrieve matching @p types by @p name.
+  void GetTypes(const base::string16& name, std::vector<TypePtr>* types) const;
+
+ private:
+  std::multimap<base::string16, TypePtr> name_index_;
 };
 
 }  // namespace refinery
