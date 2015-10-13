@@ -115,14 +115,11 @@ class StackWalkerX86Test : public testing::Test {
     // Push a dummy EBP on the stack, which simulates the stack frame of the
     // function actually calling WalkStack.
     PushEbp();
-
+    StackId stack_id;
     EXPECT_EQ(num_frames,
-              WalkStackImpl(dummy_ebp_,
-                            dummy_esp_,
+              WalkStackImpl(dummy_ebp_, dummy_esp_,
                             dummy_stack_ + arraysize(dummy_stack_),
-                            frames_to_skip,
-                            kMaxFrames,
-                            frames_));
+                            frames_to_skip, kMaxFrames, frames_, &stack_id));
     for (size_t i = 0; i < num_frames; ++i) {
       EXPECT_EQ(reinterpret_cast<void*>(dummy_ret_ - i - 1 - frames_to_skip),
                 frames_[i]);
@@ -237,7 +234,8 @@ TEST_F(StackWalkerX86Test, CompareToCaptureStackBackTrace) {
       ::CaptureStackBackTrace(1, kMaxFrames, frames_, nullptr);
 
   while (num_frames > 0) {
-    size_t num_frames2 = WalkStack(1, num_frames, frames_);
+    StackId stack_id;
+    size_t num_frames2 = WalkStack(1, num_frames, frames_, &stack_id);
     size_t exp_frames2 =
         ::CaptureStackBackTrace(1, num_frames, frames2_, nullptr);
     EXPECT_EQ(num_frames, num_frames2);

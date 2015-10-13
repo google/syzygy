@@ -171,6 +171,16 @@ class StackCapture {
   static void ClearFalseModules();
   // @}
 
+  // @name Hashing helpers.
+  // @{
+  // Uses a simple hash with reasonable properties. This is effectively the same
+  // as base::SuperFastHash, but we can't use it as there's no API for updating
+  // an in-progress hash.
+  static StackId StartStackId();
+  static StackId UpdateStackId(StackId stack_id, const void* frame);
+  static StackId FinalizeStackId(StackId stack_id, size_t num_frames);
+  // @}
+
  protected:
   // The number of bottom frames to skip on the stack traces.
   static size_t bottom_frames_to_skip_;
@@ -203,7 +213,6 @@ class StackCapture {
   // NOTE: This must be the last member of the class.
   void* frames_[kMaxNumFrames];
 
- private:
   // Computes a simple hash of a given stack trace, referred to as the absolute
   // stack id and sets the value in |absolute_stack_id_|.
   void ComputeAbsoluteStackId();
@@ -214,6 +223,30 @@ class StackCapture {
 
   DISALLOW_COPY_AND_ASSIGN(StackCapture);
 };
+
+// static
+__forceinline StackId StackCapture::StartStackId() {
+  return 0x4ADFA3E5;
+}
+
+// static
+__forceinline StackId StackCapture::UpdateStackId(StackId stack_id,
+                                                  const void* frame) {
+  stack_id += reinterpret_cast<StackId>(frame);
+  stack_id += stack_id << 10;
+  stack_id ^= stack_id >> 6;
+  return stack_id;
+}
+
+// static
+__forceinline StackId StackCapture::FinalizeStackId(StackId stack_id,
+                                                    size_t num_frames) {
+  stack_id += stack_id << 3;
+  stack_id ^= stack_id >> 11;
+  stack_id += stack_id << 15;
+  stack_id ^= num_frames;
+  return stack_id;
+}
 
 }  // namespace common
 }  // namespace agent

@@ -18,6 +18,7 @@
 #include <winnt.h>
 
 #include "base/logging.h"
+#include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/align.h"
 
 namespace agent {
@@ -92,7 +93,8 @@ __forceinline bool CanAdvanceFrame(const StackFrame* frame) {
 
 size_t __declspec(noinline) WalkStack(size_t bottom_frames_to_skip,
                                       size_t max_frame_count,
-                                      void** frames) {
+                                      void** frames,
+                                      StackId* absolute_stack_id) {
   // Get the stack extents.
   // The first thing in the TEB is actually the TIB.
   // http://www.nirsoft.net/kernel_struct/vista/TEB.html
@@ -110,7 +112,8 @@ size_t __declspec(noinline) WalkStack(size_t bottom_frames_to_skip,
   }
 
   return WalkStackImpl(current_ebp, stack_bottom, stack_top,
-                       bottom_frames_to_skip, max_frame_count, frames);
+                       bottom_frames_to_skip, max_frame_count, frames,
+                       absolute_stack_id);
 }
 
 size_t WalkStackImpl(const void* current_ebp,
@@ -118,11 +121,15 @@ size_t WalkStackImpl(const void* current_ebp,
                      const void* stack_top,
                      size_t bottom_frames_to_skip,
                      size_t max_frame_count,
-                     void** frames) {
+                     void** frames,
+                     StackId* absolute_stack_id) {
   DCHECK(::common::IsAligned(current_ebp, kPointerSize));
   DCHECK(::common::IsAligned(stack_top, kPointerSize));
   DCHECK_LE(current_ebp, stack_top);
   DCHECK_NE(static_cast<void**>(nullptr), frames);
+  DCHECK_NE(static_cast<StackId*>(nullptr), absolute_stack_id);
+
+  *absolute_stack_id = StackCapture::StartStackId();
 
   const StackFrame* current_frame =
       reinterpret_cast<const StackFrame*>(current_ebp);
@@ -142,15 +149,19 @@ size_t WalkStackImpl(const void* current_ebp,
   while (num_frames < max_frame_count) {
     if (!FrameHasValidReturnAddress(stack_bottom, stack_top, current_frame))
       break;
-
     frames[num_frames] = current_frame->return_address;
     ++num_frames;
+    *absolute_stack_id = StackCapture::UpdateStackId(
+        *absolute_stack_id, current_frame->return_address);
 
     if (!CanAdvanceFrame(current_frame))
       break;
 
     current_frame = current_frame->next_frame;
   }
+
+  *absolute_stack_id =
+      StackCapture::FinalizeStackId(*absolute_stack_id, num_frames);
 
   return num_frames;
 }

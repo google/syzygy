@@ -79,10 +79,13 @@ using StackId = ::common::AsanStackId;
 // @param max_frame_count The maximum number of frames that can be written to
 //     @p frames.
 // @param frames The array to be populated with the computed frames.
+// @param absolute_stack_id Pointer to the stack ID that will be calculated as
+//     we are walking the stack.
 // @returns the number of frames successfully walked and stored in @p frames.
 size_t WalkStack(size_t bottom_frames_to_skip,
                  size_t max_frame_count,
-                 void** frames);
+                 void** frames,
+                 StackId* absolute_stack_id);
 
 // Implementation of WalkStack, with explicitly provided @p current_ebp,
 // @p stack_bottom and @p stack_top. Exposed for much easier unittesting.
@@ -95,13 +98,16 @@ size_t WalkStack(size_t bottom_frames_to_skip,
 // @param max_frame_count The maximum number of frames that can be written to
 //     @p frames.
 // @param frames The array to be populated with the computed frames.
+// @param absolute_stack_id Pointer to the stack ID that will be calculated as
+//     we are walking the stack.
 // @returns the number of frames successfully walked and stored in @p frames.
 size_t WalkStackImpl(const void* current_ebp,
                      const void* stack_bottom,
                      const void* stack_top,
                      size_t bottom_frames_to_skip,
                      size_t max_frame_count,
-                     void** frames);
+                     void** frames,
+                     StackId* absolute_stack_id);
 
 }  // namespace common
 }  // namespace agent

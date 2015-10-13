@@ -33,6 +33,8 @@ class TestStackCapture : public StackCapture {
     relative_stack_id_ = relative_stack_id;
   }
 
+  using StackCapture::ComputeAbsoluteStackId;
+
   MOCK_CONST_METHOD0(ComputeRelativeStackId, void(void));
 };
 
@@ -65,7 +67,7 @@ TEST_F(StackCaptureTest, InitFromBuffer) {
   // Initialize the stack capture without using all of the frames.
   capture.InitFromBuffer(frames, 7);
   EXPECT_TRUE(capture.IsValid());
-  EXPECT_EQ(0x9E172AA9u, capture.absolute_stack_id());
+  EXPECT_EQ(0xB986E1F8u, capture.absolute_stack_id());
   EXPECT_EQ(7, capture.num_frames());
   EXPECT_EQ(StackCapture::kMaxNumFrames, capture.max_num_frames());
   EXPECT_TRUE(capture.frames() != NULL);
@@ -120,6 +122,14 @@ TEST_F(StackCaptureTest, RestrictedFrameCount) {
   EXPECT_TRUE(capture.IsValid());
   EXPECT_EQ(5u, capture.num_frames());
   EXPECT_EQ(5u, capture.max_num_frames());
+}
+
+TEST_F(StackCaptureTest, AbsoluteStackId) {
+  TestStackCapture stack_capture;
+  stack_capture.InitFromStack();
+  auto stack_id = stack_capture.absolute_stack_id();
+  stack_capture.ComputeAbsoluteStackId();
+  EXPECT_EQ(stack_id, stack_capture.absolute_stack_id());
 }
 
 TEST_F(StackCaptureTest, RelativeStackId) {

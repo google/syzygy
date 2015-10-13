@@ -26,32 +26,6 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 namespace agent {
 namespace common {
 
-namespace {
-
-// Uses a simple hash with reasonable properties. This is effectively the same
-// as base::SuperFastHash, but we can't use it as there's no API for updating
-// an in-progress hash.
-//
-// http://en.wikipedia.org/wiki/Jenkins_hash_function#one-at-a-time
-// @{
-__forceinline StackCapture::StackId UpdateStackId(
-    StackCapture::StackId stack_id, const void* frame) {
-  stack_id += reinterpret_cast<StackId>(frame);
-  stack_id += stack_id << 10;
-  stack_id ^= stack_id >> 6;
-  return stack_id;
-}
-
-__forceinline StackCapture::StackId FinalizeStackId(
-    StackCapture::StackId stack_id) {
-  stack_id += stack_id << 3;
-  stack_id ^= stack_id >> 11;
-  stack_id += stack_id << 15;
-  return stack_id;
-}
-
-}  // namespace
-
 // The number of bottom frames to skip per stack trace.
 size_t StackCapture::bottom_frames_to_skip_ =
     ::common::kDefaultBottomFramesToSkip;
@@ -129,12 +103,14 @@ void StackCapture::InitFromExistingStack(const StackCapture& stack_capture) {
 // don't allow it to be inlined.
 #pragma optimize("", off)
 void __declspec(noinline) StackCapture::InitFromStack() {
-  // TODO(chrisha): Make this calculate the ID while walking the stack, as this
-  // is slightly more efficient then doing it separately.
-  num_frames_ = agent::common::WalkStack(1, max_num_frames_, frames_);
-  num_frames_ -= std::min(static_cast<uint8>(bottom_frames_to_skip_),
-                          num_frames_);
-  ComputeAbsoluteStackId();
+  num_frames_ = agent::common::WalkStack(1, max_num_frames_, frames_,
+                                         &absolute_stack_id_);
+
+  if (bottom_frames_to_skip_) {
+    num_frames_ -=
+        std::min(static_cast<uint8>(bottom_frames_to_skip_), num_frames_);
+    ComputeAbsoluteStackId();
+  }
 }
 #pragma optimize("", on)
 
@@ -204,12 +180,12 @@ bool StackCapture::HashCompare::operator()(
 }
 
 void StackCapture::ComputeAbsoluteStackId() {
-  absolute_stack_id_ = num_frames_;
+  absolute_stack_id_ = StartStackId();
 
   for (uint8 i = 0; i < num_frames_; ++i)
     absolute_stack_id_ = UpdateStackId(absolute_stack_id_, frames_[i]);
 
-  absolute_stack_id_ = FinalizeStackId(absolute_stack_id_);
+  absolute_stack_id_ = FinalizeStackId(absolute_stack_id_, num_frames_);
 }
 
 void StackCapture::ComputeRelativeStackId() const {
@@ -219,7 +195,7 @@ void StackCapture::ComputeRelativeStackId() const {
   DCHECK(asan_handle != NULL);
   DCHECK(!relative_stack_id_);
 
-  relative_stack_id_ = 0;
+  relative_stack_id_ = StartStackId();
   for (size_t i = 0; i < num_frames_; ++i) {
     // NULL stack frames may be returned from ::CaptureStackBackTrace.
     // This has been observed on Windows 8.
@@ -247,7 +223,7 @@ void StackCapture::ComputeRelativeStackId() const {
         UpdateStackId(relative_stack_id_, reinterpret_cast<void*>(frame));
   }
 
-  relative_stack_id_ = FinalizeStackId(relative_stack_id_);
+  relative_stack_id_ = FinalizeStackId(relative_stack_id_, num_frames_);
 
   // We could end up with the value 0, in which case we set it to something
   // else, as 0 is considered uninitialized.
