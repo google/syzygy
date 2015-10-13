@@ -21,11 +21,9 @@
 
 #include "syzygy/experimental/pdb_writer/symbol.h"
 #include "syzygy/experimental/pdb_writer/pdb_symbol_record_writer.h"
+#include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
-
-// Forward declaration.
-class WritablePdbStream;
 
 // Writes a PDB public stream.
 // @param symbols the symbols defined in the PDB symbol record stream.

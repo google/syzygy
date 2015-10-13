@@ -22,11 +22,9 @@
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
-
-// Forward declarations.
-class PdbStream;
 
 // Simple type info stream enumerator which crawls through a type info stream.
 class TypeInfoEnumerator {

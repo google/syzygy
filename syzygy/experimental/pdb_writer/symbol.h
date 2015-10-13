@@ -24,12 +24,10 @@
 #include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
+#include "syzygy/pdb/pdb_decl.h"
 #include "third_party/cci/Files/CvInfo.h"
 
 namespace pdb {
-
-// Forward declaration.
-class WritablePdbStream;
 
 // Interface for a symbol that can be written to the PDB symbol record stream.
 class Symbol {

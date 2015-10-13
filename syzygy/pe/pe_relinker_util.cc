@@ -163,7 +163,7 @@ bool WriteSyzygyHistoryStream(const base::FilePath& input_path,
   }
 
   scoped_refptr<WritablePdbStream> history_writer =
-      history_reader->GetWritablePdbStream();
+      history_reader->GetWritableStream();
   DCHECK(history_writer.get() != NULL);
 
   // Get the metadata.
@@ -260,7 +260,7 @@ bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
   DCHECK_EQ(0u, block_graph_reader->length());
 
   scoped_refptr<WritablePdbStream> block_graph_writer =
-      block_graph_reader->GetWritablePdbStream();
+      block_graph_reader->GetWritableStream();
   DCHECK(block_graph_writer.get() != NULL);
 
   // Write the version of the BlockGraph stream, and whether or not its

@@ -15,12 +15,10 @@
 #ifndef SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_HEADER_STREAM_WRITER_H_
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_HEADER_STREAM_WRITER_H_
 
+#include "syzygy/pdb/pdb_decl.h"
 #include "syzygy/pe/pdb_info.h"
 
 namespace pdb {
-
-// Forward declaration.
-class WritablePdbStream;
 
 // Writes a PDB header stream.
 // @param pdb_info PDB info extracted from the PE for which the debug database

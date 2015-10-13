@@ -22,14 +22,10 @@
 
 #include "base/files/file_path.h"
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
-
-// Forward declare.
-class PdbFile;
-class PdbStream;
-class WritablePdbStream;
 
 // A map of names to stream IDs, stored in the header stream.
 typedef std::map<std::string, uint32> NameStreamMap;

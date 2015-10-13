@@ -36,7 +36,7 @@ class PdbVisitSymbolsTest : public testing::Test {
  public:
   void SetUpByteStream() {
     reader = new PdbByteStream();
-    writer = reader->GetWritablePdbStream();
+    writer = reader->GetWritableStream();
   }
 
   scoped_refptr<PdbStream> reader;

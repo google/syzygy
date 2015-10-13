@@ -15,50 +15,12 @@
 #ifndef SYZYGY_PDB_PDB_WRITER_H_
 #define SYZYGY_PDB_PDB_WRITER_H_
 
-#include <vector>
-
-#include "base/files/file_path.h"
-#include "base/files/file_util.h"
-#include "syzygy/pdb/pdb_file.h"
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/msf/msf_decl.h"
+#include "syzygy/msf/msf_writer.h"
 
 namespace pdb {
 
-// This class is used to write a pdb file to disk given a list of PdbStreams.
-// It will create a header and directory inside the pdb file that describe
-// the page layout of the streams in the file.
-class PdbWriter {
- public:
-  PdbWriter();
-  ~PdbWriter();
-
-  // Writes the given PdbFile to disk with the given file name.
-  // @param pdb_path the path of the PDB file to write.
-  // @param pdb_file the PDB file to be written.
-  // @returns true on success, false otherwise.
-  bool Write(const base::FilePath& pdb_path, const PdbFile& pdb_file);
-
- protected:
-  // Append the contents of the stream onto the file handle at the offset. The
-  // contents of the file are padded to reach the next page boundary in the
-  // output stream. The indices of the written pages are appended to
-  // @p pages_written, while @p page_count is updated to reflect the total
-  // number of pages written to disk.
-  bool AppendStream(PdbStream* stream,
-                    std::vector<uint32>* pages_written,
-                    uint32* page_count);
-
-  // Writes the MSF header after the directory has been written.
-  bool WriteHeader(const std::vector<uint32>& root_directory_pages,
-                   size_t directory_size,
-                   uint32 page_count);
-
-  // The current file handle open for writing.
-  base::ScopedFILE file_;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(PdbWriter);
-};
+using PdbWriter = msf::detail::MsfWriterImpl<msf::kPdbMsfFileType>;
 
 }  // namespace pdb
 

@@ -11,30 +11,40 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Internal implementation details for msf_file_stream.h. Not meant to be
+// included directly.
 
-#include "syzygy/pdb/pdb_file_stream.h"
+#ifndef SYZYGY_MSF_MSF_FILE_STREAM_IMPL_H_
+#define SYZYGY_MSF_MSF_FILE_STREAM_IMPL_H_
 
 #include <algorithm>
+#include <cstdio>
 
 #include "base/logging.h"
+#include "syzygy/msf/msf_decl.h"
 
-namespace pdb {
+namespace msf {
+namespace detail {
 
-PdbFileStream::PdbFileStream(RefCountedFILE* file,
-                             size_t length,
-                             const uint32* pages,
-                             size_t page_size)
-    : PdbStream(length),
-      file_(file),
-      page_size_(page_size) {
+template <MsfFileType T>
+MsfFileStreamImpl<T>::MsfFileStreamImpl(RefCountedFILE* file,
+                                        size_t length,
+                                        const uint32* pages,
+                                        size_t page_size)
+    : MsfStreamImpl(length), file_(file), page_size_(page_size) {
   size_t num_pages = (length + page_size - 1) / page_size;
   pages_.assign(pages, pages + num_pages);
 }
 
-PdbFileStream::~PdbFileStream() {
+template <MsfFileType T>
+MsfFileStreamImpl<T>::~MsfFileStreamImpl() {
 }
 
-bool PdbFileStream::ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+template <MsfFileType T>
+bool MsfFileStreamImpl<T>::ReadBytes(void* dest,
+                                     size_t count,
+                                     size_t* bytes_read) {
   DCHECK(dest != NULL);
   DCHECK(bytes_read != NULL);
 
@@ -64,8 +74,11 @@ bool PdbFileStream::ReadBytes(void* dest, size_t count, size_t* bytes_read) {
   return true;
 }
 
-bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, size_t offset,
-                                 size_t count) {
+template <MsfFileType T>
+bool MsfFileStreamImpl<T>::ReadFromPage(void* dest,
+                                        uint32 page_num,
+                                        size_t offset,
+                                        size_t count) {
   DCHECK(dest != NULL);
   DCHECK(offset + count <= page_size_);
 
@@ -83,4 +96,7 @@ bool PdbFileStream::ReadFromPage(void* dest, uint32 page_num, size_t offset,
   return true;
 }
 
-}  // namespace pdb
+}  // namespace detail
+}  // namespace msf
+
+#endif  // SYZYGY_MSF_MSF_FILE_STREAM_IMPL_H_

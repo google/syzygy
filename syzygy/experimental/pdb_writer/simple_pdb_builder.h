@@ -18,12 +18,10 @@
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_SIMPLE_PDB_BUILDER_H_
 
 #include "syzygy/experimental/pdb_writer/symbol.h"
+#include "syzygy/pdb/pdb_decl.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pdb {
-
-// Forward declaration.
-class PdbFile;
 
 // Builds a PDB file from a list of symbols.
 // @param pe_path the PE file for which a PDB is being generated.

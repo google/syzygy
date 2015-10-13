@@ -12,28 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_byte_stream.h"
+#include "syzygy/msf/msf_byte_stream.h"
+
+#include <algorithm>
+
 #include "gtest/gtest.h"
 
-namespace pdb {
+namespace msf {
 
 namespace {
 
-class TestPdbByteStream : public PdbByteStream {
+class TestMsfByteStream : public MsfByteStream {
  public:
-  TestPdbByteStream() : PdbByteStream() {
-  }
+  TestMsfByteStream() : MsfByteStream() {}
 
-  using PdbByteStream::ReadBytes;
+  using MsfByteStream::ReadBytes;
 };
 
-class TestPdbStream : public PdbStream {
+class TestMsfStream : public MsfStream {
  public:
-  explicit TestPdbStream(size_t length) : PdbStream(length) {
-  }
+  explicit TestMsfStream(size_t length) : MsfStream(length) {}
 
-  virtual ~TestPdbStream() {
-  }
+  virtual ~TestMsfStream() {}
 
   bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
     DCHECK(dest != NULL);
@@ -55,10 +55,10 @@ class TestPdbStream : public PdbStream {
 
 }  // namespace
 
-TEST(PdbByteStreamTest, InitFromByteArray) {
+TEST(MsfByteStreamTest, InitFromByteArray) {
   uint8 data[] = {1, 2, 3, 4, 5, 6, 7, 8};
 
-  scoped_refptr<PdbByteStream> stream(new PdbByteStream());
+  scoped_refptr<MsfByteStream> stream(new MsfByteStream());
   EXPECT_TRUE(stream->Init(data, arraysize(data)));
   EXPECT_EQ(arraysize(data), stream->length());
   EXPECT_TRUE(stream->data() != NULL);
@@ -70,10 +70,10 @@ TEST(PdbByteStreamTest, InitFromByteArray) {
   }
 }
 
-TEST(PdbByteStreamTest, InitFromPdbStream) {
-  scoped_refptr<TestPdbStream> test_stream(new TestPdbStream(64));
+TEST(MsfByteStreamTest, InitFromMsfStream) {
+  scoped_refptr<TestMsfStream> test_stream(new TestMsfStream(64));
 
-  scoped_refptr<PdbByteStream> stream(new PdbByteStream);
+  scoped_refptr<MsfByteStream> stream(new MsfByteStream());
   EXPECT_TRUE(stream->Init(test_stream.get()));
   EXPECT_EQ(test_stream->length(), stream->length());
   EXPECT_TRUE(stream->data() != NULL);
@@ -85,12 +85,12 @@ TEST(PdbByteStreamTest, InitFromPdbStream) {
   }
 }
 
-TEST(PdbByteStreamTest, InitFromPdbStreamPart) {
+TEST(MsfByteStreamTest, InitFromMsfStreamPart) {
   uint8 data[] = {0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
-  scoped_refptr<PdbByteStream> test_stream(new PdbByteStream());
+  scoped_refptr<MsfByteStream> test_stream(new MsfByteStream());
   EXPECT_TRUE(test_stream->Init(data, arraysize(data)));
 
-  scoped_refptr<PdbByteStream> stream(new PdbByteStream);
+  scoped_refptr<MsfByteStream> stream(new MsfByteStream());
   EXPECT_TRUE(test_stream->Seek(2));
   EXPECT_TRUE(stream->Init(test_stream.get(), 7));
   EXPECT_EQ(7, stream->length());
@@ -103,11 +103,11 @@ TEST(PdbByteStreamTest, InitFromPdbStreamPart) {
   }
 }
 
-TEST(PdbByteStreamTest, ReadBytes) {
+TEST(MsfByteStreamTest, ReadBytes) {
   size_t len = 17;
-  scoped_refptr<TestPdbStream> test_stream(new TestPdbStream(len));
+  scoped_refptr<TestMsfStream> test_stream(new TestMsfStream(len));
 
-  scoped_refptr<TestPdbByteStream> stream(new TestPdbByteStream);
+  scoped_refptr<TestMsfByteStream> stream(new TestMsfByteStream());
   EXPECT_TRUE(stream->Init(test_stream.get()));
 
   int total_bytes = 0;
@@ -123,22 +123,22 @@ TEST(PdbByteStreamTest, ReadBytes) {
   EXPECT_EQ(len, total_bytes);
 }
 
-TEST(PdbByteStreamTest, GetWritablePdbStream) {
-  scoped_refptr<PdbStream> stream(new PdbByteStream);
-  scoped_refptr<WritablePdbStream> writer1 = stream->GetWritablePdbStream();
+TEST(MsfByteStreamTest, GetWritableStream) {
+  scoped_refptr<MsfStream> stream(new MsfByteStream());
+  scoped_refptr<WritableMsfStream> writer1 = stream->GetWritableStream();
   EXPECT_TRUE(writer1.get() != NULL);
 
   // NOTE: This is a condition that only needs to be true currently because
-  //     of limitations in the WritablePdbByteStream implementation. When we
+  //     of limitations in the WritableMsfByteStream implementation. When we
   //     move to a proper interface implementation with shared storage state,
   //     this limitation will be removed.
-  scoped_refptr<WritablePdbStream> writer2 = stream->GetWritablePdbStream();
+  scoped_refptr<WritableMsfStream> writer2 = stream->GetWritableStream();
   EXPECT_EQ(writer1.get(), writer2.get());
 }
 
-TEST(WritablePdbByteStreamTest, WriterChangesReaderLengthButNotCursor) {
-  scoped_refptr<PdbStream> reader(new PdbByteStream);
-  scoped_refptr<WritablePdbStream> writer = reader->GetWritablePdbStream();
+TEST(WritableMsfByteStreamTest, WriterChangesReaderLengthButNotCursor) {
+  scoped_refptr<MsfStream> reader(new MsfByteStream());
+  scoped_refptr<WritableMsfStream> writer = reader->GetWritableStream();
   ASSERT_TRUE(writer.get() != NULL);
 
   EXPECT_EQ(reader->length(), 0u);
@@ -152,4 +152,4 @@ TEST(WritablePdbByteStreamTest, WriterChangesReaderLengthButNotCursor) {
   EXPECT_EQ(writer->pos(), 10u);
 }
 
-}  // namespace pdb
+}  // namespace msf

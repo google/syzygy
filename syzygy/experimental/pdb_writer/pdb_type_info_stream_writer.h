@@ -15,10 +15,9 @@
 #ifndef SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_TYPE_INFO_STREAM_WRITER_H_
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_TYPE_INFO_STREAM_WRITER_H_
 
-namespace pdb {
+#include "syzygy/pdb/pdb_decl.h"
 
-// Forward declaration.
-class WritablePdbStream;
+namespace pdb {
 
 // Writes a valid empty type info stream.
 // @param stream the stream in which to write the type info stream.

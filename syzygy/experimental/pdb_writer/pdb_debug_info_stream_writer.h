@@ -16,11 +16,9 @@
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_DEBUG_INFO_STREAM_WRITER_H_
 
 #include "base/basictypes.h"
+#include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
-
-// Forward declaration.
-class WritablePdbStream;
 
 // Writes a debug info stream.
 // @param age the age of the PDB, extracted from the PE file.

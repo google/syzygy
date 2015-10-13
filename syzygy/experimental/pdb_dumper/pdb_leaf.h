@@ -20,11 +20,9 @@
 
 #include "base/files/file_util.h"
 #include "syzygy/pdb/pdb_data_types.h"
+#include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
-
-// Forward declare.
-class PdbStream;
 
 // Call the specific function to dump a kind of leaf.
 // @param type_map The map containing all the type info records.

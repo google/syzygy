@@ -29,7 +29,7 @@ class PdbTypeInfoRecordsTest : public testing::Test {
  protected:
   void SetUp() override {
     stream_ = new PdbByteStream;
-    write_stream_ = stream_->GetWritablePdbStream();
+    write_stream_ = stream_->GetWritableStream();
   }
 
   void WriteUnsignedNumeric(uint64_t value) {

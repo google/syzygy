@@ -15,7 +15,6 @@
 #include "syzygy/pdb/pdb_stream_record.h"
 
 #include "base/strings/utf_string_conversions.h"
-#include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/cvinfo_ext.h"
 

@@ -331,8 +331,7 @@ bool UpdateFileInPlace(const base::FilePath& path,
 
 // Ensures that the stream with the given ID is writable, returning a scoped
 // pointer to it.
-scoped_refptr<PdbStream> GetWritablePdbStream(size_t index,
-                                              PdbFile* pdb_file) {
+scoped_refptr<PdbStream> GetWritableStream(size_t index, PdbFile* pdb_file) {
   DCHECK(pdb_file != NULL);
   DCHECK_GT(pdb_file->StreamCount(), index);
 
@@ -340,7 +339,7 @@ scoped_refptr<PdbStream> GetWritablePdbStream(size_t index,
 
   // Try and get the writer. If it's not available, then replace the stream
   // with a byte stream, which is in-place writable.
-  scoped_refptr<WritablePdbStream> writer = reader->GetWritablePdbStream();
+  scoped_refptr<WritablePdbStream> writer = reader->GetWritableStream();
   if (writer.get() == NULL) {
     scoped_refptr<PdbByteStream> byte_stream(new PdbByteStream());
     byte_stream->Init(reader.get());
@@ -853,14 +852,14 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
   pdb_file_->ReplaceStream(pdb::kPdbOldDirectoryStream, NULL);
 
   scoped_refptr<PdbStream> header_reader =
-      GetWritablePdbStream(pdb::kPdbHeaderInfoStream, pdb_file_.get());
+      GetWritableStream(pdb::kPdbHeaderInfoStream, pdb_file_.get());
   if (header_reader.get() == NULL) {
     LOG(ERROR) << "No header info stream in PDB file: " << input_pdb_.value();
     return false;
   }
 
   scoped_refptr<WritablePdbStream> header_writer =
-      header_reader->GetWritablePdbStream();
+      header_reader->GetWritableStream();
   DCHECK(header_writer.get() != NULL);
 
   // Update the timestamp, the age and the signature.
@@ -895,10 +894,10 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
 
   // Normalize the public symbol info stream. There's a DWORD of padding at
   // offset 24 that we want to zero.
-  scoped_refptr<PdbStream> pubsym_reader = GetWritablePdbStream(
-      dbi_header->public_symbol_info_stream, pdb_file_.get());
+  scoped_refptr<PdbStream> pubsym_reader =
+      GetWritableStream(dbi_header->public_symbol_info_stream, pdb_file_.get());
   scoped_refptr<WritablePdbStream> pubsym_writer =
-      pubsym_reader->GetWritablePdbStream();
+      pubsym_reader->GetWritableStream();
   DCHECK(pubsym_writer.get() != NULL);
   pubsym_writer->set_pos(24);
   pubsym_writer->Write(static_cast<uint32>(0));

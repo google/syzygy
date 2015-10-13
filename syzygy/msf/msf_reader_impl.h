@@ -11,14 +11,25 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Internal implementation details for msf_reader.h. Not meant to be included
+// directly.
 
-#include "syzygy/pdb/pdb_reader.h"
+#ifndef SYZYGY_MSF_MSF_READER_IMPL_H_
+#define SYZYGY_MSF_MSF_READER_IMPL_H_
+
+#include <cstdio>
+#include <cstring>
+#include <vector>
 
 #include "base/logging.h"
+#include "base/memory/ref_counted.h"
 #include "base/strings/string_util.h"
-#include "syzygy/pdb/pdb_file_stream.h"
+#include "syzygy/msf/msf_data.h"
+#include "syzygy/msf/msf_file_stream.h"
 
-namespace pdb {
+namespace msf {
+namespace detail {
 
 namespace {
 
@@ -42,53 +53,55 @@ bool GetFileSize(FILE* file, uint32* size) {
   return true;
 }
 
-uint32 GetNumPages(const PdbHeader& header, uint32 num_bytes) {
+uint32 GetNumPages(const MsfHeader& header, uint32 num_bytes) {
   return (num_bytes + header.page_size - 1) / header.page_size;
 }
 
 }  // namespace
 
-bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
-  DCHECK(pdb_file != NULL);
+template <MsfFileType T>
+bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
+                            MsfFileImpl<T>* msf_file) {
+  DCHECK(msf_file != NULL);
 
-  pdb_file->Clear();
+  msf_file->Clear();
 
-  scoped_refptr<RefCountedFILE> file(new RefCountedFILE(
-      base::OpenFile(pdb_path, "rb")));
+  scoped_refptr<RefCountedFILE> file(
+      new RefCountedFILE(base::OpenFile(msf_path, "rb")));
   if (!file->file()) {
-    LOG(ERROR) << "Unable to open '" << pdb_path.value() << "'.";
+    LOG(ERROR) << "Unable to open '" << msf_path.value() << "'.";
     return false;
   }
 
   // Get the file size.
   uint32 file_size = 0;
   if (!GetFileSize(file->file(), &file_size)) {
-    LOG(ERROR) << "Unable to determine size of '" << pdb_path.value() << "'.";
+    LOG(ERROR) << "Unable to determine size of '" << msf_path.value() << "'.";
     return false;
   }
 
-  PdbHeader header = { 0 };
+  MsfHeader header = {0};
 
   // Read the header from the first page in the file. The page size we use here
   // is irrelevant as after reading the header we get the actual page size in
-  // use by the PDB and from then on use that.
+  // use by the MSF and from then on use that.
   uint32 header_page = 0;
-  scoped_refptr<PdbFileStream> header_stream(new PdbFileStream(
-      file.get(), sizeof(header), &header_page, kPdbPageSize));
+  scoped_refptr<MsfFileStreamImpl<T>> header_stream(new MsfFileStreamImpl<T>(
+      file.get(), sizeof(header), &header_page, kMsfPageSize));
   if (!header_stream->Read(&header, 1)) {
-    LOG(ERROR) << "Failed to read PDB file header.";
+    LOG(ERROR) << "Failed to read MSF file header.";
     return false;
   }
 
   // Sanity checks.
   if (header.num_pages * header.page_size != file_size) {
-    LOG(ERROR) << "Invalid PDB file size.";
+    LOG(ERROR) << "Invalid MSF file size.";
     return false;
   }
 
-  if (memcmp(header.magic_string, kPdbHeaderMagicString,
-             sizeof(kPdbHeaderMagicString)) != 0) {
-    LOG(ERROR) << "Invalid PDB magic string.";
+  if (memcmp(header.magic_string, kMsfHeaderMagicString,
+             sizeof(kMsfHeaderMagicString)) != 0) {
+    LOG(ERROR) << "Invalid MSF magic string.";
     return false;
   }
 
@@ -96,11 +109,11 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
   // itself written across multiple root pages). To do this we need to know how
   // many pages are required to represent the directory, then we load a stream
   // containing that many page pointers from the root pages array.
-  int num_dir_pages = static_cast<int>(GetNumPages(header,
-                                                   header.directory_size));
-  scoped_refptr<PdbFileStream> dir_page_stream(
-      new PdbFileStream(file.get(), num_dir_pages * sizeof(uint32),
-                        header.root_pages, header.page_size));
+  int num_dir_pages =
+      static_cast<int>(GetNumPages(header, header.directory_size));
+  scoped_refptr<MsfFileStreamImpl<T>> dir_page_stream(
+      new MsfFileStreamImpl<T>(file.get(), num_dir_pages * sizeof(uint32),
+                               header.root_pages, header.page_size));
   scoped_ptr<uint32[]> dir_pages(new uint32[num_dir_pages]);
   if (dir_pages.get() == NULL) {
     LOG(ERROR) << "Failed to allocate directory pages.";
@@ -113,7 +126,7 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
 
   // Load the actual directory.
   int dir_size = static_cast<int>(header.directory_size / sizeof(uint32));
-  scoped_refptr<PdbFileStream> dir_stream(new PdbFileStream(
+  scoped_refptr<MsfFileStreamImpl<T>> dir_stream(new MsfFileStreamImpl<T>(
       file.get(), header.directory_size, dir_pages.get(), header.page_size));
   std::vector<uint32> directory(dir_size);
   if (!dir_stream->Read(&directory[0], dir_size)) {
@@ -121,20 +134,23 @@ bool PdbReader::Read(const base::FilePath& pdb_path, PdbFile* pdb_file) {
     return false;
   }
 
-  // Iterate through the streams and construct PdbStreams.
+  // Iterate through the streams and construct MsfStreams.
   const uint32& num_streams = directory[0];
   const uint32* stream_lengths = &(directory[1]);
   const uint32* stream_pages = &(directory[1 + num_streams]);
 
   uint32 page_index = 0;
   for (uint32 stream_index = 0; stream_index < num_streams; ++stream_index) {
-    pdb_file->AppendStream(
-        new PdbFileStream(file.get(), stream_lengths[stream_index],
-                          stream_pages + page_index, header.page_size));
+    msf_file->AppendStream(
+        new MsfFileStreamImpl<T>(file.get(), stream_lengths[stream_index],
+                                 stream_pages + page_index, header.page_size));
     page_index += GetNumPages(header, stream_lengths[stream_index]);
   }
 
   return true;
 }
 
-}  // namespace pdb
+}  // namespace detail
+}  // namespace msf
+
+#endif  // SYZYGY_MSF_MSF_READER_IMPL_H_

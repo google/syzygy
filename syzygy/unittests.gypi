@@ -83,6 +83,9 @@
       # Instrumenter tests.
       '<(src)/syzygy/instrument/instrument.gyp:instrument_unittests',
 
+      # MSF tests.
+      '<(src)/syzygy/msf/msf.gyp:msf_unittests',
+
       # Optimize tests.
       '<(src)/syzygy/optimize/optimize.gyp:optimize_unittests',
 

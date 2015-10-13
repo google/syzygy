@@ -50,6 +50,7 @@
         'instrument/instrument.gyp:*',
         'integration_tests/integration_tests.gyp:*',
         'kasko/kasko.gyp:*',
+        'msf/msf.gyp:*',
         'optimize/optimize.gyp:*',
         'pdb/pdb.gyp:*',
         'pdbfind/pdbfind.gyp:*',

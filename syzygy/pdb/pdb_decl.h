@@ -11,25 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Forward declaration of PDB specialization of MSF classes.
 
-#include "syzygy/pdb/pdb_reader.h"
+#ifndef SYZYGY_PDB_PDB_DECL_H_
+#define SYZYGY_PDB_PDB_DECL_H_
 
-#include "base/path_service.h"
-#include "gtest/gtest.h"
-#include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_constants.h"
-#include "syzygy/pdb/unittest_util.h"
+#include "syzygy/msf/msf_decl.h"
 
 namespace pdb {
 
-TEST(PdbReaderTest, Read) {
-  base::FilePath test_dll_pdb =
-      testing::GetSrcRelativePath(testing::kTestPdbFilePath);
-
-  PdbReader reader;
-  PdbFile pdb_file;
-  EXPECT_TRUE(reader.Read(test_dll_pdb, &pdb_file));
-  EXPECT_EQ(pdb_file.StreamCount(), 168u);
-}
+// Forward declarations.
+using PdbFile = msf::detail::MsfFileImpl<msf::kPdbMsfFileType>;
+using PdbStream = msf::detail::MsfStreamImpl<msf::kPdbMsfFileType>;
+using WritablePdbStream =
+    msf::detail::WritableMsfStreamImpl<msf::kPdbMsfFileType>;
 
 }  // namespace pdb
+
+#endif  // SYZYGY_PDB_PDB_DECL_H_

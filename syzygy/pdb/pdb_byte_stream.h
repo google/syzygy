@@ -15,53 +15,12 @@
 #ifndef SYZYGY_PDB_PDB_BYTE_STREAM_H_
 #define SYZYGY_PDB_PDB_BYTE_STREAM_H_
 
-#include "base/memory/scoped_ptr.h"
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/msf/msf_byte_stream.h"
+#include "syzygy/msf/msf_decl.h"
 
 namespace pdb {
 
-// Forward declare.
-class WritablePdbByteStream;
-
-// This class represents a PDB stream in memory.
-class PdbByteStream : public PdbStream {
- public:
-  PdbByteStream();
-
-  // Initializes the stream from the contents of a byte array.
-  bool Init(const uint8* data, size_t length);
-
-  // Initializes the stream from the whole contents of another PdbStream.
-  bool Init(PdbStream* stream);
-
-  // Initializes the stream from the part of another PdbStream.
-  bool Init(PdbStream* stream, size_t length);
-
-  // @name PdbStream implementation.
-  // @{
-  virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) override;
-  virtual scoped_refptr<WritablePdbStream> GetWritablePdbStream() override;
-  // @}
-
-  // Gets the stream's data pointer.
-  uint8* data() { return &data_[0]; }
-
- protected:
-  // Our friend so it can access our internals.
-  friend WritablePdbByteStream;
-
-  // This is protected to enforce use of reference counted pointers.
-  virtual ~PdbByteStream();
-
-  // The stream's data.
-  std::vector<uint8> data_;
-
-  // This is a bit of a hack, allowing us to enforce single WritablePdbStream
-  // semantics. This is most definitely *not* thread-safe.
-  WritablePdbStream* writable_pdb_stream_;
-
-  DISALLOW_COPY_AND_ASSIGN(PdbByteStream);
-};
+using PdbByteStream = msf::detail::MsfByteStreamImpl<msf::kPdbMsfFileType>;
 
 }  // namespace pdb
 

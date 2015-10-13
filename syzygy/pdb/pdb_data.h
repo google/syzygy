@@ -23,6 +23,7 @@
 
 #include "base/basictypes.h"
 #include "syzygy/common/assertions.h"
+#include "syzygy/msf/msf_constants.h"
 #include "syzygy/pdb/pdb_constants.h"
 
 namespace pdb {
@@ -263,13 +264,13 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(PublicStreamSymbolOffset, 8);
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
 struct PdbHeader {
-  uint8 magic_string[kPdbHeaderMagicStringSize];
+  uint8 magic_string[msf::kMsfHeaderMagicStringSize];
   uint32 page_size;
   uint32 free_page_map;
   uint32 num_pages;
   uint32 directory_size;
   uint32 reserved;
-  uint32 root_pages[kPdbMaxDirPages];
+  uint32 root_pages[msf::kMsfMaxDirPages];
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(PdbHeader, 344);
 

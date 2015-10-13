@@ -15,37 +15,12 @@
 #ifndef SYZYGY_PDB_PDB_READER_H_
 #define SYZYGY_PDB_PDB_READER_H_
 
-#include <vector>
-
-#include "base/files/file_path.h"
-#include "base/files/file_util.h"
-#include "syzygy/pdb/pdb_constants.h"
-#include "syzygy/pdb/pdb_data.h"
-#include "syzygy/pdb/pdb_file.h"
-#include "syzygy/pdb/pdb_file_stream.h"
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/msf/msf_decl.h"
+#include "syzygy/msf/msf_reader.h"
 
 namespace pdb {
 
-// This class is used to read a PDB file from disk, populating a PdbFile
-// object with its streams.
-class PdbReader {
- public:
-  PdbReader() { }
-
-  // Reads a PDB, populating the given PdbFile object with the streams.
-  //
-  // @note Once use of the above Read function variants has been eliminated,
-  //     PdbReader will become stateless and simply populate a PdbFile.
-  //
-  // @param pdb_path the PDB file to read.
-  // @param pdb_file the empty PdbFile object to be filled in.
-  // @returns true on success, false otherwise.
-  bool Read(const base::FilePath& pdb_path, PdbFile* pdb_file);
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(PdbReader);
-};
+using PdbReader = msf::detail::MsfReaderImpl<msf::kPdbMsfFileType>;
 
 }  // namespace pdb
 

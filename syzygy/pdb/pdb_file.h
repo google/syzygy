@@ -20,61 +20,12 @@
 #ifndef SYZYGY_PDB_PDB_FILE_H_
 #define SYZYGY_PDB_PDB_FILE_H_
 
-#include <vector>
-
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/msf/msf_decl.h"
+#include "syzygy/msf/msf_file.h"
 
 namespace pdb {
 
-// A simple representation of a PDB file as a collection of numbered streams.
-// This object owns all of the streams referred to by it and maintains
-// responsibility for cleaning them up on destruction.
-class PdbFile {
- public:
-  PdbFile();
-  ~PdbFile();
-
-  // Clears all streams. After calling this the PdbFile is in the same state as
-  // after construction.
-  void Clear();
-
-  // Accesses the nth stream.
-  // @param index the index of the nth stream.
-  // @returns a pointer to the stream, NULL if it does not exist.
-  scoped_refptr<PdbStream> GetStream(uint32 index) const;
-
-  // Adds a new stream to this PDB file, returning the index of the newly
-  // generated stream.
-  // @param pdb_stream a pointer to a heap allocated stream object This may be
-  //     NULL, indicating that the nth stream exists but is empty.
-  // @returns the index of the added stream.
-  size_t AppendStream(PdbStream* pdb_stream);
-
-  // Sets the nth stream. Overwrites an existing stream if there is one.
-  // @param index the index of the stream. This must be >= 0, and must be
-  //     a stream index that already exists.
-  // @param pdb_stream a pointer to the heap allocated stream to be placed at
-  //     the given position. This may be NULL, which is equivalent to erasing
-  //     the given stream.
-  void ReplaceStream(uint32 index, PdbStream* pdb_stream);
-
-  // Sets the nth stream. Overwrites an existing stream if there is one.
-  // @param index the index of the stream.
-  // @param pdb_stream a pointer to the heap allocated stream to be placed at
-  //     the given position. This may be NULL, which is equivalent to erasing
-  //     the given stream.
-  void SetStream(uint32 index, PdbStream* pdb_stream);
-
-  // Returns the number of streams in the PDB file. There are streams with
-  // IDs 0 through StreamCount() - 1.
-  // @returns the number of streams in the PDB file.
-  size_t StreamCount() const { return streams_.size(); }
-
- private:
-  // The streams are implicitly numbered simply by their position in this
-  // vector.
-  std::vector<scoped_refptr<PdbStream>> streams_;
-};
+typedef msf::detail::MsfFileImpl<msf::kPdbMsfFileType> PdbFile;
 
 }  // namespace pdb
 

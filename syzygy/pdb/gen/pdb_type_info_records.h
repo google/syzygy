@@ -18,13 +18,11 @@
 #define SYZYGY_PDB_GEN_PDB_TYPE_INFO_RECORDS_H_
 
 #include "base/strings/string16.h"
+#include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_stream_record.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
 namespace pdb {
-
-// Forward declaration.
-class PdbStream;
 
 class LeafArgList {
  public:

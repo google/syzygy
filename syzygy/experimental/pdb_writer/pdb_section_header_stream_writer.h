@@ -15,12 +15,10 @@
 #ifndef SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_SECTION_HEADER_STREAM_WRITER_H_
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_SECTION_HEADER_STREAM_WRITER_H_
 
+#include "syzygy/pdb/pdb_decl.h"
 #include "syzygy/pe/pe_file.h"
 
 namespace pdb {
-
-// Forward declaration.
-class WritablePdbStream;
 
 // Writes a PDB section header stream. This stream contains the
 // IMAGE_SECTION_HEADER structures extracted from the PE file for which a PDB

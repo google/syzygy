@@ -12,19 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/msf/msf_stream.h"
+
 #include "gtest/gtest.h"
 
-namespace pdb {
+namespace msf {
 
 namespace {
 
-class TestPdbStream : public PdbStream {
+class TestMsfStream : public MsfStream {
  public:
-  explicit TestPdbStream(size_t length) : PdbStream(length) {
-  }
+  explicit TestMsfStream(size_t length) : MsfStream(length) {}
 
-  using PdbStream::pos;
+  using MsfStream::pos;
 
   // A simple implementation of ReadBytes.
   bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
@@ -56,18 +56,18 @@ struct Bar {
 
 }  // namespace
 
-TEST(PdbStreamTest, Constructor) {
-  scoped_refptr<TestPdbStream> stream(new TestPdbStream(5));
+TEST(MsfStreamTest, Constructor) {
+  scoped_refptr<TestMsfStream> stream(new TestMsfStream(5));
   EXPECT_EQ(5, stream->length());
   EXPECT_EQ(0, stream->pos());
 
-  scoped_refptr<TestPdbStream> stream2(new TestPdbStream(SIZE_MAX));
+  scoped_refptr<TestMsfStream> stream2(new TestMsfStream(SIZE_MAX));
   EXPECT_EQ(0, stream2->length());
   EXPECT_EQ(0, stream2->pos());
 }
 
-TEST(PdbStreamTest, Read) {
-  scoped_refptr<TestPdbStream> stream(new TestPdbStream(12));
+TEST(MsfStreamTest, Read) {
+  scoped_refptr<TestMsfStream> stream(new TestMsfStream(12));
   uint8 num8;
   uint16 num16;
   uint32 num32;
@@ -89,8 +89,8 @@ TEST(PdbStreamTest, Read) {
   EXPECT_FALSE(stream->Read(&num8, 4));
 }
 
-TEST(PdbStreamTest, ReadVector) {
-  scoped_refptr<TestPdbStream> stream(new TestPdbStream(sizeof(Foo) * 10));
+TEST(MsfStreamTest, ReadVector) {
+  scoped_refptr<TestMsfStream> stream(new TestMsfStream(sizeof(Foo) * 10));
 
   std::vector<Foo> foos;
 
@@ -113,8 +113,8 @@ TEST(PdbStreamTest, ReadVector) {
   EXPECT_EQ(5u, foos.size());
 }
 
-TEST(PdbStreamTest, Seek) {
-  scoped_refptr<TestPdbStream> stream(new TestPdbStream(5));
+TEST(MsfStreamTest, Seek) {
+  scoped_refptr<TestMsfStream> stream(new TestMsfStream(5));
   EXPECT_EQ(0, stream->pos());
 
   // Valid seeks.
@@ -132,4 +132,4 @@ TEST(PdbStreamTest, Seek) {
   EXPECT_EQ(5, stream->pos());
 }
 
-}  // namespace pdb
+}  // namespace msf

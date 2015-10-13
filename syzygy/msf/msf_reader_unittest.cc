@@ -1,4 +1,4 @@
-// Copyright 2011 Google Inc. All Rights Reserved.
+// Copyright 2012 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,29 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/msf/msf_reader.h"
 
-namespace {
+#include "base/path_service.h"
+#include "gtest/gtest.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/msf/msf_constants.h"
+#include "syzygy/msf/unittest_util.h"
 
-const size_t kInvalidLength = 0xFFFFFFFF;
+namespace msf {
 
-}  // namespace
+TEST(MsfReaderTest, Read) {
+  base::FilePath test_dll_msf =
+      testing::GetSrcRelativePath(testing::kTestPdbFilePath);
 
-namespace pdb {
-
-PdbStream::PdbStream(size_t length)
-    : length_(length == kInvalidLength ? 0 : length), pos_(0) {
+  MsfReader reader;
+  MsfFile msf_file;
+  EXPECT_TRUE(reader.Read(test_dll_msf, &msf_file));
+  EXPECT_EQ(msf_file.StreamCount(), 168u);
 }
 
-PdbStream::~PdbStream() {
-}
-
-bool PdbStream::Seek(size_t pos) {
-  if (pos > length_)
-    return false;
-
-  pos_ = pos;
-  return true;
-}
-
-}  // namespace pdb
+}  // namespace msf

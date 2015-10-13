@@ -12,25 +12,30 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_writer.h"
+#ifndef SYZYGY_MSF_MSF_WRITER_IMPL_H_
+#define SYZYGY_MSF_MSF_WRITER_IMPL_H_
+
+#include <cstdio>
+#include <cstring>
+#include <vector>
 
 #include "base/logging.h"
-#include "syzygy/pdb/pdb_constants.h"
-#include "syzygy/pdb/pdb_data.h"
+#include "syzygy/msf/msf_constants.h"
+#include "syzygy/msf/msf_data.h"
 
-namespace pdb {
+namespace msf {
+namespace detail {
 
 namespace {
 
-const uint32 kZeroBuffer[kPdbPageSize] = { 0 };
+const uint32 kZeroBuffer[kMsfPageSize] = {0};
 
-// A byte-based bitmap for keeping track of free pages in an MSF/PDB file.
+// A byte-based bitmap for keeping track of free pages in an MSF file.
 // TODO(chrisha): Promote this to its own file and unittest it when we make
 //     a library for MSF-specific stuff.
 class FreePageBitMap {
  public:
-  FreePageBitMap() : page_count_(0) {
-  }
+  FreePageBitMap() : page_count_(0) {}
 
   void SetPageCount(uint32 page_count) {
     page_count_ = page_count;
@@ -81,12 +86,12 @@ class FreePageBitMap {
 };
 
 // A light-weight wrapper that allows a previously allocated buffer to be read
-// as a PdbStream.
-class ReadOnlyPdbStream : public PdbStream {
+// as an MsfStreamImpl.
+template <MsfFileType T>
+class ReadOnlyMsfStream : public MsfStreamImpl<T> {
  public:
-  ReadOnlyPdbStream(const void* data, size_t bytes)
-      : PdbStream(bytes), data_(data) {
-  }
+  ReadOnlyMsfStream(const void* data, size_t bytes)
+      : MsfStreamImpl(bytes), data_(data) {}
 
   virtual bool ReadBytes(void* dest,
                          size_t count,
@@ -118,10 +123,10 @@ class ReadOnlyPdbStream : public PdbStream {
 // of @p pages_written, and incrementing the total @P page_count. This will
 // occasionally cause more than one single page to be written to the output,
 // thus advancing @p page_count by more than one (when reserving pages for the
-// free page map). It is expected that @data be kPdbPageSize in length.
-// @pre the file is expected to be positioned at @p *page_count * kPdbPageSize
+// free page map). It is expected that @data be kMsfPageSize in length.
+// @pre the file is expected to be positioned at @p *page_count * kMsfPageSize
 //     when entering this routine
-// @post the file will be positioned at @p *page_count * kPdbPageSiz when
+// @post the file will be positioned at @p *page_count * kMsfPageSiz when
 //     exiting this routine.
 bool AppendPage(const void* data,
                 std::vector<uint32>* pages_written,
@@ -136,13 +141,13 @@ bool AppendPage(const void* data,
 
   // The file is written sequentially, so it will already be pointing to
   // the appropriate spot.
-  DCHECK_EQ(local_page_count * kPdbPageSize,
+  DCHECK_EQ(local_page_count * kMsfPageSize,
             static_cast<uint32>(::ftell(file)));
 
   // If we're due to allocate pages for the free page map, then do so.
-  if (((*page_count) % kPdbPageSize) == 1) {
-    if (::fwrite(kZeroBuffer, 1, kPdbPageSize, file) != kPdbPageSize ||
-        ::fwrite(kZeroBuffer, 1, kPdbPageSize, file) != kPdbPageSize) {
+  if (((*page_count) % kMsfPageSize) == 1) {
+    if (::fwrite(kZeroBuffer, 1, kMsfPageSize, file) != kMsfPageSize ||
+        ::fwrite(kZeroBuffer, 1, kMsfPageSize, file) != kMsfPageSize) {
       LOG(ERROR) << "Failed to allocate free page map pages.";
       return false;
     }
@@ -150,14 +155,14 @@ bool AppendPage(const void* data,
   }
 
   // Write the page itself.
-  if (::fwrite(data, 1, kPdbPageSize, file) != kPdbPageSize) {
+  if (::fwrite(data, 1, kMsfPageSize, file) != kMsfPageSize) {
     LOG(ERROR) << "Failed to write page " << *page_count << ".";
     return false;
   }
   pages_written->push_back(local_page_count);
   ++local_page_count;
 
-  DCHECK_EQ(local_page_count * kPdbPageSize,
+  DCHECK_EQ(local_page_count * kMsfPageSize,
             static_cast<uint32>(::ftell(file)));
 
   *page_count = local_page_count;
@@ -170,14 +175,14 @@ bool WriteFreePageBitMap(const FreePageBitMap& free, FILE* file) {
   const uint8* data = free.data().data();
   size_t bytes_left = free.data().size();
   size_t page_index = 1;
-  size_t bytes_to_write = kPdbPageSize;
+  size_t bytes_to_write = kMsfPageSize;
   while (true) {
-    if (::fseek(file, page_index * kPdbPageSize, SEEK_SET) != 0) {
+    if (::fseek(file, page_index * kMsfPageSize, SEEK_SET) != 0) {
       LOG(ERROR) << "Failed to seek to page " << page_index << ".";
       return false;
     }
 
-    bytes_to_write = kPdbPageSize;
+    bytes_to_write = kMsfPageSize;
     if (bytes_left < bytes_to_write)
       bytes_to_write = bytes_left;
 
@@ -192,17 +197,16 @@ bool WriteFreePageBitMap(const FreePageBitMap& free, FILE* file) {
       break;
 
     data += bytes_to_write;
-    page_index += kPdbPageSize;
+    page_index += kMsfPageSize;
   }
 
   // Was the last write partial? If so, we need to flush out the rest of the
   // free page map with ones (0xFF bytes).
-  if (bytes_to_write < kPdbPageSize) {
+  if (bytes_to_write < kMsfPageSize) {
     // Create a vector of bytes with all the bits set.
-    std::vector<uint8> ones(kPdbPageSize - bytes_to_write, 0xFF);
+    std::vector<uint8> ones(kMsfPageSize - bytes_to_write, 0xFF);
     if (::fwrite(ones.data(), 1, ones.size(), file) != ones.size()) {
-      LOG(ERROR) << "Failed to pad page " << page_index
-                 << " of free page map.";
+      LOG(ERROR) << "Failed to pad page " << page_index << " of free page map.";
       return false;
     }
   }
@@ -212,25 +216,29 @@ bool WriteFreePageBitMap(const FreePageBitMap& free, FILE* file) {
 
 }  // namespace
 
-PdbWriter::PdbWriter() {
+template <MsfFileType T>
+MsfWriterImpl<T>::MsfWriterImpl() {
 }
 
-PdbWriter::~PdbWriter() {
+template <MsfFileType T>
+MsfWriterImpl<T>::~MsfWriterImpl() {
 }
 
-bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
-  file_.reset(base::OpenFile(pdb_path, "wb"));
+template <MsfFileType T>
+bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
+                             const MsfFileImpl<T>& msf_file) {
+  file_.reset(base::OpenFile(msf_path, "wb"));
   if (!file_.get()) {
-    LOG(ERROR) << "Failed to create '" << pdb_path.value() << "'.";
+    LOG(ERROR) << "Failed to create '" << msf_path.value() << "'.";
     return false;
   }
 
   // Initialize the directory with stream count and lengths.
   std::vector<uint32> directory;
-  directory.push_back(pdb_file.StreamCount());
-  for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
+  directory.push_back(msf_file.StreamCount());
+  for (size_t i = 0; i < msf_file.StreamCount(); ++i) {
     // Null streams have an implicit zero length.
-    PdbStream* stream = pdb_file.GetStream(i).get();
+    MsfStreamImpl<T>* stream = msf_file.GetStream(i).get();
     if (stream == NULL)
       directory.push_back(0);
     else
@@ -239,10 +247,10 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
 
   // Reserve space for the header page, the two free page map pages, and a
   // fourth empty page. The fourth empty page doesn't appear to be strictly
-  // necessary but MSF/PDB files produced by MS tools always contain it.
+  // necessary but MSF files produced by MS tools always contain it.
   uint32 page_count = 4;
   for (uint32 i = 0; i < page_count; ++i) {
-    if (::fwrite(kZeroBuffer, 1, kPdbPageSize, file_.get()) != kPdbPageSize) {
+    if (::fwrite(kZeroBuffer, 1, kMsfPageSize, file_.get()) != kMsfPageSize) {
       LOG(ERROR) << "Failed to allocate preamble page.";
       return false;
     }
@@ -253,12 +261,12 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
   // map bookkeeping later on.
   size_t stream0_start = directory.size();
   size_t stream0_end = 0;
-  for (size_t i = 0; i < pdb_file.StreamCount(); ++i) {
+  for (size_t i = 0; i < msf_file.StreamCount(); ++i) {
     if (i == 1)
       stream0_end = directory.size();
 
     // Null streams are treated as empty streams.
-    PdbStream* stream = pdb_file.GetStream(i).get();
+    MsfStreamImpl<T>* stream = msf_file.GetStream(i).get();
     if (stream == NULL || stream->length() == 0)
       continue;
 
@@ -273,7 +281,7 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
 
   // Write the directory, and keep track of the pages it is written to.
   std::vector<uint32> directory_pages;
-  scoped_refptr<PdbStream> directory_stream(new ReadOnlyPdbStream(
+  scoped_refptr<MsfStreamImpl<T>> directory_stream(new ReadOnlyMsfStream<T>(
       directory.data(), sizeof(directory[0]) * directory.size()));
   if (!AppendStream(directory_stream.get(), &directory_pages, &page_count)) {
     LOG(ERROR) << "Failed to write directory.";
@@ -283,9 +291,10 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
   // Write the root directory, and keep track of the pages it is written to.
   // These will in turn go into the header root directory pointers.
   std::vector<uint32> root_directory_pages;
-  scoped_refptr<PdbStream> root_directory_stream(new ReadOnlyPdbStream(
-      directory_pages.data(),
-      sizeof(directory_pages[0]) * directory_pages.size()));
+  scoped_refptr<MsfStreamImpl<T>> root_directory_stream(
+      new ReadOnlyMsfStream<T>(
+          directory_pages.data(),
+          sizeof(directory_pages[0]) * directory_pages.size()));
   if (!AppendStream(root_directory_stream.get(), &root_directory_pages,
                     &page_count)) {
     LOG(ERROR) << "Failed to write root directory.";
@@ -294,23 +303,22 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
 
   // Write the header.
   if (!WriteHeader(root_directory_pages,
-                   sizeof(directory[0]) * directory.size(),
-                   page_count)) {
-    LOG(ERROR) << "Failed to write PDB header.";
+                   sizeof(directory[0]) * directory.size(), page_count)) {
+    LOG(ERROR) << "Failed to write MSF header.";
     return false;
   }
 
   // Initialize the free page bit map. The pages corresponding to stream 0 are
   // always marked as free, as well as page 3 which we allocated in the
   // preamble.
-  FreePageBitMap free;
-  free.SetPageCount(page_count);
-  free.SetFree(3);
+  FreePageBitMap free_page;
+  free_page.SetPageCount(page_count);
+  free_page.SetFree(3);
   for (size_t i = stream0_start; i < stream0_end; ++i)
-    free.SetFree(directory[i]);
-  free.Finalize();
+    free_page.SetFree(directory[i]);
+  free_page.Finalize();
 
-  if (!WriteFreePageBitMap(free, file_.get())) {
+  if (!WriteFreePageBitMap(free_page, file_.get())) {
     LOG(ERROR) << "Failed to write free page bitmap.";
     return false;
   }
@@ -321,9 +329,10 @@ bool PdbWriter::Write(const base::FilePath& pdb_path, const PdbFile& pdb_file) {
   return true;
 }
 
-bool PdbWriter::AppendStream(PdbStream* stream,
-                             std::vector<uint32>* pages_written,
-                             uint32* page_count) {
+template <MsfFileType T>
+bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
+                                    std::vector<uint32>* pages_written,
+                                    uint32* page_count) {
   DCHECK(stream != NULL);
   DCHECK(pages_written != NULL);
   DCHECK(page_count != NULL);
@@ -334,7 +343,7 @@ bool PdbWriter::AppendStream(PdbStream* stream,
 
   // Write the stream page by page.
   stream->Seek(0);
-  uint8 buffer[kPdbPageSize] = { 0 };
+  uint8 buffer[kMsfPageSize] = {0};
   size_t bytes_left = stream->length();
   while (bytes_left) {
     size_t bytes_to_read = sizeof(buffer);
@@ -352,7 +361,7 @@ bool PdbWriter::AppendStream(PdbStream* stream,
         bytes_read != bytes_to_read) {
       size_t offset = stream->length() - bytes_left;
       LOG(ERROR) << "Failed to read " << bytes_to_read << " bytes at offset "
-                 << offset << " of PDB stream.";
+                 << offset << " of MSF stream.";
       return false;
     }
 
@@ -364,23 +373,25 @@ bool PdbWriter::AppendStream(PdbStream* stream,
   DCHECK_EQ(0u, bytes_left);
 
 #ifndef NDEBUG
-  size_t expected_pages_written = (stream->length() + kPdbPageSize - 1) /
-      kPdbPageSize;
+  size_t expected_pages_written =
+      (stream->length() + kMsfPageSize - 1) / kMsfPageSize;
   DCHECK_EQ(old_pages_written_count + expected_pages_written,
             pages_written->size());
-  // We can't say anything about |page_count| as AppendPage occasionally snags
-  // extra pages for the free page map.
+// We can't say anything about |page_count| as AppendPage occasionally snags
+// extra pages for the free page map.
 #endif
 
   return true;
 }
 
-bool PdbWriter::WriteHeader(const std::vector<uint32>& root_directory_pages,
-                            size_t directory_size,
-                            uint32 page_count) {
+template <MsfFileType T>
+bool MsfWriterImpl<T>::WriteHeader(
+    const std::vector<uint32>& root_directory_pages,
+    size_t directory_size,
+    uint32 page_count) {
   VLOG(1) << "Writing MSF Header ...";
 
-  PdbHeader header = { 0 };
+  MsfHeader header = {0};
 
   // Make sure the root directory pointers won't overflow.
   if (root_directory_pages.size() > arraysize(header.root_pages)) {
@@ -396,15 +407,14 @@ bool PdbWriter::WriteHeader(const std::vector<uint32>& root_directory_pages,
     return false;
   }
 
-  ::memcpy(header.magic_string, kPdbHeaderMagicString,
-           sizeof(kPdbHeaderMagicString));
-  header.page_size = kPdbPageSize;
+  ::memcpy(header.magic_string, kMsfHeaderMagicString,
+           sizeof(kMsfHeaderMagicString));
+  header.page_size = kMsfPageSize;
   header.free_page_map = 1;
   header.num_pages = page_count;
   header.directory_size = directory_size;
   header.reserved = 0;
-  ::memcpy(header.root_pages,
-           root_directory_pages.data(),
+  ::memcpy(header.root_pages, root_directory_pages.data(),
            sizeof(root_directory_pages[0]) * root_directory_pages.size());
 
   if (::fwrite(&header, sizeof(header), 1, file_.get()) != 1) {
@@ -415,4 +425,7 @@ bool PdbWriter::WriteHeader(const std::vector<uint32>& root_directory_pages,
   return true;
 }
 
-}  // namespace pdb
+}  // namespace detail
+}  // namespace msf
+
+#endif  // SYZYGY_MSF_MSF_WRITER_IMPL_H_

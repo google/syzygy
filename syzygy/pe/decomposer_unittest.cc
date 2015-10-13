@@ -695,7 +695,7 @@ TEST_F(DecomposerAfterRelinkTest, FailToLoadBlockGraphWithInvalidVersion) {
   ASSERT_TRUE(new_stream->Init(block_graph_stream.get()));
   block_graph_stream = new_stream.get();
   scoped_refptr<pdb::WritablePdbStream> block_graph_writer =
-      block_graph_stream->GetWritablePdbStream();
+      block_graph_stream->GetWritableStream();
   ASSERT_TRUE(block_graph_writer.get() != NULL);
 
   // Change the version of the stream.

@@ -22,12 +22,12 @@
 #include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
+#include "syzygy/pdb/pdb_decl.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
 
 // Forward declarations.
-class PdbStream;
 class DbiModuleInfo;
 
 // Dump a module info stream.

@@ -18,11 +18,9 @@
 #define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_DUMP_UTIL_H_
 
 #include "base/files/file_util.h"
+#include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
-
-// Forward declare.
-class PdbStream;
 
 // Dump a block of unknown data to a specific output.
 // @param out The output where the data should be dumped.

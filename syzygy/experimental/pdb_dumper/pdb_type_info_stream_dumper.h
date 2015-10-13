@@ -22,12 +22,10 @@
 #include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
+#include "syzygy/pdb/pdb_decl.h"
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
 
 namespace pdb {
-
-// Forward declarations.
-class PdbStream;
 
 // Dump @p type_info_header and @p type_info_record_map from @p stream to @p
 // out.

@@ -257,7 +257,7 @@ TEST(PdbBitSetTest, WriteEmptyBitSet) {
   EXPECT_TRUE(bs.Read(stream.get()));
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), true));
   EXPECT_EQ(sizeof(kData), reader->length());
 
@@ -273,7 +273,7 @@ TEST(PdbBitSetTest, WriteEmptyBitSetWithoutSize) {
   EXPECT_TRUE(bs.Read(stream.get()));
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), false));
 
   EXPECT_EQ(0, reader->length());
@@ -286,7 +286,7 @@ TEST(PdbBitSetTest, WriteBitSet) {
   EXPECT_TRUE(bs.Read(stream.get()));
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), true));
   EXPECT_EQ(sizeof(kData), reader->length());
 
@@ -303,7 +303,7 @@ TEST(PdbBitSetTest, WriteBitSetWithoutSize) {
   EXPECT_TRUE(bs.Read(stream.get()));
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), false));
   EXPECT_EQ(sizeof(kExpectedData), reader->length());
 
@@ -485,7 +485,7 @@ TEST(EnsureStreamWritableTest, WorksWhenReadOnly) {
   scoped_refptr<PdbStream> stream2 = pdb_file.GetStream(index);
   EXPECT_TRUE(stream2.get() != NULL);
   EXPECT_NE(stream.get(), stream2.get());
-  EXPECT_TRUE(stream2->GetWritablePdbStream() != NULL);
+  EXPECT_TRUE(stream2->GetWritableStream() != NULL);
 }
 
 TEST(EnsureStreamWritableTest, FailsWhenNonExistent) {
@@ -580,7 +580,7 @@ TEST(ReadHeaderInfoStreamTest, ReadEmptyStream) {
 
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithOnlyHeader) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
@@ -592,7 +592,7 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithOnlyHeader) {
 
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithEmptyNameStreamMap) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
@@ -610,7 +610,7 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithEmptyNameStreamMap) {
 
 TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
@@ -692,7 +692,7 @@ TEST(WriteHeaderInfoStreamTest, WriteToPdbFile) {
 
 TEST(WriteHeaderInfoStreamTest, WriteEmpty) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   NameStreamMap name_stream_map;
   EXPECT_TRUE(WriteHeaderInfoStream(kSamplePdbHeader,
@@ -713,7 +713,7 @@ TEST(WriteHeaderInfoStreamTest, WriteEmpty) {
 
 TEST(WriteHeaderInfoStreamTest, WriteNonEmpty) {
   scoped_refptr<PdbStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   NameStreamMap name_stream_map;
   name_stream_map["/StreamFoo"] = 9;
@@ -750,7 +750,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     // Add a new stream to it.
     scoped_refptr<PdbStream> foo_reader(new PdbByteStream());
     scoped_refptr<WritablePdbStream> foo_writer(
-        foo_reader->GetWritablePdbStream());
+        foo_reader->GetWritableStream());
     size_t foo_index = pdb_file.AppendStream(foo_reader.get());
     foo_writer->WriteString("foo");
 
@@ -771,7 +771,7 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     // Write the new header stream to it.
     scoped_refptr<PdbStream> new_header_reader(new PdbByteStream());
     scoped_refptr<WritablePdbStream> new_header_writer(
-        new_header_reader->GetWritablePdbStream());
+        new_header_reader->GetWritableStream());
     ASSERT_TRUE(pdb::WriteHeaderInfoStream(pdb_header, name_stream_map,
                                            new_header_writer.get()));
     pdb_file.ReplaceStream(kPdbHeaderInfoStream, new_header_reader.get());

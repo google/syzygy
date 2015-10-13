@@ -59,8 +59,8 @@ scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(base::FilePath file_path) {
   base::GetFileSize(file_path, &file_size);
   size_t pages[] = {0};
 
-  scoped_refptr<pdb::RefCountedFILE> file = new pdb::RefCountedFILE(
-      base::OpenFile(file_path, "rb"));
+  scoped_refptr<msf::RefCountedFILE> file =
+      new msf::RefCountedFILE(base::OpenFile(file_path, "rb"));
   scoped_refptr<pdb::PdbFileStream> stream(
       new pdb::PdbFileStream(file.get(), file_size, pages, file_size));
 
@@ -69,8 +69,7 @@ scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(base::FilePath file_path) {
 
 void InitMockPdbFile(pdb::PdbFile* pdb_file) {
   scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream());
-  scoped_refptr<pdb::WritablePdbStream> writer(
-      stream->GetWritablePdbStream());
+  scoped_refptr<pdb::WritablePdbStream> writer(stream->GetWritableStream());
 
   pdb::PdbInfoHeader70 header = {
       pdb::kPdbCurrentVersion, 123456789, 1,

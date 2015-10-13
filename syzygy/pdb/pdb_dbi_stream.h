@@ -36,12 +36,10 @@
 #include <vector>
 
 #include "syzygy/pdb/pdb_data.h"
+#include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
-
-// Forward declarations.
-class PdbStream;
 
 // This class represent a module info element as it is present in the module
 // info substream of the Dbi stream of a PDB file. It extends the

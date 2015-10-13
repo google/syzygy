@@ -18,6 +18,7 @@
 
 #include "base/strings/stringprintf.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_writer.h"
 
@@ -44,8 +45,7 @@ bool SetDbiDbgStream(size_t index_offset,
   }
 
   scoped_refptr<PdbStream> dbi_reader(pdb_file->GetStream(kDbiStream));
-  scoped_refptr<WritablePdbStream> dbi_writer(
-      dbi_reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> dbi_writer(dbi_reader->GetWritableStream());
   DCHECK(dbi_writer.get() != NULL);
 
   // Read the DBI header.
@@ -313,7 +313,7 @@ bool EnsureStreamWritable(uint32 index, PdbFile* pdb_file) {
     reader = new PdbByteStream();
 
   // Try and get a writer.
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
   if (writer.get() == NULL) {
     // If not possible, copy the existing reader to a PdbByteStream which will
     // be able to give us a writer.
@@ -325,7 +325,8 @@ bool EnsureStreamWritable(uint32 index, PdbFile* pdb_file) {
     reader = new_stream.get();
   }
 
-  DCHECK(reader->GetWritablePdbStream() != NULL);
+  DCHECK_NE(static_cast<WritablePdbStream*>(nullptr),
+            reader->GetWritableStream());
 
   // Be sure to replace the stream at this index with the new one. This is a
   // no-op if the stream hasn't changed.
@@ -365,7 +366,7 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
 
   // Get the reader and writer for the header info stream.
   scoped_refptr<PdbStream> reader(pdb_file->GetStream(kPdbHeaderInfoStream));
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
   DCHECK(writer.get() != NULL);
 
   // Read the header.
@@ -393,7 +394,7 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
     LOG(ERROR) << "No DBI stream in PDB.";
     return false;
   }
-  writer = reader->GetWritablePdbStream();
+  writer = reader->GetWritableStream();
 
   DCHECK(writer.get() != NULL);
 
@@ -588,7 +589,7 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& header,
 
   // Get the stream writer.
   scoped_refptr<WritablePdbStream> header_writer(
-      header_reader->GetWritablePdbStream());
+      header_reader->GetWritableStream());
   DCHECK(header_writer.get() != NULL);
 
   // Write the new header.

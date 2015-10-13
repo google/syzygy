@@ -28,7 +28,7 @@ class PdbStreamRecordTest : public testing::Test {
  protected:
   void SetUp() override {
     stream_ = new PdbByteStream;
-    write_stream_ = stream_->GetWritablePdbStream();
+    write_stream_ = stream_->GetWritableStream();
   }
 
   void WriteWideString(const base::string16& wide_string) {

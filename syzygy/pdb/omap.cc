@@ -16,6 +16,7 @@
 
 #include <algorithm>
 
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {

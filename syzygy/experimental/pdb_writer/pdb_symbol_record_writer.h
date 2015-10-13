@@ -21,13 +21,11 @@
 
 #include "base/basictypes.h"
 #include "syzygy/experimental/pdb_writer/symbol.h"
+#include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
 
 typedef std::vector<uint32> SymbolOffsets;
-
-// Forward declaration.
-class WritablePdbStream;
 
 // Writes a PDB symbol record stream.
 // @param symbols the symbols to write.

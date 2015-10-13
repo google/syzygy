@@ -12,40 +12,39 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/pdb_file_stream.h"
+#include "syzygy/msf/msf_file_stream.h"
 
 #include "base/path_service.h"
 #include "base/files/file_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_constants.h"
-#include "syzygy/pdb/pdb_data.h"
-#include "syzygy/pdb/unittest_util.h"
+#include "syzygy/msf/msf_constants.h"
+#include "syzygy/msf/msf_data.h"
+#include "syzygy/msf/unittest_util.h"
 
-namespace pdb {
+namespace msf {
 
 namespace {
 
-class TestPdbFileStream : public PdbFileStream {
+class TestMsfFileStream : public MsfFileStream {
  public:
-  TestPdbFileStream(RefCountedFILE* file,
+  TestMsfFileStream(RefCountedFILE* file,
                     size_t length,
                     const uint32* pages,
                     size_t page_size)
-      : PdbFileStream(file, length, pages, page_size) {
-  }
+      : MsfFileStream(file, length, pages, page_size) {}
 
-  virtual ~TestPdbFileStream() { }
+  virtual ~TestMsfFileStream() {}
 
-  using PdbFileStream::ReadBytes;
-  using PdbFileStream::ReadFromPage;
+  using MsfFileStream::ReadBytes;
+  using MsfFileStream::ReadFromPage;
 };
 
-class PdbFileStreamTest : public testing::Test {
+class MsfFileStreamTest : public testing::Test {
  public:
   virtual void SetUp() {
-    file_ = new RefCountedFILE(base::OpenFile(testing::GetSrcRelativePath(
-        testing::kTestPdbFilePath), "rb"));
+    file_ = new RefCountedFILE(base::OpenFile(
+        testing::GetSrcRelativePath(testing::kTestPdbFilePath), "rb"));
     ASSERT_TRUE(file_.get() != NULL);
   }
 
@@ -55,14 +54,14 @@ class PdbFileStreamTest : public testing::Test {
 
 }  // namespace
 
-TEST_F(PdbFileStreamTest, Constructor) {
+TEST_F(MsfFileStreamTest, Constructor) {
   size_t pages[] = {1, 2, 3};
-  scoped_refptr<PdbFileStream> stream(
-      new PdbFileStream(file_.get(), 10, pages, 8));
+  scoped_refptr<MsfFileStream> stream(
+      new MsfFileStream(file_.get(), 10, pages, 8));
   EXPECT_EQ(10, stream->length());
 }
 
-TEST_F(PdbFileStreamTest, ReadFromPage) {
+TEST_F(MsfFileStreamTest, ReadFromPage) {
   struct TestCase {
     uint32 page_num;
     size_t offset;
@@ -72,21 +71,19 @@ TEST_F(PdbFileStreamTest, ReadFromPage) {
 
   // Test calling ReadFromPage with different combinations of page number,
   // offset and count.
-  TestCase test_cases[] = {
-    {0, 0, 3, "Mic"},
-    {0, 0, 4, "Micr"},
-    {0, 1, 2, "ic"},
-    {0, 2, 2, "cr"},
-    {1, 0, 2, "os"},
-    {1, 1, 3, "sof"},
-    {2, 0, 4, "t C/"},
-    {2, 2, 2, "C/"}
-  };
+  TestCase test_cases[] = {{0, 0, 3, "Mic"},
+                           {0, 0, 4, "Micr"},
+                           {0, 1, 2, "ic"},
+                           {0, 2, 2, "cr"},
+                           {1, 0, 2, "os"},
+                           {1, 1, 3, "sof"},
+                           {2, 0, 4, "t C/"},
+                           {2, 2, 2, "C/"}};
 
   size_t pages[] = {0, 1, 2};
   size_t page_size = 4;
-  scoped_refptr<TestPdbFileStream> stream(
-      new TestPdbFileStream(file_.get(), sizeof(PdbHeader), pages, page_size));
+  scoped_refptr<TestMsfFileStream> stream(
+      new TestMsfFileStream(file_.get(), sizeof(MsfHeader), pages, page_size));
 
   char buffer[4] = {0};
   for (uint32 i = 0; i < arraysize(test_cases); ++i) {
@@ -98,24 +95,17 @@ TEST_F(PdbFileStreamTest, ReadFromPage) {
   }
 }
 
-TEST_F(PdbFileStreamTest, ReadBytes) {
-  // Different sections of the pdb header magic string.
-  char* test_cases[] = {
-    "Mic",
-    "roso",
-    "ft",
-    " C/C+",
-    "+ MS",
-    "F 7.00"
-  };
+TEST_F(MsfFileStreamTest, ReadBytes) {
+  // Different sections of the MSF header magic string.
+  char* test_cases[] = {"Mic", "roso", "ft", " C/C+", "+ MS", "F 7.00"};
 
   // Test that we can read varying sizes of bytes from the header of the
   // file with varying page sizes.
   char buffer[8] = {0};
   for (size_t page_size = 4; page_size <= 32; page_size *= 2) {
     size_t pages[] = {0, 1, 2, 3, 4, 5, 6, 7};
-    scoped_refptr<TestPdbFileStream> stream(new TestPdbFileStream(
-        file_.get(), sizeof(PdbHeader), pages, page_size));
+    scoped_refptr<TestMsfFileStream> stream(new TestMsfFileStream(
+        file_.get(), sizeof(MsfHeader), pages, page_size));
 
     for (uint32 j = 0; j < arraysize(test_cases); ++j) {
       char* test_case = test_cases[j];
@@ -128,4 +118,4 @@ TEST_F(PdbFileStreamTest, ReadBytes) {
   }
 }
 
-}  // namespace pdb
+}  // namespace msf

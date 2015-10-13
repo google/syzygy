@@ -17,13 +17,11 @@
 
 #include <string>
 #include <vector>
+#include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
 
 typedef std::vector<std::string> StringTable;
-
-// Forward declaration.
-class WritablePdbStream;
 
 // Writes a string table. A string table is found in the names stream and in the
 // EC info header of the debug info stream of a PDB file.

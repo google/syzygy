@@ -15,7 +15,7 @@
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
 
 #include "base/strings/stringprintf.h"
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {

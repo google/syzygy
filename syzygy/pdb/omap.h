@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "syzygy/core/address.h"
+#include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
 
 namespace pdb {

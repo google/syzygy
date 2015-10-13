@@ -21,11 +21,9 @@
 
 #include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data_types.h"
+#include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
-
-// Forward declarations.
-class PdbStream;
 
 // Dumps @p symbol_record_vector from @p stream to out with a specified level of
 // indentation.
@@ -36,4 +34,4 @@ void DumpSymbolRecords(FILE* out,
 
 }  // namespace pdb
 
-#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_SYMBOL_RECORD_STREAM_DUMPER_H_
+#endif  // SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_SYMBOL_RECORD_DUMPER_H_

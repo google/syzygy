@@ -20,11 +20,9 @@
 #include "base/logging.h"
 #include "base/strings/string16.h"
 #include "syzygy/common/assertions.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
-
-// Forward declaration
-class PdbStream;
 
 class NumericConstant {
  public:

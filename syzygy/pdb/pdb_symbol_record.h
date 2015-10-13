@@ -23,11 +23,9 @@
 #include "base/basictypes.h"
 #include "base/callback.h"
 #include "syzygy/pdb/pdb_data_types.h"
+#include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
-
-// Forward declarations.
-class PdbStream;
 
 // Read a symbol record table from a Pdb stream.
 // @param stream The stream containing the table.

@@ -32,7 +32,7 @@ TEST(PdbWriterTest, WriteStringTable) {
   StringTable strings(kStrings, kStrings + kNumStrings);
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   EXPECT_TRUE(WriteStringTable(strings, writer.get()));
 
@@ -79,7 +79,7 @@ TEST(PdbWriterTest, WriteEmptyStringTable) {
   StringTable strings;
 
   scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritablePdbStream());
+  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   EXPECT_TRUE(WriteStringTable(strings, writer.get()));
 
