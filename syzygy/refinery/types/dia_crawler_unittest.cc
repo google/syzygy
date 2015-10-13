@@ -321,4 +321,18 @@ TEST_F(DiaCrawlerTest, TestUnion) {
   EXPECT_EQ(UserDefinedType::UDT_UNION, udt->udt_kind());
 }
 
+TEST_F(DiaCrawlerTest, TestGlobals) {
+  TypePtr type = FindTypeEndingWith(L"::test_global");
+  ASSERT_TRUE(type);
+
+  ASSERT_EQ(Type::GLOBAL_TYPE_KIND, type->kind());
+
+  GlobalTypePtr global;
+  ASSERT_TRUE(type->CastTo(&global));
+  ASSERT_TRUE(global);
+
+  ASSERT_EQ(global->GetDataType(), FindTypeEndingWith(L"TestAllInOneUDT"));
+  ASSERT_NE(0, global->rva());
+}
+
 }  // namespace refinery

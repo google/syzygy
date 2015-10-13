@@ -165,6 +165,8 @@ struct TestNullptrType {
   nullptr_t nullptr_type;
 };
 
+TestAllInOneUDT test_global;
+
 void AliasTypesOne() {
   // Make sure the types are used in the file.
   TestCollidingUDT colliding = {};
@@ -199,6 +201,8 @@ void AliasTypesOne() {
 
   TestUnion union_type = {};
   Alias(&union_type);
+
+  Alias(&test_global);
 }
 
 }  // namespace testing

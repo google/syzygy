@@ -274,6 +274,7 @@ class TypeCreator {
 
  private:
   bool CreateTypesOfKind(enum SymTagEnum kind, IDiaSymbol* global);
+  bool CreateGlobalDataTypes(IDiaSymbol* global);
 
   // Assigns names to all pointer, array and function types that have been
   // created.
@@ -295,6 +296,10 @@ class TypeCreator {
   TypePtr CreatePointerType(IDiaSymbol* symbol);
   TypePtr CreateTypedefType(IDiaSymbol* symbol);
   TypePtr CreateArrayType(IDiaSymbol* symbol);
+
+  TypePtr CreateGlobalType(IDiaSymbol* symbol,
+                           const base::string16& name,
+                           uint64_t rva);
 
   bool FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt);
   bool FinalizePointer(IDiaSymbol* symbol, PointerTypePtr ptr);
@@ -323,8 +328,7 @@ TypeCreator::TypeCreator(TypeRepository* repository)
   DCHECK(repository);
 }
 
-bool TypeCreator::CreateTypesOfKind(enum SymTagEnum kind,
-                                    IDiaSymbol* global) {
+bool TypeCreator::CreateTypesOfKind(enum SymTagEnum kind, IDiaSymbol* global) {
   base::win::ScopedComPtr<IDiaEnumSymbols> matching_types;
   HRESULT hr = global->findChildren(kind,
                                     nullptr,
@@ -351,6 +355,94 @@ bool TypeCreator::CreateTypesOfKind(enum SymTagEnum kind,
     symbol.Release();
     received = 0;
     hr = matching_types->Next(1, symbol.Receive(), &received);
+  }
+
+  if (!SUCCEEDED(hr))
+    return false;
+
+  return true;
+}
+
+bool TypeCreator::CreateGlobalDataTypes(IDiaSymbol* global) {
+  base::win::ScopedComPtr<IDiaEnumSymbols> matching_types;
+  HRESULT hr = global->findChildren(SymTagData, nullptr, nsNone,
+                                    matching_types.Receive());
+  if (!SUCCEEDED(hr))
+    return false;
+
+  ULONG received = 0;
+  while (true) {
+    base::win::ScopedComPtr<IDiaSymbol> symbol;
+    hr = matching_types->Next(1, symbol.Receive(), &received);
+    if (hr != S_OK)
+      break;
+
+    // Filter here for symbols that have all the required properties.
+    LocationType location_type = LocIsNull;
+    DataKind data_kind = DataIsUnknown;
+    if (!pe::GetLocationType(symbol.get(), &location_type))
+      return false;
+    if (location_type != LocIsStatic)
+      continue;
+
+    if (!pe::GetDataKind(symbol.get(), &data_kind))
+      return false;
+
+    switch (data_kind) {
+      case DataIsUnknown:
+      case DataIsLocal:
+      case DataIsParam:
+      case DataIsObjectPtr:
+      case DataIsMember:
+      case DataIsStaticMember:
+      case DataIsConstant:
+        continue;
+
+      case DataIsStaticLocal:
+      case DataIsFileStatic:
+      case DataIsGlobal:
+        // This data should have an RVA.
+        break;
+    }
+
+    base::string16 name;
+    if (!pe::GetSymName(symbol.get(), &name))
+      return false;
+
+    DWORD rva = 0;
+    HRESULT hr = symbol->get_relativeVirtualAddress(&rva);
+    if (hr != S_OK) {
+      // This condition occurs for precisely two symbols that we've noticed.
+      if (name == L"__safe_se_handler_count" ||
+          name == L"__safe_se_handler_table") {
+        continue;
+      }
+
+      // Make sure to err out for other cases for now.
+      // TODO(siggi): Revisit this once the reason for this anomaly is
+      //     understood.
+      LOG(ERROR) << "Symbol " << name << " has no RVA!";
+      return false;
+    }
+
+    // See whether the type has been created.
+    DWORD index_id = 0;
+    if (!GetSymIndexId(symbol.get(), &index_id))
+      return false;
+
+    auto it = created_types_.find(index_id);
+    if (it != created_types_.end())
+      continue;
+
+    // Ok, we need to create it.
+    TypePtr created = CreateGlobalType(symbol.get(), name, rva);
+    DCHECK(created);
+    CreatedType& entry = created_types_[index_id];
+    entry.type_id = repository_->AddType(created);
+    entry.is_finalized = false;
+
+    if (!FinalizeType(symbol.get(), created))
+      return false;
   }
 
   if (!SUCCEEDED(hr))
@@ -418,7 +510,8 @@ bool TypeCreator::CreateTypes(IDiaSymbol* global) {
       !CreateTypesOfKind(SymTagTypedef, global) ||
       !CreateTypesOfKind(SymTagPointerType, global) ||
       !CreateTypesOfKind(SymTagArrayType, global) ||
-      !CreateTypesOfKind(SymTagFunctionType, global)) {
+      !CreateTypesOfKind(SymTagFunctionType, global) ||
+      !CreateGlobalDataTypes(global)) {
     return false;
   }
 
@@ -924,6 +1017,23 @@ TypePtr TypeCreator::CreateArrayType(IDiaSymbol* symbol) {
   }
 
   return new ArrayType(size);
+}
+
+TypePtr TypeCreator::CreateGlobalType(IDiaSymbol* symbol,
+                                      const base::string16& name,
+                                      uint64_t rva) {
+  DCHECK(symbol);
+  DCHECK(pe::IsSymTag(symbol, SymTagData));
+
+  base::win::ScopedComPtr<IDiaSymbol> global_type;
+  if (!pe::GetSymType(symbol, &global_type))
+    return nullptr;
+
+  TypePtr type = FindOrCreateType(global_type.get());
+  if (!type)
+    return false;
+
+  return new GlobalType(name, rva, type->type_id(), type->size());
 }
 
 }  // namespace
