@@ -3,3 +3,4 @@ CODE_REVIEW_SERVER: codereview.chromium.org
 VIEW_VC: https://github.com/google/syzygy/commit/
 CC_LIST: syzygy-changes@googlegroups.com
 TRY_ON_UPLOAD: False
+PROJECT: syzygy
