@@ -101,6 +101,31 @@ bool DumpDatasSym32(FILE* out,
   return true;
 }
 
+bool DumpPubSym32(FILE* out,
+                  PdbStream* stream,
+                  uint16 len,
+                  uint8 indent_level) {
+  cci::PubSym32 symbol_info = {};
+  std::string symbol_name;
+  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
+    return false;
+
+  DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
+  DumpIndentedText(out, indent_level, "Flags:\n");
+  DumpIndentedText(out, indent_level + 1, "fCode: %d\n",
+                   (symbol_info.flags & cci::fCode) != 0);
+  DumpIndentedText(out, indent_level + 1, "fFunction: %d\n",
+                   (symbol_info.flags & cci::fFunction) != 0);
+  DumpIndentedText(out, indent_level + 1, "fManaged: %d\n",
+                   (symbol_info.flags & cci::fManaged) != 0);
+  DumpIndentedText(out, indent_level + 1, "fMSIL: %d\n",
+                   (symbol_info.flags & cci::fMSIL) != 0);
+
+  DumpIndentedText(out, indent_level, "Offset: 0x%08X\n", symbol_info.off);
+  DumpIndentedText(out, indent_level, "Segment: 0x%04X\n", symbol_info.seg);
+  return true;
+}
+
 bool DumpOemSymbol(FILE* out,
                    PdbStream* stream,
                    uint16 len,

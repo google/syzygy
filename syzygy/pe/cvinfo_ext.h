@@ -128,7 +128,7 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_BPREL32, BpRelSym32) \
     decl(S_LDATA32, DatasSym32) \
     decl(S_GDATA32, DatasSym32) \
-    decl(S_PUB32, DatasSym32) \
+    decl(S_PUB32, PubSym32) \
     decl(S_LPROC32, ProcSym32) \
     decl(S_GPROC32, ProcSym32) \
     decl(S_REGREL32, RegRel32) \
