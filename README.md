@@ -1,1 +1,1 @@
-"Configuration for chrome infrastructure services" 
+Configuration for chrome infrastructure services
