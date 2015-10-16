@@ -105,6 +105,7 @@ class AssemblerBase {
   void jecxz(const Immediate& dst);
   void jmp(const Immediate& dst);
   void jmp(const Operand& dst);
+  void jmp(const Register32& dst);
   void l(LoopCode lc, const Immediate& dst);
 
  public:
@@ -194,6 +195,17 @@ class AssemblerBase {
   void sub(const Operand& dst, const Register32& src);
   void sub(const Register32& dst, const Immediate& src);
   void sub(const Operand& dst, const Immediate& src);
+
+  void and(const Register32& dst, const Immediate& src);
+
+  void xor(const Register8& dst, const Register8& src);
+  void xor(const Register8& dst, const Immediate& src);
+
+  void xor(const Register32& dst, const Register32& src);
+  void xor(const Register32& dst, const Operand& src);
+  void xor(const Operand& dst, const Register32& src);
+  void xor(const Register32& dst, const Immediate& src);
+  void xor(const Operand& dst, const Immediate& src);
   // @}
 
   // @name Shifting operations.

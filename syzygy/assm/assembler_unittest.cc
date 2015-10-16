@@ -261,6 +261,10 @@ TEST_F(AssemblerTest, Jmp) {
   // are well covered in the mov instruction.
   asm_.jmp(Operand(Displacement(0xCAFEBABE, kSize32Bit, NULL)));
   EXPECT_BYTES(0xFF, 0x25, 0xBE, 0xBA, 0xFE, 0xCA);
+
+  // Register 32-bit jmp.
+  asm_.jmp(ebx);
+  EXPECT_BYTES(0xFF, 0xE3);
 }
 
 TEST_F(AssemblerTest, Ret) {
@@ -1063,6 +1067,64 @@ TEST_F(AssemblerTest, Sub) {
   // Special EAX mode + immediate.
   asm_.sub(eax, Immediate(0xDEADBEEF, kSize32Bit));
   EXPECT_BYTES(0x2D, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, And) {
+  asm_.and(eax, Immediate(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xE0, 0x0A);
+  asm_.and(eax, Immediate(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x25, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, Xor) {
+  asm_.xor(eax, eax);
+  EXPECT_BYTES(0x31, 0xC0);
+  asm_.xor(eax, Operand(eax));
+  EXPECT_BYTES(0x33, 0x00);
+  asm_.xor(eax, Operand(eax, Displacement(10, kSize8Bit)));
+  EXPECT_BYTES(0x33, 0x40, 0x0A);
+  asm_.xor(eax, Operand(eax, Displacement(10, kSize32Bit)));
+  EXPECT_BYTES(0x33, 0x80, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.xor(ecx, eax);
+  EXPECT_BYTES(0x31, 0xC1);
+  asm_.xor(ecx, Operand(eax));
+  EXPECT_BYTES(0x33, 0x08);
+  asm_.xor(ecx, Operand(eax, Displacement(10, kSize8Bit)));
+  EXPECT_BYTES(0x33, 0x48, 0x0A);
+  asm_.xor(ecx, Operand(eax, Displacement(10, kSize32Bit)));
+  EXPECT_BYTES(0x33, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.xor(eax, ecx);
+  EXPECT_BYTES(0x31, 0xC8);
+  asm_.xor(Operand(eax), ecx);
+  EXPECT_BYTES(0x31, 0x08);
+  asm_.xor(Operand(eax, Displacement(10, kSize8Bit)), ecx);
+  EXPECT_BYTES(0x31, 0x48, 0x0A);
+  asm_.xor(Operand(eax, Displacement(10, kSize32Bit)), ecx);
+  EXPECT_BYTES(0x31, 0x88, 0x0A, 0x00, 0x00, 0x00);
+
+  asm_.xor(eax, Immediate(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xF0, 0x0A);
+  asm_.xor(ecx, Immediate(0x0A, kSize8Bit));
+  EXPECT_BYTES(0x83, 0xF1, 0x0A);
+  asm_.xor(ecx, Immediate(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0xF1, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  asm_.xor(Operand(eax), Immediate(0x1, kSize8Bit));
+  EXPECT_BYTES(0x83, 0x30, 0x01);
+  asm_.xor(Operand(eax), Immediate(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x30, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.xor(Operand(eax, Displacement(10, kSize8Bit)),
+    Immediate(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0x70, 0x0A, 0xEF, 0xBE, 0xAD, 0xDE);
+  asm_.xor(Operand(eax, Displacement(10, kSize32Bit)),
+    Immediate(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x81, 0xB0, 0x0A, 0x00, 0x00, 0x00, 0xEF, 0xBE, 0xAD, 0xDE);
+
+  // Special EAX mode + immediate.
+  asm_.xor(eax, Immediate(0xDEADBEEF, kSize32Bit));
+  EXPECT_BYTES(0x35, 0xEF, 0xBE, 0xAD, 0xDE);
 }
 
 TEST_F(AssemblerTest, Shl) {

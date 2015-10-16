@@ -716,6 +716,14 @@ void AssemblerBase<ReferenceType>::jmp(const Operand& dst) {
 }
 
 template <class ReferenceType>
+void AssemblerBase<ReferenceType>::jmp(const Register32& dst) {
+  InstructionBuffer instr(this);
+
+  instr.EmitOpCodeByte(0xFF);
+  instr.EmitOpCodeByte(0xE0 | dst.code());
+}
+
+template <class ReferenceType>
 void AssemblerBase<ReferenceType>::l(LoopCode lc, const Immediate& dst) {
   DCHECK_EQ(kSize8Bit, dst.size());
   DCHECK_LE(0, lc);
@@ -1157,6 +1165,62 @@ void AssemblerBase<ReferenceType>::sub(const Operand&  dst,
                                        const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 5, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::and(const Register32& dst,
+                                       const Immediate& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister32(0x25, 0x83, 0x81, 4, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xor(const Register8& dst,
+                                       const Register8& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x30, src, dst);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xor(const Register8& dst,
+                                       const Immediate& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister8(0x34, 0x80, 6, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xor(const Register32& dst,
+                                       const Register32& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x31, src, dst);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xor(const Register32& dst,
+                                       const Operand& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x33, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xor(const Operand& dst,
+                                       const Register32& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x31, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xor(const Register32& dst,
+                                       const Immediate& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister32(0x35, 0x83, 0x81, 6, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::xor(const Operand& dst,
+                                       const Immediate& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 6, dst, src);
 }
 
 template <class ReferenceType>
