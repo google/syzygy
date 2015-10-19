@@ -655,8 +655,20 @@ bool DumpSepCodSym(FILE* out,
                    PdbStream* stream,
                    uint16 len,
                    uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  cci::SepCodSym symbol_info = {};
+  if (!stream->Read(&symbol_info, 1))
+    return false;
+
+  DumpIndentedText(out, indent_level, "parent: %d\n", symbol_info.parent);
+  DumpIndentedText(out, indent_level, "end: %d\n", symbol_info.end);
+  DumpIndentedText(out, indent_level, "length: %d\n", symbol_info.length);
+  DumpIndentedText(out, indent_level, "scf: %d\n", symbol_info.scf);
+  DumpIndentedText(out, indent_level, "off: %d\n", symbol_info.off);
+  DumpIndentedText(out, indent_level, "offParent: %d\n", symbol_info.offParent);
+  DumpIndentedText(out, indent_level, "sec: %d\n", symbol_info.sec);
+  DumpIndentedText(out, indent_level, "secParent: %d\n", symbol_info.secParent);
+
+  return true;
 }
 
 bool DumpLocalSym(FILE* out,
