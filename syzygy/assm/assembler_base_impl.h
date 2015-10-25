@@ -1168,10 +1168,52 @@ void AssemblerBase<ReferenceType>::sub(const Operand&  dst,
 }
 
 template <class ReferenceType>
+void AssemblerBase<ReferenceType>::and(const Register8& dst,
+                                       const Register8& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x20, src, dst);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::and(const Register8& dst,
+                                       const Immediate& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToRegister8(0x24, 0x80, 4, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::and(const Register32& dst,
+                                       const Register32& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x21, src, dst);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::and(const Register32& dst,
+                                       const Operand& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x23, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::and(const Operand& dst,
+                                       const Register32& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstruction(0x21, dst, src);
+}
+
+template <class ReferenceType>
 void AssemblerBase<ReferenceType>::and(const Register32& dst,
                                        const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToRegister32(0x25, 0x83, 0x81, 4, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::and(const Operand& dst,
+                                       const Immediate& src) {
+  InstructionBuffer instr(this);
+  instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 4, dst, src);
 }
 
 template <class ReferenceType>

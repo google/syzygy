@@ -195,8 +195,18 @@ class AssemblerBase {
   void sub(const Operand& dst, const Register32& src);
   void sub(const Register32& dst, const Immediate& src);
   void sub(const Operand& dst, const Immediate& src);
+  // @}
 
+  // @name Logical operations.
+  // @{
+  void and(const Register8& dst, const Register8& src);
+  void and(const Register8& dst, const Immediate& src);
+
+  void and(const Register32& dst, const Register32& src);
+  void and(const Register32& dst, const Operand& src);
+  void and(const Operand& dst, const Register32& src);
   void and(const Register32& dst, const Immediate& src);
+  void and(const Operand& dst, const Immediate& src);
 
   void xor(const Register8& dst, const Register8& src);
   void xor(const Register8& dst, const Immediate& src);
