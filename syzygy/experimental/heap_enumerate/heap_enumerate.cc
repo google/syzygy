@@ -326,8 +326,14 @@ bool HeapEnumerator::Initialize(HANDLE heap, TypeRepository* repo) {
   }
 
   if (!wanted_udts.empty()) {
-    // TODO(siggi): Validate that all required types have been found, and that
-    //    the optional types are consistent.
+    LOG(ERROR) << "Missing ntdll UDTs:";
+    for (auto type : wanted_udts)
+      LOG(ERROR) << "  " << type.first;
+
+    LOG(ERROR) << "Available ntdll UDTs:";
+    for (auto type : *repo)
+      LOG(ERROR) << "  " << type->name();
+
     return false;
   }
 
@@ -656,6 +662,7 @@ bool GetNtdllTypes(TypeRepository* repo) {
   DiaCrawler crawler;
   if (!crawler.InitializeForFile(base::FilePath(ntdll_path)) ||
       !crawler.GetTypes(repo)) {
+    LOG(ERROR) << "Failed to get ntdll types.";
     return false;
   }
 
