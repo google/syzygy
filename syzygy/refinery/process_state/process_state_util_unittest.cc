@@ -16,6 +16,7 @@
 
 #include <vector>
 
+#include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/process_state/process_state.h"
@@ -30,6 +31,8 @@ const Size kSize = 42U;
 const uint32 kChecksum = 11U;
 const uint32 kTimestamp = 22U;
 const char kPath[] = "c:\\path\\ModuleName";
+const char kDataName[] = "data_name";
+const char kTypeName[] = "Type::Name*";
 
 }  // namespace
 
@@ -54,6 +57,29 @@ TEST(AddModuleRecord, BasicTest) {
   ASSERT_EQ(kChecksum, proto->checksum());
   ASSERT_EQ(kTimestamp, proto->timestamp());
   ASSERT_EQ(kPath, proto->name());
+}
+
+TEST(AddTypedBlockRecord, BasicTest) {
+  ProcessState state;
+  AddTypedBlockRecord(AddressRange(kAddress, kSize),
+                      base::ASCIIToUTF16(kDataName),
+                      base::ASCIIToUTF16(kTypeName), &state);
+
+  // Validate a record was added.
+  TypedBlockLayerPtr layer;
+  ASSERT_TRUE(state.FindLayer(&layer));
+  std::vector<TypedBlockRecordPtr> matching_records;
+  layer->GetRecordsAt(kAddress, &matching_records);
+  ASSERT_EQ(1, matching_records.size());
+
+  // Validate range.
+  TypedBlockRecordPtr record = matching_records[0];
+  ASSERT_EQ(AddressRange(kAddress, kSize), record->range());
+
+  // Validate TypedBlock proto.
+  TypedBlock* proto = record->mutable_data();
+  ASSERT_EQ(kDataName, proto->data_name());
+  ASSERT_EQ(kTypeName, proto->type_name());
 }
 
 }  // namespace refinery

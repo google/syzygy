@@ -120,20 +120,20 @@ TEST(TypeNameIndexTest, BasicTest) {
   repo->AddType(two);
 
   // Create index.
-  TypeNameIndex index(repo);
+  scoped_refptr<TypeNameIndex> index = new TypeNameIndex(repo);
 
   // No match when not a type name.
   std::vector<TypePtr> matching_types;
-  index.GetTypes(kNotATypeName, &matching_types);
+  index->GetTypes(kNotATypeName, &matching_types);
   ASSERT_EQ(0, matching_types.size());
 
   // Match with multiple hits.
-  index.GetTypes(kTypeNameOne, &matching_types);
+  index->GetTypes(kTypeNameOne, &matching_types);
   ASSERT_EQ(2, matching_types.size());
 
   // Match with single hit.
   matching_types.clear();
-  index.GetTypes(kTypeNameTwo, &matching_types);
+  index->GetTypes(kTypeNameTwo, &matching_types);
   ASSERT_EQ(1, matching_types.size());
   ASSERT_EQ(two.get(), matching_types[0].get());
 }

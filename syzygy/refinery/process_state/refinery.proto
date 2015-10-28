@@ -39,6 +39,12 @@ message RegisterInformation {
   optional uint32 eflags = 14;
   optional uint32 esp = 15;
   optional uint32 seg_ss = 16;
+
+  optional uint32 allreg_vframe = 17;
+  // A frame's data is often located relative to the CV_ALLREG_VFRAME. However,
+  // we observe this is relative to the parent frame's value. For ease of
+  // access, we store the parent frame's value in the frame's context.
+  optional uint32 parent_allreg_vframe = 18;
 };
 
 message Exception {
@@ -80,7 +86,10 @@ message Stack {
 // (including callee's arguments) to its return address (excluded). Stack frames
 // are thus separated by the regions corresponding to return addresses.
 message StackFrame {
-  optional uint64 instruction_pointer = 1;
+  // TODO(manzagop): add a notion of validity of register values (eg, a frame
+  // below a frame for which we have no symbols may have unreliable register
+  // values).
+  optional RegisterInformation register_info = 1;
 
   // TODO(manzagop): figure out whether these attributes from IDiaStackFrame are
   // really needed. The rest can be obtained from IDiaFrameData.
@@ -92,13 +101,15 @@ message StackFrame {
   // Base address of the local variables.
   optional uint64 locals_base = 3;
 
-  // TODO(manzagop): add register values with a notion of their validity.
+  // TODO(manzagop): Add function name, for easier human consumption?
 }
 
 message HeapSnippet {
 }
 
 message TypedBlock {
+  optional string data_name = 1;
+  optional string type_name = 2;
 }
 
 message Module {
@@ -116,7 +127,6 @@ enum ViolationType {
   VIOLATION_NO_EXCEPTION_REGISTRATION_RECORD = 1;
   VIOLATION_EXCEPTION_REGISTRATION_RECORD_NOT_IN_STACK = 2;
   VIOLATION_EXCEPTION_CHAIN_ADDRESS_DECREASE = 3;
-
 }
 
 message Violation {

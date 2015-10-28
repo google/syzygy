@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/analyzers/stack_analyzer.h"
-
 #include <Windows.h>  // NOLINT
 #include <DbgHelp.h>
 
@@ -23,6 +21,7 @@
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/debug/alias.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -44,6 +43,8 @@
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
+#include "syzygy/refinery/analyzers/stack_analyzer.h"
+#include "syzygy/refinery/analyzers/stack_frame_analyzer.h"
 #include "syzygy/refinery/analyzers/thread_analyzer.h"
 #include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
@@ -73,6 +74,11 @@ const char kSwitchTid[] = "exception-thread-id";
 const MINIDUMP_TYPE kSmallDumpType = static_cast<MINIDUMP_TYPE>(
     MiniDumpWithProcessThreadData |  // Get PEB and TEB.
     MiniDumpWithUnloadedModules);    // Get unloaded modules when available.
+
+struct SimpleUDT {
+  int one;
+  const char two;
+};
 
 __declspec(noinline) DWORD GetEip() {
   return reinterpret_cast<DWORD>(_ReturnAddress());
@@ -117,6 +123,33 @@ bool GetNtSymbolPathValue(std::string* nt_symbol_path) {
       local_symbol_path_microsoft.c_str(), kNtSymbolPathSuffixMicrosoft);
 
   return true;
+}
+
+bool AnalyzeMinidump(const base::FilePath& minidump_path,
+                     ProcessState* process_state) {
+  Minidump minidump;
+  if (!minidump.Open(minidump_path))
+    return false;
+
+  scoped_refptr<DiaSymbolProvider> dia_symbol_provider(new DiaSymbolProvider());
+  scoped_refptr<SymbolProvider> symbol_provider(new SymbolProvider());
+
+  AnalysisRunner runner;
+  scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::ThreadAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::ExceptionAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::ModuleAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::StackAnalyzer(dia_symbol_provider));
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(
+      new refinery::StackFrameAnalyzer(dia_symbol_provider, symbol_provider));
+  runner.AddAnalyzer(analyzer.Pass());
+
+  return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
 }
 
 }  // namespace
@@ -187,7 +220,7 @@ MULTIPROCESS_TEST_MAIN(MinidumpDumperProcess) {
   return 0;
 }
 
-class StackAnalyzerTest : public testing::Test {
+class StackAndFrameAnalyzersTest : public testing::Test {
  protected:
   void SetUp() override {
     // Override NT symbol path.
@@ -210,6 +243,7 @@ class StackAnalyzerTest : public testing::Test {
   uint32 expected_esp() { return expected_esp_; }
   uint32 eip_lowerbound() { return eip_lowerbound_; }
   uint32 eip_upperbound() { return eip_upperbound_; }
+  Address expected_udt_address() { return expected_udt_address_; }
 
   bool GenerateMinidump() {
     // Grab a context. RtlCaptureContext sets the instruction pointer, stack
@@ -263,6 +297,8 @@ class StackAnalyzerTest : public testing::Test {
 
   bool SetupStackFrameAndGenerateMinidump() {
     bool success = true;
+    SimpleUDT simple_udt_variable = {42, 'a'};
+    base::debug::Alias(&simple_udt_variable);
 
     // Copy esp to expected_esp_. Note: esp must not be changed prior to calling
     // GenerateMinidump.
@@ -279,6 +315,8 @@ class StackAnalyzerTest : public testing::Test {
 
     eip_upperbound_ = GetEip();
 
+    expected_udt_address_ = reinterpret_cast<Address>(&simple_udt_variable);
+
     return success;
   }
 
@@ -286,9 +324,13 @@ class StackAnalyzerTest : public testing::Test {
   base::ScopedTempDir temp_dir_;
   base::FilePath minidump_path_;
 
+  // For stack frame validation.
   uint32 expected_esp_;
   uint32 eip_lowerbound_;
   uint32 eip_upperbound_;
+
+  // Typed block validation.
+  Address expected_udt_address_;
 
   testing::ScopedEnvironmentVariable scoped_env_variable_;
 };
@@ -296,43 +338,26 @@ class StackAnalyzerTest : public testing::Test {
 // This test fails under coverage instrumentation which is probably not friendly
 // to stackwalking.
 #ifdef _COVERAGE_BUILD
-TEST_F(StackAnalyzerTest, DISABLED_AnalyzeMinidump) {
+TEST_F(StackAndFrameAnalyzersTest, DISABLED_BasicTest) {
 #else
-TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
+TEST_F(StackAndFrameAnalyzersTest, BasicTest) {
 #endif
   base::win::ScopedCOMInitializer com_initializer;
 
-  // Compute expected frame base for SetupStackFrameAndGenerateMinidump. It
-  // should be sizeof(void*) off of this frame's esp immediately prior to the
-  // call, as it has no arguments.
+  // Generate the minidump, then analyze it.
+  // Note: the expected frame base for SetupStackFrameAndGenerateMinidump should
+  // be sizeof(void*) off of the current frame's top of stack immediately prior
+  // to the call (as that function has no arguments).
   uint32 expected_frame_base = 0U;
   __asm {
     mov expected_frame_base, esp
   }
   expected_frame_base -= sizeof(void*);
 
-  // Generate a minidump.
   ASSERT_TRUE(SetupStackFrameAndGenerateMinidump());
 
-  // Analyze.
-  Minidump minidump;
-  ASSERT_TRUE(minidump.Open(minidump_path()));
   ProcessState process_state;
-
-  AnalysisRunner runner;
-  scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::ThreadAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::ExceptionAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::ModuleAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::StackAnalyzer(new DiaSymbolProvider()));
-  runner.AddAnalyzer(analyzer.Pass());
-
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            runner.Analyze(minidump, &process_state));
+  ASSERT_TRUE(AnalyzeMinidump(minidump_path(), &process_state));
 
   // Ensure the test's thread was successfully walked.
   StackRecordPtr stack;
@@ -342,20 +367,19 @@ TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
   ASSERT_TRUE(stack->data().stack_walk_success());
 
   // Validate SetupStackFrameAndGenerateMinidump's frame.
-  StackFrameLayerPtr frame_layer;
-  process_state.FindOrCreateLayer(&frame_layer);
-  std::vector<StackFrameRecordPtr> matching_records;
-  frame_layer->GetRecordsAt(static_cast<Address>(expected_esp()),
-                            &matching_records);
-  ASSERT_EQ(1, matching_records.size());
+  StackFrameRecordPtr frame_record;
+  // Note: using FindSingleRecord as there should be no frame record overlap
+  // in the context of this test.
+  ASSERT_TRUE(process_state.FindSingleRecord(
+      static_cast<Address>(expected_esp()), &frame_record));
 
-  StackFrameRecordPtr frame_record = matching_records[0];
-  ASSERT_LT(expected_esp(), expected_frame_base);
+  ASSERT_EQ(expected_esp(), frame_record->range().addr());
   ASSERT_EQ(expected_frame_base - expected_esp(), frame_record->range().size());
 
-  const StackFrame& frame = matching_records[0]->data();
-  ASSERT_LT(eip_lowerbound(), frame.instruction_pointer());
-  ASSERT_GT(eip_upperbound(), frame.instruction_pointer());
+  const StackFrame& frame = frame_record->data();
+  uint32_t recovered_eip = frame.register_info().eip();
+  ASSERT_LT(eip_lowerbound(), recovered_eip);
+  ASSERT_GT(eip_upperbound(), recovered_eip);
 
   // Sanity and tightness check.
   ASSERT_GT(eip_upperbound(), eip_lowerbound());
@@ -367,6 +391,23 @@ TEST_F(StackAnalyzerTest, AnalyzeMinidump) {
 
   // TODO(manzagop): validate locals_base. It should be sizeof(void*) off of
   // the frame base, to account for ebp.
+
+  // Validate typed block layer for SetupStackFrameAndGenerateMinidump's frame.
+  // TODO(manzagop): test more than UDT once implemented.
+  TypedBlockRecordPtr typedblock_record;
+  // Note: using FindSingleRecord as there should be no typed block overlap in
+  // the context of this test.
+  ASSERT_TRUE(process_state.FindSingleRecord(expected_udt_address(),
+                                             &typedblock_record));
+  ASSERT_EQ(expected_udt_address(), typedblock_record->range().addr());
+  ASSERT_EQ(sizeof(SimpleUDT), typedblock_record->range().size());
+  const TypedBlock& typedblock = typedblock_record->data();
+  ASSERT_EQ("simple_udt_variable", typedblock.data_name());
+  ASSERT_EQ("refinery::`anonymous-namespace'::SimpleUDT",
+            typedblock.type_name());
+
+  // TODO(manzagop): validate the bytes layer contains the expected typed block
+  // values.
 }
 
 }  // namespace refinery

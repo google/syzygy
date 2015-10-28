@@ -25,77 +25,22 @@ namespace refinery {
 
 namespace {
 
-// TODO(manzagop): revise when support expands beyond x86.
-bool InsertStackFrameRecord(IDiaStackFrame* stack_frame,
-                            ProcessState* process_state) {
-  // Get the frame's base.
-  uint64_t frame_base = 0ULL;
-  if (!pe::GetFrameBase(stack_frame, &frame_base))
-    return false;
+bool GetRegisterValue(IDiaStackFrame* frame,
+                      CV_HREG_e register_index,
+                      uint32_t* register_value) {
+  DCHECK(frame); DCHECK(register_value);
 
-  // Get frame's top.
-  uint64_t frame_top = 0ULL;
-  if (!pe::GetRegisterValue(stack_frame, CV_REG_ESP, &frame_top))
-    return false;
-
-  // Get instruction pointer.
-  uint64_t instruction_pointer = 0ULL;
-  if (!pe::GetRegisterValue(stack_frame, CV_REG_EIP, &instruction_pointer)) {
+  uint64_t value = 0ULL;
+  if (!pe::GetRegisterValue(frame, register_index, &value)) {
     return false;
   }
-
-  // Get the frame's size. Note: this differs from the difference between
-  // top of frame and base in that it excludes callee parameter size.
-  uint32_t frame_size = 0U;
-  if (!pe::GetSize(stack_frame, &frame_size))
-    return false;
-
-  // Get base address of locals.
-  uint64_t locals_base = 0ULL;
-  if (!pe::GetLocalsBase(stack_frame, &locals_base))
-    return false;
-
-  // TODO(manzagop): get register values and some notion about their validity.
-
-  // Populate the stack frame layer.
-
-  // Compute the frame's full size.
-  DCHECK_LE(frame_top, frame_base);
-  base::CheckedNumeric<Size> frame_full_size =
-      base::CheckedNumeric<Size>::cast(frame_base - frame_top);
-  if (!frame_full_size.IsValid()) {
-    LOG(ERROR) << "Frame full size doesn't fit a 32bit integer.";
+  base::CheckedNumeric<uint32> checked_value =
+      base::CheckedNumeric<uint32>::cast(value);
+  if (!checked_value.IsValid()) {
+    LOG(ERROR) << "register value is not a 32 bit value.";
     return false;
   }
-
-  // Create the stack frame record.
-  AddressRange range(static_cast<Address>(frame_top),
-                     static_cast<Size>(frame_full_size.ValueOrDie()));
-  if (!range.IsValid()) {
-    LOG(ERROR) << "Invalid frame range.";
-    return false;
-  }
-
-  StackFrameLayerPtr frame_layer;
-  process_state->FindOrCreateLayer(&frame_layer);
-
-  StackFrameRecordPtr frame_record;
-  frame_layer->CreateRecord(range, &frame_record);
-  StackFrame* frame_proto = frame_record->mutable_data();
-
-  // Populate the stack frame record.
-  base::CheckedNumeric<uint32> checked_instruction_pointer =
-      base::CheckedNumeric<uint32>::cast(instruction_pointer);
-  if (!checked_instruction_pointer.IsValid()) {
-    LOG(ERROR) << "instruction_pointer is not a 32 bit value.";
-    return false;
-  }
-  frame_proto->set_instruction_pointer(
-      checked_instruction_pointer.ValueOrDie());
-
-  frame_proto->set_frame_size_bytes(frame_size);
-  frame_proto->set_locals_base(locals_base);
-
+  *register_value = checked_value.ValueOrDie();
   return true;
 }
 
@@ -105,7 +50,7 @@ bool InsertStackFrameRecord(IDiaStackFrame* stack_frame,
 const char StackAnalyzer::kStackAnalyzerName[] = "StackAnalyzer";
 
 StackAnalyzer::StackAnalyzer(scoped_refptr<DiaSymbolProvider> symbol_provider)
-    : symbol_provider_(symbol_provider) {
+    : symbol_provider_(symbol_provider), child_frame_context_(nullptr) {
   DCHECK(symbol_provider.get() != nullptr);
 }
 
@@ -148,6 +93,7 @@ Analyzer::AnalysisResult StackAnalyzer::Analyze(const Minidump& minidump,
 Analyzer::AnalysisResult StackAnalyzer::StackWalk(StackRecordPtr stack_record,
                                                   ProcessState* process_state) {
   stack_walk_helper_->SetState(stack_record, process_state);
+  child_frame_context_ = nullptr;
 
   // Create the frame enumerator.
   base::win::ScopedComPtr<IDiaEnumStackFrames> frame_enumerator;
@@ -194,6 +140,84 @@ Analyzer::AnalysisResult StackAnalyzer::StackWalk(StackRecordPtr stack_record,
   }
 
   return ANALYSIS_COMPLETE;
+}
+
+// TODO(manzagop): revise when support expands beyond x86.
+bool StackAnalyzer::InsertStackFrameRecord(IDiaStackFrame* stack_frame,
+                                           ProcessState* process_state) {
+  RegisterInformation* child_context = child_frame_context_;
+  child_frame_context_ = nullptr;
+
+  // Get the frame's base.
+  uint64_t frame_base = 0ULL;
+  if (!pe::GetFrameBase(stack_frame, &frame_base))
+    return false;
+
+  // Get frame's top.
+  uint64_t frame_top = 0ULL;
+  if (!pe::GetRegisterValue(stack_frame, CV_REG_ESP, &frame_top))
+    return false;
+
+  // Get the frame's size. Note: this differs from the difference between
+  // top of frame and base in that it excludes callee parameter size.
+  uint32_t frame_size = 0U;
+  if (!pe::GetSize(stack_frame, &frame_size))
+    return false;
+
+  // Get base address of locals.
+  uint64_t locals_base = 0ULL;
+  if (!pe::GetLocalsBase(stack_frame, &locals_base))
+    return false;
+
+  // TODO(manzagop): get register values and some notion about their validity.
+
+  // Populate the stack frame layer.
+
+  // Compute the frame's full size.
+  DCHECK_LE(frame_top, frame_base);
+  base::CheckedNumeric<Size> frame_full_size =
+      base::CheckedNumeric<Size>::cast(frame_base - frame_top);
+  if (!frame_full_size.IsValid()) {
+    LOG(ERROR) << "Frame full size doesn't fit a 32bit integer.";
+    return false;
+  }
+
+  // Create the stack frame record.
+  AddressRange range(static_cast<Address>(frame_top),
+                     static_cast<Size>(frame_full_size.ValueOrDie()));
+  if (!range.IsValid()) {
+    LOG(ERROR) << "Invalid frame range.";
+    return false;
+  }
+
+  StackFrameLayerPtr frame_layer;
+  process_state->FindOrCreateLayer(&frame_layer);
+
+  StackFrameRecordPtr frame_record;
+  frame_layer->CreateRecord(range, &frame_record);
+  StackFrame* frame_proto = frame_record->mutable_data();
+
+  // Populate the stack frame record.
+
+  // Register context.
+  // TODO(manzagop): flesh out the register context.
+  RegisterInformation* context = frame_proto->mutable_register_info();
+  uint32_t eip = 0U;
+  if (!GetRegisterValue(stack_frame, CV_REG_EIP, &eip))
+    return false;
+  context->set_eip(eip);
+  uint32_t allreg_vframe = 0U;
+  if (GetRegisterValue(stack_frame, CV_ALLREG_VFRAME, &allreg_vframe)) {
+    // Register doesn't seem to always be available. Not considered an error.
+    context->set_allreg_vframe(allreg_vframe);
+    child_context->set_parent_allreg_vframe(allreg_vframe);
+  }
+
+  frame_proto->set_frame_size_bytes(frame_size);
+  frame_proto->set_locals_base(locals_base);
+
+  child_frame_context_ = context;
+  return true;
 }
 
 }  // namespace refinery

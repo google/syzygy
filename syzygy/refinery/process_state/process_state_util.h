@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "base/strings/string_piece.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -32,6 +33,9 @@ using StackRecordPtr = ProcessState::Layer<Stack>::RecordPtr;
 using StackFrameLayerPtr = scoped_refptr<ProcessState::Layer<StackFrame>>;
 using StackFrameRecordPtr = ProcessState::Layer<StackFrame>::RecordPtr;
 
+using TypedBlockLayerPtr = scoped_refptr<ProcessState::Layer<TypedBlock>>;
+using TypedBlockRecordPtr = ProcessState::Layer<TypedBlock>::RecordPtr;
+
 using ModuleLayerPtr = scoped_refptr<ProcessState::Layer<Module>>;
 using ModuleRecordPtr = ProcessState::Layer<Module>::RecordPtr;
 
@@ -40,6 +44,11 @@ void AddModuleRecord(const AddressRange& range,
                      const uint32 timestamp,
                      const std::string& path,
                      ProcessState* process_state);
+
+bool AddTypedBlockRecord(const AddressRange& range,
+                         base::StringPiece16 data_name,
+                         base::StringPiece16 type_name,
+                         ProcessState* process_state);
 
 }  // namespace refinery
 

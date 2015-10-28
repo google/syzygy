@@ -77,6 +77,8 @@ bool DiaSymbolProvider::FindOrCreateDiaSession(
   // Look for a pre-existing entry.
   auto session_it = pdb_sessions_.find(cache_key);
   if (session_it != pdb_sessions_.end()) {
+    if (session_it->second == nullptr)
+      return false;  // Negative cache entry.
     *session = session_it->second;
     return true;
   }

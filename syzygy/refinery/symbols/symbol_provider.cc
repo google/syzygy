@@ -14,6 +14,7 @@
 
 #include "syzygy/refinery/symbols/symbol_provider.h"
 
+#include "base/bind.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/symbols/symbol_provider_util.h"
@@ -50,26 +51,65 @@ bool SymbolProvider::FindOrCreateTypeRepository(
   DCHECK(type_repo);
   *type_repo = nullptr;
 
-  // Determine the cache key. Note that the cache key does not contain the
-  // module's base address.
   base::string16 cache_key;
-  base::SStringPrintf(&cache_key, L"%ls:%d:%d:%d",
+  GetCacheKey(signature, &cache_key);
+
+  SimpleCache<TypeRepository>::LoadingCallback load_cb = base::Bind(
+      &SymbolProvider::CreateTypeRepository, base::Unretained(this), signature);
+
+  type_repos_.GetOrLoad(cache_key, load_cb, type_repo);
+  return type_repo->get() != nullptr;
+}
+
+bool SymbolProvider::FindOrCreateTypeNameIndex(
+    const Address va,
+    ProcessState* process_state,
+    scoped_refptr<TypeNameIndex>* typename_index) {
+  DCHECK(process_state);
+  DCHECK(typename_index);
+  *typename_index = nullptr;
+
+  // Get the module's signature.
+  pe::PEFile::Signature signature;
+  if (!GetModuleSignature(va, process_state, &signature))
+    return false;
+
+  // Retrieve the type repository.
+  return FindOrCreateTypeNameIndex(signature, typename_index);
+}
+
+bool SymbolProvider::FindOrCreateTypeNameIndex(
+    const pe::PEFile::Signature& signature,
+    scoped_refptr<TypeNameIndex>* typename_index) {
+  DCHECK(typename_index);
+  *typename_index = nullptr;
+
+  base::string16 cache_key;
+  GetCacheKey(signature, &cache_key);
+
+  SimpleCache<TypeNameIndex>::LoadingCallback load_cb = base::Bind(
+      &SymbolProvider::CreateTypeNameIndex, base::Unretained(this), signature);
+
+  typename_indices_.GetOrLoad(cache_key, load_cb, typename_index);
+  return typename_index->get() != nullptr;
+}
+
+void SymbolProvider::GetCacheKey(const pe::PEFile::Signature& signature,
+                                 base::string16* cache_key) {
+  DCHECK(cache_key);
+  // Note that the cache key does not contain the module's base address.
+  base::SStringPrintf(cache_key, L"%ls:%d:%d:%d",
                       base::FilePath(signature.path).BaseName().value().c_str(),
                       signature.module_size, signature.module_checksum,
                       signature.module_time_date_stamp);
+}
 
-  // Look for a pre-existing entry.
-  auto repo_it = type_repos_.find(cache_key);
-  if (repo_it != type_repos_.end()) {
-    *type_repo = repo_it->second;
-    return true;
-  }
+bool SymbolProvider::CreateTypeRepository(
+    const pe::PEFile::Signature& signature,
+    scoped_refptr<TypeRepository>* type_repo) {
+  DCHECK(type_repo);
+  *type_repo = nullptr;
 
-  // The module is not in the cache. Create a negative cache entry, which will
-  // be replaced on success.
-  type_repos_[cache_key] = scoped_refptr<TypeRepository>();
-
-  // Create a type repository.
   base::FilePath pdb_path;
   if (!GetPdbPath(signature, &pdb_path))
     return false;
@@ -81,10 +121,19 @@ bool SymbolProvider::FindOrCreateTypeRepository(
     return false;
   }
 
-  // Cache the type repository.
-  type_repos_[cache_key] = repository;
-
   *type_repo = repository;
+  return true;
+}
+
+bool SymbolProvider::CreateTypeNameIndex(const pe::PEFile::Signature& signature,
+                                         scoped_refptr<TypeNameIndex>* index) {
+  DCHECK(index);
+
+  scoped_refptr<TypeRepository> repository;
+  if (!FindOrCreateTypeRepository(signature, &repository))
+    return false;
+
+  *index = new TypeNameIndex(repository);
   return true;
 }
 

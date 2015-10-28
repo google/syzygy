@@ -32,6 +32,7 @@
       'sources': [
         'dia_symbol_provider.cc',
         'dia_symbol_provider.h',
+        'simple_cache.h',
         'symbol_provider.cc',
         'symbol_provider.h',
         'symbol_provider_util.cc',

@@ -22,6 +22,7 @@
 #include "base/strings/string16.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/refinery/core/address.h"
+#include "syzygy/refinery/symbols/simple_cache.h"
 #include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
@@ -58,12 +59,46 @@ class SymbolProvider : public base::RefCounted<SymbolProvider> {
   bool FindOrCreateTypeRepository(const pe::PEFile::Signature& signature,
                                   scoped_refptr<TypeRepository>* type_repo);
 
+  // Retrieves or creates a TypeNameIndex for the module within @p
+  // process_state corresponding to @p va.
+  // @param va virtual address within a module for which to get a
+  //     TypeRepository.
+  // @param process_state the process state within which to interpret @p va.
+  // @param type_repo on success, returns a typename index for the module. On
+  //     failure, contains nullptr.
+  // @returns true on success, false on failure.
+  bool FindOrCreateTypeNameIndex(const Address va,
+                                 ProcessState* process_state,
+                                 scoped_refptr<TypeNameIndex>* typename_index);
+
+  // Retrieves or creates a TypeNameIndex for the module  corresponding to @p
+  // signature.
+  // @param signature the signature of the module for which to get a type
+  //     repository.
+  // @param type_repo on success, returns a typename index for the module. On
+  //     failure, contains nullptr.
+  // @returns true on success, false on failure.
+  bool FindOrCreateTypeNameIndex(const pe::PEFile::Signature& signature,
+                                 scoped_refptr<TypeNameIndex>* typename_index);
+
  private:
-  // Caching for type repositories. The cache key is
-  // "<basename>:<size>:<checksum>:<timestamp>". The cache may contain
+  static void GetCacheKey(const pe::PEFile::Signature& signature,
+                          base::string16* cache_key);
+
+  // Creates a type repository (without caching it).
+  bool CreateTypeRepository(const pe::PEFile::Signature& signature,
+                            scoped_refptr<TypeRepository>* type_repo);
+
+  // Creates a type name index (without caching it).
+  bool CreateTypeNameIndex(const pe::PEFile::Signature& signature,
+                           scoped_refptr<TypeNameIndex>* index);
+
+  // Caching for type repositories and typename indices. The cache key is
+  // "<basename>:<size>:<checksum>:<timestamp>". The caches may contain
   // negative entries (indicating a failed attempt at creating a session) in the
   // form of null pointers.
-  base::hash_map<base::string16, scoped_refptr<TypeRepository>> type_repos_;
+  SimpleCache<TypeRepository> type_repos_;
+  SimpleCache<TypeNameIndex> typename_indices_;
 
   DISALLOW_COPY_AND_ASSIGN(SymbolProvider);
 };

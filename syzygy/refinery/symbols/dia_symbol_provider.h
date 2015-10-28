@@ -31,6 +31,8 @@ namespace refinery {
 class ProcessState;
 
 // The DiaSymbolProvider provides symbol information via the DIA interfaces.
+// @note It is *not* safe to interleave access to a session in the context of
+//     different process states, as the session's load address may be different.
 class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
  public:
   DiaSymbolProvider();

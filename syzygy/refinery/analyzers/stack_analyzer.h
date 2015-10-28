@@ -45,11 +45,20 @@ class StackAnalyzer : public Analyzer {
   AnalysisResult StackWalk(StackRecordPtr stack_record,
                            ProcessState* process_state);
 
+  // Inserts data about @p stack_frame into @p process_state.
+  bool InsertStackFrameRecord(IDiaStackFrame* stack_frame,
+                              ProcessState* process_state);
+
   static const char kStackAnalyzerName[];
 
   scoped_refptr<DiaSymbolProvider> symbol_provider_;
   base::win::ScopedComPtr<IDiaStackWalker> stack_walker_;
   scoped_refptr<StackWalkHelper> stack_walk_helper_;
+
+  // A frame's data is often located relative to the CV_ALLREG_VFRAME. However,
+  // we observe this is relative to the parent frame's value. For ease of
+  // access, we store the parent frame's value in the frame's context.
+  RegisterInformation* child_frame_context_;
 
   DISALLOW_COPY_AND_ASSIGN(StackAnalyzer);
 };

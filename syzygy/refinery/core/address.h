@@ -43,8 +43,12 @@ class AddressRange {
   // @}
 
   Address start() const { return addr_; }
+  void set_start(Address start) { addr_ = start; }
+  void set_size(Size size) { size_ = size; }
   // @pre address range must be valid.
   Address end() const;
+
+  AddressRange& operator=(const AddressRange& other);
 
   bool operator==(const AddressRange& other) const;
   bool operator<(const AddressRange& other) const;

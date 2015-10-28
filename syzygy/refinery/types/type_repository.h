@@ -97,15 +97,17 @@ class TypeRepository::Iterator
 //     (DIA ids are not stable as they're based on the parse order).
 // TODO(manzagop): relocate to where this is used once it exists.
 // TODO(manzagop): remove once DIA is no-longer used.
-class TypeNameIndex {
+class TypeNameIndex : public base::RefCounted<TypeNameIndex> {
  public:
   explicit TypeNameIndex(scoped_refptr<TypeRepository> repository);
-  ~TypeNameIndex();
 
   // Retrieve matching @p types by @p name.
   void GetTypes(const base::string16& name, std::vector<TypePtr>* types) const;
 
  private:
+  friend class base::RefCounted<TypeNameIndex>;
+  ~TypeNameIndex();
+
   std::multimap<base::string16, TypePtr> name_index_;
 };
 

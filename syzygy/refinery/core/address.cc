@@ -32,6 +32,12 @@ Address AddressRange::end() const {
   return addr_ + size_;
 }
 
+AddressRange& AddressRange::operator=(const AddressRange& other) {
+  addr_ = other.addr_;
+  size_ = other.size_;
+  return *this;
+}
+
 bool AddressRange::operator==(const AddressRange& other) const {
   return addr_ == other.addr_ && size_ == other.size_;
 }

@@ -28,6 +28,7 @@
         '<(src)/syzygy/'
             'refinery/process_state/process_state.gyp:process_state_lib',
         '<(src)/syzygy/refinery/symbols/symbols.gyp:symbols_lib',
+        '<(src)/syzygy/refinery/types/types.gyp:types_lib',
       ],
       'sources': [
         'analysis_runner.cc',
@@ -43,6 +44,10 @@
         'module_analyzer.h',
         'stack_analyzer.cc',
         'stack_analyzer.h',
+        'stack_frame_analyzer_impl.cc',
+        'stack_frame_analyzer_impl.h',
+        'stack_frame_analyzer.cc',
+        'stack_frame_analyzer.h',
         'stack_analyzer_impl.cc',
         'stack_analyzer_impl.h',
         'thread_analyzer.cc',
