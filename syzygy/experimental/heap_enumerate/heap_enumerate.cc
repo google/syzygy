@@ -21,12 +21,15 @@
 #include <algorithm>
 #include <vector>
 
+#include "base/environment.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/containers/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_piece.h"
+#include "base/strings/utf_string_conversions.h"
+#include "syzygy/pe/find.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/core/bit_source.h"
 #include "syzygy/refinery/types/dia_crawler.h"
@@ -651,13 +654,27 @@ bool LFHBinEntryWalker::AtEnd() const {
 }
 
 bool GetNtdllTypes(TypeRepository* repo) {
-  HMODULE ntdll = ::GetModuleHandle(L"ntdll.dll");
-  if (ntdll == nullptr)
-    return false;
+  // As of 28/10/2015 the symbol file for ntdll.dll on Win7 is missing the
+  // cruicial symbols for heap enumeration. This code deserves to either die
+  // in a fire, or else be updated to find symbols that are close to the
+  // system in version and bitness.
+  pe::PEFile::Signature ntdll_sig(L"ntdll.dll", core::AbsoluteAddress(0),
+                                  0x141000, 0, 0x560D708C);
 
-  wchar_t ntdll_path[MAX_PATH] = L"";
-  if (!::GetModuleFileName(ntdll, ntdll_path, arraysize(ntdll_path)))
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::string search_path;
+  if (!env->GetVar("_NT_SYMBOL_PATH", &search_path)) {
+    // TODO(siggi): Set a default when it's missing.
+    LOG(ERROR) << "Missing symbol path.";
     return false;
+  }
+
+  base::FilePath ntdll_path;
+  if (!pe::FindModuleBySignature(ntdll_sig, base::UTF8ToUTF16(search_path),
+                                 &ntdll_path)) {
+    LOG(ERROR) << "Failed to locate NTDLL.";
+    return false;
+  }
 
   DiaCrawler crawler;
   if (!crawler.InitializeForFile(base::FilePath(ntdll_path)) ||
