@@ -197,35 +197,37 @@ const wchar_t kRandomizedTestDllName[] = L"randomized_test_dll.dll";
 const wchar_t kRandomizedTestDllPdbName[] = L"randomized_test_dll.dll.pdb";
 const wchar_t kSignedTestDllName[] = L"signed_test_dll.dll";
 
-const wchar_t *kBBEntryTraceFiles[4] = {
+const wchar_t* kBBEntryTraceFiles[4] = {
     L"basic_block_entry_traces\\trace-1.bin",
     L"basic_block_entry_traces\\trace-2.bin",
     L"basic_block_entry_traces\\trace-3.bin",
     L"basic_block_entry_traces\\trace-4.bin",
 };
 
-const wchar_t *kBranchTraceFiles[4] = {
+const wchar_t* kBranchTraceFiles[4] = {
     L"branch_traces\\trace-1.bin",
     L"branch_traces\\trace-2.bin",
     L"branch_traces\\trace-3.bin",
     L"branch_traces\\trace-4.bin",
 };
 
-const wchar_t *kCallTraceTraceFiles[4] = {
+const wchar_t* kCallTraceTraceFiles[4] = {
     L"call_trace_traces\\trace-1.bin",
     L"call_trace_traces\\trace-2.bin",
     L"call_trace_traces\\trace-3.bin",
     L"call_trace_traces\\trace-4.bin",
 };
 
-const wchar_t *kCoverageTraceFiles[4] = {
+const wchar_t* kCoverageTraceFiles[4] = {
     L"coverage_traces\\trace-1.bin",
     L"coverage_traces\\trace-2.bin",
     L"coverage_traces\\trace-3.bin",
     L"coverage_traces\\trace-4.bin",
 };
 
-const wchar_t *kProfileTraceFiles[4] = {
+const wchar_t kMemProfTraceFile[] = L"memprof_traces\\trace-1.bin";
+
+const wchar_t* kProfileTraceFiles[4] = {
     L"profile_traces\\trace-1.bin",
     L"profile_traces\\trace-2.bin",
     L"profile_traces\\trace-3.bin",

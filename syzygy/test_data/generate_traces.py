@@ -1,4 +1,4 @@
-# Copyright 2012 Google Inc. All Rights Reserved.
+﻿# Copyright 2012 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -38,14 +38,14 @@ _LOGGER = logging.getLogger(os.path.basename(__file__))
 
 _CALL_TRACE_SERVICE_EXE = 'call_trace_service.exe'
 _INPUTS = [_CALL_TRACE_SERVICE_EXE]
-_TRACE_FILE_COUNT = 4
+_DEFAULT_ITERATIONS = 4
 
 
 def _LoadDll(dll_path):
   """Tries to load, hence initializing, the given DLL.
 
   Args:
-    dll_path: the path to the DLL to test.
+    dll_path: the path to the DLL to load.
 
   Returns:
     True on success, False on failure.
@@ -68,8 +68,20 @@ def _LoadDll(dll_path):
   return True
 
 
-def _LoadInstrumentedDllInNewProc(opts):
-  """Loads opts.instrumented_dll in a sub-process using the --load-dll flag.
+def _RunImage(image_path):
+  """Tries to execute the given image.
+
+  Args:
+    image_path: the path to the image to run.
+
+  Returns:
+    True on success, False on failure.
+  """
+  return not subprocess.call([image_path])
+
+
+def _LoadInstrumentedImageInNewProc(opts):
+  """Loads opts.instrumented_image in a sub-process using --load-image.
 
   Args:
     opts: the parsed and validated arguments.
@@ -78,7 +90,7 @@ def _LoadInstrumentedDllInNewProc(opts):
     True on success, False otherwise.
   """
   cmd = [sys.executable, __file__, '--build-dir', opts.build_dir,
-         '--instrumented-image', opts.instrumented_dll, '--load-dll']
+         '--instrumented-image', opts.instrumented_image, '--load-image']
   return not subprocess.call(cmd)
 
 
@@ -93,20 +105,33 @@ def _ParseArgs():
                     help='Enable verbose logging.')
   parser.add_option('--build-dir', dest='build_dir',
                     help='The build directory to use.')
-  parser.add_option('--instrumented-image', dest='instrumented_dll',
-                    help='The instrumented DLL to use.')
-  parser.add_option('--load-dll', dest='load_dll',
+  parser.add_option('--env', dest='env', default=[], type='string',
+                    action='append',
+                    help='Environment strings to set prior to execution.')
+  parser.add_option('--instrumented-image', dest='instrumented_image',
+                    help='The instrumented image to use.')
+  parser.add_option('--iterations', dest='iterations', type="int",
+                    default=_DEFAULT_ITERATIONS,
+                    help='Sets the number of iterations to run.')
+  parser.add_option('--load-image', dest='load_image',
                     action='store_true', default=False,
-                    help='Attempt to load the given DLL.')
+                    help='Attempt to load/run the given image.')
   parser.add_option('--output-dir', dest='output_dir',
                     help='The output directory to write to.')
   (opts, dummy_args) = parser.parse_args()
 
-  if not opts.instrumented_dll:
+  # Set any environment variables that have been provided.
+  if opts.env:
+    for kv in opts.env:
+      k, v = kv.split('=')
+      os.environ[k] = v
+
+  if not opts.instrumented_image:
     parser.error('You must specify --instrumented-image.')
-  opts.instrumented_dll = os.path.abspath(opts.instrumented_dll)
-  if not os.path.isfile(opts.instrumented_dll):
-    parser.error('Instrumented DLL does not exist: %s' % opts.instrumented_dll)
+  opts.instrumented_image = os.path.abspath(opts.instrumented_image)
+  if not os.path.isfile(opts.instrumented_image):
+    parser.error('Instrumented image does not exist: %s' %
+        opts.instrumented_image)
 
   if not opts.build_dir:
     parser.error('You must specify --build-dir.')
@@ -116,13 +141,17 @@ def _ParseArgs():
   if not os.path.isdir(opts.build_dir):
     parser.error('Build directory does not exist: %s' % opts.build_dir)
 
-  if not opts.load_dll and not opts.output_dir:
-    parser.error('You must specify one of --load-dll or --output-dir.')
+  if not opts.load_image and not opts.output_dir:
+    parser.error('You must specify one of --load-image or --output-dir.')
 
   if opts.output_dir:
     opts.output_dir = os.path.abspath(opts.output_dir)
-    if not os.path.isdir(opts.output_dir):
-      parser.error('Output directory does not exist: %s' % opts.output_dir)
+    if os.path.exists(opts.output_dir):
+      if not os.path.isdir(opts.output_dir):
+        parser.error('Output location exists and is not a directory: %s' %
+            opts.output_dir)
+    else:
+      os.makedirs(opts.output_dir)
 
   # Validate that all of the input files exist.
   for path in _INPUTS:
@@ -171,8 +200,8 @@ class ScopedTempDir:
     self.Delete()
 
 
-def _MainLoadDll(opts):
-  """Main entry point for this script when executed with --load-dll.
+def _MainLoadImage(opts):
+  """Main entry point for this script when executed with --load-image.
 
   Args:
     opts: the parsed and validated arguments.
@@ -183,8 +212,13 @@ def _MainLoadDll(opts):
   # Put the build directory in the search path so we find export_dll.dll and
   # the various instrumentation binaries.
   win32api.SetDllDirectory(opts.build_dir)
-  if _LoadDll(opts.instrumented_dll):
-    return 0
+  ext = os.path.splitext(opts.instrumented_image)[1]
+  if ext.lower() == '.dll':
+    if _LoadDll(opts.instrumented_image):
+      return 0
+  else:
+    if _RunImage(opts.instrumented_image):
+      return 0
   return 1
 
 
@@ -233,14 +267,14 @@ def _MainGenerateTraces(opts):
                                         stderr=stdout_dst)
   time.sleep(1)
 
-  # Invoke the instrumented DLL a few times.
-  load_dll_failed = False
-  dll = opts.instrumented_dll
-  for dummy_i in xrange(_TRACE_FILE_COUNT):
-    _LOGGER.info('Loading the instrumented DLL: %s', dll)
-    if not _LoadInstrumentedDllInNewProc(opts):
-      _LOGGER.error('Failed to load instrumented DLL.')
-      load_dll_failed = True
+  # Invoke the instrumented image a few times.
+  load_image_failed = False
+  image = opts.instrumented_image
+  for dummy_i in xrange(opts.iterations):
+    _LOGGER.info('Loading the instrumented image: %s', image)
+    if not _LoadInstrumentedImageInNewProc(opts):
+      _LOGGER.error('Failed to load instrumented image.')
+      load_image_failed = True
 
   # Stop the call trace service. We sleep a bit to give time for things to
   # settle down.
@@ -259,10 +293,10 @@ def _MainGenerateTraces(opts):
                   call_trace_service_exe, call_trace_service.returncode)
     return 1
 
-  # If the DLL was unable to be loaded, don't bother looking for the trace
+  # If the image was unable to be loaded, don't bother looking for the trace
   # files.
-  if load_dll_failed:
-    _LOGGER.error('Failed to load instrumented DLL.')
+  if load_image_failed:
+    _LOGGER.error('Failed to load instrumented image.')
     return 1
 
   # Iterate through the generated trace files and move them to the final
@@ -275,9 +309,9 @@ def _MainGenerateTraces(opts):
     os.rename(src, dst)
 
   # Ensure that there were as many files as we expected there to be.
-  if count != _TRACE_FILE_COUNT:
+  if count != opts.iterations:
     _LOGGER.error('Expected %d trace files, only found %d.',
-                  _TRACE_FILE_COUNT, count)
+                  opts.iterations, count)
     return 1
 
   return 0
@@ -287,9 +321,9 @@ def Main():
   """Main entry point for the script."""
   opts = _ParseArgs()
 
-  # If --load-dll is specified, use our alternate main function.
-  if opts.load_dll:
-    return _MainLoadDll(opts)
+  # If --load-image is specified, use our alternate main function.
+  if opts.load_image:
+    return _MainLoadImage(opts)
 
   return _MainGenerateTraces(opts)
 

@@ -91,6 +91,7 @@
         '<(src)/syzygy/sampler/sampler.gyp:sampler_unittest_utils',
         '<(src)/syzygy/test_data/test_data.gyp:basic_block_entry_traces',
         '<(src)/syzygy/test_data/test_data.gyp:coverage_traces',
+        '<(src)/syzygy/test_data/test_data.gyp:memprof_traces',
         '<(src)/syzygy/test_data/test_data.gyp:profile_traces',
         '<(src)/syzygy/trace/service/service.gyp:rpc_service_lib',
         '<(src)/syzygy/version/version.gyp:version_lib',

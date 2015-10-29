@@ -352,6 +352,45 @@
         },
       ],
     },
+    {
+      'target_name': 'memprof_instrumented_memprof_harness',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+      ],
+      'dependencies': [
+        '<(src)/syzygy/instrument/instrument.gyp:instrument',
+        '<(src)/syzygy/agent/memprof/memprof.gyp:memprof_harness',
+      ],
+      'actions': [
+        {
+          'action_name': 'memprof_instrument_memprof_harness',
+          'inputs': [
+            '<(PRODUCT_DIR)/instrument.exe',
+            '<(PRODUCT_DIR)/memprof_harness.exe',
+            '<(PRODUCT_DIR)/memprof_harness.exe.pdb',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/'
+                'memprof_instrumented_memprof_harness.exe',
+            '<(PRODUCT_DIR)/test_data/'
+                'memprof_instrumented_memprof_harness.exe.pdb',
+          ],
+          'action': [
+            '<(PRODUCT_DIR)/instrument.exe',
+            '--mode=asan',
+            '--agent=memprof.dll',
+            '--input-image=<(PRODUCT_DIR)/memprof_harness.exe',
+            '--input-pdb=<(PRODUCT_DIR)/memprof_harness.exe.pdb',
+            '--output-image=<(PRODUCT_DIR)/test_data/'
+                'memprof_instrumented_memprof_harness.exe',
+            '--output-pdb=<(PRODUCT_DIR)/test_data/'
+                'memprof_instrumented_memprof_harness.exe.pdb',
+            '--overwrite',
+          ],
+        },
+      ],
+    },
     # TODO(rogerm): The GYP snippets to generate the trace files are all
     #     pretty much identical to one other if parameterized by the mode,
     #     dll/pdb name, and output directory. Find a way to consolidate to
@@ -642,6 +681,51 @@
             '--output-dir=<(PRODUCT_DIR)/test_data/branch_traces',
             '--instrumented-image=<(PRODUCT_DIR)/test_data/'
                 'branch_instrumented_test_dll.dll',
+            '--verbose',
+            # The build-dir arg must be last to work around a bug in the
+            # interaction between GYP and VS2010.
+            # See: http://code.google.com/p/gyp/issues/detail?id=272
+            '--build-dir=<(PRODUCT_DIR)',
+          ],
+        },
+      ],
+    },
+    {
+      'target_name': 'memprof_traces',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'sources': [
+        'generate_traces.py',
+      ],
+      'dependencies': [
+        '<(src)/syzygy/agent/memprof/memprof.gyp:memprof',
+        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+        'memprof_instrumented_memprof_harness',
+      ],
+      'actions': [
+        {
+          'action_name': 'generate_memprof_traces',
+          'inputs': [
+            '<(PRODUCT_DIR)/memprof.dll',
+            '<(PRODUCT_DIR)/call_trace_service.exe',
+            '<(PRODUCT_DIR)/test_data/'
+                'memprof_instrumented_memprof_harness.exe',
+            '<(PRODUCT_DIR)/test_data/'
+                'memprof_instrumented_memprof_harness.exe.pdb',
+            '<(src)/syzygy/test_data/generate_traces.py',
+          ],
+          'outputs': [
+            '<(PRODUCT_DIR)/test_data/memprof_traces/trace-1.bin',
+          ],
+          'action': [
+            '<(python_exe)',
+            '<(src)/syzygy/test_data/generate_traces.py',
+            '--env="SYZYGY_MEMPROF_OPTIONS=--stack-trace-tracking '
+                '--serialize-timestamps"',
+            '--instrumented-image=<(PRODUCT_DIR)/test_data/'
+                'memprof_instrumented_memprof_harness.exe',
+            '--iterations=1',
+            '--output-dir=<(PRODUCT_DIR)/test_data/memprof_traces',
             '--verbose',
             # The build-dir arg must be last to work around a bug in the
             # interaction between GYP and VS2010.

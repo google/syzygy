@@ -22,9 +22,8 @@ RawArgumentConverter::RawArgumentConverter(const void* const arg_data,
                                            const uint32_t arg_size) {
   DCHECK_NE(static_cast<void*>(nullptr), arg_data);
   arg_size_ = arg_size;
-
-  arg_.reset(new uint8_t[arg_size_]);
-  ::memcpy(arg_.get(), arg_data, arg_size_);
+  DCHECK_GE(kMaxArgSize, arg_size);
+  ::memcpy(arg_, arg_data, arg_size_);
 }
 
 }  // namespace bard

@@ -32,8 +32,16 @@ using events::LinkedEvent;
 
 }  // namespace
 
-void Story::AddPlotLine(scoped_ptr<PlotLine> plot_line) {
+Story::PlotLine* Story::AddPlotLine(scoped_ptr<PlotLine> plot_line) {
+  PlotLine* pl = plot_line.get();
   plot_lines_.push_back(plot_line.Pass());
+  return pl;
+}
+
+Story::PlotLine* Story::CreatePlotLine() {
+  PlotLine* plot_line = new PlotLine();
+  plot_lines_.push_back(plot_line);
+  return plot_line;
 }
 
 bool Story::Save(core::OutArchive* out_archive) const {

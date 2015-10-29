@@ -79,6 +79,18 @@ bool operator==(const Story& s1, const Story& s2) {
   return true;
 }
 
+TEST(StoryTest, CreatePlotLine) {
+  Story s;
+  EXPECT_EQ(0u, s.plot_lines().size());
+  auto pl = s.CreatePlotLine();
+  EXPECT_TRUE(pl);
+  EXPECT_EQ(1u, s.plot_lines().size());
+
+  Story::PlotLine* pl2 = new Story::PlotLine();
+  EXPECT_EQ(pl2, s.AddPlotLine(scoped_ptr<Story::PlotLine>(pl2)));
+  EXPECT_EQ(2u, s.plot_lines().size());
+}
+
 TEST(StoryTest, TestSerialization) {
   scoped_ptr<EventInterface> event1(
       new HeapCreateEvent(kOptions, kInitialSize, kMaximumSize, kTraceHeap));

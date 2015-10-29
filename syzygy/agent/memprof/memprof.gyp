@@ -60,6 +60,61 @@
       ],
     },
     {
+      'target_name': 'memprof_harness',
+      'type': 'executable',
+      'sources': [
+        'memprof_harness.cc',
+      ],
+      'dependencies': [
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'IgnoreDefaultLibraryNames': [
+            # Disallow linking against the debug runtime, which Syzygy is
+            # unable to instrument.
+            'libcmtd.lib',
+          ],
+        },
+      },
+      # We more or less want this to always be a release-style executable
+      # to facilitate instrumentation.
+      # We have to do this per configuration, as base.gypi specifies
+      # this per-config, which binds tighter than the defaults above.
+      'configurations': {
+        'Debug_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # This corresponds to /INCREMENTAL:NO. With incremental linking
+              # enabled, every function resolves to a location in a jump table
+              # which jumps to the function proper. This gets in the way of
+              # disassembly.
+              'LinkIncremental': '1',
+              # Ensure that the checksum present in the header of the binaries
+              # is set.
+              'SetChecksum': 'true',
+            },
+            'VCCLCompilerTool': {
+              'BasicRuntimeChecks': '0',
+              # Memprof needs the application to be linked with the release
+              # static runtime library for full coverage.
+              'RuntimeLibrary':  '0', # 0 = /MT (nondebug static)
+            },
+          },
+        },
+        'Common_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # This corresponds to /PROFILE, which ensures that the
+              # PDB file contains a FIXUP stream.
+              # TODO(chrisha): Move this to base.gypi so everything links
+              #     with this flag.
+              'Profile': 'true',
+            },
+          },
+        },
+      },
+    },
+    {
       'target_name': 'memprof_unittests',
       'type': 'executable',
       'sources': [

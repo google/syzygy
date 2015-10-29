@@ -82,6 +82,7 @@ extern const wchar_t *kBBEntryTraceFiles[4];
 extern const wchar_t *kBranchTraceFiles[4];
 extern const wchar_t *kCallTraceTraceFiles[4];
 extern const wchar_t *kCoverageTraceFiles[4];
+extern const wchar_t kMemProfTraceFile[];
 extern const wchar_t *kProfileTraceFiles[4];
 
 // This class wraps an HMODULE and ensures that ::FreeLibrary is called when it

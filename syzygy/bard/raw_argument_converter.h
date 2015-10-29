@@ -34,26 +34,30 @@ class RawArgumentConverter {
   // @param arg_size the size in bytes of the argument.
   RawArgumentConverter(const void* const arg_data, const uint32_t arg_size);
 
+  // Explicitly allow copy and assign for use with STL containers.
+  RawArgumentConverter(const RawArgumentConverter&) = default;
+  RawArgumentConverter& operator=(const RawArgumentConverter&) = default;
+
   // Retrieve this argument in the desired type.
-  // @tparam T The type that this argument should to be retrieved as.
-  // @returns the argument converted to type @tp T.
-  template <typename T>
-  T RetrieveAs() const;
+  // @tparam Type The type that this argument should to be retrieved as.
+  // @param value The value to be populated.
+  // @returns true on success, false otherwise.
+  template <typename Type>
+  bool RetrieveAs(Type* value) const;
 
  private:
-  scoped_ptr<uint8_t> arg_;
+  static const size_t kMaxArgSize = 8;
+  uint8_t arg_[kMaxArgSize];
   uint32_t arg_size_;
-
-  DISALLOW_COPY_AND_ASSIGN(RawArgumentConverter);
 };
 
-template <typename T>
-T RawArgumentConverter::RetrieveAs() const {
-  DCHECK_EQ(sizeof(T), arg_size_);
-  DCHECK_NE(static_cast<uint8_t*>(nullptr), arg_.get());
-  T result;
-  ::memcpy(&result, arg_.get(), arg_size_);
-  return result;
+template <typename Type>
+bool RawArgumentConverter::RetrieveAs(Type* value) const {
+  DCHECK_NE(static_cast<Type*>(nullptr), value);
+  if (sizeof(Type) != arg_size_)
+    return false;
+  ::memcpy(value, arg_, arg_size_);
+  return true;
 }
 
 }  // namespace bard

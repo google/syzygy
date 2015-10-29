@@ -32,6 +32,7 @@ class EventInterface {
   // serialization/deserialization.
   enum EventType {
     kLinkedEvent,
+    // Memory-profiling related events.
     kGetProcessHeapEvent,
     kHeapAllocEvent,
     kHeapCreateEvent,
