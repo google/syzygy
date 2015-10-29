@@ -115,6 +115,9 @@ _BLACK_LIST = [
   'integration_tests.exe',
   'integration_tests_4g.exe',
   'syzyasan_rtl_unittests.exe',
+  # AppVerifier triggers memory hoggage in this on that leads to a system
+  # misunderstanding and subsequent barfing of hex stack trace.
+  'refinery_unittests.exe',
 ]
 
 

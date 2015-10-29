@@ -112,9 +112,9 @@ bool FindFile(const base::FilePath& file_path,
 
   found_file->clear();
 
-  HANDLE handle = ::GetCurrentProcess();
-
-  if (!common::SymInitialize(handle, NULL, false))
+  // Make a unique "handle" for this use of the symbolizer.
+  HANDLE unique_handle = &unique_handle;
+  if (!common::SymInitialize(unique_handle, NULL, false))
     return false;
 
   base::FilePath dir = file_path.DirName();
@@ -132,7 +132,7 @@ bool FindFile(const base::FilePath& file_path,
 
   // Search for the file.
   wchar_t buffer[MAX_PATH];
-  BOOL result = ::SymFindFileInPathW(handle,
+  BOOL result = ::SymFindFileInPathW(unique_handle,
                                      paths.c_str(),
                                      basename.c_str(),
                                      const_cast<void*>(id),
@@ -142,7 +142,7 @@ bool FindFile(const base::FilePath& file_path,
                                      &buffer[0],
                                      callback,
                                      callback_context);
-  if (::SymCleanup(handle) == FALSE) {
+  if (::SymCleanup(unique_handle) == FALSE) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "SymCleanup failed: " << common::LogWe(error);
     return false;
