@@ -720,8 +720,8 @@
           'action': [
             '<(python_exe)',
             '<(src)/syzygy/test_data/generate_traces.py',
-            '--env="SYZYGY_MEMPROF_OPTIONS=--stack-trace-tracking '
-                '--serialize-timestamps"',
+            '--env=SYZYGY_MEMPROF_OPTIONS=--stack-trace-tracking '
+                '--serialize-timestamps',
             '--instrumented-image=<(PRODUCT_DIR)/test_data/'
                 'memprof_instrumented_memprof_harness.exe',
             '--iterations=1',

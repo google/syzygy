@@ -37,7 +37,6 @@
 // 10: destroy heap 0                      destroy heap 3
 
 #include "windows.h"
-#include "base/at_exit.h"
 
 namespace {
 
