@@ -99,7 +99,7 @@ bool AddReference(IntermediateReferenceMap* references,
                   RelativeAddress destination) {
   DCHECK(references != NULL);
 
-  IntermediateReference ref = { type, size, destination };
+  IntermediateReference ref = {type, size, destination};
   return references->insert(std::make_pair(source, ref)).second;
 }
 
@@ -135,8 +135,8 @@ bool MiniDecompose(const PEFile& pe_file,
 
   IntermediateReferenceMap references;
 
-  PEFileParser::AddReferenceCallback add_reference = base::Bind(
-      &AddReference, base::Unretained(&references));
+  PEFileParser::AddReferenceCallback add_reference =
+      base::Bind(&AddReference, base::Unretained(&references));
   PEFileParser pe_file_parser(pe_file, &image_layout->blocks, add_reference);
 
   PEFileParser::PEHeader pe_header;
@@ -163,8 +163,8 @@ bool MiniDecompose(const PEFile& pe_file,
 
     BlockGraph::Block* dst_block = NULL;
     BlockGraph::Offset dst_offset = 0;
-    if (!LookupBlockOffset(*image_layout, ref_it->second.address, 1,
-                           &dst_block, &dst_offset)) {
+    if (!LookupBlockOffset(*image_layout, ref_it->second.address, 1, &dst_block,
+                           &dst_offset)) {
       continue;
     }
 
@@ -213,7 +213,7 @@ bool MarkData(const PEFile& pe_file,
 // TimeDateStamp, this will mark the timestamp for changing to the value
 // provided in @p timestamp_data. The change will be recorded in the provided
 // PatchAddressSpace @p file_addr_space.
-template<typename T>
+template <typename T>
 bool MarkDataDirectoryTimestamps(const PEFile& pe_file,
                                  NtHeaders& nt_headers,
                                  size_t data_dir_index,
@@ -250,13 +250,13 @@ bool MarkDataDirectoryTimestamps(const PEFile& pe_file,
   if (data_dir->TimeDateStamp == 0)
     return true;
 
-  FileOffsetAddress timestamp_addr = data_dir_addr +
-      data_dir.OffsetOf(data_dir->TimeDateStamp);
+  FileOffsetAddress timestamp_addr =
+      data_dir_addr + data_dir.OffsetOf(data_dir->TimeDateStamp);
 
   std::string name = base::StringPrintf("%s Timestamp", data_dir_name);
-  if (!file_addr_space->Insert(PatchAddressSpace::Range(timestamp_addr,
-                                                        sizeof(DWORD)),
-                               PatchData(timestamp_data, name))) {
+  if (!file_addr_space->Insert(
+          PatchAddressSpace::Range(timestamp_addr, sizeof(DWORD)),
+          PatchData(timestamp_data, name))) {
     LOG(ERROR) << "Failed to mark timestamp of data directory "
                << data_dir_index << ".";
     return false;
@@ -266,7 +266,7 @@ bool MarkDataDirectoryTimestamps(const PEFile& pe_file,
 }
 
 bool Md5Consume(size_t bytes, FILE* file, base::MD5Context* context) {
-  char buffer[4096] = { 0 };
+  char buffer[4096] = {0};
 
   size_t cur = 0;
   while (cur < bytes) {
@@ -308,18 +308,18 @@ bool UpdateFileInPlace(const base::FilePath& path,
 
     // Seek to the position to be updated.
     if (::fseek(file.get(), it->first.start().value(), SEEK_SET) != 0) {
-      LOG(ERROR) << "Failed to seek to " << it->first.start() << " of file: "
-                 << path.value();
+      LOG(ERROR) << "Failed to seek to " << it->first.start()
+                 << " of file: " << path.value();
       return false;
     }
 
     // Write the updated data.
-    size_t bytes_written = ::fwrite(it->second.data, 1, it->first.size(),
-                                    file.get());
+    size_t bytes_written =
+        ::fwrite(it->second.data, 1, it->first.size(), file.get());
     if (bytes_written != it->first.size()) {
       LOG(ERROR) << "Failed to write " << it->first.size() << " bytes to "
-                 << "position " << it->first.start() << " of file: "
-                 << path.value();
+                 << "position " << it->first.start()
+                 << " of file: " << path.value();
     }
   }
 
@@ -374,8 +374,7 @@ void OutputSummaryStats(base::FilePath& path) {
   LOG(INFO) << "  Digest: " << md5_string;
 }
 
-bool NormalizeDbiStream(DWORD pdb_age_data,
-                        PdbByteStream* dbi_stream) {
+bool NormalizeDbiStream(DWORD pdb_age_data, PdbByteStream* dbi_stream) {
   DCHECK(dbi_stream != NULL);
 
   LOG(INFO) << "Updating PDB DBI stream.";
@@ -409,9 +408,11 @@ bool NormalizeDbiStream(DWORD pdb_age_data,
     dbi_data += sizeof(*module_info);
 
     // Skip two NULL terminated strings after the module info.
-    while (*dbi_data != 0) ++dbi_data;
+    while (*dbi_data != 0)
+      ++dbi_data;
     ++dbi_data;
-    while (*dbi_data != 0) ++dbi_data;
+    while (*dbi_data != 0)
+      ++dbi_data;
     ++dbi_data;
 
     // Skip until we're at a multiple of 4 position.
@@ -422,7 +423,7 @@ bool NormalizeDbiStream(DWORD pdb_age_data,
 
   // Ensure that the section contributions are addressable.
   size_t section_contrib_end_pos = dbi_header->gp_modi_size + sizeof(uint32) +
-      dbi_header->section_contribution_size;
+                                   dbi_header->section_contribution_size;
   if (dbi_stream->length() < section_contrib_end_pos) {
     LOG(ERROR) << "Invalid DBI header gp_modi_size.";
     return false;
@@ -547,8 +548,7 @@ bool ZapTimestamp::Zap() {
 bool ZapTimestamp::ValidatePeAndPdbFiles() {
   LOG(INFO) << "Analyzing PE file: " << input_image_.value();
 
-  if (!base::PathExists(input_image_) ||
-      base::DirectoryExists(input_image_)) {
+  if (!base::PathExists(input_image_) || base::DirectoryExists(input_image_)) {
     LOG(ERROR) << "PE file not found: " << input_image_.value();
     return false;
   }
@@ -576,8 +576,7 @@ bool ZapTimestamp::ValidatePeAndPdbFiles() {
     }
     DCHECK(base::PathExists(input_pdb_));
   } else {
-    if (!base::PathExists(input_pdb_) ||
-        base::DirectoryExists(input_pdb_)) {
+    if (!base::PathExists(input_pdb_) || base::DirectoryExists(input_pdb_)) {
       LOG(ERROR) << "PDB file not found: " << input_pdb_.value();
     }
   }
@@ -616,17 +615,16 @@ bool ZapTimestamp::ValidateOutputPaths() {
 
   // If overwriting isn't allowed then double check everything is kosher.
   if (!overwrite_) {
-    if (write_image_ &&
-        (base::PathExists(output_image_) ||
-        core::CompareFilePaths(input_image_, output_image_) ==
-            core::kEquivalentFilePaths)) {
+    if (write_image_ && (base::PathExists(output_image_) ||
+                         core::CompareFilePaths(input_image_, output_image_) ==
+                             core::kEquivalentFilePaths)) {
       LOG(ERROR) << "Output image file exists. Must enable overwrite.";
       return false;
     }
     if (write_pdb_ && !output_pdb_.empty() &&
         (base::PathExists(output_pdb_) ||
-        core::CompareFilePaths(input_pdb_, output_pdb_) ==
-            core::kEquivalentFilePaths)) {
+         core::CompareFilePaths(input_pdb_, output_pdb_) ==
+             core::kEquivalentFilePaths)) {
       LOG(ERROR) << "Output PDB file exists. Must enable overwrite.";
       return false;
     }
@@ -663,8 +661,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
   // Mark the export data directory timestamp.
   if (!MarkDataDirectoryTimestamps<IMAGE_EXPORT_DIRECTORY>(
           pe_file_, nt_headers, IMAGE_DIRECTORY_ENTRY_EXPORT,
-          "Export Directory",
-          reinterpret_cast<const uint8*>(&timestamp_data_),
+          "Export Directory", reinterpret_cast<const uint8*>(&timestamp_data_),
           &pe_file_addr_space_)) {
     // This logs verbosely on failure.
     return false;
@@ -694,7 +691,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
   if (debug_dir.block()) {
     for (size_t i = 0; i < debug_dir.ElementCount(); ++i) {
       rel_addr = debug_dir.block()->addr() +
-          debug_dir.OffsetOf(debug_dir[i].TimeDateStamp);
+                 debug_dir.OffsetOf(debug_dir[i].TimeDateStamp);
       std::string name = base::StringPrintf("Debug Directory %d Timestamp", i);
       if (!MarkData(pe_file_, rel_addr, sizeof(timestamp_data_),
                     reinterpret_cast<const uint8*>(&timestamp_data_), name,
@@ -727,20 +724,20 @@ bool ZapTimestamp::MarkPeFileRanges() {
 
     // Get the file offset of the PDB age and mark it.
     rel_addr = cv_info_pdb.block()->addr() +
-        cv_info_pdb.OffsetOf(cv_info_pdb->pdb_age);
+               cv_info_pdb.OffsetOf(cv_info_pdb->pdb_age);
     if (!MarkData(pe_file_, rel_addr, sizeof(pdb_age_data_),
-                  reinterpret_cast<const uint8*>(&pdb_age_data_),
-                  "PDB Age", &pe_file_addr_space_)) {
+                  reinterpret_cast<const uint8*>(&pdb_age_data_), "PDB Age",
+                  &pe_file_addr_space_)) {
       LOG(ERROR) << "Failed to mark PDB age.";
       return false;
     }
 
     // Get the file offset of the PDB guid and mark it.
     rel_addr = cv_info_pdb.block()->addr() +
-        cv_info_pdb.OffsetOf(cv_info_pdb->signature);
+               cv_info_pdb.OffsetOf(cv_info_pdb->signature);
     if (!MarkData(pe_file_, rel_addr, sizeof(pdb_guid_data_),
-                  reinterpret_cast<const uint8*>(&pdb_guid_data_),
-                  "PDB GUID", &pe_file_addr_space_)) {
+                  reinterpret_cast<const uint8*>(&pdb_guid_data_), "PDB GUID",
+                  &pe_file_addr_space_)) {
       LOG(ERROR) << "Failed to mark PDB GUID.";
       return false;
     }
@@ -748,16 +745,16 @@ bool ZapTimestamp::MarkPeFileRanges() {
 
   // Get the file offset of the PE checksum and mark it.
   rel_addr = nt_headers.block()->addr() +
-      nt_headers.OffsetOf(nt_headers->OptionalHeader.CheckSum);
-  if (!MarkData(pe_file_, rel_addr, sizeof(DWORD), NULL,
-                "PE Checksum", &pe_file_addr_space_)) {
+             nt_headers.OffsetOf(nt_headers->OptionalHeader.CheckSum);
+  if (!MarkData(pe_file_, rel_addr, sizeof(DWORD), NULL, "PE Checksum",
+                &pe_file_addr_space_)) {
     LOG(ERROR) << "Failed to mark PE checksum.";
     return false;
   }
 
   // Get the file offset of the PE timestamp and mark it.
   rel_addr = nt_headers.block()->addr() +
-      nt_headers.OffsetOf(nt_headers->FileHeader.TimeDateStamp);
+             nt_headers.OffsetOf(nt_headers->FileHeader.TimeDateStamp);
   if (!MarkData(pe_file_, rel_addr, sizeof(timestamp_data_),
                 reinterpret_cast<uint8*>(&timestamp_data_), "PE Timestamp",
                 &pe_file_addr_space_)) {
@@ -794,7 +791,7 @@ bool ZapTimestamp::CalculatePdbGuid() {
   }
 
   // Initialize the MD5 structure.
-  base::MD5Context md5_context = { 0 };
+  base::MD5Context md5_context = {0};
   base::MD5Init(&md5_context);
 
   // We seek through the bits of the file that will be changed, and skip those.
@@ -829,8 +826,10 @@ bool ZapTimestamp::CalculatePdbGuid() {
                  md5_digest_and_guid_size_mismatch);
   base::MD5Final(reinterpret_cast<base::MD5Digest*>(&pdb_guid_data_),
                  &md5_context);
-  LOG(INFO) << "Final GUID is " << base::MD5DigestToBase16(
-      *reinterpret_cast<base::MD5Digest*>(&pdb_guid_data_)) << ".";
+  LOG(INFO) << "Final GUID is "
+            << base::MD5DigestToBase16(
+                   *reinterpret_cast<base::MD5Digest*>(&pdb_guid_data_))
+            << ".";
 
   return true;
 }
@@ -907,12 +906,10 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
 
 bool ZapTimestamp::WritePeFile() {
   if (core::CompareFilePaths(input_image_, output_image_) !=
-          core::kEquivalentFilePaths) {
-    if (::CopyFileW(input_image_.value().c_str(),
-                    output_image_.value().c_str(),
+      core::kEquivalentFilePaths) {
+    if (::CopyFileW(input_image_.value().c_str(), output_image_.value().c_str(),
                     FALSE) == FALSE) {
-      LOG(ERROR) << "Failed to write output image: %s"
-                 << output_image_.value();
+      LOG(ERROR) << "Failed to write output image: %s" << output_image_.value();
       return false;
     }
   }
