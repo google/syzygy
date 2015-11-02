@@ -36,6 +36,7 @@
 #include "syzygy/refinery/types/type_repository.h"
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/typed_data.h"
+#include "syzygy/experimental/heap_enumerate/list_entry_enumerator.h"
 
 namespace {
 
@@ -66,19 +67,6 @@ uint8_t xormem(const void* mem, size_t num_bytes) {
     ret ^= *mem_ptr++;
 
   return ret;
-}
-
-bool GetFieldOffset(UserDefinedTypePtr record_type,
-                    base::StringPiece16 field_name,
-                    size_t* field_offset) {
-  DCHECK(field_offset);
-  for (auto f : record_type->fields()) {
-    if (f.name() == field_name) {
-      *field_offset = f.offset();
-      return true;
-    }
-  }
-  return false;
 }
 
 bool GetNamedValueUnsigned(const TypedData& data,
@@ -143,88 +131,6 @@ class TestBitSource : public BitSource {
     return true;
   }
 };
-
-class ListEntryEnumerator {
- public:
-  ListEntryEnumerator();
-
-  // Initialize the enumerator to walk entries of type @p record_type on the
-  // field named @p list_entry_name from @p list_head.
-  // @returns true on success, false on failure.
-  bool Initialize(const TypedData& list_head,
-                  UserDefinedTypePtr record_type,
-                  base::StringPiece16 list_entry_name);
-
-  // Advance to the next entry if possible.
-  // @returns true on success, false on failure.
-  bool Next();
-
-  // The current entry, valid after a successful call to Next().
-  const TypedData& current_record() const { return current_record_; }
-
- private:
-  // Address of the list head.
-  Address list_head_;
-  // The offset of the the field named @p list_entry_name_ in @p record_type_.
-  // Used to locate the start of the containing record, similar to
-  // the CONTAINING_RECORD macro.
-  size_t list_entry_offset_;
-  // The name of the list entry field we're walking.
-  base::string16 list_entry_name_;
-  // The type of the record.
-  UserDefinedTypePtr record_type_;
-  // The current list entry. After Initialize this is the list head, after that
-  // it's embedded in @p current_record_.
-  TypedData current_list_entry_;
-  // The current record, if any.
-  TypedData current_record_;
-};
-
-ListEntryEnumerator::ListEntryEnumerator()
-    : list_head_(0), list_entry_offset_(0) {
-}
-
-bool ListEntryEnumerator::Initialize(const TypedData& list_head,
-                                     UserDefinedTypePtr record_type,
-                                     base::StringPiece16 list_entry_name) {
-  // Check that the list_head has an Flink.
-  TypedData flink;
-  if (!list_head.GetNamedField(L"Flink", &flink) || !flink.IsPointerType())
-    return false;
-
-  if (!GetFieldOffset(record_type, list_entry_name, &list_entry_offset_))
-    return false;
-  record_type_ = record_type;
-  list_entry_name.CopyToString(&list_entry_name_);
-  list_head_ = list_head.addr();
-  current_list_entry_ = list_head;
-
-  return true;
-}
-
-bool ListEntryEnumerator::Next() {
-  TypedData flink;
-  if (!current_list_entry_.GetNamedField(L"Flink", &flink))
-    return false;
-
-  Address flink_addr = 0;
-  if (!flink.GetPointerValue(&flink_addr))
-    return false;
-
-  // Terminate on pointer back to the head.
-  if (flink_addr == list_head_)
-    return false;
-
-  // Retrieve the next entry.
-  TypedData next_entry(current_list_entry_.bit_source(), record_type_,
-                       flink_addr - list_entry_offset_);
-
-  if (!next_entry.GetNamedField(list_entry_name_, &current_list_entry_))
-    return false;
-  current_record_ = next_entry;
-
-  return true;
-}
 
 class HeapEnumerator {
  public:

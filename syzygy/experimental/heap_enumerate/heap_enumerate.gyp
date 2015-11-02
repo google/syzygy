@@ -26,6 +26,8 @@
         'heap_enumerate_app.cc',
         'heap_enumerate_app.h',
         'heap_enumerate_main.cc',
+        'list_entry_enumerator.cc',
+        'list_entry_enumerator.h'
       ],
       'working_directory': '$(OutDir)',
       'dependencies': [
