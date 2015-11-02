@@ -36,6 +36,7 @@
 #include "syzygy/refinery/types/type_repository.h"
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/typed_data.h"
+#include "syzygy/experimental/heap_enumerate/heap_entry_walker.h"
 #include "syzygy/experimental/heap_enumerate/list_entry_enumerator.h"
 
 namespace {
@@ -50,15 +51,6 @@ using refinery::TypePtr;
 using refinery::TypedData;
 using refinery::UserDefinedTypePtr;
 
-// XORs a memory range into another memory range.
-void memxor(void* dst, const void* src, size_t num_bytes) {
-  uint8_t* dst_ptr = reinterpret_cast<uint8_t*>(dst);
-  const uint8_t* src_ptr = reinterpret_cast<const uint8_t*>(src);
-
-  for (size_t i = 0; i < num_bytes; ++i)
-    *dst_ptr++ ^= *src_ptr++;
-}
-
 // XORs the bytes in a memory range together and returns the result;
 uint8_t xormem(const void* mem, size_t num_bytes) {
   const uint8_t* mem_ptr = reinterpret_cast<const uint8_t*>(mem);
@@ -69,11 +61,12 @@ uint8_t xormem(const void* mem, size_t num_bytes) {
   return ret;
 }
 
-bool GetNamedValueUnsigned(const TypedData& data,
+// TODO(siggi): Move somewhere central and eliminate dupes.
+bool GetNamedValueUnsigned(const refinery::TypedData& data,
                            base::StringPiece16 field_name,
                            uint64* value) {
   DCHECK(value);
-  TypedData field;
+  refinery::TypedData field;
   if (!data.GetNamedField(field_name, &field) ||
       !field.GetUnsignedValue(value)) {
     return false;
@@ -153,6 +146,7 @@ class HeapEnumerator {
   UserDefinedTypePtr heap_userdata_header_type() const {
     return heap_userdata_header_type_;
   }
+  BitSource* bit_source() { return &bit_source_; }
 
  private:
   // A reflective bit source.
@@ -309,254 +303,6 @@ bool HeapEnumerator::GetFrontEndHeap(TypedData* front_end_heap) {
   *front_end_heap =
       TypedData(heap_.bit_source(), lfh_heap_type_, front_end_heap_addr);
   return true;
-}
-
-// As seen in Windbg help on the "!heap command".
-enum HeapEntryFlags {
-  HEAP_ENTRY_BUSY = 0x01,
-  HEAP_ENTRY_EXTRA_PRESENT = 0x02,
-  HEAP_ENTRY_FILL_PATTERN = 0x04,
-  HEAP_ENTRY_VIRTUAL_ALLOC = 0x08,
-  HEAP_ENTRY_LAST_ENTRY = 0x10,
-  HEAP_ENTRY_SETTABLE_FLAG1 = 0x20,
-  HEAP_ENTRY_SETTABLE_FLAG2 = 0x40,
-  HEAP_ENTRY_SETTABLE_FLAG3 = 0x80,
-};
-
-//   The LFH mode mixes an ntdll local variable, with the HEAP pointer/handle
-//   with the address of the entry for obfuscation.
-class HeapEntryWalker {
- public:
-  struct HeapEntry {
-    uint16_t size;
-    uint8_t flags;
-    uint8_t tag;
-    uint16_t prev_size;
-    uint8_t segment_index;  // TODO(siggi): is this right???
-    uint8_t unused_bytes;
-  };
-  COMPILE_ASSERT(sizeof(HeapEntry) == 8, heap_entry_is_not_8_bytes);
-
-  HeapEntryWalker();
-  // Returns the current entry decoded.
-  virtual bool GetDecodedEntry(HeapEntry* entry) = 0;
-
-  // Returns true iff the current entry is at or past the segment range.
-  virtual bool AtEnd() const = 0;
-
-  // Walk to the next entry in the segment.
-  bool Next();
-
-  // Accessor.
-  const TypedData& curr_entry() const { return curr_entry_; }
-
- protected:
-  virtual ~HeapEntryWalker() {}
-
-  // Initialize the walker.
-  bool Initialize(HeapEnumerator* heap_enumerator);
-
-  // A bit source that covers all memory we have for the heap.
-  BitSource* heap_bit_source_;
-
-  // The current heap entry.
-  TypedData curr_entry_;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(HeapEntryWalker);
-};
-
-// A class that knows how to de-obfuscate and walk heap segments.
-// This XORs the "Encoding" field into the HEAP_ENTRY, given the
-// "EncodeFlagMask" value is just so.
-class SegmentEntryWalker : public HeapEntryWalker {
- public:
-  SegmentEntryWalker() = default;
-
-  // Initialize the walker to walk @p segment.
-  bool Initialize(HeapEnumerator* heap_enumerator, const TypedData& segment);
-
-  // Returns the current entry decoded.
-  bool GetDecodedEntry(HeapEntry* entry) override;
-  bool AtEnd() const override;
-
- private:
-  // An address range covering the segment under enumeration.
-  AddressRange segment_range_;
-
-  // The encoding for entries in this range.
-  std::vector<uint8_t> encoding_;
-
-  DISALLOW_COPY_AND_ASSIGN(SegmentEntryWalker);
-};
-
-// The LFH mode mixes an ntdll local variable, with the HEAP pointer/handle
-// with the address of the entry for obfuscation.
-class LFHBinEntryWalker : public HeapEntryWalker {
- public:
-  LFHBinEntryWalker() = default;
-
-  bool Initialize(HeapEnumerator* heap_enumerator, SegmentEntryWalker* walker);
-
-  bool GetDecodedEntry(HeapEntry* entry) override;
-  bool AtEnd() const override;
-
-  // Accessor.
-  const TypedData& heap_userdata_header() const {
-    return heap_userdata_header_;
-  }
-
- private:
-  // An address range covering the bin under enumeration.
-  AddressRange bin_range_;
-  TypedData heap_userdata_header_;
-
-  DISALLOW_COPY_AND_ASSIGN(LFHBinEntryWalker);
-};
-
-HeapEntryWalker::HeapEntryWalker() : heap_bit_source_(nullptr) {
-}
-
-bool HeapEntryWalker::Initialize(HeapEnumerator* heap_enumerator) {
-  DCHECK(heap_enumerator);
-
-  heap_bit_source_ = heap_enumerator->heap().bit_source();
-
-  return true;
-}
-
-bool HeapEntryWalker::Next() {
-  HeapEntry decoded = {};
-  if (!GetDecodedEntry(&decoded))
-    return false;
-
-  return curr_entry_.OffsetAndCast(decoded.size, curr_entry_.type(),
-                                   &curr_entry_);
-}
-
-bool SegmentEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
-                                    const TypedData& segment) {
-  if (!HeapEntryWalker::Initialize(heap_enumerator))
-    return false;
-
-  TypedData encode_flag_mask;
-  TypedData encoding;
-  TypedData heap = heap_enumerator->heap();
-  bool has_flags = heap.GetNamedField(L"EncodeFlagMask", &encode_flag_mask);
-  bool has_encoding = heap.GetNamedField(L"Encoding", &encoding);
-  if (has_flags != has_encoding) {
-    LOG(ERROR) << "Strangeness in types: "
-               << "only one of Encoding and EncodeFlagMask present!";
-    return false;
-  }
-
-  if (has_flags) {
-    uint64 value = 0;
-    if (!encode_flag_mask.GetUnsignedValue(&value)) {
-      LOG(ERROR) << "Unable to get heap flags mask.";
-      return false;
-    }
-    // From observation of some heaps.
-    const uint64 kEncodingEnabled = 0x00100000;
-    if (value & kEncodingEnabled) {
-      BitSource* source = encoding.bit_source();
-      encoding_.resize(encoding.type()->size());
-      if (!source->GetAll(encoding.GetRange(), &encoding_.at(0)))
-        return false;
-    }
-  }
-
-  // Get the first entry.
-  if (!segment.GetNamedField(L"Entry", &curr_entry_))
-    return false;
-
-  // Get the end address of the mapped part of the segment.
-  uint64_t last_valid_entry = 0;
-  if (!GetNamedValueUnsigned(segment, L"LastValidEntry", &last_valid_entry))
-    return false;
-
-  // Note that the segment can be discontiguous if it contains any uncommitted
-  // ranges. Uncommitted ranges are stored as a list of whole pages with
-  // _HEAP_UCR_DESCRIPTOR structures.
-  segment_range_ =
-      AddressRange(segment.addr(), Address(last_valid_entry) - segment.addr());
-
-  return true;
-}
-
-bool SegmentEntryWalker::GetDecodedEntry(HeapEntry* entry) {
-  DCHECK(entry);
-  HeapEntry tmp = {};
-
-  // Bail if the current entry is for some reason not of the right size.
-  if (curr_entry_.type()->size() != sizeof(tmp))
-    return false;
-
-  // Get the raw entry.
-  if (!heap_bit_source_->GetAll(curr_entry_.GetRange(), &tmp))
-    return false;
-
-  // Unencode it.
-  if (encoding_.size() == sizeof(tmp))
-    memxor(&tmp, &encoding_.at(0), sizeof(tmp));
-
-  *entry = tmp;
-
-  return true;
-}
-
-bool SegmentEntryWalker::AtEnd() const {
-  if (curr_entry_.addr() + curr_entry_.type()->size() >= segment_range_.end())
-    return true;
-
-  return false;
-}
-
-bool LFHBinEntryWalker::Initialize(HeapEnumerator* heap_enumerator,
-                                   SegmentEntryWalker* walker) {
-  DCHECK(heap_enumerator);
-  DCHECK(walker);
-
-  if (!HeapEntryWalker::Initialize(heap_enumerator))
-    return false;
-
-  // TODO(siggi): Acquire the data necessary to decode the entries.
-  AddressRange entry_range = walker->curr_entry().GetRange();
-
-  HeapEntry entry = {};
-  if (!walker->GetDecodedEntry(&entry))
-    return false;
-
-  bin_range_ =
-      AddressRange(entry_range.start(), entry.size * entry_range.size());
-
-  // The bin is comprised of a _HEAP_USERDATA_HEADER, followed by a
-  // concatenation of heap entries.
-  if (!walker->curr_entry().OffsetAndCast(
-          1, heap_enumerator->heap_userdata_header_type(),
-          &heap_userdata_header_)) {
-    return false;
-  }
-
-  // TODO(siggi): This is an awkard way to acquire this type.
-  if (!heap_userdata_header_.OffsetAndCast(1, walker->curr_entry().type(),
-                                           &curr_entry_)) {
-    return false;
-  }
-
-  return true;
-}
-
-bool LFHBinEntryWalker::GetDecodedEntry(HeapEntry* entry) {
-  // TODO(siggi): writeme.
-  return false;
-}
-
-bool LFHBinEntryWalker::AtEnd() const {
-  if (curr_entry_.GetRange().end() >= bin_range_.end())
-    return true;
-
-  return false;
 }
 
 bool GetNtdllTypes(TypeRepository* repo) {
@@ -728,7 +474,7 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
     SegmentEntryWalker segment_walker;
 
     // Enumerate the entries in the segment by walking them.
-    if (segment_walker.Initialize(&enumerator, segment)) {
+    if (segment_walker.Initialize(enumerator.heap(), segment)) {
       uint16_t prev_size = 0;
 
       while (!segment_walker.AtEnd()) {
@@ -766,7 +512,9 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
         // TODO(siggi): The name of this flag does not fit modern times?
         if (entry.flags & HEAP_ENTRY_VIRTUAL_ALLOC) {
           LFHBinEntryWalker bin_walker;
-          if (bin_walker.Initialize(&enumerator, &segment_walker)) {
+          if (bin_walker.Initialize(enumerator.bit_source(),
+                                    enumerator.heap_userdata_header_type(),
+                                    &segment_walker)) {
             const TypedData& udh = bin_walker.heap_userdata_header();
             DumpTypedData(udh, 2);
 

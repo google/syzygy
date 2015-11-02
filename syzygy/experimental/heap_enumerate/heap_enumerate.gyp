@@ -21,13 +21,15 @@
       'target_name': 'heap_enumerate',
       'type': 'executable',
       'sources': [
+        'heap_entry_walker.cc',
+        'heap_entry_walker.h',
         'heap_enumerate.cc',
         'heap_enumerate.h',
         'heap_enumerate_app.cc',
         'heap_enumerate_app.h',
         'heap_enumerate_main.cc',
         'list_entry_enumerator.cc',
-        'list_entry_enumerator.h'
+        'list_entry_enumerator.h',
       ],
       'working_directory': '$(OutDir)',
       'dependencies': [
