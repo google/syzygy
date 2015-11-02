@@ -115,14 +115,10 @@ _BLACK_LIST = [
   'integration_tests.exe',
   'integration_tests_4g.exe',
   'syzyasan_rtl_unittests.exe',
-  # AppVerifier triggers memory hoggage in this on that leads to a system
-  # misunderstanding and subsequent barfing of hex stack trace.
-  # Commented out after pulling out stack_analysis_unittest.cc to its own test,
-  # which means it will only analyze 1 stack. This may be sufficient to have the
-  # test pass.
-  # TODO(manzagop): Follow up on experiment by either restoring the exclusion
-  # or deleting it.
-  #'refinery_stack_unittest.exe',
+  # AppVerifier triggers memory hoggage in this test due to parsing complex
+  # symbols (numerous allocations) and a page heap being used. This leads to an
+  # OOM, and subsequent system misunderstanding and barfing of hex stack trace.
+  'refinery_stack_unittest.exe',
 ]
 
 
