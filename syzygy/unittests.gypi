@@ -107,6 +107,7 @@
       '<(src)/syzygy/playback/playback.gyp:playback_unittests',
 
       # Refinery tests.
+      '<(src)/syzygy/refinery/refinery.gyp:refinery_stack_unittest',
       '<(src)/syzygy/refinery/refinery.gyp:refinery_unittests',
 
       # Relink tests.
