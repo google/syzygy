@@ -394,7 +394,7 @@ class FunctionType : public Type {
   TypePtr GetReturnType() const;
 
   // Retrieves the type associated with the containing class.
-  // @pre containing_class_ != kNoTypeId
+  // @pre containing_class_id_ != kNoTypeId
   // @pre SetRepository has been called.
   TypePtr GetContainingClassType() const;
 

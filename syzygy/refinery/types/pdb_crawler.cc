@@ -14,8 +14,9 @@
 
 #include "syzygy/refinery/types/pdb_crawler.h"
 
-#include "base/strings/string_util.h"
-#include "base/strings/stringprintf.h"
+#include <vector>
+
+#include "base/strings/string16.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
@@ -23,6 +24,7 @@
 #include "syzygy/pdb/gen/pdb_type_info_records.h"
 #include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/refinery/types/type.h"
+#include "syzygy/refinery/types/type_namer.h"
 #include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
@@ -63,14 +65,6 @@ class TypeCreator {
                        Type::Flags* flags,
                        size_t* bit_pos,
                        size_t* bit_len);
-
-  // Assigns names to all pointer, array and function types that have been
-  // created.
-  // @returns true on success, false on failure.
-  bool EnsureTypeName(TypePtr type);
-  bool AssignPointerName(PointerTypePtr ptr);
-  bool AssignArrayName(ArrayTypePtr array);
-  bool AssignFunctionName(FunctionTypePtr function);
 
   // Processes a member field and inserts it into given field list.
   // @param member pointer to the member type record.
@@ -226,6 +220,8 @@ class TypeCreator {
 
   // Vector of records to process.
   std::vector<TypeId> records_to_process_;
+
+  TypeNamer type_namer_;
 };
 
 TypePtr TypeCreator::CreatePointerType(TypeId type_id) {
@@ -729,164 +725,8 @@ TypePtr TypeCreator::ReadBitfield(TypeId type_id,
   return FindOrCreateBitfieldType(underlying_id, flags);
 }
 
-bool TypeCreator::EnsureTypeName(TypePtr type) {
-  if (!type->name().empty())
-    return true;
-
-  switch (type->kind()) {
-    case Type::POINTER_TYPE_KIND: {
-      PointerTypePtr ptr;
-      if (!type->CastTo(&ptr))
-        return false;
-
-      if (!AssignPointerName(ptr))
-        return false;
-
-      DCHECK_NE(L"", ptr->name());
-      DCHECK_NE(L"", ptr->decorated_name());
-      break;
-    }
-    case Type::ARRAY_TYPE_KIND: {
-      ArrayTypePtr array;
-      if (!type->CastTo(&array))
-        return false;
-
-      if (!AssignArrayName(array))
-        return false;
-
-      DCHECK_NE(L"", array->name());
-      DCHECK_NE(L"", array->decorated_name());
-      break;
-    }
-    case Type::FUNCTION_TYPE_KIND: {
-      FunctionTypePtr function;
-      if (!type->CastTo(&function))
-        return false;
-
-      if (!AssignFunctionName(function))
-        return false;
-
-      DCHECK_NE(L"", function->name());
-      DCHECK_NE(L"", function->decorated_name());
-      break;
-    }
-    // Rest of the types should have their names set up.
-    case Type::USER_DEFINED_TYPE_KIND:
-    case Type::BASIC_TYPE_KIND: {
-      DCHECK_NE(L"", type->name());
-      break;
-    }
-  }
-
-  return true;
-}
-
-bool TypeCreator::AssignArrayName(ArrayTypePtr array) {
-  TypePtr element_type = array->GetElementType();
-  base::string16 name;
-  base::string16 decorated_name;
-  if (element_type) {
-    if (!EnsureTypeName(element_type))
-      return false;
-    name = element_type->name();
-    decorated_name = element_type->decorated_name();
-  }
-
-  name.append(GetCVMod(array->is_const(), array->is_volatile()));
-  decorated_name.append(GetCVMod(array->is_const(), array->is_volatile()));
-
-  base::StringAppendF(&name, L"[%d]", array->num_elements());
-  base::StringAppendF(&decorated_name, L"[%d]", array->num_elements());
-
-  array->SetDecoratedName(name);
-  array->SetName(name);
-  return true;
-}
-
-bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
-  TypePtr content_type = ptr->GetContentType();
-  base::string16 name;
-  base::string16 decorated_name;
-  if (content_type) {
-    if (!EnsureTypeName(content_type))
-      return false;
-    name = content_type->name();
-    decorated_name = content_type->decorated_name();
-  }
-
-  name.append(GetCVMod(ptr->is_const(), ptr->is_volatile()));
-  decorated_name.append(GetCVMod(ptr->is_const(), ptr->is_volatile()));
-
-  if (ptr->ptr_mode() == PointerType::PTR_MODE_PTR) {
-    name.append(L"*");
-    decorated_name.append(L"*");
-  } else {
-    name.append(L"&");
-    decorated_name.append(L"&");
-  }
-
-  ptr->SetName(name);
-  ptr->SetDecoratedName(decorated_name);
-  return true;
-}
-
-bool TypeCreator::AssignFunctionName(FunctionTypePtr function) {
-  TypePtr return_type = function->GetReturnType();
-  base::string16 name;
-  base::string16 decorated_name;
-  if (return_type) {
-    if (!EnsureTypeName(return_type))
-      return false;
-    name = return_type->name();
-    decorated_name = return_type->decorated_name();
-  }
-
-  name.append(L" (");
-  decorated_name.append(L" (");
-
-  TypePtr class_type = function->GetContainingClassType();
-  if (class_type) {
-    if (!EnsureTypeName(class_type))
-      return false;
-    name.append(class_type->name() + L"::)(");
-    decorated_name.append(class_type->decorated_name() + L"::)(");
-  }
-
-  // Get the argument types names.
-  std::vector<base::string16> arg_names;
-  std::vector<base::string16> arg_decorated_names;
-  for (size_t i = 0; i < function->argument_types().size(); ++i) {
-    TypePtr arg_type = function->GetArgumentType(i);
-    if (arg_type) {
-      if (!EnsureTypeName(arg_type))
-        return false;
-
-      // Append the names, if the argument type is T_NOTYPE then this is a
-      // C-style variadic function like printf and we append "..." instead.
-      if (arg_type->type_id() == cci::T_NOTYPE) {
-        arg_names.push_back(L"...");
-        arg_decorated_names.push_back(L"...");
-      } else {
-        const FunctionType::ArgumentType& arg = function->argument_types()[i];
-        base::string16 CV_mods = GetCVMod(arg.is_const(), arg.is_volatile());
-        arg_names.push_back(arg_type->name() + CV_mods);
-        arg_decorated_names.push_back(arg_type->decorated_name() + CV_mods);
-      }
-    }
-  }
-
-  name.append(base::JoinString(arg_names, L", "));
-  decorated_name.append(base::JoinString(arg_decorated_names, L", "));
-
-  name.append(L")");
-  decorated_name.append(L")");
-
-  function->SetName(name);
-  function->SetDecoratedName(decorated_name);
-  return true;
-}
-
-TypeCreator::TypeCreator(TypeRepository* repository) : repository_(repository) {
+TypeCreator::TypeCreator(TypeRepository* repository)
+    : repository_(repository), type_namer_(true) {
   DCHECK(repository);
 }
 
@@ -1097,15 +937,6 @@ bool TypeCreator::IsImportantType(uint32_t type) {
       return true;
   }
   return false;
-}
-
-base::string16 TypeCreator::GetCVMod(bool is_const, bool is_volatile) {
-  base::string16 suffix;
-  if (is_const)
-    suffix += L" const";
-  if (is_volatile)
-    suffix += L" volatile";
-  return suffix;
 }
 
 Type::Flags TypeCreator::CreateTypeFlags(bool is_const, bool is_volatile) {
@@ -1437,7 +1268,7 @@ bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
 
   // And assign type names.
   for (auto type : *repository_) {
-    if (!EnsureTypeName(type))
+    if (!type_namer_.EnsureTypeName(type))
       return false;
   }
 

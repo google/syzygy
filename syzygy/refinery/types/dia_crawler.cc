@@ -20,117 +20,12 @@
 #include "base/strings/stringprintf.h"
 #include "base/win/scoped_bstr.h"
 #include "syzygy/pe/dia_util.h"
+#include "syzygy/refinery/types/type_namer.h"
 #include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
 
 namespace {
-
-bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name) {
-  DWORD base_type = 0;
-  HRESULT hr = symbol->get_baseType(&base_type);
-  if (hr != S_OK)
-    return false;
-
-  ULONGLONG length = 0;
-  hr = symbol->get_length(&length);
-  if (hr != S_OK)
-    return false;
-
-  // TODO(siggi): What to do for these basic type names?
-  //     One idea is to standardize on stdint.h types?
-  switch (base_type) {
-    case btNoType:
-      *type_name = L"btNoType";
-      break;
-    case btVoid:
-      *type_name = L"void";
-      break;
-    case btChar:
-      *type_name = L"char";
-      break;
-    case btWChar:
-      *type_name = L"wchar_t";
-      break;
-    case btInt:
-    case btLong: {
-      switch (length) {
-        case 1:
-          *type_name = L"int8_t";
-          break;
-        case 2:
-          *type_name = L"int16_t";
-          break;
-        case 4:
-          *type_name = L"int32_t";
-          break;
-        case 8:
-          *type_name = L"int64_t";
-          break;
-
-        default:
-          return false;
-      }
-      break;
-    }
-    case btUInt:
-    case btULong: {
-      switch (length) {
-        case 1:
-          *type_name = L"uint8_t";
-          break;
-        case 2:
-          *type_name = L"uint16_t";
-          break;
-        case 4:
-          *type_name = L"uint32_t";
-          break;
-        case 8:
-          *type_name = L"uint64_t";
-          break;
-
-        default:
-          return false;
-      }
-      break;
-    }
-
-    case btFloat:
-      *type_name = L"float";
-      break;
-    case btBCD:
-      *type_name = L"BCD";
-      break;
-    case btBool:
-      *type_name = L"bool";
-      break;
-    case btCurrency:
-      *type_name = L"Currency";
-      break;
-    case btDate:
-      *type_name = L"Date";
-      break;
-    case btVariant:
-      *type_name = L"Variant";
-      break;
-    case btComplex:
-      *type_name = L"Complex";
-      break;
-    case btBit:
-      *type_name = L"Bit";
-      break;
-    case btBSTR:
-      *type_name = L"BSTR";
-      break;
-    case btHresult:
-      *type_name = L"HRESULT";
-      break;
-    default:
-      return false;
-  }
-
-  return true;
-}
 
 bool GetSymFlags(IDiaSymbol* symbol, Type::Flags* flags) {
   DCHECK(symbol); DCHECK(flags);
@@ -279,10 +174,6 @@ class TypeCreator {
   // Assigns names to all pointer, array and function types that have been
   // created.
   bool AssignTypeNames();
-  bool EnsureTypeName(TypePtr type);
-  bool AssignPointerName(PointerTypePtr ptr);
-  bool AssignArrayName(ArrayTypePtr array);
-  bool AssignFunctionName(FunctionTypePtr function);
 
   // Finds or creates the type corresponding to @p symbol.
   // The type will be registered by a unique name in @p existing_types_.
@@ -321,10 +212,12 @@ class TypeCreator {
   // enumerating the same type multiple times.
   CreatedTypeMap created_types_;
   TypeRepository* repository_;
+
+  TypeNamer type_namer_;
 };
 
 TypeCreator::TypeCreator(TypeRepository* repository)
-    : repository_(repository) {
+    : repository_(repository), type_namer_(false) {
   DCHECK(repository);
 }
 
@@ -520,130 +413,10 @@ bool TypeCreator::CreateTypes(IDiaSymbol* global) {
 
 bool TypeCreator::AssignTypeNames() {
   for (auto type : *repository_) {
-    if (!EnsureTypeName(type))
+    if (!type_namer_.EnsureTypeName(type))
       return false;
   }
 
-  return true;
-}
-
-bool TypeCreator::EnsureTypeName(TypePtr type) {
-  if (type->kind() == Type::POINTER_TYPE_KIND && type->name().empty()) {
-    PointerTypePtr ptr;
-    if (!type->CastTo(&ptr))
-      return false;
-
-    if (!AssignPointerName(ptr))
-      return false;
-  } else if (type->kind() == Type::ARRAY_TYPE_KIND && type->name().empty()) {
-    ArrayTypePtr array;
-    if (!type->CastTo(&array))
-      return false;
-
-    if (!AssignArrayName(array))
-      return false;
-  } else if (type->kind() == Type::FUNCTION_TYPE_KIND && type->name().empty()) {
-    FunctionTypePtr function;
-    if (!type->CastTo(&function))
-      return false;
-
-    if (!AssignFunctionName(function))
-      return false;
-  }
-  DCHECK_NE(L"", type->name());
-  return true;
-}
-
-bool TypeCreator::AssignArrayName(ArrayTypePtr array) {
-  TypePtr element_type = array->GetElementType();
-  base::string16 name;
-  if (element_type) {
-    if (!EnsureTypeName(element_type))
-      return false;
-    name = element_type->name();
-  }
-
-  if (array->is_const())
-    name.append(L" const");
-  if (array->is_volatile())
-    name.append(L" volatile");
-  base::StringAppendF(&name, L"[%d]", array->num_elements());
-
-  array->SetName(name);
-  return true;
-}
-
-bool TypeCreator::AssignPointerName(PointerTypePtr ptr) {
-  TypePtr content_type = ptr->GetContentType();
-  base::string16 name;
-  if (content_type) {
-    if (!EnsureTypeName(content_type))
-      return false;
-    name = content_type->name();
-  }
-
-  if (ptr->is_const())
-    name.append(L" const");
-  if (ptr->is_volatile())
-    name.append(L" volatile");
-
-  if (ptr->ptr_mode() == PointerType::PTR_MODE_PTR) {
-    name.append(L"*");
-  } else {
-    name.append(L"&");
-  }
-
-  ptr->SetName(name);
-  return true;
-}
-
-bool TypeCreator::AssignFunctionName(FunctionTypePtr function) {
-  TypePtr return_type = function->GetReturnType();
-  base::string16 name;
-  if (return_type) {
-    if (!EnsureTypeName(return_type))
-      return false;
-    name = return_type->name();
-  }
-
-  name.append(L" (");
-
-  TypePtr class_type = function->GetContainingClassType();
-  if (class_type) {
-    if (!EnsureTypeName(class_type))
-      return false;
-    name.append(class_type->name() + L"::)(");
-  }
-
-  // Get the argument types names.
-  std::vector<base::string16> arg_names;
-  for (size_t i = 0; i < function->argument_types().size(); ++i) {
-    TypePtr arg_type = function->GetArgumentType(i);
-    if (arg_type) {
-      if (!EnsureTypeName(arg_type))
-        return false;
-
-      // Append the names, if the argument type is T_NOTYPE then this is a
-      // C-style variadic function like printf and we append "..." instead.
-      if (arg_type->name() == L"btNoType") {
-        arg_names.push_back(L"...");
-      } else {
-        const FunctionType::ArgumentType& arg = function->argument_types()[i];
-        base::string16 arg_name = arg_type->name();
-        if (arg.is_const())
-          arg_name.append(L" const");
-        if (arg.is_volatile())
-          arg_name.append(L" volatile");
-
-        arg_names.push_back(arg_name);
-      }
-    }
-  }
-
-  name.append(base::JoinString(arg_names, L", "));
-  name.append(L")");
-
-  function->SetName(name);
   return true;
 }
 

@@ -241,6 +241,7 @@ TypePtr FunctionType::GetReturnType() const {
 
 TypePtr FunctionType::GetContainingClassType() const {
   DCHECK(repository());
+  DCHECK(containing_class_id_ != kNoTypeId);
 
   return repository()->GetType(containing_class_id_);
 }

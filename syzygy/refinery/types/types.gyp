@@ -27,6 +27,8 @@
         'pdb_crawler.h',
         'type.cc',
         'type.h',
+        'type_namer.cc',
+        'type_namer.h',
         'type_repository.cc',
         'type_repository.h',
         'typed_data.cc',
