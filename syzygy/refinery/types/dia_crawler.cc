@@ -670,6 +670,21 @@ TypePtr TypeCreator::FindOrCreateType(IDiaSymbol* symbol) {
   entry.type_id = repository_->AddType(created);
   entry.is_finalized = false;
 
+  // Pointers to base types will not get enumerated by DIA and therefore need to
+  // be finalized manually. We do so here.
+  if (created->kind() == Type::POINTER_TYPE_KIND) {
+    base::win::ScopedComPtr<IDiaSymbol> contained_type_sym;
+    if (!pe::GetSymType(symbol, &contained_type_sym))
+      return nullptr;
+    enum SymTagEnum contained_sym_tag = SymTagNull;
+    if (!pe::GetSymTag(contained_type_sym.get(), &contained_sym_tag))
+      return nullptr;
+    if (contained_sym_tag == SymTagBaseType) {
+      if (!FinalizeType(symbol, created))
+        return nullptr;
+    }
+  }
+
   return created;
 }
 

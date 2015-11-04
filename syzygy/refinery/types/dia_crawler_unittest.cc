@@ -53,6 +53,15 @@ class DiaCrawlerTest : public testing::Test {
 
 }  // namespace
 
+TEST_F(DiaCrawlerTest, TestPointerTypesAreFinalized) {
+  // Ensure all pointer types have been finalized (ie content type is set).
+  for (auto it : *types_) {
+    PointerTypePtr ptr;
+    if (it->CastTo(&ptr))
+      ASSERT_NE(kNoTypeId, ptr->content_type_id());
+  }
+}
+
 TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   TypePtr type = FindTypeEndingWith(L"::TestSimpleUDT");
   ASSERT_TRUE(type);
