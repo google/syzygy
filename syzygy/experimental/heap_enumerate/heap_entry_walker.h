@@ -35,30 +35,16 @@ enum HeapEntryFlags {
   HEAP_ENTRY_SETTABLE_FLAG3 = 0x80,
 };
 
-//   The LFH mode mixes an ntdll local variable, with the HEAP pointer/handle
-//   with the address of the entry for obfuscation.
+// A base class for the segment and LFH entry walkers.
 class HeapEntryWalker {
  public:
-  struct HeapEntry {
-    uint16_t size;
-    uint8_t flags;
-    uint8_t tag;
-    uint16_t prev_size;
-    uint8_t segment_index;  // TODO(siggi): is this right???
-    uint8_t unused_bytes;
-  };
-  COMPILE_ASSERT(sizeof(HeapEntry) == 8, heap_entry_is_not_8_bytes);
-
   HeapEntryWalker();
-
-  // Returns the current entry decoded.
-  virtual bool GetDecodedEntry(HeapEntry* entry) = 0;
 
   // Returns true iff the current entry is at or past the segment range.
   virtual bool AtEnd() const = 0;
 
   // Walk to the next entry in the segment.
-  bool Next();
+  virtual bool Next() = 0;
 
   // Accessor.
   const refinery::TypedData& curr_entry() const { return curr_entry_; }
@@ -84,14 +70,27 @@ class HeapEntryWalker {
 // "EncodeFlagMask" value is just so.
 class SegmentEntryWalker : public HeapEntryWalker {
  public:
+  struct HeapEntry {
+    uint16_t size;
+    uint8_t flags;
+    uint8_t tag;
+    uint16_t prev_size;
+    uint8_t segment_index;  // TODO(siggi): is this right???
+    uint8_t unused_bytes;
+  };
+  COMPILE_ASSERT(sizeof(HeapEntry) == 8, heap_entry_is_not_8_bytes);
+
   SegmentEntryWalker() = default;
 
   // Initialize the walker to walk @p segment.
-  bool Initialize(const refinery::TypedData& heap,
+  bool Initialize(refinery::BitSource* bit_source,
+                  const refinery::TypedData& heap,
                   const refinery::TypedData& segment);
 
   // Returns the current entry decoded.
-  bool GetDecodedEntry(HeapEntry* entry) override;
+  bool GetDecodedEntry(HeapEntry* entry);
+
+  bool Next() override;
   bool AtEnd() const override;
 
  private:
@@ -104,17 +103,27 @@ class SegmentEntryWalker : public HeapEntryWalker {
   DISALLOW_COPY_AND_ASSIGN(SegmentEntryWalker);
 };
 
-// The LFH mode mixes an ntdll local variable, with the HEAP pointer/handle
-// with the address of the entry for obfuscation.
-class LFHBinEntryWalker : public HeapEntryWalker {
+// Walks the entries in a single LFH bin.
+class LFHBinWalker : public HeapEntryWalker {
  public:
-  LFHBinEntryWalker() = default;
+  struct LFHEntry {
+    uint32_t heap_subsegment;
+    uint16_t prev_size;
+    uint8_t segment_index;  // TODO(siggi): is this right???
+    uint8_t unused_bytes;
+  };
+  COMPILE_ASSERT(sizeof(LFHEntry) == sizeof(SegmentEntryWalker::HeapEntry),
+                 heap_entry_wrong_size);
 
-  bool Initialize(refinery::BitSource* bit_source,
+  LFHBinWalker();
+
+  bool Initialize(refinery::Address heap,
+                  refinery::BitSource* bit_source,
                   refinery::UserDefinedTypePtr heap_user_data_header_type,
                   SegmentEntryWalker* walker);
 
-  bool GetDecodedEntry(HeapEntry* entry) override;
+  bool GetDecodedEntry(LFHEntry* entry);
+  bool Next() override;
   bool AtEnd() const override;
 
   // Accessor.
@@ -122,12 +131,22 @@ class LFHBinEntryWalker : public HeapEntryWalker {
     return heap_userdata_header_;
   }
 
+  uint64_t entry_byte_size() const { return entry_byte_size_; }
+  uint64_t lfh_key() const { return lfh_key_; }
+
  private:
   // An address range covering the bin under enumeration.
   refinery::AddressRange bin_range_;
   refinery::TypedData heap_userdata_header_;
 
-  DISALLOW_COPY_AND_ASSIGN(LFHBinEntryWalker);
+  // The byte size of each entry in the bin.
+  uint64_t entry_byte_size_;
+  // The LFHKey decoded from this bin.
+  uint64_t lfh_key_;
+  // The heap this bin is associated with, as provided by Initialize.
+  refinery::Address heap_;
+
+  DISALLOW_COPY_AND_ASSIGN(LFHBinWalker);
 };
 
 #endif  // SYZYGY_EXPERIMENTAL_HEAP_ENUMERATE_HEAP_ENTRY_WALKER_H_

@@ -442,6 +442,8 @@ void HeapEnumerate::DumpTypedData(const TypedData& data, size_t indent) {
 }
 
 void HeapEnumerate::EnumerateHeap(FILE* output_file) {
+  // TODO(siggi): Split this function into multiple functions, each less
+  //     eyebleed-ugly.
   DCHECK(output_file);
   output_ = output_file;
 
@@ -472,13 +474,12 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
 
     // This is used to walk the entries in each segment.
     SegmentEntryWalker segment_walker;
-
     // Enumerate the entries in the segment by walking them.
-    if (segment_walker.Initialize(enumerator.heap(), segment)) {
+    if (segment_walker.Initialize(enumerator.bit_source(), enumerator.heap(),
+                                  segment)) {
       uint16_t prev_size = 0;
-
       while (!segment_walker.AtEnd()) {
-        HeapEntryWalker::HeapEntry entry = {};
+        SegmentEntryWalker::HeapEntry entry = {};
         if (!segment_walker.GetDecodedEntry(&entry)) {
           // TODO(siggi): This currently happens on stepping into an
           //     uncommitted range - do better - but how?
@@ -511,28 +512,72 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
 
         // TODO(siggi): The name of this flag does not fit modern times?
         if (entry.flags & HEAP_ENTRY_VIRTUAL_ALLOC) {
-          LFHBinEntryWalker bin_walker;
-          if (bin_walker.Initialize(enumerator.bit_source(),
-                                    enumerator.heap_userdata_header_type(),
-                                    &segment_walker)) {
+          LFHBinWalker bin_walker;
+          if (bin_walker.Initialize(
+                  enumerator.heap().addr(), enumerator.bit_source(),
+                  enumerator.heap_userdata_header_type(), &segment_walker)) {
+            ::fprintf(output_, "  LFHKey: 0x%08X\n", bin_walker.lfh_key());
+
             const TypedData& udh = bin_walker.heap_userdata_header();
             DumpTypedData(udh, 2);
 
-            // TODO(siggi): Walk the bin entries and enumerate their contained
-            //    alloc(s).
+            TypedData subsegment;
+            TypedData heap_subsegment;
+            if (udh.GetNamedField(L"SubSegment", &subsegment) &&
+                subsegment.Dereference(&heap_subsegment)) {
+              DumpTypedData(heap_subsegment, 2);
+            }
 
             uint64_t signature = 0;
             if (GetNamedValueUnsigned(udh, L"Signature", &signature)) {
               const uint32_t kUDHMagic = 0xF0E0D0C0;
               if (signature != kUDHMagic) {
-                ::fprintf(output_, "UDH signature incorrect: 0x%08llX.\n",
+                // This seems to happen for the last entry in a segment.
+                // TODO(siggi): figure this out for realz.
+                ::fprintf(output_, "UDH signature incorrect: 0x%08llX\n",
                           signature);
+                // TODO(siggi): Continue walking the bin.
+                break;
               }
             } else {
               ::fprintf(output_, "GetNamedValueUnsigned failed.\n");
+              // TODO(siggi): Continue walking the bin.
+              break;
             }
+
+            while (!bin_walker.AtEnd()) {
+              LFHBinWalker::LFHEntry entry = {};
+              if (!bin_walker.GetDecodedEntry(&entry)) {
+                fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
+                        bin_walker.curr_entry().addr(),
+                        bin_walker.curr_entry().type()->size());
+                break;
+              }
+              refinery::AddressRange range(bin_walker.curr_entry().addr(),
+                                           bin_walker.entry_byte_size());
+
+              ::fprintf(output_, "LFHEntry@0x%08llX(%d)\n", range.addr(),
+                        range.size());
+
+              // TODO(siggi): Validate that each entry points to the same
+              //     subsegment.
+              ::fprintf(output_, " heap_subsegment: 0x%08X\n",
+                        entry.heap_subsegment);
+              ::fprintf(output_, " prev_size: 0x%02X\n", entry.prev_size);
+              ::fprintf(output_, " segment_index: 0x%02X\n",
+                        entry.segment_index);
+              ::fprintf(output_, " unused_bytes: 0x%02X\n", entry.unused_bytes);
+
+              // TODO(siggi): Validate that the alloc is contained in the
+              //    entry.
+              PrintAllocsInRange(range);
+
+              if (!bin_walker.Next())
+                break;
+            }
+
           } else {
-            fprintf(output_, "LFHBinEntryWalker::Initialize failed\n");
+            fprintf(output_, "LFHBinWalker::Initialize failed\n");
           }
         } else {
           PrintAllocsInRange(range);

@@ -53,20 +53,13 @@ bool HeapEntryWalker::Initialize(refinery::BitSource* bit_source) {
   return true;
 }
 
-bool HeapEntryWalker::Next() {
-  HeapEntry decoded = {};
-  if (!GetDecodedEntry(&decoded))
-    return false;
-
-  return curr_entry_.OffsetAndCast(decoded.size, curr_entry_.type(),
-                                   &curr_entry_);
-}
-
-bool SegmentEntryWalker::Initialize(const refinery::TypedData& heap,
+bool SegmentEntryWalker::Initialize(refinery::BitSource* bit_source,
+                                    const refinery::TypedData& heap,
                                     const refinery::TypedData& segment) {
-  if (!HeapEntryWalker::Initialize(heap.bit_source()))
+  if (!HeapEntryWalker::Initialize(bit_source))
     return false;
 
+  // Retrieve the EncodeFlagMask and the Encoding fields from the heap.
   refinery::TypedData encode_flag_mask;
   refinery::TypedData encoding;
   bool has_flags = heap.GetNamedField(L"EncodeFlagMask", &encode_flag_mask);
@@ -77,6 +70,8 @@ bool SegmentEntryWalker::Initialize(const refinery::TypedData& heap,
     return false;
   }
 
+  // Check the EncodeFlagMask, and store Encoding if appropriate. This is used
+  // to XOR all _HEAP_ENTRY fields in the heap.
   if (has_flags) {
     uint64 value = 0;
     if (!encode_flag_mask.GetUnsignedValue(&value)) {
@@ -86,9 +81,8 @@ bool SegmentEntryWalker::Initialize(const refinery::TypedData& heap,
     // From observation of some heaps.
     const uint64 kEncodingEnabled = 0x00100000;
     if (value & kEncodingEnabled) {
-      refinery::BitSource* source = encoding.bit_source();
       encoding_.resize(encoding.type()->size());
-      if (!source->GetAll(encoding.GetRange(), &encoding_.at(0)))
+      if (!heap_bit_source_->GetAll(encoding.GetRange(), &encoding_.at(0)))
         return false;
     }
   }
@@ -139,20 +133,34 @@ bool SegmentEntryWalker::AtEnd() const {
   return false;
 }
 
-bool LFHBinEntryWalker::Initialize(
+bool SegmentEntryWalker::Next() {
+  HeapEntry decoded = {};
+  if (!GetDecodedEntry(&decoded))
+    return false;
+
+  return curr_entry_.OffsetAndCast(decoded.size, curr_entry_.type(),
+                                   &curr_entry_);
+}
+
+LFHBinWalker::LFHBinWalker() : entry_byte_size_(0), heap_(0) {
+}
+
+bool LFHBinWalker::Initialize(
+    refinery::Address heap,
     refinery::BitSource* bit_source,
     refinery::UserDefinedTypePtr heap_userdata_header_type,
     SegmentEntryWalker* walker) {
   DCHECK(bit_source);
   DCHECK(walker);
 
+  heap_ = heap;
+
   if (!HeapEntryWalker::Initialize(bit_source))
     return false;
 
-  // TODO(siggi): Acquire the data necessary to decode the entries.
   refinery::AddressRange entry_range = walker->curr_entry().GetRange();
-
-  HeapEntry entry = {};
+  // Get then entry preceding the bin.
+  SegmentEntryWalker::HeapEntry entry = {};
   if (!walker->GetDecodedEntry(&entry))
     return false;
 
@@ -166,21 +174,72 @@ bool LFHBinEntryWalker::Initialize(
     return false;
   }
 
-  // TODO(siggi): This is an awkard way to acquire this type.
+  // Dereference the heap subsegment. This contains the size, entry count
+  // and other information on this bin.
+  refinery::TypedData subsegment;
+  refinery::TypedData heap_subsegment;
+  if (!heap_userdata_header_.GetNamedField(L"SubSegment", &subsegment) ||
+      !subsegment.Dereference(&heap_subsegment)) {
+    return false;
+  }
+
+  // TODO(siggi): The UserBlocks pointer should point back to the
+  //     _HEAP_USERDATA_HEADER in the bin - validate this.
+  uint64_t block_size = 0;
+  if (!GetNamedValueUnsigned(heap_subsegment, L"BlockSize", &block_size))
+    return false;
+
+  // Compute the entry byte size.
+  entry_byte_size_ = block_size * walker->curr_entry().type()->size();
+
   if (!heap_userdata_header_.OffsetAndCast(1, walker->curr_entry().type(),
                                            &curr_entry_)) {
     return false;
   }
 
+  // Get the obfuscated subsegment pointer from the first entry in the bin.
+  uint64_t subsegment_code = 0;
+  if (!GetNamedValueUnsigned(curr_entry_, L"SubSegmentCode", &subsegment_code))
+    return false;
+
+  // The subsegment_code is
+  // XOR(LFHKey, subsegment_code, self addr >> 3, heap_subsegment).
+  // By XORing out all the others, we're left with the LFH key.
+  lfh_key_ = subsegment_code;
+  lfh_key_ ^= heap_;
+  lfh_key_ ^= (curr_entry_.addr() >> 3);
+  lfh_key_ ^= heap_subsegment.addr();
+
   return true;
 }
 
-bool LFHBinEntryWalker::GetDecodedEntry(HeapEntry* entry) {
-  // TODO(siggi): writeme.
-  return false;
+bool LFHBinWalker::GetDecodedEntry(LFHEntry* entry) {
+  DCHECK(entry);
+
+  LFHEntry tmp = {};
+  if (sizeof(tmp) != curr_entry_.type()->size())
+    return false;
+
+  if (!curr_entry_.bit_source()->GetAll(curr_entry_.GetRange(), &tmp))
+    return false;
+
+  // XOR the LFHKey, self address and heap in to de-obfuscate the subseg field.
+  tmp.heap_subsegment ^= lfh_key_;
+  tmp.heap_subsegment ^= curr_entry_.addr() >> 3;
+  tmp.heap_subsegment ^= heap_;
+
+  *entry = tmp;
+  return true;
 }
 
-bool LFHBinEntryWalker::AtEnd() const {
+bool LFHBinWalker::Next() {
+  curr_entry_ =
+      refinery::TypedData(curr_entry_.bit_source(), curr_entry_.type(),
+                          curr_entry_.addr() + entry_byte_size_);
+  return true;
+}
+
+bool LFHBinWalker::AtEnd() const {
   if (curr_entry_.GetRange().end() >= bin_range_.end())
     return true;
 
