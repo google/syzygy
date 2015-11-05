@@ -125,7 +125,42 @@ class TestBitSource : public BitSource {
   }
 };
 
-class HeapEnumerator {
+bool GetNtdllTypes(TypeRepository* repo) {
+  // As of 28/10/2015 the symbol file for ntdll.dll on Win7 is missing the
+  // crucial symbols for heap enumeration. This code deserves to either die
+  // in a fire, or else be updated to find symbols that are close to the
+  // system in version and bitness.
+  pe::PEFile::Signature ntdll_sig(L"ntdll.dll", core::AbsoluteAddress(0),
+                                  0x141000, 0, 0x560D708C);
+
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::string search_path;
+  if (!env->GetVar("_NT_SYMBOL_PATH", &search_path)) {
+    // TODO(siggi): Set a default when it's missing.
+    LOG(ERROR) << "Missing symbol path.";
+    return false;
+  }
+
+  base::FilePath ntdll_path;
+  if (!pe::FindModuleBySignature(ntdll_sig, base::UTF8ToUTF16(search_path),
+                                 &ntdll_path)) {
+    LOG(ERROR) << "Failed to locate NTDLL.";
+    return false;
+  }
+
+  DiaCrawler crawler;
+  if (!crawler.InitializeForFile(base::FilePath(ntdll_path)) ||
+      !crawler.GetTypes(repo)) {
+    LOG(ERROR) << "Failed to get ntdll types.";
+    return false;
+  }
+
+  return true;
+}
+
+}  // namespace
+
+class HeapEnumerate::HeapEnumerator {
  public:
   HeapEnumerator();
 
@@ -146,7 +181,9 @@ class HeapEnumerator {
   UserDefinedTypePtr heap_userdata_header_type() const {
     return heap_userdata_header_type_;
   }
-  BitSource* bit_source() { return &bit_source_; }
+  BitSource* bit_source() const {
+    return const_cast<TestBitSource*>(&bit_source_);
+  }
 
  private:
   // A reflective bit source.
@@ -192,10 +229,11 @@ class HeapEnumerator {
   UserDefinedTypePtr heap_userdata_header_type_;
 };
 
-HeapEnumerator::HeapEnumerator() {
+HeapEnumerate::HeapEnumerator::HeapEnumerator() {
 }
 
-bool HeapEnumerator::Initialize(HANDLE heap, TypeRepository* repo) {
+bool HeapEnumerate::HeapEnumerator::Initialize(HANDLE heap,
+                                               TypeRepository* repo) {
   DCHECK(heap);
   DCHECK(repo);
 
@@ -245,7 +283,7 @@ bool HeapEnumerator::Initialize(HANDLE heap, TypeRepository* repo) {
   return true;
 }
 
-ListEntryEnumerator HeapEnumerator::GetSegmentEnumerator() {
+ListEntryEnumerator HeapEnumerate::HeapEnumerator::GetSegmentEnumerator() {
   TypedData segment_list;
   if (!heap_.GetNamedField(L"SegmentList", &segment_list)) {
     LOG(ERROR) << "No SegmentList in heap.";
@@ -262,7 +300,8 @@ ListEntryEnumerator HeapEnumerator::GetSegmentEnumerator() {
   return heap_segment_enum;
 }
 
-ListEntryEnumerator HeapEnumerator::GetUCREnumerator(const TypedData& segment) {
+ListEntryEnumerator HeapEnumerate::HeapEnumerator::GetUCREnumerator(
+    const TypedData& segment) {
   TypedData ucr_list;
   if (!segment.GetNamedField(L"UCRSegmentList", &ucr_list)) {
     LOG(ERROR) << "No UCRSegmentList in segment.";
@@ -279,7 +318,7 @@ ListEntryEnumerator HeapEnumerator::GetUCREnumerator(const TypedData& segment) {
   return ucr_list_enum;
 }
 
-bool HeapEnumerator::GetFrontEndHeap(TypedData* front_end_heap) {
+bool HeapEnumerate::HeapEnumerator::GetFrontEndHeap(TypedData* front_end_heap) {
   DCHECK(front_end_heap);
   uint64_t front_end_heap_type = 0;
   if (!GetNamedValueUnsigned(heap_, L"FrontEndHeapType", &front_end_heap_type))
@@ -304,41 +343,6 @@ bool HeapEnumerator::GetFrontEndHeap(TypedData* front_end_heap) {
       TypedData(heap_.bit_source(), lfh_heap_type_, front_end_heap_addr);
   return true;
 }
-
-bool GetNtdllTypes(TypeRepository* repo) {
-  // As of 28/10/2015 the symbol file for ntdll.dll on Win7 is missing the
-  // cruicial symbols for heap enumeration. This code deserves to either die
-  // in a fire, or else be updated to find symbols that are close to the
-  // system in version and bitness.
-  pe::PEFile::Signature ntdll_sig(L"ntdll.dll", core::AbsoluteAddress(0),
-                                  0x141000, 0, 0x560D708C);
-
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  std::string search_path;
-  if (!env->GetVar("_NT_SYMBOL_PATH", &search_path)) {
-    // TODO(siggi): Set a default when it's missing.
-    LOG(ERROR) << "Missing symbol path.";
-    return false;
-  }
-
-  base::FilePath ntdll_path;
-  if (!pe::FindModuleBySignature(ntdll_sig, base::UTF8ToUTF16(search_path),
-                                 &ntdll_path)) {
-    LOG(ERROR) << "Failed to locate NTDLL.";
-    return false;
-  }
-
-  DiaCrawler crawler;
-  if (!crawler.InitializeForFile(base::FilePath(ntdll_path)) ||
-      !crawler.GetTypes(repo)) {
-    LOG(ERROR) << "Failed to get ntdll types.";
-    return false;
-  }
-
-  return true;
-}
-
-}  // namespace
 
 HeapEnumerate::HeapEnumerate() : heap_(nullptr), output_(nullptr) {
 }
@@ -442,8 +446,6 @@ void HeapEnumerate::DumpTypedData(const TypedData& data, size_t indent) {
 }
 
 void HeapEnumerate::EnumerateHeap(FILE* output_file) {
-  // TODO(siggi): Split this function into multiple functions, each less
-  //     eyebleed-ugly.
   DCHECK(output_file);
   output_ = output_file;
 
@@ -477,117 +479,7 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
     // Enumerate the entries in the segment by walking them.
     if (segment_walker.Initialize(enumerator.bit_source(), enumerator.heap(),
                                   segment)) {
-      uint16_t prev_size = 0;
-      while (!segment_walker.AtEnd()) {
-        SegmentEntryWalker::HeapEntry entry = {};
-        if (!segment_walker.GetDecodedEntry(&entry)) {
-          // TODO(siggi): This currently happens on stepping into an
-          //     uncommitted range - do better - but how?
-          fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
-                  segment_walker.curr_entry().addr(),
-                  segment_walker.curr_entry().type()->size());
-          break;
-        }
-
-        uint8_t checksum = xormem(&entry, 3);
-        if (checksum != entry.tag) {
-          ::fprintf(output_, "Checksum failed. Expected 0x%08X, got 0x%08X\n",
-                    checksum, entry.tag);
-        }
-
-        // The address range covered by the current entry.
-        refinery::AddressRange range(segment_walker.curr_entry().addr(),
-                                     entry.size * sizeof(entry));
-        ::fprintf(output_, "Entry@0x%08llX(%d)\n", range.addr(), range.size());
-
-        ::fprintf(output_, " size: 0x%04X\n", entry.size);
-        ::fprintf(output_, " flags: 0x%02X\n", entry.flags);
-        ::fprintf(output_, " tag: 0x%02X\n", entry.tag);
-        bool mismatch = prev_size != entry.prev_size;
-        ::fprintf(output_, " prev_size: 0x%04X%s\n", entry.prev_size,
-                  mismatch ? " **MISMATCH**" : "");
-        prev_size = entry.size;
-        ::fprintf(output_, " segment_index: 0x%02X\n", entry.segment_index);
-        ::fprintf(output_, " unused_bytes: 0x%02X\n", entry.unused_bytes);
-
-        // TODO(siggi): The name of this flag does not fit modern times?
-        if (entry.flags & HEAP_ENTRY_VIRTUAL_ALLOC) {
-          LFHBinWalker bin_walker;
-          if (bin_walker.Initialize(
-                  enumerator.heap().addr(), enumerator.bit_source(),
-                  enumerator.heap_userdata_header_type(), &segment_walker)) {
-            ::fprintf(output_, "  LFHKey: 0x%08X\n", bin_walker.lfh_key());
-
-            const TypedData& udh = bin_walker.heap_userdata_header();
-            DumpTypedData(udh, 2);
-
-            TypedData subsegment;
-            TypedData heap_subsegment;
-            if (udh.GetNamedField(L"SubSegment", &subsegment) &&
-                subsegment.Dereference(&heap_subsegment)) {
-              DumpTypedData(heap_subsegment, 2);
-            }
-
-            uint64_t signature = 0;
-            if (GetNamedValueUnsigned(udh, L"Signature", &signature)) {
-              const uint32_t kUDHMagic = 0xF0E0D0C0;
-              if (signature != kUDHMagic) {
-                // This seems to happen for the last entry in a segment.
-                // TODO(siggi): figure this out for realz.
-                ::fprintf(output_, "UDH signature incorrect: 0x%08llX\n",
-                          signature);
-                // TODO(siggi): Continue walking the bin.
-                break;
-              }
-            } else {
-              ::fprintf(output_, "GetNamedValueUnsigned failed.\n");
-              // TODO(siggi): Continue walking the bin.
-              break;
-            }
-
-            while (!bin_walker.AtEnd()) {
-              LFHBinWalker::LFHEntry entry = {};
-              if (!bin_walker.GetDecodedEntry(&entry)) {
-                fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
-                        bin_walker.curr_entry().addr(),
-                        bin_walker.curr_entry().type()->size());
-                break;
-              }
-              refinery::AddressRange range(bin_walker.curr_entry().addr(),
-                                           bin_walker.entry_byte_size());
-
-              ::fprintf(output_, "LFHEntry@0x%08llX(%d)\n", range.addr(),
-                        range.size());
-
-              // TODO(siggi): Validate that each entry points to the same
-              //     subsegment.
-              ::fprintf(output_, " heap_subsegment: 0x%08X\n",
-                        entry.heap_subsegment);
-              ::fprintf(output_, " prev_size: 0x%02X\n", entry.prev_size);
-              ::fprintf(output_, " segment_index: 0x%02X\n",
-                        entry.segment_index);
-              ::fprintf(output_, " unused_bytes: 0x%02X\n", entry.unused_bytes);
-
-              // TODO(siggi): Validate that the alloc is contained in the
-              //    entry.
-              PrintAllocsInRange(range);
-
-              if (!bin_walker.Next())
-                break;
-            }
-
-          } else {
-            fprintf(output_, "LFHBinWalker::Initialize failed\n");
-          }
-        } else {
-          PrintAllocsInRange(range);
-        }
-
-        if (!segment_walker.Next()) {
-          fprintf(output_, "Next failed\n");
-          break;
-        }
-      }
+      EnumSegment(enumerator, &segment_walker);
     } else {
       LOG(ERROR) << "EnumSegment failed.";
     }
@@ -595,5 +487,118 @@ void HeapEnumerate::EnumerateHeap(FILE* output_file) {
     ListEntryEnumerator enum_ucrs = enumerator.GetUCREnumerator(segment);
     while (enum_ucrs.Next())
       DumpTypedData(enum_ucrs.current_record(), 1);
+  }
+}
+
+void HeapEnumerate::EnumSegment(const HeapEnumerator& enumerator,
+                                SegmentEntryWalker* segment_walker) {
+  uint16_t prev_size = 0;
+  while (!segment_walker->AtEnd()) {
+    SegmentEntryWalker::HeapEntry entry = {};
+    if (!segment_walker->GetDecodedEntry(&entry)) {
+      // TODO(siggi): This currently happens on stepping into an
+      //     uncommitted range - do better - but how?
+      fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
+              segment_walker->curr_entry().addr(),
+              segment_walker->curr_entry().type()->size());
+      break;
+    }
+
+    uint8_t checksum = xormem(&entry, 3);
+    if (checksum != entry.tag) {
+      ::fprintf(output_, "Checksum failed. Expected 0x%08X, got 0x%08X\n",
+                checksum, entry.tag);
+    }
+
+    // The address range covered by the current entry.
+    refinery::AddressRange range(segment_walker->curr_entry().addr(),
+                                 entry.size * sizeof(entry));
+    ::fprintf(output_, "Entry@0x%08llX(%d)\n", range.addr(), range.size());
+
+    ::fprintf(output_, " size: 0x%04X\n", entry.size);
+    ::fprintf(output_, " flags: 0x%02X\n", entry.flags);
+    ::fprintf(output_, " tag: 0x%02X\n", entry.tag);
+    bool mismatch = prev_size != entry.prev_size;
+    ::fprintf(output_, " prev_size: 0x%04X%s\n", entry.prev_size,
+              mismatch ? " **MISMATCH**" : "");
+    prev_size = entry.size;
+    ::fprintf(output_, " segment_index: 0x%02X\n", entry.segment_index);
+    ::fprintf(output_, " unused_bytes: 0x%02X\n", entry.unused_bytes);
+
+    // TODO(siggi): The name of this flag does not fit modern times?
+    if (entry.flags & HEAP_ENTRY_VIRTUAL_ALLOC) {
+      LFHBinWalker bin_walker;
+      if (bin_walker.Initialize(
+              enumerator.heap().addr(), enumerator.bit_source(),
+              enumerator.heap_userdata_header_type(), segment_walker)) {
+        EnumLFHBin(enumerator, &bin_walker);
+      } else {
+        fprintf(output_, "LFHBinWalker::Initialize failed\n");
+      }
+    } else {
+      PrintAllocsInRange(range);
+    }
+
+    if (!segment_walker->Next()) {
+      fprintf(output_, "Next failed\n");
+      break;
+    }
+  }
+}
+
+void HeapEnumerate::EnumLFHBin(const HeapEnumerator& enumerator,
+                               LFHBinWalker* bin_walker) {
+  ::fprintf(output_, "  LFHKey: 0x%08X\n", bin_walker->lfh_key());
+
+  const TypedData& udh = bin_walker->heap_userdata_header();
+  DumpTypedData(udh, 2);
+
+  TypedData subsegment;
+  TypedData heap_subsegment;
+  if (udh.GetNamedField(L"SubSegment", &subsegment) &&
+      subsegment.Dereference(&heap_subsegment)) {
+    DumpTypedData(heap_subsegment, 2);
+  }
+
+  uint64_t signature = 0;
+  if (GetNamedValueUnsigned(udh, L"Signature", &signature)) {
+    const uint32_t kUDHMagic = 0xF0E0D0C0;
+    if (signature != kUDHMagic) {
+      // This seems to happen for the last entry in a segment.
+      // TODO(siggi): figure this out for realz.
+      ::fprintf(output_, "UDH signature incorrect: 0x%08llX\n", signature);
+      return;
+    }
+  } else {
+    ::fprintf(output_, "GetNamedValueUnsigned failed.\n");
+    return;
+  }
+
+  while (!bin_walker->AtEnd()) {
+    LFHBinWalker::LFHEntry entry = {};
+    if (!bin_walker->GetDecodedEntry(&entry)) {
+      fprintf(output_, "GetDecodedEntry failed @0x%08llX(%d)\n",
+              bin_walker->curr_entry().addr(),
+              bin_walker->curr_entry().type()->size());
+      break;
+    }
+    refinery::AddressRange range(bin_walker->curr_entry().addr(),
+                                 bin_walker->entry_byte_size());
+
+    ::fprintf(output_, "LFHEntry@0x%08llX(%d)\n", range.addr(), range.size());
+
+    // TODO(siggi): Validate that each entry points to the same
+    //     subsegment.
+    ::fprintf(output_, " heap_subsegment: 0x%08X\n", entry.heap_subsegment);
+    ::fprintf(output_, " prev_size: 0x%02X\n", entry.prev_size);
+    ::fprintf(output_, " segment_index: 0x%02X\n", entry.segment_index);
+    ::fprintf(output_, " unused_bytes: 0x%02X\n", entry.unused_bytes);
+
+    // TODO(siggi): Validate that the alloc is contained in the
+    //    entry.
+    PrintAllocsInRange(range);
+
+    if (!bin_walker->Next())
+      break;
   }
 }

@@ -25,6 +25,10 @@
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/typed_data.h"
 
+// fwd.
+class SegmentEntryWalker;
+class LFHBinWalker;
+
 class HeapEnumerate {
  public:
   HeapEnumerate();
@@ -34,6 +38,12 @@ class HeapEnumerate {
   void EnumerateHeap(FILE* output_file);
 
  private:
+  class HeapEnumerator;
+
+  void EnumSegment(const HeapEnumerator& enumerator,
+                   SegmentEntryWalker* walker);
+  void EnumLFHBin(const HeapEnumerator& enumerator, LFHBinWalker* walker);
+
   bool AllocateSomeBlocks();
 
   // Outputs the allocations from alloc_ that start within @p range.
