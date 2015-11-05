@@ -37,7 +37,7 @@ namespace common {
 // the StackCaptureCache.
 typedef uint32 AsanStackId;
 
-static const size_t kAsanParametersReserved1Bits = 21;
+static const size_t kAsanParametersReserved1Bits = 20;
 
 // This data structure is injected into an instrumented image in a read-only
 // section. It is initialized by the instrumenter, and will be looked up at
@@ -86,16 +86,16 @@ struct AsanParameters {
       // AsanLogger: If true, we should generate a minidump whenever an error is
       // detected.
       unsigned minidump_on_failure : 1;
-      // AsanRuntime: If we should stop the logger (and the running program)
+      // Runtime: If we should stop the logger (and the running program)
       // after reporting an error.
       unsigned exit_on_failure : 1;
       // AsanLogger: If true, we should generate a textual log describing any
       // errors.
       unsigned log_as_text : 1;
-      // AsanRuntime: If true, we should check if the heap is corrupt on
+      // Runtime: If true, we should check if the heap is corrupt on
       // failure.
       unsigned check_heap_on_failure : 1;
-      // AsanRuntime: If true, we won't try to report the crashes via breakpad
+      // Runtime: If true, we won't try to report the crashes via breakpad
       // on failure.
       unsigned disable_breakpad_reporting : 1;
       // BlockHeapManager: Indicates if CtMalloc should be used to serve the
@@ -110,11 +110,13 @@ struct AsanParameters {
       // BlockHeapManager: Indicates if the allocation filtering is enabled. If
       // so, only blocks from filtered sites can make it into the zebra heap.
       unsigned enable_allocation_filter : 1;
-      // AsanRuntime: Indicates if the feature randomization is enabled.
+      // Runtime: Indicates if the feature randomization is enabled.
       unsigned enable_feature_randomization : 1;
       // BlockHeapManager: Indicates if we shouldn't report a crash for the same
       // corrupt block twice.
       unsigned prevent_duplicate_corruption_crashes : 1;
+      // Runtime: Indicates if the invalid accesses should be reported.
+      unsigned report_invalid_accesses : 1;
 
       // Add new flags here!
 
@@ -154,13 +156,13 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 60);
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 12u;
+const uint32 kAsanParametersVersion = 13;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
-static_assert(kAsanParametersReserved1Bits == 21 &&
-                  kAsanParametersVersion == 12,
+static_assert(kAsanParametersReserved1Bits == 20 &&
+                  kAsanParametersVersion == 13,
               "Version must change if reserved bits changes.");
 
 // The name of the section that will be injected into an instrumented image,
@@ -231,6 +233,7 @@ extern const bool kDefaultExitOnFailure;
 extern const bool kDefaultCheckHeapOnFailure;
 extern const bool kDefaultDisableBreakpadReporting;
 extern const bool kDefaultEnableFeatureRandomization;
+extern const bool kDefaultReportInvalidAccesses;
 // Default values of AsanLogger parameters.
 extern const bool kDefaultMiniDumpOnFailure;
 extern const bool kDefaultLogAsText;
@@ -266,6 +269,7 @@ extern const char kParamIgnoredStackIds[];
 extern const char kParamExitOnFailure[];
 extern const char kParamDisableBreakpadReporting[];
 extern const char kParamEnableFeatureRandomization[];
+extern const char kParamReportInvalidAccesses[];
 // String names of AsanLogger parameters.
 extern const char kParamMiniDumpOnFailure[];
 extern const char kParamLogAsText[];

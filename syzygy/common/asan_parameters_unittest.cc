@@ -94,6 +94,8 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
             static_cast<bool>(aparams.enable_feature_randomization));
   EXPECT_EQ(kDefaultPreventDuplicateCorruptionCrashes,
             static_cast<bool>(aparams.prevent_duplicate_corruption_crashes));
+  EXPECT_EQ(kDefaultReportInvalidAccesses,
+            static_cast<bool>(aparams.report_invalid_accesses));
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsPastEnd) {
@@ -248,6 +250,8 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
             static_cast<bool>(iparams.enable_feature_randomization));
   EXPECT_EQ(kDefaultPreventDuplicateCorruptionCrashes,
             static_cast<bool>(iparams.prevent_duplicate_corruption_crashes));
+  EXPECT_EQ(kDefaultReportInvalidAccesses,
+            static_cast<bool>(iparams.report_invalid_accesses));
 }
 
 TEST(AsanParametersTest, ParseAsanParametersMaximal) {
@@ -275,7 +279,8 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--large_allocation_threshold=4096 "
       L"--quarantine_flood_fill_rate=0.25 "
       L"--enable_feature_randomization "
-      L"--prevent_duplicate_corruption_crashes";
+      L"--prevent_duplicate_corruption_crashes "
+      L"--report_invalid_accesses";
 
   InflatedAsanParameters iparams;
   SetDefaultAsanParameters(&iparams);
@@ -309,6 +314,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_EQ(true, static_cast<bool>(iparams.enable_feature_randomization));
   EXPECT_EQ(true, static_cast<bool>(
       iparams.prevent_duplicate_corruption_crashes));
+  EXPECT_EQ(true, static_cast<bool>(iparams.report_invalid_accesses));
 }
 
 }  // namespace common

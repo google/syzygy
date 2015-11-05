@@ -201,7 +201,7 @@ TEST_F(AsanRtlTest, AsanCheckWildAccess) {
 // It is not possible to test the near-nullptr access with heap corruption
 // execution path since it depends on the unhandled exception filter which is
 // not installed in the rtl library.
-TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
+TEST_F(AsanRtlTest, AsanIgnoreInvalidAccess) {
   FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
@@ -210,6 +210,20 @@ TEST_F(AsanRtlTest, AsanCheckInvalidAccess) {
   MemoryAccessorTester tester;
   tester.CheckAccessAndCompareContexts(check_access_fn, nullptr);
   EXPECT_FALSE(LogContains(kInvalidAddress));
+}
+
+TEST_F(AsanRtlTest, AsanReportInvalidAccess) {
+  FARPROC check_access_fn =
+      ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
+  ASSERT_NE(static_cast<FARPROC>(nullptr), check_access_fn);
+
+  MemoryAccessorTester tester;
+  agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
+  ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
+  runtime->params().report_invalid_accesses = true;
+  tester.AssertMemoryErrorIsDetected(
+      check_access_fn, reinterpret_cast<void*>(0x00000000), INVALID_ADDRESS);
+  EXPECT_TRUE(LogContains(kInvalidAddress));
 }
 
 TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {

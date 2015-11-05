@@ -562,7 +562,7 @@ void PopulateAsanParameters(const AsanErrorInfo& error_info,
 
   // Any new parameter added to the parameters structure should also be added
   // here.
-  static_assert(12 == ::common::kAsanParametersVersion,
+  static_assert(13 == ::common::kAsanParametersVersion,
                 "Pointers in the params must be linked up here.");
   crashdata::Dictionary* param_dict = crashdata::DictAddDict("asan-parameters",
                                                              dict);

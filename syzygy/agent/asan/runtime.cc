@@ -68,10 +68,9 @@ using base::win::WinProcExceptionFilter;
 // Signatures of the various Breakpad functions for setting custom crash
 // key-value pairs.
 // Post r194002.
-typedef void (__cdecl * SetCrashKeyValuePairPtr)(const char*, const char*);
+typedef void(__cdecl* SetCrashKeyValuePairPtr)(const char*, const char*);
 // Post r217590.
-typedef void (__cdecl * SetCrashKeyValueImplPtr)(const wchar_t*,
-                                                 const wchar_t*);
+typedef void(__cdecl* SetCrashKeyValueImplPtr)(const wchar_t*, const wchar_t*);
 
 // Signature of enhanced crash reporting functions.
 typedef void(__cdecl* ReportCrashWithProtobufPtr)(EXCEPTION_POINTERS* info,
@@ -111,25 +110,26 @@ BreakpadFunctions breakpad_functions = {};
 // http://msdn.microsoft.com/en-us/library/windows/hardware/ff543026(v=vs.85).aspx
 // See winerror.h for more details.
 static const DWORD kAsanFacility = 0x68B;  // No more than 11 bits.
-static const DWORD kAsanStatus = 0x5AD0;  // No more than 16 bits.
+static const DWORD kAsanStatus = 0x5AD0;   // No more than 16 bits.
 static const DWORD kAsanException =
-    (3 << 30) |  // Severity = error.
-    (1 << 29) |  // Customer defined code (not defined by MS).
+    (3 << 30) |              // Severity = error.
+    (1 << 29) |              // Customer defined code (not defined by MS).
     (kAsanFacility << 16) |  // Facility code.
-    kAsanStatus;  // Status code.
+    kAsanStatus;             // Status code.
 COMPILE_ASSERT((kAsanFacility >> 11) == 0, too_many_facility_bits);
 COMPILE_ASSERT((kAsanStatus >> 16) == 0, too_many_status_bits);
-COMPILE_ASSERT((kAsanException & (3 << 27)) == 0,
-               bits_27_and_28_must_be_clear);
+COMPILE_ASSERT((kAsanException & (3 << 27)) == 0, bits_27_and_28_must_be_clear);
 
 // Raises an exception, first wrapping it an Asan specific exception. This
 // indicates to our unhandled exception handler that it doesn't need to
 // process the exception.
-void RaiseFilteredException(
-    DWORD code, DWORD flags, DWORD num_args, const ULONG_PTR* args) {
+void RaiseFilteredException(DWORD code,
+                            DWORD flags,
+                            DWORD num_args,
+                            const ULONG_PTR* args) {
   // Retain the original arguments and craft a new exception.
   const ULONG_PTR arguments[4] = {
-      code, flags, num_args, reinterpret_cast<const ULONG_PTR>(args) };
+      code, flags, num_args, reinterpret_cast<const ULONG_PTR>(args)};
   ::RaiseException(kAsanException, 0, ARRAYSIZE(arguments), arguments);
 }
 
@@ -140,19 +140,15 @@ void RaiseFilteredException(
 void DefaultErrorHandler(AsanErrorInfo* error_info) {
   DCHECK_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
 
-  ULONG_PTR arguments[] = {
-    reinterpret_cast<ULONG_PTR>(&error_info->context),
-    reinterpret_cast<ULONG_PTR>(error_info)
-  };
+  ULONG_PTR arguments[] = {reinterpret_cast<ULONG_PTR>(&error_info->context),
+                           reinterpret_cast<ULONG_PTR>(error_info)};
 
   ::DebugBreak();
 
   // This raises an error in such a way that the Asan unhandled exception
   // handler will not process it.
-  RaiseFilteredException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED,
-                         0,
-                         ARRAYSIZE(arguments),
-                         arguments);
+  RaiseFilteredException(EXCEPTION_ARRAY_BOUNDS_EXCEEDED, 0,
+                         ARRAYSIZE(arguments), arguments);
 }
 
 // Returns the breakpad crash reporting functions if breakpad is enabled for
@@ -251,11 +247,13 @@ void SetEarlyCrashKeys(BreakpadFunctions breakpad_functions,
                        AsanRuntime* runtime) {
   DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
 
-  SetCrashKeyValuePair(breakpad_functions, "asan-random-key",
+  SetCrashKeyValuePair(
+      breakpad_functions, "asan-random-key",
       base::StringPrintf("%016llx", runtime->random_key()).c_str());
 
   if (runtime->params().enable_feature_randomization) {
-    SetCrashKeyValuePair(breakpad_functions, "asan-feature-set",
+    SetCrashKeyValuePair(
+        breakpad_functions, "asan-feature-set",
         base::UintToString(runtime->enabled_features()).c_str());
   }
 }
@@ -313,19 +311,16 @@ void SetCrashKeys(BreakpadFunctions breakpad_functions,
   // Reset the early crash keys, as they may not actually have been set.
   SetEarlyCrashKeys(breakpad_functions, AsanRuntime::runtime());
 
-  SetCrashKeyValuePair(breakpad_functions,
-                       "asan-error-type",
+  SetCrashKeyValuePair(breakpad_functions, "asan-error-type",
                        ErrorInfoAccessTypeToStr(error_info->error_type));
 
   if (error_info->shadow_info[0] != '\0') {
-    SetCrashKeyValuePair(breakpad_functions,
-                         "asan-error-message",
+    SetCrashKeyValuePair(breakpad_functions, "asan-error-message",
                          error_info->shadow_info);
   }
 
   if (error_info->asan_parameters.enable_feature_randomization) {
-    SetCrashKeyValuePair(breakpad_functions,
-                         "asan-feature-set",
+    SetCrashKeyValuePair(breakpad_functions, "asan-feature-set",
                          base::UintToString(error_info->feature_set).c_str());
   }
 }
@@ -340,11 +335,10 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
 
   ::memset(record, 0, sizeof(EXCEPTION_RECORD));
   record->ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
-  record->ExceptionAddress = reinterpret_cast<PVOID>(
-      error_info->context.Eip);
+  record->ExceptionAddress = reinterpret_cast<PVOID>(error_info->context.Eip);
   record->NumberParameters = 2;
-  record->ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(
-      &error_info->context);
+  record->ExceptionInformation[0] =
+      reinterpret_cast<ULONG_PTR>(&error_info->context);
   record->ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
 
   pointers->ExceptionRecord = record;
@@ -497,7 +491,7 @@ size_t MaxSafeAllocaSize() {
   if (VirtualQuery(stack, &mbi, sizeof(mbi)) == 0)
     return 0;
   size_t max_size = reinterpret_cast<uint8*>(stack) -
-      reinterpret_cast<uint8*>(mbi.AllocationBase);
+                    reinterpret_cast<uint8*>(mbi.AllocationBase);
   max_size -= std::min(max_size, kReservedStack);
   return max_size;
 }
@@ -505,35 +499,36 @@ size_t MaxSafeAllocaSize() {
 // Performs a dynamic stack allocation of at most |size| bytes. Sets the actual
 // size of the allocation and the pointer to it by modifying |size| and |result|
 // directly.
-#define SAFE_ALLOCA(size, result) {  \
-    size_t max_size = MaxSafeAllocaSize();  \
-    size = std::min(size, max_size);  \
-    result = _alloca(size);  \
-    if (result == NULL)  \
-      size = 0;  \
+#define SAFE_ALLOCA(size, result)          \
+  {                                        \
+    size_t max_size = MaxSafeAllocaSize(); \
+    size = std::min(size, max_size);       \
+    result = _alloca(size);                \
+    if (result == NULL)                    \
+      size = 0;                            \
   }
 
 // Runs the heap checker if enabled. If heap corruption is found serializes
 // the results to the stack and modifies the |error_info| structure.
-#define CHECK_HEAP_CORRUPTION(runtime, error_info)  \
-  (error_info)->heap_is_corrupt = false;  \
-  if (!((runtime)->params_.check_heap_on_failure)) {  \
-    runtime_->logger_->Write(  \
-          "SyzyASAN: Heap checker disabled, ignoring exception.");  \
-  } else {  \
-    runtime_->logger_->Write(  \
-          "SyzyASAN: Heap checker enabled, processing exception.");  \
-    AutoHeapManagerLock lock((runtime)->heap_manager_.get());  \
-    HeapChecker heap_checker((runtime)->shadow());  \
-    HeapChecker::CorruptRangesVector corrupt_ranges;  \
-    heap_checker.IsHeapCorrupt(&corrupt_ranges);  \
+#define CHECK_HEAP_CORRUPTION(runtime, error_info)                          \
+  (error_info)->heap_is_corrupt = false;                                    \
+  if (!((runtime)->params_.check_heap_on_failure)) {                        \
+    runtime_->logger_->Write(                                               \
+        "SyzyASAN: Heap checker disabled, ignoring exception.");            \
+  } else {                                                                  \
+    runtime_->logger_->Write(                                               \
+        "SyzyASAN: Heap checker enabled, processing exception.");           \
+    AutoHeapManagerLock lock((runtime)->heap_manager_.get());               \
+    HeapChecker heap_checker((runtime)->shadow());                          \
+    HeapChecker::CorruptRangesVector corrupt_ranges;                        \
+    heap_checker.IsHeapCorrupt(&corrupt_ranges);                            \
     size_t size = (runtime)->CalculateCorruptHeapInfoSize(corrupt_ranges);  \
-    void* buffer = NULL;  \
-    if (size > 0) {  \
-      SAFE_ALLOCA(size, buffer);  \
-      (runtime)->WriteCorruptHeapInfo(  \
-          corrupt_ranges, size, buffer, error_info);  \
-    }  \
+    void* buffer = NULL;                                                    \
+    if (size > 0) {                                                         \
+      SAFE_ALLOCA(size, buffer);                                            \
+      (runtime)                                                             \
+          ->WriteCorruptHeapInfo(corrupt_ranges, size, buffer, error_info); \
+    }                                                                       \
   }
 
 void LaunchMessageBox(const base::StringPiece& message) {
@@ -550,8 +545,12 @@ LPTOP_LEVEL_EXCEPTION_FILTER AsanRuntime::previous_uef_ = NULL;
 bool AsanRuntime::uef_installed_ = false;
 
 AsanRuntime::AsanRuntime()
-    : logger_(), stack_cache_(), asan_error_callback_(), heap_manager_(),
-      random_key_(::__rdtsc()), enable_kasko_(true) {
+    : logger_(),
+      stack_cache_(),
+      asan_error_callback_(),
+      heap_manager_(),
+      random_key_(::__rdtsc()),
+      enable_kasko_(true) {
   ::common::SetDefaultAsanParameters(&params_);
   starting_ticks_ = ::GetTickCount();
 }
@@ -768,8 +767,7 @@ bool AsanRuntime::SetUpMemoryNotifier() {
             memory_notifier_.get());
   memory_notifiers::ShadowMemoryNotifier* memory_notifier =
       new memory_notifiers::ShadowMemoryNotifier(shadow_.get());
-  memory_notifier->NotifyInternalUse(
-      memory_notifier, sizeof(*memory_notifier));
+  memory_notifier->NotifyInternalUse(memory_notifier, sizeof(*memory_notifier));
   memory_notifier_.reset(memory_notifier);
   return true;
 }
@@ -781,8 +779,8 @@ void AsanRuntime::TearDownMemoryNotifier() {
   memory_notifiers::ShadowMemoryNotifier* memory_notifier =
       reinterpret_cast<memory_notifiers::ShadowMemoryNotifier*>(
           memory_notifier_.get());
-  memory_notifier->NotifyReturnedToOS(
-      memory_notifier, sizeof(*memory_notifier));
+  memory_notifier->NotifyReturnedToOS(memory_notifier,
+                                      sizeof(*memory_notifier));
   memory_notifier_.reset(nullptr);
 }
 
@@ -824,10 +822,10 @@ bool AsanRuntime::SetUpStackCache() {
             memory_notifier_.get());
   DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
   DCHECK_EQ(static_cast<StackCaptureCache*>(nullptr), stack_cache_.get());
-  stack_cache_.reset(new StackCaptureCache(
-      logger_.get(), memory_notifier_.get()));
-  memory_notifier_->NotifyInternalUse(
-      stack_cache_.get(), sizeof(*stack_cache_.get()));
+  stack_cache_.reset(
+      new StackCaptureCache(logger_.get(), memory_notifier_.get()));
+  memory_notifier_->NotifyInternalUse(stack_cache_.get(),
+                                      sizeof(*stack_cache_.get()));
 
   return true;
 }
@@ -841,8 +839,8 @@ void AsanRuntime::TearDownStackCache() {
   DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger_.get());
 
   stack_cache_->LogStatistics();
-  memory_notifier_->NotifyReturnedToOS(
-      stack_cache_.get(), sizeof(*stack_cache_.get()));
+  memory_notifier_->NotifyReturnedToOS(stack_cache_.get(),
+                                       sizeof(*stack_cache_.get()));
   stack_cache_.reset();
 }
 
@@ -856,12 +854,12 @@ bool AsanRuntime::SetUpHeapManager() {
 
   heap_manager_.reset(new heap_managers::BlockHeapManager(
       shadow(), stack_cache_.get(), memory_notifier_.get()));
-  memory_notifier_->NotifyInternalUse(
-      heap_manager_.get(), sizeof(*heap_manager_.get()));
+  memory_notifier_->NotifyInternalUse(heap_manager_.get(),
+                                      sizeof(*heap_manager_.get()));
 
   // Configure the heap manager to notify us on heap corruption.
-  heap_manager_->SetHeapErrorCallback(base::Bind(&AsanRuntime::OnError,
-                                                 base::Unretained(this)));
+  heap_manager_->SetHeapErrorCallback(
+      base::Bind(&AsanRuntime::OnError, base::Unretained(this)));
 
   return true;
 }
@@ -880,8 +878,8 @@ void AsanRuntime::TearDownHeapManager() {
   // while tearing down the heap, which will in turn call back into the
   // block heap manager via the runtime.
   heap_manager_->TearDownHeapManager();
-  memory_notifier_->NotifyReturnedToOS(
-      heap_manager_.get(), sizeof(*heap_manager_.get()));
+  memory_notifier_->NotifyReturnedToOS(heap_manager_.get(),
+                                       sizeof(*heap_manager_.get()));
   heap_manager_.reset();
 }
 
@@ -908,13 +906,12 @@ void AsanRuntime::PropagateParams() {
   // checks will ensure that this is the case.
   static_assert(sizeof(::common::AsanParameters) == 60,
                 "Must propagate parameters.");
-  static_assert(::common::kAsanParametersVersion == 12,
+  static_assert(::common::kAsanParametersVersion == 13,
                 "Must update parameters version.");
 
   // Push the configured parameter values to the appropriate endpoints.
   heap_manager_->set_parameters(params_);
-  StackCaptureCache::set_compression_reporting_period(
-      params_.reporting_period);
+  StackCaptureCache::set_compression_reporting_period(params_.reporting_period);
   common::StackCapture::set_bottom_frames_to_skip(
       params_.bottom_frames_to_skip);
   stack_cache_->set_max_num_frames(params_.max_num_frames);
@@ -927,7 +924,7 @@ void AsanRuntime::PropagateParams() {
 size_t AsanRuntime::CalculateCorruptHeapInfoSize(
     const HeapChecker::CorruptRangesVector& corrupt_ranges) {
   size_t n = corrupt_ranges.size() *
-      (sizeof(AsanCorruptBlockRange) + sizeof(AsanBlockInfo));
+             (sizeof(AsanCorruptBlockRange) + sizeof(AsanBlockInfo));
   return n;
 }
 
@@ -959,15 +956,14 @@ void AsanRuntime::WriteCorruptHeapInfo(
 
   // We report a AsanCorruptBlockRange and at least one AsanBlockInfo per
   // corrupt range. Determine how many ranges we can report on.
-  size_t range_count = buffer_size /
-      (sizeof(AsanCorruptBlockRange) + sizeof(AsanBlockInfo));
+  size_t range_count =
+      buffer_size / (sizeof(AsanCorruptBlockRange) + sizeof(AsanBlockInfo));
   range_count = std::min(range_count, corrupt_ranges.size());
 
   // Allocate space for the corrupt range metadata.
   uint8* cursor = reinterpret_cast<uint8*>(buffer);
   uint8* buffer_end = cursor + buffer_size;
-  error_info->corrupt_ranges = reinterpret_cast<AsanCorruptBlockRange*>(
-      cursor);
+  error_info->corrupt_ranges = reinterpret_cast<AsanCorruptBlockRange*>(cursor);
   cursor += range_count * sizeof(AsanCorruptBlockRange);
   error_info->corrupt_range_count = corrupt_ranges.size();
   error_info->corrupt_ranges_reported = range_count;
@@ -1018,19 +1014,16 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
   const char* bug_descr = ErrorInfoAccessTypeToStr(error_info->error_type);
   if (logger_->log_as_text()) {
     std::string output(base::StringPrintf(
-        "SyzyASAN error: %s on address 0x%08X (stack_id=0x%08X)\n",
-        bug_descr, error_info->location, error_info->crash_stack_id));
+        "SyzyASAN error: %s on address 0x%08X (stack_id=0x%08X)\n", bug_descr,
+        error_info->location, error_info->crash_stack_id));
     if (error_info->access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
       const char* access_mode_str = NULL;
       if (error_info->access_mode == agent::asan::ASAN_READ_ACCESS)
         access_mode_str = "READ";
       else
         access_mode_str = "WRITE";
-      base::StringAppendF(&output,
-                          "%s of size %d at 0x%08X\n",
-                          access_mode_str,
-                          error_info->access_size,
-                          error_info->location);
+      base::StringAppendF(&output, "%s of size %d at 0x%08X\n", access_mode_str,
+                          error_info->access_size, error_info->location);
     }
 
     // Log the failure and stack.
@@ -1061,23 +1054,21 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
   // Print the Windbg information to display the allocation stack if present.
   if (error_info->block_info.alloc_stack_size != NULL) {
     AsanDbgMessage(L"Allocation stack trace:");
-    AsanDbgCmd(L"dps %p l%d",
-               error_info->block_info.alloc_stack,
+    AsanDbgCmd(L"dps %p l%d", error_info->block_info.alloc_stack,
                error_info->block_info.alloc_stack_size);
   }
 
   // Print the Windbg information to display the free stack if present.
   if (error_info->block_info.free_stack_size != NULL) {
     AsanDbgMessage(L"Free stack trace:");
-    AsanDbgCmd(L"dps %p l%d",
-               error_info->block_info.free_stack,
+    AsanDbgCmd(L"dps %p l%d", error_info->block_info.free_stack,
                error_info->block_info.free_stack_size);
   }
 }
 
 AsanFeatureSet AsanRuntime::GenerateRandomFeatureSet() {
-  AsanFeatureSet enabled_features = static_cast<AsanFeatureSet>(
-      base::RandGenerator(ASAN_FEATURE_MAX));
+  AsanFeatureSet enabled_features =
+      static_cast<AsanFeatureSet>(base::RandGenerator(ASAN_FEATURE_MAX));
   DCHECK_LT(enabled_features, ASAN_FEATURE_MAX);
   enabled_features = static_cast<AsanFeatureSet>(
       static_cast<size_t>(enabled_features) & kAsanDisabledFeatureMask);
@@ -1099,7 +1090,7 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
   if ((reinterpret_cast<size_t>(error_info->location) & (1 << 31)) != 0 ||
       shadow()->GetShadowMarkerForAddress(error_info->location) ==
           kAsanMemoryMarker) {
-      error_info->error_type = WILD_ACCESS;
+    error_info->error_type = WILD_ACCESS;
   } else if (shadow()->GetShadowMarkerForAddress(error_info->location) ==
              kInvalidAddressMarker) {
     error_info->error_type = INVALID_ADDRESS;
@@ -1141,8 +1132,8 @@ int AsanRuntime::CrashForException(EXCEPTION_POINTERS* exception) {
   return ExceptionFilterImpl(false, exception);
 }
 
-LONG WINAPI AsanRuntime::UnhandledExceptionFilter(
-    struct _EXCEPTION_POINTERS* exception) {
+LONG WINAPI
+AsanRuntime::UnhandledExceptionFilter(struct _EXCEPTION_POINTERS* exception) {
   return ExceptionFilterImpl(true, exception);
 }
 
@@ -1213,7 +1204,9 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
           address < reinterpret_cast<void*>(Shadow::kAddressLowerBound);
 
       ShadowMarker marker = shadow->GetShadowMarkerForAddress(address);
-      if (!near_nullptr_access && ShadowMarkerHelper::IsRedzone(marker) &&
+      if ((!near_nullptr_access ||
+           runtime_->params().report_invalid_accesses) &&
+          ShadowMarkerHelper::IsRedzone(marker) &&
           ShadowMarkerHelper::IsActiveBlock(marker)) {
         BlockInfo block_info = {};
         if (shadow->BlockInfoFromShadow(address, &block_info)) {
@@ -1222,7 +1215,8 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
           BlockProtectNone(block_info, runtime_->shadow());
 
           // Useful for unittesting.
-          runtime_->logger_->Write("SyzyASAN: Caught an invalid access via "
+          runtime_->logger_->Write(
+              "SyzyASAN: Caught an invalid access via "
               "an access violation exception.");
 
           // Override the invalid access location with the faulting address,
@@ -1234,8 +1228,9 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
           // Determine if this is a read or a write using information in the
           // exception record.
           error_info.access_mode =
-              exception->ExceptionRecord->ExceptionInformation[0] == 0 ?
-              ASAN_READ_ACCESS : ASAN_WRITE_ACCESS;
+              exception->ExceptionRecord->ExceptionInformation[0] == 0
+                  ? ASAN_READ_ACCESS
+                  : ASAN_WRITE_ACCESS;
 
           // Fill out the rest of the bad access information.
           ErrorInfoGetBadAccessInformation(shadow, runtime_->stack_cache(),
@@ -1272,7 +1267,8 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
     // Initialize the exception record and chain the original exception to it.
     InitializeExceptionRecord(&error_info, &record, exception);
     record.ExceptionRecord = old_record;
-  } else if (near_nullptr_access) {
+  } else if (near_nullptr_access &&
+             !runtime_->params().report_invalid_accesses) {
     // For unit testing. Record that we ignored a near-nullptr access.
     runtime_->logger_->Write(
         "SyzyASAN: Ignoring a near-nullptr access without heap corruption.");

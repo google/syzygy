@@ -152,6 +152,7 @@ const bool kDefaultExitOnFailure = false;
 const bool kDefaultCheckHeapOnFailure = true;
 const bool kDefaultDisableBreakpadReporting = false;
 const bool kDefaultEnableFeatureRandomization = false;
+const bool kDefaultReportInvalidAccesses = false;
 
 // Default values of AsanLogger parameters.
 const bool kDefaultMiniDumpOnFailure = false;
@@ -197,6 +198,7 @@ const char kParamExitOnFailure[] = "exit_on_failure";
 const char kParamNoCheckHeapOnFailure[] = "no_check_heap_on_failure";
 const char kParamDisableBreakpadReporting[]  = "disable_breakpad";
 const char kParamEnableFeatureRandomization[] = "enable_feature_randomization";
+const char kParamReportInvalidAccesses[] = "report_invalid_accesses";
 
 // String names of AsanLogger parameters.
 const char kParamMiniDumpOnFailure[] = "minidump_on_failure";
@@ -299,13 +301,14 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
       kDefaultQuarantineFloodFillRate;
   asan_parameters->prevent_duplicate_corruption_crashes =
       kDefaultPreventDuplicateCorruptionCrashes;
+  asan_parameters->report_invalid_accesses = kDefaultReportInvalidAccesses;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
-  static const size_t kSizeOfAsanParametersByVersion[] =
-      { 40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60, 60 };
+  static const size_t kSizeOfAsanParametersByVersion[] = {
+      40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60, 60, 60};
   COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
                      kAsanParametersVersion + 1,
                  kSizeOfAsanParametersByVersion_out_of_date);
@@ -467,6 +470,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->enable_feature_randomization = true;
   if (cmd_line.HasSwitch(kParamPreventDuplicateCorruptionCrashes))
     asan_parameters->prevent_duplicate_corruption_crashes = true;
+  if (cmd_line.HasSwitch(kParamReportInvalidAccesses))
+    asan_parameters->report_invalid_accesses = true;
 
   return true;
 }

@@ -1660,7 +1660,7 @@ bool AsanTransform::PeInjectAsanParameters(
   params_block->CopyData(fparams.data().size(), fparams.data().data());
 
   // Wire up any references that are required.
-  static_assert(12 == common::kAsanParametersVersion,
+  static_assert(13 == common::kAsanParametersVersion,
                 "Pointers in the params must be linked up here.");
   block_graph::TypedBlock<common::AsanParameters> params;
   CHECK(params.Init(0, params_block));
