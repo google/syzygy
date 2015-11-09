@@ -126,6 +126,8 @@ class TypeNamerTest : public testing::Test {
     return pe::GetSymType(dia_attribute.get(), dia_type);
   }
 
+  void PerformArrayNameTest(const base::string16& array_name);
+
   // Access to types via TypeRepository.
   scoped_refptr<TypeRepository> repository_;
 
@@ -194,8 +196,19 @@ TEST_F(TypeNamerTest, PointerNameTest) {
   ASSERT_EQ(type->name(), dia_type_name);
 }
 
+void TypeNamerTest::PerformArrayNameTest(const base::string16& array_typename) {
+  TypePtr type = FindRepositoryTypeByName(array_typename);
+  ASSERT_TRUE(type);
+  ASSERT_EQ(Type::ARRAY_TYPE_KIND, type->kind());
+
+  base::win::ScopedComPtr<IDiaSymbol> dia_type;
+  ASSERT_TRUE(FindNamedDiaChild(global_.get(), SymTagArrayType, type->name(),
+                                &dia_type));
+}
+
 TEST_F(TypeNamerTest, ArrayNameTest) {
-  // TODO(manzagop): implement once TypeNamer handles DIA SymTagArrayType.
+  ASSERT_NO_FATAL_FAILURE(PerformArrayNameTest(L"char[5]"));
+  ASSERT_NO_FATAL_FAILURE(PerformArrayNameTest(L"char volatile[5]"));
 }
 
 TEST_F(TypeNamerTest, FunctionNameTest) {

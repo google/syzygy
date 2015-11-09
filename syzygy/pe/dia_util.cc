@@ -326,6 +326,18 @@ bool GetSymQualifiers(IDiaSymbol* symbol, bool* is_const, bool* is_volatile) {
   return true;
 }
 
+bool GetSymCount(IDiaSymbol* symbol, size_t* count) {
+  DCHECK(symbol); DCHECK(count);
+
+  DWORD tmp = 0;
+  HRESULT hr = symbol->get_count(&tmp);
+  if (hr != S_OK)
+    return false;
+
+  *count = static_cast<size_t>(tmp);
+  return true;
+}
+
 bool GetSymClassParent(IDiaSymbol* symbol,
                        base::win::ScopedComPtr<IDiaSymbol>* parent) {
   DCHECK(symbol); DCHECK(parent);

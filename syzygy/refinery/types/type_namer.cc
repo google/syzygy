@@ -267,8 +267,9 @@ bool TypeNamer::AssignArrayName(ArrayTypePtr array) const {
   if (set_decorated_name_)
     decorated_name = element_type->decorated_name();
 
-  base::string16 suffix = GetCVMod(array->is_const(), array->is_volatile());
-  base::StringAppendF(&suffix, L"[%d]", array->num_elements());
+  base::string16 suffix;
+  GetArrayNameSuffix(array->is_const(), array->is_volatile(),
+                     array->num_elements(), &suffix);
 
   name.append(suffix);
   array->SetName(name);
@@ -358,6 +359,9 @@ void TypeNamer::GetPointerNameSuffix(bool is_const,
 }
 
 bool TypeNamer::GetPointerName(IDiaSymbol* type, base::string16* type_name) {
+  DCHECK(type); DCHECK(type_name);
+  DCHECK(pe::IsSymTag(type, SymTagPointerType));
+
   base::string16 name;
 
   // Get the content type's name.
@@ -388,15 +392,51 @@ bool TypeNamer::GetPointerName(IDiaSymbol* type, base::string16* type_name) {
 }
 
 bool TypeNamer::GetArrayName(IDiaSymbol* type, base::string16* type_name) {
-  // TODO(manzagop): implement.
-  *type_name = base::ASCIIToUTF16("<array-type>");
+  DCHECK(type); DCHECK(type_name);
+  DCHECK(pe::IsSymTag(type, SymTagArrayType));
+
+  // Get the element type's name.
+  base::win::ScopedComPtr<IDiaSymbol> element_type;
+  if (!pe::GetSymType(type, &element_type))
+    return false;
+  base::string16 name;
+  if (!GetTypeName(element_type.get(), &name))
+    return false;
+
+  // Determine the suffix.
+  bool is_const = false;
+  bool is_volatile = false;
+  if (!pe::GetSymQualifiers(element_type.get(), &is_const, &is_volatile))
+    return false;
+  size_t element_count = 0;
+  if (!pe::GetSymCount(type, &element_count))
+    return false;
+  base::string16 suffix;
+  GetArrayNameSuffix(is_const, is_volatile, element_count, &suffix);
+
+  // Set the name.
+  name.append(suffix);
+  type_name->swap(name);
+
   return true;
 }
 
 bool TypeNamer::GetFunctionName(IDiaSymbol* type, base::string16* type_name) {
+  DCHECK(type); DCHECK(type_name);
+  DCHECK(pe::IsSymTag(type, SymTagFunctionType));
+
   // TODO(manzagop): implement.
   *type_name = base::ASCIIToUTF16("<function-type>");
   return true;
+}
+
+void TypeNamer::GetArrayNameSuffix(bool is_const,
+                                   bool is_volatile,
+                                   size_t count,
+                                   base::string16* suffix) {
+  DCHECK(suffix);
+  *suffix = GetCVMod(is_const, is_volatile);
+  base::StringAppendF(suffix, L"[%d]", count);
 }
 
 }  // namespace refinery

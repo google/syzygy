@@ -33,8 +33,12 @@ struct TestUDT {
   TestUDT() : integer(42), reference(integer) {}
 
   int integer;
+
   const int& reference;
   const volatile TestUDT* pointer;
+
+  char array[5];
+  volatile char constant_array[5];
 };
 
 enum TestEnum { ONE, TWO };

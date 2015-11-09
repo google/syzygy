@@ -177,6 +177,12 @@ bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type);
 // @returns true on success, false on failure.
 bool GetSymQualifiers(IDiaSymbol* symbol, bool* is_const, bool* is_volatile);
 
+// Gets the number of items contained by the type.
+// @param symbol the symbol to examine.
+// @param count on success, returns the number of items.
+// @returns true on success, false on failure.
+bool GetSymCount(IDiaSymbol* symbol, size_t* count);
+
 // Gets the symbol's class parent.
 // @param symbol the symbol to examine.
 // @param parent on success, returns @p symbol's class parent.

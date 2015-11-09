@@ -91,17 +91,6 @@ bool GetSymIndexId(IDiaSymbol* symbol, DWORD* index_id) {
   return true;
 }
 
-bool GetSymCount(IDiaSymbol* symbol, size_t* count) {
-  DCHECK(symbol);
-  DCHECK(count);
-  DWORD tmp = 0;
-  HRESULT hr = symbol->get_count(&tmp);
-  if (!SUCCEEDED(hr))
-    return false;
-  *count = tmp;
-  return true;
-}
-
 bool GetSymPtrMode(IDiaSymbol* symbol, PointerType::Mode* is_reference) {
   DCHECK(symbol);
   DCHECK(is_reference);
@@ -649,7 +638,7 @@ bool TypeCreator::FinalizeArray(IDiaSymbol* symbol, ArrayTypePtr array) {
     return false;
 
   size_t element_count = 0;
-  if (!GetSymCount(symbol, &element_count))
+  if (!pe::GetSymCount(symbol, &element_count))
     return false;
 
   base::win::ScopedComPtr<IDiaSymbol> element_type_sym;

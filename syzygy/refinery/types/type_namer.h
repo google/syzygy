@@ -26,6 +26,7 @@ namespace refinery {
 bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name);
 
 // Handles naming for types whose name depends on other types' names.
+// @note array names do not depend on the index type.
 class TypeNamer {
  public:
   // @param set_decorated_name whether the namer should handle decorated names.
@@ -53,6 +54,11 @@ class TypeNamer {
                                    bool is_volatile,
                                    bool is_ref,
                                    base::string16* suffix);
+
+  static void GetArrayNameSuffix(bool is_const,
+                                 bool is_volatile,
+                                 size_t count,
+                                 base::string16* suffix);
 
   bool set_decorated_name_;
 
