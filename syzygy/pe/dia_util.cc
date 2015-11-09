@@ -308,6 +308,24 @@ bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type) {
   return true;
 }
 
+bool GetSymQualifiers(IDiaSymbol* symbol, bool* is_const, bool* is_volatile) {
+  DCHECK(symbol); DCHECK(is_const); DCHECK(is_volatile);
+
+  BOOL is_const_tmp = FALSE;
+  HRESULT hr = symbol->get_constType(&is_const_tmp);
+  if (hr != S_OK)
+    return false;
+
+  BOOL is_volatile_tmp = FALSE;
+  hr = symbol->get_volatileType(&is_volatile_tmp);
+  if (hr != S_OK)
+    return false;
+
+  *is_const = (is_const_tmp == TRUE);
+  *is_volatile = (is_volatile_tmp == TRUE);
+  return true;
+}
+
 bool GetSymClassParent(IDiaSymbol* symbol,
                        base::win::ScopedComPtr<IDiaSymbol>* parent) {
   DCHECK(symbol); DCHECK(parent);

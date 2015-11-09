@@ -12,3 +12,10 @@ WinDbg (X86 for 32bit dumps, X64 for 64 bit dumps) commandlines for generating
 the dumps:
  - Small type: '.dump /mup <path>'
  - Larger Type: '.dump /mupi <path>'
+
+DLLs and PDBs
+=============
+- test_types* were generated in release mode
+- test_typenames* were generated in debug mode to simplify type_namer_unittest.
+      Basic types are part the global scope in debug mode (which makes writing
+      the test easier), but not in release mode.

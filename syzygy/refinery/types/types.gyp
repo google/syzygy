@@ -35,11 +35,30 @@
         'typed_data.h',
       ],
       'dependencies': [
+        'test_typenames',
         'test_types',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
       ],
+    },
+    {
+      'target_name': 'test_typenames',
+      'type': 'loadable_module',
+      'sources': [
+        'test_typenames.def',
+        'test_typenames.h',
+        'test_typenames_main.cc',
+        'test_typenames.cc',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          'EntryPointSymbol': 'EntryPoint',
+          # Turn down incremental linking for the test to avoid types
+          # languishing from build to build.
+          'LinkIncremental': '1',
+        },
+      },
     },
     {
       'target_name': 'test_types',

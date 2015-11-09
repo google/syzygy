@@ -18,6 +18,7 @@
 #include <dia2.h>
 
 #include "base/macros.h"
+#include "base/strings/string16.h"
 #include "syzygy/refinery/types/type.h"
 
 namespace refinery {
@@ -37,10 +38,21 @@ class TypeNamer {
   // @returns true on success, false on failure.
   bool EnsureTypeName(TypePtr type) const;
 
+  static bool GetTypeName(IDiaSymbol* type, base::string16* type_name);
+
  private:
   bool AssignPointerName(PointerTypePtr ptr) const;
   bool AssignArrayName(ArrayTypePtr array) const;
   bool AssignFunctionName(FunctionTypePtr function) const;
+
+  static bool GetPointerName(IDiaSymbol* type, base::string16* type_name);
+  static bool GetArrayName(IDiaSymbol* type, base::string16* type_name);
+  static bool GetFunctionName(IDiaSymbol* type, base::string16* type_name);
+
+  static void GetPointerNameSuffix(bool is_const,
+                                   bool is_volatile,
+                                   bool is_ref,
+                                   base::string16* suffix);
 
   bool set_decorated_name_;
 

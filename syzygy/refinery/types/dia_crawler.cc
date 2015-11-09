@@ -30,14 +30,10 @@ namespace {
 bool GetSymFlags(IDiaSymbol* symbol, Type::Flags* flags) {
   DCHECK(symbol); DCHECK(flags);
   *flags = 0;
-  BOOL is_const = FALSE;
-  HRESULT hr = symbol->get_constType(&is_const);
-  if (hr != S_OK)
-    return false;
 
-  BOOL is_volatile = FALSE;
-  hr = symbol->get_volatileType(&is_volatile);
-  if (hr != S_OK)
+  bool is_const = false;
+  bool is_volatile = false;
+  if (!pe::GetSymQualifiers(symbol, &is_const, &is_volatile))
     return false;
 
   if (is_const)

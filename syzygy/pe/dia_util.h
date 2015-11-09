@@ -169,6 +169,14 @@ bool GetSymOffset(IDiaSymbol* symbol, ptrdiff_t* offset);
 // @returns true on success, false on failure.
 bool GetSymType(IDiaSymbol* symbol, base::win::ScopedComPtr<IDiaSymbol>* type);
 
+// Gets the symbol's CV qualifiers.
+// @param symbol the symbol to examine.
+// @param is_const on success, returns whether @p symbol is const qualified.
+// @param is_volatile on success, returns whether @p symbol is volatile
+//     qualified.
+// @returns true on success, false on failure.
+bool GetSymQualifiers(IDiaSymbol* symbol, bool* is_const, bool* is_volatile);
+
 // Gets the symbol's class parent.
 // @param symbol the symbol to examine.
 // @param parent on success, returns @p symbol's class parent.

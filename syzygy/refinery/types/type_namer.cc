@@ -16,9 +16,10 @@
 
 #include <vector>
 
-#include "base/strings/string16.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
+#include "syzygy/pe/dia_util.h"
 #include "third_party/cci/files/cvinfo.h"
 
 namespace refinery {
@@ -195,6 +196,33 @@ bool TypeNamer::EnsureTypeName(TypePtr type) const {
   return true;
 }
 
+bool TypeNamer::GetTypeName(IDiaSymbol* type, base::string16* type_name) {
+  DCHECK(type); DCHECK(type_name);
+
+  enum SymTagEnum sym_tag_type = SymTagNull;
+  if (!pe::GetSymTag(type, &sym_tag_type))
+    return false;
+
+  switch (sym_tag_type) {
+    case SymTagUDT:
+    case SymTagEnum:
+    case SymTagTypedef:
+    case SymTagData:
+      return pe::GetSymName(type, type_name);
+    case SymTagBaseType:
+      return GetSymBaseTypeName(type, type_name);
+    case SymTagPointerType:
+      return GetPointerName(type, type_name);
+    case SymTagArrayType:
+      return GetArrayName(type, type_name);
+    case SymTagFunctionType:
+      return GetFunctionName(type, type_name);
+    case SymTagVTableShape:
+    case SymTagVTable:
+    default:
+      return false;
+  }
+}
 
 bool TypeNamer::AssignPointerName(PointerTypePtr ptr) const {
   base::string16 name;
@@ -211,11 +239,9 @@ bool TypeNamer::AssignPointerName(PointerTypePtr ptr) const {
     decorated_name = content_type->decorated_name();
 
   // Determine the suffix.
-  base::string16 suffix = GetCVMod(ptr->is_const(), ptr->is_volatile());
-  if (ptr->ptr_mode() == PointerType::PTR_MODE_PTR)
-    suffix.append(L"*");
-  else
-    suffix.append(L"&");
+  bool is_ref = (ptr->ptr_mode() != PointerType::PTR_MODE_PTR);
+  base::string16 suffix;
+  GetPointerNameSuffix(ptr->is_const(), ptr->is_volatile(), is_ref, &suffix);
 
   // Set the name.
   name.append(suffix);
@@ -315,6 +341,61 @@ bool TypeNamer::AssignFunctionName(FunctionTypePtr function) const {
     function->SetDecoratedName(decorated_name);
   }
 
+  return true;
+}
+
+void TypeNamer::GetPointerNameSuffix(bool is_const,
+                                     bool is_volatile,
+                                     bool is_ref,
+                                     base::string16* suffix) {
+  DCHECK(suffix);
+
+  *suffix = GetCVMod(is_const, is_volatile);
+  if (is_ref)
+    suffix->append(L"&");
+  else
+    suffix->append(L"*");
+}
+
+bool TypeNamer::GetPointerName(IDiaSymbol* type, base::string16* type_name) {
+  base::string16 name;
+
+  // Get the content type's name.
+  base::win::ScopedComPtr<IDiaSymbol> content_type;
+  if (!pe::GetSymType(type, &content_type))
+    return false;
+  if (!GetTypeName(content_type.get(), &name))
+    return false;
+
+  // Determine the suffix.
+  bool is_const = false;
+  bool is_volatile = false;
+  if (!pe::GetSymQualifiers(content_type.get(), &is_const, &is_volatile))
+    return false;
+  BOOL is_ref;
+  HRESULT hr = type->get_reference(&is_ref);
+  if (hr != S_OK)
+    return false;
+
+  base::string16 suffix;
+  GetPointerNameSuffix(is_const, is_volatile, is_ref == TRUE, &suffix);
+
+  // Set the name.
+  name.append(suffix);
+
+  type_name->swap(name);
+  return true;
+}
+
+bool TypeNamer::GetArrayName(IDiaSymbol* type, base::string16* type_name) {
+  // TODO(manzagop): implement.
+  *type_name = base::ASCIIToUTF16("<array-type>");
+  return true;
+}
+
+bool TypeNamer::GetFunctionName(IDiaSymbol* type, base::string16* type_name) {
+  // TODO(manzagop): implement.
+  *type_name = base::ASCIIToUTF16("<function-type>");
   return true;
 }
 

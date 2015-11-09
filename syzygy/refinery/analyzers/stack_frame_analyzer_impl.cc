@@ -22,6 +22,7 @@
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 #include "syzygy/refinery/types/type.h"
+#include "syzygy/refinery/types/type_namer.h"
 #include "third_party/cci/files/cvinfo.h"
 
 namespace refinery {
@@ -52,11 +53,7 @@ bool GetTypeName(IDiaSymbol* data, base::string16* type_name) {
   if (!pe::GetSymType(data, &type))
     return false;
 
-  // TODO(manzagop): support naming basic types, arrays, pointers, etc.
-  if (!pe::GetSymName(type.get(), type_name))
-    *type_name = base::ASCIIToUTF16("<unknown-type=name>");
-
-  return true;
+  return TypeNamer::GetTypeName(type.get(), type_name);
 }
 
 }  // namespace
@@ -148,8 +145,11 @@ bool StackFrameDataAnalyzer::GetAddressRange(IDiaSymbol* data,
   enum SymTagEnum sym_tag_type = SymTagNull;
   if (!pe::GetSymTag(dia_type.get(), &sym_tag_type))
     return false;
-  if (sym_tag_type != SymTagUDT)
+  if (sym_tag_type != SymTagUDT) {
+    // TODO(manzagop): stop excluding non-UDT types once we have a way to name
+    // them (ie to get their type from the typename index).
     return true;
+  }
 
   // Retrieve symbol information.
   std::vector<TypePtr> matching_types;
