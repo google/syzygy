@@ -112,12 +112,12 @@ int main(int argc, const char* const* argv) {
   DWORD worker_thread_1_id = 0;
   HANDLE worker_thread_1 = ::CreateThread(nullptr, 0, WorkerThread1Main,
                                           nullptr, 0, &worker_thread_1_id);
-  ::WaitForSingleObject(worker_thread_1, 0);
+  ::WaitForSingleObject(worker_thread_1, INFINITE);
 
   DWORD worker_thread_2_id = 0;
   HANDLE worker_thread_2 = ::CreateThread(nullptr, 0, WorkerThread2Main,
                                           nullptr, 0, &worker_thread_2_id);
-  ::WaitForSingleObject(worker_thread_2, 0);
+  ::WaitForSingleObject(worker_thread_2, INFINITE);
 
   return 0;
 }
