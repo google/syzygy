@@ -341,13 +341,13 @@ bool GetSymCount(IDiaSymbol* symbol, size_t* count) {
 bool GetSymClassParent(IDiaSymbol* symbol,
                        base::win::ScopedComPtr<IDiaSymbol>* parent) {
   DCHECK(symbol); DCHECK(parent);
+  *parent = nullptr;
 
   base::win::ScopedComPtr<IDiaSymbol> tmp;
   HRESULT hr = symbol->get_classParent(tmp.Receive());
   if (hr == S_FALSE) {
-    // This happens routinely for functions that aren't members, so avoid
-    // logging for this case.
-    return false;
+    // This happens routinely for functions that aren't members.
+    return true;
   }
   if (hr != S_OK) {
     LOG(ERROR) << "Error getting symbol's class parent: " << common::LogHr(hr)

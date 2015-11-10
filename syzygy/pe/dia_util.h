@@ -185,7 +185,8 @@ bool GetSymCount(IDiaSymbol* symbol, size_t* count);
 
 // Gets the symbol's class parent.
 // @param symbol the symbol to examine.
-// @param parent on success, returns @p symbol's class parent.
+// @param parent on success, returns @p symbol's class parent or nullptr if the
+//     parent property is no available for the symbol.
 // @returns true on success, false on failure.
 bool GetSymClassParent(IDiaSymbol* symbol,
                        base::win::ScopedComPtr<IDiaSymbol>* parent);

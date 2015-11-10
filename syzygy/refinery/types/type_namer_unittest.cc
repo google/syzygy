@@ -127,6 +127,7 @@ class TypeNamerTest : public testing::Test {
   }
 
   void PerformArrayNameTest(const base::string16& array_name);
+  void PerformFunctionNameTest(const base::string16& function_name);
 
   // Access to types via TypeRepository.
   scoped_refptr<TypeRepository> repository_;
@@ -154,7 +155,7 @@ TEST_F(TypeNamerTest, EnumNameTest) {
 }
 
 TEST_F(TypeNamerTest, TypedefNameTest) {
-  // TODO(manzagop): implement once PdbCrawler names enum types.
+  // TODO(manzagop): implement once PdbCrawler names typedef types.
 }
 
 TEST_F(TypeNamerTest, BasicTypeNameTest) {
@@ -211,8 +212,22 @@ TEST_F(TypeNamerTest, ArrayNameTest) {
   ASSERT_NO_FATAL_FAILURE(PerformArrayNameTest(L"char volatile[5]"));
 }
 
+void TypeNamerTest::PerformFunctionNameTest(
+    const base::string16& function_name) {
+  TypePtr type = FindRepositoryTypeByName(function_name);
+  ASSERT_TRUE(type);
+  ASSERT_EQ(Type::FUNCTION_TYPE_KIND, type->kind());
+
+  base::win::ScopedComPtr<IDiaSymbol> dia_type;
+  ASSERT_TRUE(FindNamedDiaChild(global_.get(), SymTagFunctionType, type->name(),
+                                &dia_type));
+}
+
 TEST_F(TypeNamerTest, FunctionNameTest) {
-  // TODO(manzagop): implement once TypeNamer handles DIA SymTagFunctionType.
+  ASSERT_NO_FATAL_FAILURE(
+      PerformFunctionNameTest(L"void ()"));
+  ASSERT_NO_FATAL_FAILURE(PerformFunctionNameTest(
+      L"char const (testing::TestFunctions::)(int32_t const, char)"));
 }
 
 }  // namespace refinery

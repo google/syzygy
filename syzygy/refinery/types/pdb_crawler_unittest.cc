@@ -405,7 +405,7 @@ TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
 
 TEST_P(PdbCrawlerTest, TestMFunction) {
   TypePtr type =
-      FindOneTypeBySuffix(L"void (testing::TestAllInOneUDT::)(int32_t)");
+      FindOneTypeBySuffix(L"char const (testing::TestAllInOneUDT::)(int32_t)");
   ASSERT_TRUE(type);
 
   FunctionTypePtr function;
@@ -418,9 +418,9 @@ TEST_P(PdbCrawlerTest, TestMFunction) {
   EXPECT_EQ(1U, args.size());
 
   EXPECT_TRUE(function->IsMemberFunction());
-  EXPECT_FALSE(function->return_type().is_const());
+  EXPECT_TRUE(function->return_type().is_const());
   EXPECT_FALSE(function->return_type().is_volatile());
-  ValidateBasicType(function->GetReturnType(), 0, L"void");
+  ValidateBasicType(function->GetReturnType(), sizeof(char), L"char");
 
   EXPECT_FALSE(args[0].is_const());
   EXPECT_FALSE(args[0].is_volatile());
@@ -433,9 +433,9 @@ TEST_P(PdbCrawlerTest, TestMFunction) {
   // Check that the function points to its containing class.
   EXPECT_EQ(function->containing_class_id(), type->type_id());
 
-  EXPECT_EQ(function->name(), L"void (" + type->name() + L"::)(int32_t)");
+  EXPECT_EQ(function->name(), L"char const (" + type->name() + L"::)(int32_t)");
   EXPECT_EQ(function->decorated_name(),
-            L"void (" + type->decorated_name() + L"::)(int32_t)");
+            L"char const (" + type->decorated_name() + L"::)(int32_t)");
 }
 
 TEST_P(PdbCrawlerTest, TestProcedure) {

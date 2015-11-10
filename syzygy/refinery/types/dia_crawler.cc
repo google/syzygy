@@ -667,6 +667,7 @@ bool TypeCreator::FinalizeFunction(IDiaSymbol* symbol,
   DCHECK(function);
   DCHECK(pe::IsSymTag(symbol, SymTagFunctionType));
 
+  // Determine the return type.
   base::win::ScopedComPtr<IDiaSymbol> return_type_sym;
   if (!pe::GetSymType(symbol, &return_type_sym))
     return false;
@@ -679,15 +680,19 @@ bool TypeCreator::FinalizeFunction(IDiaSymbol* symbol,
   if (!return_type)
     return false;
 
+  // Determine the containing class, if any.
   TypeId containing_class_id = kNoTypeId;
   base::win::ScopedComPtr<IDiaSymbol> parent_type_sym;
-  if (pe::GetSymClassParent(symbol, &parent_type_sym)) {
+  if (!pe::GetSymClassParent(symbol, &parent_type_sym))
+    return false;
+  if (parent_type_sym.get() != nullptr) {
     TypePtr parent_type = FindOrCreateType(parent_type_sym.get());
     if (!parent_type)
       return false;
     containing_class_id = parent_type->type_id();
   }
 
+  // Process arguments.
   base::win::ScopedComPtr<IDiaEnumSymbols> argument_types;
   HRESULT hr = symbol->findChildren(SymTagFunctionArgType, nullptr, nsNone,
                                     argument_types.Receive());

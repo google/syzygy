@@ -43,16 +43,26 @@ struct TestUDT {
 
 enum TestEnum { ONE, TWO };
 
+void FunctionWithNoParams() {}
+struct TestFunctions {
+  const char MethodWithParams(const int one, char two) { return 'a'; }
+};
+
 void AliasTypes() {
   // Make sure the types are used in the file.
 
-  // Pull in a UDT, a basic type, a pointer and a reference.
+  // Pull in a UDT, a basic type, a pointer, a reference and arrays.
   TestUDT simple = {};
   Alias(&simple);
 
   // Pull in an enum.
   TestEnum some_enum = ONE;
   Alias(&some_enum);
+
+  // Pull in functions.
+  Alias(FunctionWithNoParams);
+  TestFunctions functions;
+  Alias(&functions);
 }
 
 }  // namespace testing

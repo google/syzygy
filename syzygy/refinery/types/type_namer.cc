@@ -282,6 +282,7 @@ bool TypeNamer::AssignArrayName(ArrayTypePtr array) const {
 }
 
 bool TypeNamer::AssignFunctionName(FunctionTypePtr function) const {
+  // Start with the return type.
   TypePtr return_type = function->GetReturnType();
   base::string16 name;
   base::string16 decorated_name;
@@ -293,10 +294,15 @@ bool TypeNamer::AssignFunctionName(FunctionTypePtr function) const {
   if (set_decorated_name_)
     decorated_name = return_type->decorated_name();
 
-  name.append(L" (");
-  if (set_decorated_name_)
-    decorated_name.append(L" (");
+  base::string16 suffix = GetCVMod(function->return_type().is_const(),
+                                   function->return_type().is_volatile());
+  suffix.append(L" (");
 
+  name.append(suffix);
+  if (set_decorated_name_)
+    decorated_name.append(suffix);
+
+  // Continue with containing class.
   if (function->IsMemberFunction()) {
     TypePtr class_type = function->GetContainingClassType();
     if (!class_type)
@@ -421,12 +427,80 @@ bool TypeNamer::GetArrayName(IDiaSymbol* type, base::string16* type_name) {
   return true;
 }
 
+// TODO(manzagop): function type name should include function's CV qualifiers?
 bool TypeNamer::GetFunctionName(IDiaSymbol* type, base::string16* type_name) {
   DCHECK(type); DCHECK(type_name);
   DCHECK(pe::IsSymTag(type, SymTagFunctionType));
 
-  // TODO(manzagop): implement.
-  *type_name = base::ASCIIToUTF16("<function-type>");
+  // Start with the return type.
+  base::win::ScopedComPtr<IDiaSymbol> return_type;
+  if (!pe::GetSymType(type, &return_type))
+    return false;
+  base::string16 name;
+  if (!GetTypeName(return_type.get(), &name))
+    return false;
+
+  bool is_const = false;
+  bool is_volatile = false;
+  if (!pe::GetSymQualifiers(return_type.get(), &is_const, &is_volatile))
+    return false;
+  name.append(GetCVMod(is_const, is_volatile));
+  name.append(L" (");
+
+  // Continue with containing class.
+  base::win::ScopedComPtr<IDiaSymbol> parent_type_sym;
+  if (!pe::GetSymClassParent(type, &parent_type_sym))
+    return false;
+  if (parent_type_sym.get() != nullptr) {
+    base::string16 class_name;
+    if (!GetTypeName(parent_type_sym.get(), &class_name))
+      return false;
+    name.append(class_name + L"::)(");
+  }
+
+  // Get the argument types names.
+  size_t arg_count = 0;
+  if (!pe::GetSymCount(type, &arg_count))
+    return false;
+
+  base::win::ScopedComPtr<IDiaEnumSymbols> argument_types;
+  HRESULT hr = type->findChildren(SymTagFunctionArgType, nullptr, nsNone,
+                                  argument_types.Receive());
+  if (!SUCCEEDED(hr))
+    return false;
+
+  std::vector<base::string16> arg_names;
+  base::win::ScopedComPtr<IDiaSymbol> arg_sym;
+  ULONG received = 0;
+  hr = argument_types->Next(1, arg_sym.Receive(), &received);
+  while (hr == S_OK) {
+    base::win::ScopedComPtr<IDiaSymbol> arg_type_sym;
+    if (!pe::GetSymType(arg_sym.get(), &arg_type_sym))
+      return false;
+
+    // TODO(manzagop): look into how cci::T_NOTYPE fits in (C-style variadic
+    // function).
+    base::string16 arg_name;
+    if (!GetTypeName(arg_type_sym.get(), &arg_name))
+      return false;
+
+    if (!pe::GetSymQualifiers(arg_type_sym.get(), &is_const, &is_volatile))
+      return false;
+    arg_name.append(GetCVMod(is_const, is_volatile));
+
+    arg_names.push_back(arg_name);
+
+    arg_sym.Release();
+    received = 0;
+    hr = argument_types->Next(1, arg_sym.Receive(), &received);
+  }
+  if (!SUCCEEDED(hr))
+    return false;
+
+  name.append(base::JoinString(arg_names, L", "));
+  name.append(L")");
+
+  type_name->swap(name);
   return true;
 }
 

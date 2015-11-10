@@ -242,7 +242,7 @@ TEST_F(DiaCrawlerTest, TestArray) {
 
 TEST_F(DiaCrawlerTest, TestFunctionType) {
   TypePtr type =
-      FindTypeEndingWith(L"void (testing::TestAllInOneUDT::)(int32_t)");
+      FindTypeEndingWith(L"char const (testing::TestAllInOneUDT::)(int32_t)");
   ASSERT_TRUE(type);
 
   FunctionTypePtr function;
@@ -255,9 +255,9 @@ TEST_F(DiaCrawlerTest, TestFunctionType) {
   EXPECT_EQ(1U, args.size());
 
   EXPECT_TRUE(function->IsMemberFunction());
-  EXPECT_FALSE(function->return_type().is_const());
+  EXPECT_TRUE(function->return_type().is_const());
   EXPECT_FALSE(function->return_type().is_volatile());
-  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+  EXPECT_EQ(function->GetReturnType()->name(), L"char");
 
   EXPECT_FALSE(args[0].is_const());
   EXPECT_FALSE(args[0].is_volatile());
@@ -270,7 +270,7 @@ TEST_F(DiaCrawlerTest, TestFunctionType) {
   // Check that the function points to its containing class.
   EXPECT_EQ(function->containing_class_id(), type->type_id());
 
-  EXPECT_EQ(function->name(), L"void (" + type->name() + L"::)(int32_t)");
+  EXPECT_EQ(function->name(), L"char const (" + type->name() + L"::)(int32_t)");
 }
 
 TEST_F(DiaCrawlerTest, TestFunctions) {

@@ -137,7 +137,7 @@ struct TestAllInOneUDT : public A, virtual public B {
   static int static_member;
   void NonOverloadedMethod() {}
   void OverloadedMethod() {}
-  void OverloadedMethod(int arg) {}
+  const char OverloadedMethod(int arg) { return 'a'; }
   virtual void VirtualMethod() {}
 
   struct NestedType {
