@@ -39,6 +39,7 @@
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
+        '<(src)/syzygy/refinery/testing/testing.gyp:refinery_testing_lib',
         '<(src)/syzygy/refinery/types/types.gyp:types_lib'
       ],
     },

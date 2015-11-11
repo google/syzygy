@@ -32,6 +32,7 @@
 #include "syzygy/pe/find.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/core/bit_source.h"
+#include "syzygy/refinery/testing/self_bit_source.h"
 #include "syzygy/refinery/types/dia_crawler.h"
 #include "syzygy/refinery/types/type_repository.h"
 #include "syzygy/refinery/types/type.h"
@@ -79,51 +80,6 @@ void Spaces(FILE* output, size_t indent) {
   for (size_t i = 0; i < indent; ++i)
     std::fputc(' ', output);
 }
-
-class TestBitSource : public BitSource {
- public:
-  using AddressRange = AddressRange;
-
-  ~TestBitSource() override {}
-
-  bool GetAll(const AddressRange& range, void* data_ptr) override {
-    DCHECK(range.IsValid());
-    DCHECK(data_ptr);
-
-    size_t read_bytes = 0;
-    if (!GetFrom(range, &read_bytes, data_ptr))
-      return false;
-    if (read_bytes != range.size())
-      return false;
-
-    return true;
-  }
-
-  bool GetFrom(const AddressRange& range,
-               size_t* data_cnt,
-               void* data_ptr) override {
-    DCHECK(range.IsValid());
-    DCHECK(data_cnt);
-    DCHECK(data_ptr);
-
-    *data_cnt = 0;
-
-    DWORD read_bytes = 0;
-    BOOL succeeded = ::ReadProcessMemory(
-        ::GetCurrentProcess(), reinterpret_cast<const void*>(range.addr()),
-        data_ptr, range.size(), &read_bytes);
-    if (!succeeded)
-      return false;
-    *data_cnt = read_bytes;
-
-    return read_bytes != 0;
-  }
-
-  bool HasSome(const AddressRange& range) override {
-    // TODO(siggi): Fixme!
-    return true;
-  }
-};
 
 bool GetNtdllTypes(TypeRepository* repo) {
   // As of 28/10/2015 the symbol file for ntdll.dll on Win7 is missing the
@@ -182,12 +138,12 @@ class HeapEnumerate::HeapEnumerator {
     return heap_userdata_header_type_;
   }
   BitSource* bit_source() const {
-    return const_cast<TestBitSource*>(&bit_source_);
+    return const_cast<testing::SelfBitSource*>(&bit_source_);
   }
 
  private:
   // A reflective bit source.
-  TestBitSource bit_source_;
+  testing::SelfBitSource bit_source_;
 
   // The heap we're enumerating.
   TypedData heap_;

@@ -90,6 +90,7 @@
         'symbols/symbols.gyp:symbols_lib',
         'refinery_unittest_utils',
         'symsrv_dll_copy',
+        'testing/testing.gyp:refinery_testing_lib',
         'types/types.gyp:types_lib',
         'validators/validators.gyp:validators_lib',
         '<(src)/base/base.gyp:base',

@@ -19,7 +19,7 @@
 
 #include "base/memory/ref_counted.h"
 #include "gtest/gtest.h"
-#include "syzygy/refinery/core/bit_source.h"
+#include "syzygy/refinery/testing/self_bit_source.h"
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/type_repository.h"
 
@@ -41,26 +41,6 @@ struct TestUDT {
 
 const TestUDT test_instance =
     {1, {2, 3}, &test_instance, 4, -5, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9}};
-
-// A bit source that reflects the process' own memory.
-class TestBitSource : public BitSource {
- public:
-  ~TestBitSource() override {}
-
-  bool GetAll(const AddressRange& range, void* data_ptr) override {
-    ::memcpy(data_ptr, reinterpret_cast<void*>(range.addr()), range.size());
-    return true;
-  }
-
-  bool GetFrom(const AddressRange& range,
-               size_t* data_cnt,
-               void* data_ptr) override {
-    *data_cnt = range.size();
-    return GetAll(range, data_ptr);
-  }
-
-  bool HasSome(const AddressRange& range) override { return true; }
-};
 
 class TypedDataTest : public testing::Test {
  protected:
@@ -174,7 +154,7 @@ class TypedDataTest : public testing::Test {
 
   UserDefinedTypePtr udt_;
   TypePtr uint32_type_;
-  TestBitSource test_bit_source_;
+  testing::SelfBitSource test_bit_source_;
   scoped_refptr<TypeRepository> repo_;
 };
 
