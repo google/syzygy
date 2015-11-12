@@ -46,6 +46,7 @@ class StackFrameDataAnalyzer {
 
  private:
   bool GetAddressRange(IDiaSymbol* data, AddressRange* range);
+  bool GetAddressRangeRegRel(IDiaSymbol* data, AddressRange* range);
 
   StackFrameRecordPtr frame_record_;
   scoped_refptr<TypeNameIndex> typename_index_;

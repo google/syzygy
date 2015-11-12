@@ -114,10 +114,14 @@ bool StackFrameAnalyzer::AnalyzeFrame(StackFrameRecordPtr frame_record,
                                        process_state);
   while (true) {
     // Process each SymTagData child in the block / function.
+    // TODO(manzagop): the data visitor will stop visiting at the first error.
+    // Figure out how to surface issues without preventing processing (eg
+    // with a callback).
     pe::ChildVisitor data_visitor(scope.get(), SymTagData);
     if (!data_visitor.VisitChildren(
             base::Bind(&StackFrameDataAnalyzer::Analyze,
                        base::Unretained(&data_analyzer)))) {
+      LOG(ERROR) << "Error while analyzing scope. Continuing to next scope.";
       return false;
     }
 

@@ -129,7 +129,8 @@ class BasicType : public Type {
 
 using BasicTypePtr = scoped_refptr<BasicType>;
 
-// Represents a user defined type such as a struct, union or a class.
+// Represents a user defined type such as a struct, union or a class. Also
+// represents forward references to such types.
 class UserDefinedType : public Type {
  public:
   class Field;
@@ -174,12 +175,13 @@ class UserDefinedType : public Type {
   // Finalize the type by providing it with a field list.
   // @param fields the fields for the type.
   // @param functions the member functions for the type.
-  // @note this can only be called once per type instance.
+  // @note this can only be called once per type instance. Moreover this and
+  //     setting the type as a forward declaration are mutually exclusive.
   void Finalize(const Fields& fields, const Functions& functions);
 
   // Set this as forward declaration without concrete class.
   // @note this can only be called once per type instance. Moreover this and
-  //    finalizing the UDT are mutually exclusive.
+  //     finalizing the UDT are mutually exclusive.
   void SetIsForwardDeclaration();
 
  private:

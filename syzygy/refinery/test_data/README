@@ -15,7 +15,5 @@ the dumps:
 
 DLLs and PDBs
 =============
-- test_types* were generated in release mode
-- test_typenames* were generated in debug mode to simplify type_namer_unittest.
-      Basic types are part the global scope in debug mode (which makes writing
-      the test easier), but not in release mode.
+These were generated in release mode.
+

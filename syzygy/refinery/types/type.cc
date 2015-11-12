@@ -77,6 +77,7 @@ UserDefinedType::UserDefinedType(const base::string16& name,
 
 TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
   DCHECK(repository());
+  DCHECK(!is_fwd_decl_);
   DCHECK_GT(fields_.size(), field_no);
 
   return repository()->GetType(fields_[field_no].type_id());
@@ -84,6 +85,7 @@ TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
 
 TypePtr UserDefinedType::GetFunctionType(size_t function_no) const {
   DCHECK(repository());
+  DCHECK(!is_fwd_decl_);
   DCHECK_GT(functions_.size(), function_no);
 
   return repository()->GetType(functions_[function_no].type_id());

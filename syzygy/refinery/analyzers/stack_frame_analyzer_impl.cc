@@ -56,6 +56,16 @@ bool GetTypeName(IDiaSymbol* data, base::string16* type_name) {
   return TypeNamer::GetTypeName(type.get(), type_name);
 }
 
+bool IsLocType(IDiaSymbol* data, LocationType type) {
+  DCHECK(data);
+
+  LocationType location_type = LocIsNull;
+  if (!pe::GetLocationType(data, &location_type))
+    return false;
+
+  return type == location_type;
+}
+
 }  // namespace
 
 StackFrameDataAnalyzer::StackFrameDataAnalyzer(
@@ -104,6 +114,7 @@ bool StackFrameDataAnalyzer::Analyze(IDiaSymbol* data) {
 
   // Add the typed block to the process state's typed block layer.
   // TODO(manzagop): handle CV qualifiers.
+  // TODO(manzagop): avoid duplicating types we already know about.
   return AddTypedBlockRecord(range, data_name, type_name, process_state_);
 }
 
@@ -111,16 +122,38 @@ bool StackFrameDataAnalyzer::GetAddressRange(IDiaSymbol* data,
                                              AddressRange* range) {
   DCHECK(data); DCHECK(range);
 
-  AddressRange address_range;
-  *range = address_range;
-
-  // Restrict to register relative locations: register id and offset.
-  // TODO(manzagop): support other location types, eg enregistered.
   LocationType location_type = LocIsNull;
   if (!pe::GetLocationType(data, &location_type))
     return false;
-  if (location_type != LocIsRegRel)
-    return true;
+
+  switch (location_type) {
+    case LocIsRegRel:
+      return GetAddressRangeRegRel(data, range);
+    case LocIsStatic:
+    case LocIsTLS:
+    case LocIsThisRel:
+    case LocIsEnregistered:
+    case LocIsBitField:
+    case LocIsSlot:
+    case LocIsIlRel:
+    case LocInMetaData:
+    case LocIsConstant:
+      // TODO(manzagop): implement.
+      AddressRange address_range;
+      *range = address_range;
+      return true;
+  }
+
+  return false;
+}
+
+bool StackFrameDataAnalyzer::GetAddressRangeRegRel(IDiaSymbol* data,
+                                                   AddressRange* range) {
+  DCHECK(data); DCHECK(range);
+  DCHECK(IsLocType(data, LocIsRegRel));
+
+  AddressRange address_range;
+  *range = address_range;
 
   // Register-relative: determine location.
   uint32_t register_id = 0U;
@@ -136,20 +169,6 @@ bool StackFrameDataAnalyzer::GetAddressRange(IDiaSymbol* data,
   base::string16 type_name;
   if (!GetTypeName(data, &type_name))
     return false;
-
-  // TODO(manzagop): handle basic types, pointers and arrays. This requires
-  // figuring out their names.
-  base::win::ScopedComPtr<IDiaSymbol> dia_type;
-  if (!pe::GetSymType(data, &dia_type))
-    return false;
-  enum SymTagEnum sym_tag_type = SymTagNull;
-  if (!pe::GetSymTag(dia_type.get(), &sym_tag_type))
-    return false;
-  if (sym_tag_type != SymTagUDT) {
-    // TODO(manzagop): stop excluding non-UDT types once we have a way to name
-    // them (ie to get their type from the typename index).
-    return true;
-  }
 
   // Retrieve symbol information.
   std::vector<TypePtr> matching_types;

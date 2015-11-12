@@ -16,6 +16,7 @@
 
 #include <vector>
 
+#include "base/logging.h"
 #include "base/strings/string16.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_file.h"
@@ -208,7 +209,7 @@ class TypeCreator {
 
   // Hash to map forward references to the right UDT records. For each unique
   // decorated name of an UDT, it contains type index of the class definition.
-  base::hash_map<base::string16, TypeId> udt_map;
+  base::hash_map<base::string16, TypeId> udt_map_;
 
   // Hash to store the pdb leaf types of the individual records. Indexed by type
   // indices.
@@ -445,6 +446,7 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
         if (!type_info.Initialize(local_stream.get()))
           return false;
         // This is always the last record of the fieldlist.
+        // TODO(manzagop): ask siggi@ if he thinks this optimization is wise.
         return ReadFieldlist(type_info.body().index, fields, functions);
       }
       default: {
@@ -551,8 +553,8 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
 
   if (property.fwdref) {
     // Find the type index of the UDT.
-    auto real_class_id = udt_map.find(decorated_name);
-    if (real_class_id == udt_map.end()) {
+    auto real_class_id = udt_map_.find(decorated_name);
+    if (real_class_id == udt_map_.end()) {
       // This is a forward reference without real UDT record.
       UserDefinedTypePtr udt =
           new UserDefinedType(name, decorated_name, size, udt_kind);
@@ -1208,6 +1210,8 @@ TypePtr TypeCreator::CreateType(TypeId type_id) {
 }
 
 bool TypeCreator::PrepareData() {
+  size_t unexpected_duplicate_types = 0;
+
   while (!type_info_enum_.EndOfStream()) {
     if (!type_info_enum_.NextTypeInfoRecord())
       return false;
@@ -1227,14 +1231,29 @@ bool TypeCreator::PrepareData() {
         return false;
       }
 
-      // Add the map from decorated name to type index. This overwrites any
-      // preceding records of the same name because we want to remember the
-      // last one. We can get multiple declarations of the same name, for
-      // example all the unnamed nested structures get assigned the name
-      // <unnamed-tag>.
-      if (!type_info.property().fwdref)
-        udt_map[type_info.decorated_name()] = type_info_enum_.type_id();
+      // Populate the decorated name to type index map. Note that this
+      // overwrites any preceding record of the same name, which can occur for
+      // 2 reasons:
+      //   - the unnamed nested structures get assigned the name <unnamed-tag>
+      //   - we've observed UDTs that are identical up to extra LF_NESTTYPE
+      //     (which do not make it to our type representation).
+      // TODO(manzagop): investigate more and consider folding duplicate types.
+      if (!type_info.property().fwdref) {
+        if (type_info.name().find(L'<') != 0 &&
+            udt_map_.find(type_info.decorated_name()) != udt_map_.end()) {
+          VLOG(1) << "Encountered duplicate decorated name: "
+                  << type_info.decorated_name();
+          unexpected_duplicate_types++;
+        }
+
+        udt_map_[type_info.decorated_name()] = type_info_enum_.type_id();
+      }
     }
+  }
+
+  if (unexpected_duplicate_types > 0) {
+    LOG(INFO) << "Encountered " << unexpected_duplicate_types
+              << " unexpected duplicate types.";
   }
 
   return type_info_enum_.ResetStream();
