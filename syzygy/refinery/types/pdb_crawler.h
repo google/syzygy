@@ -24,6 +24,12 @@ namespace refinery {
 class TypeRepository;
 
 // A worker class to scrape types from PDB symbols using type info enumerator.
+// TODO(manzagop): ensure duplicate types are properly dealt with. The current
+// implementation generates equivalent types due to:
+// - basic types that are mapped to the same type (eg T_LONG and T_INT4)
+// - UDTs that are identical up to extra LF_NESTTYPE (which do not make it to
+//   our type representation)
+// - pointers: Foo* and Foo*const will lead to the creation of 2 Foo* types.
 class PdbCrawler {
  public:
   PdbCrawler();

@@ -66,6 +66,40 @@ bool IsLocType(IDiaSymbol* data, LocationType type) {
   return type == location_type;
 }
 
+bool GetDataType(TypeNameIndex* typename_index,
+                 IDiaSymbol* data,
+                 TypePtr* type) {
+  DCHECK(typename_index); DCHECK(data); DCHECK(type);
+  DCHECK(pe::IsSymTag(data, SymTagData));
+  *type = nullptr;
+
+  // TODO(manzagop): stop relying on type name for retrieving the type once DIA
+  // is no longer used and we have a stable id.
+  base::string16 type_name;
+  if (!GetTypeName(data, &type_name))
+    return false;
+
+  // Retrieve symbol information.
+  std::vector<TypePtr> matching_types;
+  typename_index->GetTypes(type_name, &matching_types);
+  if (matching_types.empty()) {
+    VLOG(1) << "Type " << type_name << " was not found. Skipping.";
+    return true;
+  } else if (matching_types.size() > 1) {
+    // We sometimes observe types that have the same name. See pdb_crawler for
+    // details. All observed instances were for equivalent types. We therefore
+    // return the first result.
+    // TODO(manzagop): Deal with this, either by deduplication or minimally by
+    // ensuring equality of the types. Also note that dia to TypeRepository
+    // symbol matching is done using undecorated names; there may be some
+    // legitimate name collisions.
+    VLOG(1) << "Multiple type matches for " << type_name;
+  }
+
+  *type = matching_types[0];
+  return true;
+}
+
 }  // namespace
 
 StackFrameDataAnalyzer::StackFrameDataAnalyzer(
@@ -85,13 +119,25 @@ bool StackFrameDataAnalyzer::Analyze(IDiaSymbol* data) {
   DCHECK(pe::IsSymTag(data, SymTagData));
 
   // Restrict to local variables, parameters and this pointers.
-  // TODO(manzagop): processing for other kinds, eg DataIsMember?
+  // TODO(manzagop): process other kinds, eg DataIsMember?
   DataKind data_kind = DataIsUnknown;
   if (!pe::GetDataKind(data, &data_kind))
     return false;
-  if (data_kind != DataIsLocal && data_kind != DataIsParam &&
-      data_kind != DataIsObjectPtr) {
-    return true;  // Ignore these for now.
+  switch (data_kind) {
+    case DataIsLocal:
+    case DataIsParam:
+    case DataIsObjectPtr:
+      break;
+    case DataIsUnknown:
+      return false;  // Should not happen.
+    case DataIsMember:
+    case DataIsStaticLocal:
+    case DataIsFileStatic:
+    case DataIsGlobal:
+    case DataIsStaticMember:
+    case DataIsConstant:
+      // TODO(manzagop): look into these.
+      return true;  // Ignore these for now.
   }
 
   // Get the data's information: name, type name and address range.
@@ -138,6 +184,7 @@ bool StackFrameDataAnalyzer::GetAddressRange(IDiaSymbol* data,
     case LocIsIlRel:
     case LocInMetaData:
     case LocIsConstant:
+      VLOG(1) << "Unhandled location type: " << location_type;
       // TODO(manzagop): implement.
       AddressRange address_range;
       *range = address_range;
@@ -164,24 +211,11 @@ bool StackFrameDataAnalyzer::GetAddressRangeRegRel(IDiaSymbol* data,
     return false;
 
   // Get the data's type from the type_repository.
-  // TODO(manzagop): stop relying on type name for retrieving the type once DIA
-  // is no longer used and we have a stable id.
-  base::string16 type_name;
-  if (!GetTypeName(data, &type_name))
+  TypePtr type;
+  if (!GetDataType(typename_index_.get(), data, &type))
     return false;
-
-  // Retrieve symbol information.
-  std::vector<TypePtr> matching_types;
-  typename_index_->GetTypes(type_name, &matching_types);
-  if (matching_types.empty()) {
-    LOG(INFO) << "Type " << type_name << " was not found. Skipping.";
-    return true;
-  } else if (matching_types.size() > 1) {
-    LOG(INFO) << "Type name " << type_name << " is ambiguous. Skipping.";
-    return true;
-  }
-  DCHECK_EQ(1U, matching_types.size());
-  TypePtr type = matching_types[0];
+  if (type.get() == nullptr)
+    return true;  // The type was not found.
 
   // Figure out the data's range.
   uint32_t register_value = 0U;

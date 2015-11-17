@@ -169,11 +169,11 @@ STDMETHODIMP StackWalkHelper::readMemory(MemoryTypeEnum unused_type,
 
   // If the memory comes from a module's range, attempt to service from the
   // module.
-  // TODO(manzagop): success should depend on whether the module's memory mathes
-  // the requested memory type.
+  // TODO(manzagop): success should depend on whether the module's memory
+  // matches the requested memory type.
   bytes_read = 0U;
   if (ReadFromModule(range, &bytes_read, pbData)) {
-    LOG(INFO) << "Servicing read from module. May not reflect actual memory.";
+    VLOG(1) << "Servicing read from module. May not reflect actual memory.";
     *pcbData = bytes_read;
     return S_OK;
   }

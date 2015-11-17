@@ -152,6 +152,24 @@ bool AnalyzeMinidump(const base::FilePath& minidump_path,
   return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
 }
 
+void ValidateTypedBlock(ProcessState* process_state,
+                        Address expected_address,
+                        Size expected_size,
+                        const std::string& expected_variable_name,
+                        const std::string& expected_type_name) {
+  TypedBlockRecordPtr typedblock_record;
+  // Note: using FindSingleRecord as there should be no typed block overlap in
+  // the context of this test.
+  ASSERT_TRUE(
+      process_state->FindSingleRecord(expected_address, &typedblock_record));
+
+  ASSERT_EQ(expected_address, typedblock_record->range().addr());
+  ASSERT_EQ(expected_size, typedblock_record->range().size());
+  const TypedBlock& typedblock = typedblock_record->data();
+  ASSERT_EQ(expected_variable_name, typedblock.data_name());
+  ASSERT_EQ(expected_type_name, typedblock.type_name());
+}
+
 }  // namespace
 
 MULTIPROCESS_TEST_MAIN(MinidumpDumperProcess) {
@@ -236,6 +254,10 @@ class StackAndFrameAnalyzersTest : public testing::Test {
     expected_esp_ = 0U;
     eip_lowerbound_ = 0U;
     eip_upperbound_ = 0U;
+
+    expected_param_address_ = 0ULL;
+    expected_udt_address_ = 0ULL;
+    expected_udt_ptr_address_ = 0ULL;
   }
 
   base::FilePath temp_dir() { return temp_dir_.path(); }
@@ -243,7 +265,9 @@ class StackAndFrameAnalyzersTest : public testing::Test {
   uint32 expected_esp() { return expected_esp_; }
   uint32 eip_lowerbound() { return eip_lowerbound_; }
   uint32 eip_upperbound() { return eip_upperbound_; }
+  Address expected_param_address() { return expected_param_address_; }
   Address expected_udt_address() { return expected_udt_address_; }
+  Address expected_udt_ptr_address() { return expected_udt_ptr_address_; }
 
   bool GenerateMinidump() {
     // Grab a context. RtlCaptureContext sets the instruction pointer, stack
@@ -295,10 +319,14 @@ class StackAndFrameAnalyzersTest : public testing::Test {
     return exit_code == 0;
   }
 
-  bool SetupStackFrameAndGenerateMinidump() {
+  bool SetupStackFrameAndGenerateMinidump(int dummy_param) {
     bool success = true;
-    SimpleUDT simple_udt_variable = {42, 'a'};
-    base::debug::Alias(&simple_udt_variable);
+
+    // Create some local variables to validate analysis.
+    SimpleUDT udt_local = {42, 'a'};
+    base::debug::Alias(&udt_local);
+    SimpleUDT* udt_ptr_local = &udt_local;
+    base::debug::Alias(&udt_ptr_local);
 
     // Copy esp to expected_esp_. Note: esp must not be changed prior to calling
     // GenerateMinidump.
@@ -315,7 +343,9 @@ class StackAndFrameAnalyzersTest : public testing::Test {
 
     eip_upperbound_ = GetEip();
 
-    expected_udt_address_ = reinterpret_cast<Address>(&simple_udt_variable);
+    expected_param_address_ = reinterpret_cast<Address>(&dummy_param);
+    expected_udt_address_ = reinterpret_cast<Address>(&udt_local);
+    expected_udt_ptr_address_ = reinterpret_cast<Address>(&udt_ptr_local);
 
     return success;
   }
@@ -330,7 +360,9 @@ class StackAndFrameAnalyzersTest : public testing::Test {
   uint32 eip_upperbound_;
 
   // Typed block validation.
+  Address expected_param_address_;
   Address expected_udt_address_;
+  Address expected_udt_ptr_address_;
 
   testing::ScopedEnvironmentVariable scoped_env_variable_;
 };
@@ -344,17 +376,21 @@ TEST_F(StackAndFrameAnalyzersTest, BasicTest) {
 #endif
   base::win::ScopedCOMInitializer com_initializer;
 
+  // Note: intentionally declared before determining expected_frame_base.
+  int dummy_argument = 22;
+
   // Generate the minidump, then analyze it.
   // Note: the expected frame base for SetupStackFrameAndGenerateMinidump should
-  // be sizeof(void*) off of the current frame's top of stack immediately prior
-  // to the call (as that function has no arguments).
+  // be sizeof(void*) + sizeof(int) off of the current frame's top of stack
+  // immediately prior to the call (accounting for callee argument and return
+  // address).
   uint32 expected_frame_base = 0U;
   __asm {
     mov expected_frame_base, esp
   }
-  expected_frame_base -= sizeof(void*);
+  expected_frame_base -= (sizeof(void*) + sizeof(int));
 
-  ASSERT_TRUE(SetupStackFrameAndGenerateMinidump());
+  ASSERT_TRUE(SetupStackFrameAndGenerateMinidump(dummy_argument));
 
   ProcessState process_state;
   ASSERT_TRUE(AnalyzeMinidump(minidump_path(), &process_state));
@@ -392,22 +428,18 @@ TEST_F(StackAndFrameAnalyzersTest, BasicTest) {
   // TODO(manzagop): validate locals_base. It should be sizeof(void*) off of
   // the frame base, to account for ebp.
 
-  // Validate typed block layer for SetupStackFrameAndGenerateMinidump's frame.
-  // TODO(manzagop): test more than UDT once implemented.
-  TypedBlockRecordPtr typedblock_record;
-  // Note: using FindSingleRecord as there should be no typed block overlap in
-  // the context of this test.
-  ASSERT_TRUE(process_state.FindSingleRecord(expected_udt_address(),
-                                             &typedblock_record));
-  ASSERT_EQ(expected_udt_address(), typedblock_record->range().addr());
-  ASSERT_EQ(sizeof(SimpleUDT), typedblock_record->range().size());
-  const TypedBlock& typedblock = typedblock_record->data();
-  ASSERT_EQ("simple_udt_variable", typedblock.data_name());
-  ASSERT_EQ("refinery::`anonymous-namespace'::SimpleUDT",
-            typedblock.type_name());
-
-  // TODO(manzagop): validate the bytes layer contains the expected typed block
-  // values.
+  // Validate typed block layer for SetupStackFrameAndGenerateMinidump.
+  // - Validate some locals.
+  ASSERT_NO_FATAL_FAILURE(ValidateTypedBlock(
+      &process_state, expected_udt_address(), sizeof(SimpleUDT), "udt_local",
+      "refinery::`anonymous-namespace'::SimpleUDT"));
+  ASSERT_NO_FATAL_FAILURE(ValidateTypedBlock(
+      &process_state, expected_udt_ptr_address(), sizeof(SimpleUDT*),
+      "udt_ptr_local", "refinery::`anonymous-namespace'::SimpleUDT*"));
+  // - Validate a parameter.
+  ASSERT_NO_FATAL_FAILURE(
+      ValidateTypedBlock(&process_state, expected_param_address(), sizeof(int),
+                         "dummy_param", "int32_t"));
 }
 
 }  // namespace refinery
