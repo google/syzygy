@@ -247,6 +247,12 @@ STDMETHODIMP StackWalkHelper::symbolForVA(ULONGLONG va, IDiaSymbol** ppSymbol) {
     }
     DWORD symtag = 0U;
     DCHECK_EQ(S_OK, function_type->get_symTag(&symtag));
+    if (symtag == SymTagBaseType) {
+      // We've observed a case of a function type that was a SymTagBaseType with
+      // a base type of btNoType. Fail in this case.
+      LOG(ERROR) << "Function's type is not SymTagFunctionType.";
+      return E_FAIL;
+    }
     DCHECK(symtag == SymTagFunctionType);
 
     *ppSymbol = function_type.Detach();
