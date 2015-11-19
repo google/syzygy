@@ -38,7 +38,7 @@ class StackAnalyzer : public Analyzer {
 
   const char* name() const override { return kStackAnalyzerName; }
 
-  AnalysisResult Analyze(const Minidump& minidump,
+  AnalysisResult Analyze(const minidump::Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:

@@ -21,12 +21,12 @@
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
+#include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
 #include "syzygy/refinery/analyzers/thread_analyzer.h"
-#include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -34,9 +34,9 @@
 
 namespace {
 
+using minidump::Minidump;
 using refinery::AnalysisRunner;
 using refinery::Analyzer;
-using refinery::Minidump;
 using refinery::ProcessState;
 using refinery::ValidationReport;
 using refinery::Validator;

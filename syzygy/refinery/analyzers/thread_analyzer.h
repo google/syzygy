@@ -27,7 +27,7 @@ class ThreadAnalyzer : public Analyzer {
   ThreadAnalyzer() {}
   const char* name() const override { return kThreadAnalyzerName; }
 
-  AnalysisResult Analyze(const Minidump& minidump,
+  AnalysisResult Analyze(const minidump::Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:

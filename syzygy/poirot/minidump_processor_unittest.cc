@@ -18,7 +18,6 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/crashdata/json.h"
 #include "syzygy/poirot/unittest_util.h"
-#include "syzygy/refinery/minidump/minidump.h"
 
 namespace poirot {
 

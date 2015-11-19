@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/minidump/minidump.h"
+#include "syzygy/minidump/minidump.h"
 
 #include "base/logging.h"
 #include "base/files/file_util.h"
 
-namespace refinery {
+namespace minidump {
 
 Minidump::Minidump() {
 }
@@ -36,8 +36,7 @@ bool Minidump::Open(const base::FilePath& path) {
   if (!ReadBytes(0, sizeof(header), &header))
     return false;
 
-  if (header.Signature != MINIDUMP_SIGNATURE ||
-      header.NumberOfStreams == 0) {
+  if (header.Signature != MINIDUMP_SIGNATURE || header.NumberOfStreams == 0) {
     return false;
   }
 
@@ -60,9 +59,7 @@ Minidump::Stream Minidump::GetStream(size_t stream_id) const {
   DCHECK_GT(directory_.size(), stream_id);
   const MINIDUMP_DIRECTORY& dir_entry = directory_[stream_id];
 
-  return Stream(this,
-                dir_entry.Location.Rva,
-                dir_entry.Location.DataSize,
+  return Stream(this, dir_entry.Location.Rva, dir_entry.Location.DataSize,
                 stream_id);
 }
 
@@ -121,8 +118,8 @@ bool Minidump::Stream::ReadBytes(size_t data_len, void* data) {
 }
 
 bool Minidump::Stream::ReadBytes(size_t data_len, std::string* data) {
-  DCHECK(data != nullptr);
   DCHECK(minidump_ != nullptr);
+  DCHECK(data != nullptr);
 
   data->resize(data_len);
   bool success = ReadBytes(data_len, &data->at(0));
@@ -133,7 +130,8 @@ bool Minidump::Stream::ReadBytes(size_t data_len, std::string* data) {
 }
 
 bool Minidump::Stream::ReadString(std::wstring* data) {
-  DCHECK(minidump_ != nullptr); DCHECK(data != nullptr);
+  DCHECK(minidump_ != nullptr);
+  DCHECK(data != nullptr);
 
   ULONG32 size_bytes = 0U;
   if (!ReadElement(&size_bytes))
@@ -156,5 +154,4 @@ bool Minidump::Stream::ReadString(std::wstring* data) {
   return true;
 }
 
-
-}  // namespace refinery
+}  // namespace minidump

@@ -27,18 +27,18 @@ namespace refinery {
 const char ExceptionAnalyzer::kExceptionAnalyzerName[] = "ExceptionAnalyzer";
 
 Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
-    const Minidump& minidump,
+    const minidump::Minidump& minidump,
     ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 
   // Retrieve the unique exception stream.
-  Minidump::Stream exception_stream =
+  minidump::Minidump::Stream exception_stream =
       minidump.FindNextStream(nullptr, ExceptionStream);
   if (!exception_stream.IsValid()) {
     // Minidump has no exception data.
     return ANALYSIS_COMPLETE;
   }
-  Minidump::Stream offending_stream =
+  minidump::Minidump::Stream offending_stream =
       minidump.FindNextStream(&exception_stream, ExceptionStream);
   if (offending_stream.IsValid())
     return ANALYSIS_ERROR;
@@ -64,7 +64,7 @@ Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
         exception_record.ExceptionInformation[i]);
   }
 
-  Minidump::Stream thread_context =
+  minidump::Minidump::Stream thread_context =
       minidump.GetStreamFor(minidump_exception_stream.ThreadContext);
   if (!thread_context.IsValid())
     return ANALYSIS_ERROR;

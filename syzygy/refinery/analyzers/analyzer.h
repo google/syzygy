@@ -15,7 +15,7 @@
 #ifndef SYZYGY_REFINERY_ANALYZERS_ANALYZER_H_
 #define SYZYGY_REFINERY_ANALYZERS_ANALYZER_H_
 
-#include "syzygy/refinery/minidump/minidump.h"
+#include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 
 namespace refinery {
@@ -49,7 +49,7 @@ class Analyzer {
   //     @p process_state may be inconsistent.
   // @note Analysis completes only once all analyzers have returned
   //     ANALYSIS_COMPLETED.
-  virtual AnalysisResult Analyze(const Minidump& minidump,
+  virtual AnalysisResult Analyze(const minidump::Minidump& minidump,
                                  ProcessState* process_state) = 0;
 };
 

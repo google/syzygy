@@ -24,7 +24,6 @@
         'analyzers/analyzers.gyp:*',
         'core/core.gyp:*',
         'process_state/process_state.gyp:*',
-        'minidump/minidump.gyp:*',
         'validators/validators.gyp:*',
       ],
     },
@@ -69,7 +68,6 @@
         'core/addressed_data_unittest.cc',
         'process_state/process_state_unittest.cc',
         'process_state/process_state_util_unittest.cc',
-        'minidump/minidump_unittest.cc',
         'symbols/simple_cache_unittest.cc',
         'symbols/symbol_provider_unittest.cc',
         'symbols/symbol_provider_util_unittest.cc',
@@ -85,7 +83,6 @@
       'dependencies': [
         'analyzers/analyzers.gyp:analyzers_lib',
         'core/core.gyp:refinery_core_lib',
-        'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
         'symbols/symbols.gyp:symbols_lib',
         'refinery_unittest_utils',
@@ -98,6 +95,8 @@
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',
+        '<(src)/syzygy/minidump/minidump.gyp:minidump_unittest_utils',
       ],
     },
     {
@@ -110,7 +109,6 @@
       'dependencies': [
         'analyzers/analyzers.gyp:analyzers_lib',
         'core/core.gyp:refinery_core_lib',
-        'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
         'symbols/symbols.gyp:symbols_lib',
         'refinery_unittest_utils',
@@ -120,6 +118,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
+        '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
       ],
@@ -136,11 +135,11 @@
       'dependencies': [
         'analyzers/analyzers.gyp:analyzers_lib',
         'core/core.gyp:refinery_core_lib',
-        'minidump/minidump.gyp:minidump_lib',
         'process_state/process_state.gyp:process_state_lib',
         'types/types.gyp:types_lib',
         'validators/validators.gyp:validators_lib',
         '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',
       ],
     },
   ]

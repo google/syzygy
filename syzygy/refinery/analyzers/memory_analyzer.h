@@ -27,7 +27,7 @@ class MemoryAnalyzer : public Analyzer {
   MemoryAnalyzer() {}
   const char* name() const override { return kMemoryAnalyzerName; }
 
-  AnalysisResult Analyze(const Minidump& minidump,
+  AnalysisResult Analyze(const minidump::Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:

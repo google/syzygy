@@ -12,27 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/analyzers/unloaded_module_analyzer.h"
+#include "syzygy/minidump/unittest_util.h"
 
-#include <dbghelp.h>
+#include "syzygy/core/unittest_util.h"
 
-#include "base/memory/scoped_ptr.h"
-#include "syzygy/refinery/process_state/refinery.pb.h"
+namespace testing {
 
-namespace refinery {
-
-// static
-const char UnloadedModuleAnalyzer::kUnloadedModuleAnalyzerName[] =
-    "UnloadedModuleAnalyzer";
-
-Analyzer::AnalysisResult UnloadedModuleAnalyzer::Analyze(
-    const minidump::Minidump& minidump,
-    ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
-
-  // TODO(manzagop): implement!
-
-  return ANALYSIS_COMPLETE;
+const base::FilePath TestMinidumps::GetNotepad32Dump() {
+  return GetSrcRelativePath(
+      L"syzygy\\minidump\\test_data\\notepad-small-32bit.dmp");
 }
 
-}  // namespace refinery
+const base::FilePath TestMinidumps::GetNotepad64Dump() {
+  return GetSrcRelativePath(
+      L"syzygy\\minidump\\test_data\\notepad-small-64bit.dmp");
+}
+
+}  // namespace testing

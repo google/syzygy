@@ -25,19 +25,8 @@
 #include "base/numerics/safe_math.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
-#include "syzygy/core/unittest_util.h"
 
 namespace testing {
-
-const base::FilePath TestMinidumps::GetNotepad32Dump() {
-  return GetSrcRelativePath(
-      L"syzygy\\refinery\\test_data\\notepad-small-32bit.dmp");
-}
-
-const base::FilePath TestMinidumps::GetNotepad64Dump() {
-  return GetSrcRelativePath(
-      L"syzygy\\refinery\\test_data\\notepad-small-64bit.dmp");
-}
 
 namespace {
 

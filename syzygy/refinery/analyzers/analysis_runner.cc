@@ -30,8 +30,9 @@ void AnalysisRunner::AddAnalyzer(scoped_ptr<Analyzer> analyzer) {
   analyzers_.push_back(analyzer.release());
 }
 
-Analyzer::AnalysisResult AnalysisRunner::Analyze(const Minidump& minidump,
-                                                 ProcessState* process_state) {
+Analyzer::AnalysisResult AnalysisRunner::Analyze(
+    const minidump::Minidump& minidump,
+    ProcessState* process_state) {
   for (Analyzer* analyzer : analyzers_) {
     Analyzer::AnalysisResult result =
         analyzer->Analyze(minidump, process_state);

@@ -27,18 +27,19 @@ namespace refinery {
 const char MemoryAnalyzer::kMemoryAnalyzerName[] = "MemoryAnalyzer";
 
 Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
-    const Minidump& minidump, ProcessState* process_state) {
+    const minidump::Minidump& minidump,
+    ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 
   BytesLayerPtr bytes_layer;
   process_state->FindOrCreateLayer(&bytes_layer);
 
-  Minidump::Stream memory_list =
+  minidump::Minidump::Stream memory_list =
       minidump.FindNextStream(nullptr, MemoryListStream);
   if (!memory_list.IsValid())
     return ANALYSIS_ERROR;
   // Ensure MemoryListStream is unique.
-  Minidump::Stream offending_list =
+  minidump::Minidump::Stream offending_list =
       minidump.FindNextStream(&memory_list, MemoryListStream);
   if (offending_list.IsValid())
     return ANALYSIS_ERROR;
@@ -54,7 +55,8 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
 
     Address range_addr = descriptor.StartOfMemoryRange;
     Size range_size = descriptor.Memory.DataSize;
-    Minidump::Stream bytes_stream = minidump.GetStreamFor(descriptor.Memory);
+    minidump::Minidump::Stream bytes_stream =
+        minidump.GetStreamFor(descriptor.Memory);
 
     std::string bytes;
     if (!bytes_stream.ReadBytes(range_size, &bytes))

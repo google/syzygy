@@ -29,14 +29,6 @@
 
 namespace testing {
 
-class TestMinidumps {
- public:
-  // @returns the path to a 32 bit notepad dump file.
-  static const base::FilePath GetNotepad32Dump();
-  // @returns the path to a 64 bit notepad dump file.
-  static const base::FilePath GetNotepad64Dump();
-};
-
 // A MinidumpSpecification is used to describe and generate synthetic minidumps.
 // If the specification is serialized, the generated minidump is erased as the
 // specification is deleted.

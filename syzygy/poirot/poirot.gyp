@@ -42,7 +42,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
-        '<(src)/syzygy/refinery/minidump/minidump.gyp:minidump_lib',
+        '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],
     },

@@ -65,7 +65,7 @@ StackFrameAnalyzer::StackFrameAnalyzer(
 }
 
 Analyzer::AnalysisResult StackFrameAnalyzer::Analyze(
-    const Minidump& minidump,
+    const minidump::Minidump& minidump,
     ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/minidump/minidump.h"
+#include "syzygy/minidump/minidump.h"
 
 #include <stdint.h>
 #include <string>
@@ -21,9 +21,10 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
-#include "syzygy/refinery/unittest_util.h"
+#include "syzygy/core/unittest_util.h"
+#include "syzygy/minidump/unittest_util.h"
 
-namespace refinery {
+namespace minidump {
 
 class MinidumpTest : public testing::Test {
  public:
@@ -185,8 +186,7 @@ TEST_F(MinidumpTest, ReadThreadInfo) {
     MINIDUMP_THREAD thread = {};
     ASSERT_TRUE(thread_list.ReadElement(&thread));
 
-    Minidump::Stream thread_memory =
-        minidump.GetStreamFor(thread.Stack.Memory);
+    Minidump::Stream thread_memory = minidump.GetStreamFor(thread.Stack.Memory);
     EXPECT_TRUE(thread_memory.IsValid());
 
     Minidump::Stream thread_context =
@@ -238,4 +238,4 @@ TEST_F(MinidumpTest, ReadString) {
   ASSERT_EQ(kSomeString, recovered);
 }
 
-}  // namespace refinery
+}  // namespace minidump

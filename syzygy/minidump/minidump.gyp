@@ -25,5 +25,33 @@
         'minidump.h',
       ],
     },
+    {
+      'target_name': 'minidump_unittest_utils',
+      'type': 'static_library',
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+      'dependencies': [
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+    },
+    {
+      'target_name': 'minidump_unittests',
+      'type': 'executable',
+      'sources': [
+        'minidump_unittest.cc',
+        '<(src)/syzygy/testing/run_all_unittests.cc',
+      ],
+      'dependencies': [
+        'minidump_lib',
+        'minidump_unittest_utils',
+        '<(src)/base/base.gyp:base',
+        '<(src)/base/base.gyp:test_support_base',
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+    },
   ],
 }

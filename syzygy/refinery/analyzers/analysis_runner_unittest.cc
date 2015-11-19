@@ -16,8 +16,8 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analyzer.h"
-#include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 
 namespace refinery {
@@ -34,7 +34,7 @@ class MockAnalyzer : public Analyzer {
   const char* name() const { return kMockAnalyzerName; }
 
   MOCK_METHOD2(Analyze,
-               AnalysisResult(const Minidump& minidump,
+               AnalysisResult(const minidump::Minidump& minidump,
                               ProcessState* process_state));
 };
 
@@ -51,7 +51,7 @@ MockAnalyzer* CreateMockAnalyzer(ProcessState* process_state,
 }  // namespace
 
 TEST(AnalysisRunnerTest, BasicSuccessTest) {
-  Minidump minidump;
+  minidump::Minidump minidump;
   ProcessState process_state;
 
   // A runner with 2 analyzers that should run and succeed.
@@ -68,7 +68,7 @@ TEST(AnalysisRunnerTest, BasicSuccessTest) {
 }
 
 TEST(AnalysisRunnerTest, BasicErrorTest) {
-  Minidump minidump;
+  minidump::Minidump minidump;
   ProcessState process_state;
 
   // A runner with 1 analyzer that should run and return an error.

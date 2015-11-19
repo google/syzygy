@@ -29,16 +29,17 @@ namespace refinery {
 // static
 const char ModuleAnalyzer::kModuleAnalyzerName[] = "ModuleAnalyzer";
 
-Analyzer::AnalysisResult ModuleAnalyzer::Analyze(const Minidump& minidump,
-                                                 ProcessState* process_state) {
+Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
+    const minidump::Minidump& minidump,
+    ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 
   // Retrieve the unique module list stream.
-  Minidump::Stream module_list =
+  minidump::Minidump::Stream module_list =
       minidump.FindNextStream(nullptr, ModuleListStream);
   if (!module_list.IsValid())
     return ANALYSIS_ERROR;
-  Minidump::Stream offending_list =
+  minidump::Minidump::Stream offending_list =
       minidump.FindNextStream(&module_list, ModuleListStream);
   if (offending_list.IsValid())
     return ANALYSIS_ERROR;
@@ -61,7 +62,8 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(const Minidump& minidump,
     name_location.DataSize =
         static_cast<ULONG32>(-1);  // Note: actual size is in the stream.
     name_location.Rva = module.ModuleNameRva;
-    Minidump::Stream name_stream = minidump.GetStreamFor(name_location);
+    minidump::Minidump::Stream name_stream =
+        minidump.GetStreamFor(name_location);
     DCHECK(name_stream.IsValid());
     std::wstring module_name_wide;
     if (!name_stream.ReadString(&module_name_wide))

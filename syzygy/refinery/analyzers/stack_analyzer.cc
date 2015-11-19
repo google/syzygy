@@ -54,8 +54,9 @@ StackAnalyzer::StackAnalyzer(scoped_refptr<DiaSymbolProvider> symbol_provider)
   DCHECK(symbol_provider.get() != nullptr);
 }
 
-Analyzer::AnalysisResult StackAnalyzer::Analyze(const Minidump& minidump,
-                                                ProcessState* process_state) {
+Analyzer::AnalysisResult StackAnalyzer::Analyze(
+    const minidump::Minidump& minidump,
+    ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 
   // Create stack walker and helper.

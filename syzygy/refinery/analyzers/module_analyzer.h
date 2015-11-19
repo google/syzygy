@@ -27,7 +27,7 @@ class ModuleAnalyzer : public Analyzer {
   ModuleAnalyzer() {}
   const char* name() const override { return kModuleAnalyzerName; }
 
-  AnalysisResult Analyze(const Minidump& minidump,
+  AnalysisResult Analyze(const minidump::Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:

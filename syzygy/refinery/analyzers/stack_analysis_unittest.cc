@@ -37,6 +37,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/common/unittest_util.h"
+#include "syzygy/minidump/minidump.h"
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
@@ -46,7 +47,6 @@
 #include "syzygy/refinery/analyzers/stack_analyzer.h"
 #include "syzygy/refinery/analyzers/stack_frame_analyzer.h"
 #include "syzygy/refinery/analyzers/thread_analyzer.h"
-#include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -127,7 +127,7 @@ bool GetNtSymbolPathValue(std::string* nt_symbol_path) {
 
 bool AnalyzeMinidump(const base::FilePath& minidump_path,
                      ProcessState* process_state) {
-  Minidump minidump;
+  minidump::Minidump minidump;
   if (!minidump.Open(minidump_path))
     return false;
 

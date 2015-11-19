@@ -19,7 +19,7 @@
 #include "base/logging.h"
 #include "syzygy/crashdata/json.h"
 #include "syzygy/kasko/api/client.h"
-#include "syzygy/refinery/minidump/minidump.h"
+#include "syzygy/minidump/minidump.h"
 
 namespace poirot {
 
@@ -30,7 +30,7 @@ MinidumpProcessor::MinidumpProcessor(const base::FilePath& input_minidump)
 bool MinidumpProcessor::ProcessDump() {
   DCHECK(!input_minidump_.empty());
   DCHECK(!processed_);
-  refinery::Minidump minidump;
+  minidump::Minidump minidump;
 
   if (!minidump.Open(input_minidump_)) {
     LOG(ERROR) << "Unable to open the minidump.";
@@ -38,7 +38,7 @@ bool MinidumpProcessor::ProcessDump() {
   }
 
   // Get the Kasko stream from the minidump.
-  refinery::Minidump::Stream stream =
+  minidump::Minidump::Stream stream =
       minidump.FindNextStream(nullptr, kasko::api::kProtobufStreamType);
   if (!stream.IsValid()) {
     LOG(ERROR) << "Unable to read the Kasko stream.";

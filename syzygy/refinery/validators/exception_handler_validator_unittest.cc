@@ -18,10 +18,11 @@
 
 #include "base/logging.h"
 #include "gtest/gtest.h"
+#include "syzygy/minidump/minidump.h"
+#include "syzygy/minidump/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/thread_analyzer.h"
-#include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -30,7 +31,7 @@ namespace refinery {
 
 namespace {
 
-bool RunAnalysis(const Minidump& dump, ProcessState* process_state) {
+bool RunAnalysis(const minidump::Minidump& dump, ProcessState* process_state) {
   MemoryAnalyzer memory_analyzer;
   if (memory_analyzer.Analyze(dump, process_state) !=
       Analyzer::ANALYSIS_COMPLETE) {
@@ -65,7 +66,7 @@ TEST(ExceptionHandlerValidatorTest, AnalyzeMinidump) {
   // Process the minidump for memory and thread data.
   ProcessState process_state;
 
-  Minidump minidump;
+  minidump::Minidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
   ASSERT_TRUE(RunAnalysis(minidump, &process_state));
 
@@ -125,7 +126,7 @@ class ExceptionHandlerValidatorSyntheticTest
   }
 
   void Analyze() {
-    Minidump minidump;
+    minidump::Minidump minidump;
     ASSERT_TRUE(minidump.Open(dump_file()));
     ASSERT_TRUE(RunAnalysis(minidump, &process_state_));
   }

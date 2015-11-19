@@ -11,11 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
+
 // A utility class for reading minidumps.
 
-#ifndef SYZYGY_REFINERY_MINIDUMP_MINIDUMP_H_
-#define SYZYGY_REFINERY_MINIDUMP_MINIDUMP_H_
+#ifndef SYZYGY_MINIDUMP_MINIDUMP_H_
+#define SYZYGY_MINIDUMP_MINIDUMP_H_
 
 #include <windows.h>  // NOLINT
 #include <dbghelp.h>
@@ -27,7 +27,7 @@
 #include "base/files/file_path.h"
 #include "base/files/scoped_file.h"
 
-namespace refinery {
+namespace minidump {
 
 // fwd.
 class Minidump;
@@ -116,6 +116,6 @@ bool Minidump::Stream::ReadElement(DataType* element) {
   return ReadBytes(sizeof(DataType), element);
 }
 
-}  // namespace refinery
+}  // namespace minidump
 
-#endif  // SYZYGY_REFINERY_MINIDUMP_MINIDUMP_H_
+#endif  // SYZYGY_MINIDUMP_MINIDUMP_H_

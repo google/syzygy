@@ -28,7 +28,7 @@ class ExceptionAnalyzer : public Analyzer {
   ExceptionAnalyzer() {}
   const char* name() const override { return kExceptionAnalyzerName; }
 
-  AnalysisResult Analyze(const Minidump& minidump,
+  AnalysisResult Analyze(const minidump::Minidump& minidump,
                          ProcessState* process_state) override;
 
  private:

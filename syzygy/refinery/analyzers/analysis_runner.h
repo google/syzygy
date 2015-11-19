@@ -19,8 +19,8 @@
 
 #include "base/macros.h"
 #include "base/memory/scoped_ptr.h"
+#include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analyzer.h"
-#include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 
 namespace refinery {
@@ -45,7 +45,7 @@ class AnalysisRunner {
   // @returns an analysis result. ANALYSIS_COMPLETE is returned if all analyzers
   //   return it. Otherwise, ANALYSIS_ERROR is returned in which case @p
   //   process_state may be inconsistent.
-  Analyzer::AnalysisResult Analyze(const Minidump& minidump,
+  Analyzer::AnalysisResult Analyze(const minidump::Minidump& minidump,
                                    ProcessState* process_state);
 
  private:

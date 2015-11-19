@@ -20,8 +20,9 @@
 
 #include "base/files/scoped_temp_dir.h"
 #include "gtest/gtest.h"
+#include "syzygy/minidump/minidump.h"
+#include "syzygy/minidump/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
-#include "syzygy/refinery/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -29,7 +30,7 @@
 namespace refinery {
 
 TEST(ModuleAnalyzerTest, AnalyzeMinidump) {
-  Minidump minidump;
+  minidump::Minidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   ProcessState process_state;
@@ -53,7 +54,7 @@ TEST_F(ModuleAnalyzerSyntheticTest, BasicTest) {
   ASSERT_NO_FATAL_FAILURE(Serialize());
 
   // Analyze it for modules.
-  Minidump minidump;
+  minidump::Minidump minidump;
   ASSERT_TRUE(minidump.Open(dump_file()));
   ProcessState process_state;
   ModuleAnalyzer analyzer;

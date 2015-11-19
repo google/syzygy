@@ -26,14 +26,15 @@ namespace refinery {
 const char ThreadAnalyzer::kThreadAnalyzerName[] = "ThreadAnalyzer";
 
 Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
-    const Minidump& minidump, ProcessState* process_state) {
+    const minidump::Minidump& minidump,
+    ProcessState* process_state) {
   DCHECK(process_state != nullptr);
 
   scoped_refptr<ProcessState::Layer<Stack>> stack_layer;
   process_state->FindOrCreateLayer(&stack_layer);
 
-  Minidump::Stream thread_list =
-    minidump.FindNextStream(nullptr, ThreadListStream);
+  minidump::Minidump::Stream thread_list =
+      minidump.FindNextStream(nullptr, ThreadListStream);
   if (!thread_list.IsValid())
     return ANALYSIS_ERROR;
 
@@ -67,12 +68,12 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     thread_info->set_teb_address(thread.Teb);
 
     // TODO(siggi): Add to bytes layer?
-    Minidump::Stream thread_memory =
+    minidump::Minidump::Stream thread_memory =
         minidump.GetStreamFor(thread.Stack.Memory);
     if (!thread_memory.IsValid())
       return ANALYSIS_ERROR;
 
-    Minidump::Stream thread_context =
+    minidump::Minidump::Stream thread_context =
         minidump.GetStreamFor(thread.ThreadContext);
     if (!thread_context.IsValid())
       return ANALYSIS_ERROR;
