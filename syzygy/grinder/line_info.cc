@@ -22,7 +22,7 @@
 #include "base/win/scoped_bstr.h"
 #include "base/win/scoped_comptr.h"
 #include "syzygy/common/com_utils.h"
-#include "syzygy/core/address_space.h"
+#include "syzygy/core/address_range.h"
 
 namespace grinder {
 

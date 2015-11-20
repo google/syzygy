@@ -26,7 +26,7 @@
 #include <vector>
 
 #include "syzygy/block_graph/transforms/iterative_transform.h"
-#include "syzygy/core/address_space.h"
+#include "syzygy/core/address_range.h"
 #include "syzygy/instrument/transforms/add_indexed_frequency_data_transform.h"
 #include "syzygy/instrument/transforms/entry_thunk_transform.h"
 

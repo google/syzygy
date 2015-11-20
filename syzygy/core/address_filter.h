@@ -18,7 +18,7 @@
 #ifndef SYZYGY_CORE_ADDRESS_FILTER_H_
 #define SYZYGY_CORE_ADDRESS_FILTER_H_
 
-#include "syzygy/core/address_space.h"
+#include "syzygy/core/address_range.h"
 
 namespace core {
 
