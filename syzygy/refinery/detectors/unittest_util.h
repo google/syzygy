@@ -16,6 +16,7 @@
 #define SYZYGY_REFINERY_DETECTORS_UNITTEST_UTIL_H_
 
 #include "gtest/gtest.h"
+#include "syzygy/common/unittest_util.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/testing/self_bit_source.h"
 #include "syzygy/refinery/types/type_repository.h"
@@ -33,6 +34,7 @@ class LFHDetectorTest : public testing::Test {
   refinery::Address AllocateLFHBucket(size_t block_size);
 
  private:
+  testing::ScopedSymbolPath scoped_symbol_path_;
   HANDLE heap_;
   testing::SelfBitSource bit_source_;
   scoped_refptr<refinery::TypeRepository> repo_;

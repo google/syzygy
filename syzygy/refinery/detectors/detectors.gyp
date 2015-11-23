@@ -32,6 +32,7 @@
       'target_name': 'detectors_unittest_utils',
       'type': 'static_library',
       'dependencies': [
+        '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/syzygy/refinery/types/types.gyp:types_lib',
       ],

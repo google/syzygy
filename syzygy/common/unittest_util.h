@@ -163,6 +163,22 @@ class ScopedEnvironmentVariable {
   DISALLOW_COPY_AND_ASSIGN(ScopedEnvironmentVariable);
 };
 
+// Helper class for setting up a symbol path that points to the output
+// directory.
+class ScopedSymbolPath {
+ public:
+  ScopedSymbolPath() {}
+  ~ScopedSymbolPath() {}
+
+  // Constructs the symbol path and sets the kNtSymbolPathEnvVar variable.
+  bool Setup();
+
+ private:
+  ScopedEnvironmentVariable nt_symbol_path_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedSymbolPath);
+};
+
 }  // namespace testing
 
 #endif  // SYZYGY_COMMON_UNITTEST_UTIL_H_

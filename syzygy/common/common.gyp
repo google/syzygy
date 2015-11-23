@@ -65,6 +65,7 @@
       'dependencies': [
         '<(src)/base/base.gyp:base',
         '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/syzygy/core/core.gyp:core_unittest_utils',
       ],
     },
     {

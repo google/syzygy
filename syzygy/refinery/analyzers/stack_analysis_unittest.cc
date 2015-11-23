@@ -27,9 +27,6 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/strings/string_piece.h"
-#include "base/strings/stringprintf.h"
-#include "base/strings/utf_string_conversions.h"
 #include "base/test/multiprocess_test.h"
 #include "base/test/test_timeouts.h"
 #include "base/threading/platform_thread.h"
@@ -57,14 +54,6 @@ namespace refinery {
 
 namespace {
 
-// Symbol path.
-const wchar_t kLocalSymbolDir[] = L"symbols";
-const char kNtSymbolPathPrefix[] = "SRV*";
-const char kNtSymbolPathSuffixMicrosoft[] =
-    "*http://msdl.microsoft.com/download/symbols";
-const char kNtSymbolPathSuffixGoogle[] =
-    "*https://chromium-browser-symsrv.commondatastorage.googleapis.com";
-
 // Minidump.
 const wchar_t kMinidumpFileName[] = L"minidump.dmp";
 const char kSwitchExceptionPtrs[] = "exception-ptrs";
@@ -82,47 +71,6 @@ struct SimpleUDT {
 
 __declspec(noinline) DWORD GetEip() {
   return reinterpret_cast<DWORD>(_ReturnAddress());
-}
-
-bool GetPathValueNarrow(const base::FilePath& path, std::string* value) {
-  const std::wstring value_wide = path.value();
-  return base::WideToUTF8(value_wide.c_str(), value_wide.length(), value);
-}
-
-bool GetNtSymbolPathValue(std::string* nt_symbol_path) {
-  DCHECK(nt_symbol_path);
-
-  base::FilePath output_path =
-      testing::GetOutputRelativePath(L"").NormalizePathSeparators();
-
-  // Build the local symbol directory path and ensure it exists.
-  base::FilePath local_symbol_path = output_path.Append(kLocalSymbolDir);
-  if (!base::CreateDirectory(local_symbol_path))
-    return false;
-
-  // Build the full symbol path.
-  std::string output_path_str;
-  if (!GetPathValueNarrow(output_path, &output_path_str))
-    return false;
-
-  std::string local_symbol_path_microsoft;
-  if (!GetPathValueNarrow(local_symbol_path.Append(L"microsoft"),
-                          &local_symbol_path_microsoft)) {
-    return false;
-  }
-  std::string local_symbol_path_google;
-  if (!GetPathValueNarrow(local_symbol_path.Append(L"google"),
-                          &local_symbol_path_google)) {
-    return false;
-  }
-
-  base::SStringPrintf(
-      nt_symbol_path, "%s;%s%s%s;%s%s%s", output_path_str.c_str(),
-      kNtSymbolPathPrefix, local_symbol_path_google.c_str(),
-      kNtSymbolPathSuffixGoogle, kNtSymbolPathPrefix,
-      local_symbol_path_microsoft.c_str(), kNtSymbolPathSuffixMicrosoft);
-
-  return true;
 }
 
 bool AnalyzeMinidump(const base::FilePath& minidump_path,
@@ -242,10 +190,7 @@ class StackAndFrameAnalyzersTest : public testing::Test {
  protected:
   void SetUp() override {
     // Override NT symbol path.
-    std::string nt_symbol_path;
-    ASSERT_TRUE(GetNtSymbolPathValue(&nt_symbol_path));
-    ASSERT_TRUE(
-        scoped_env_variable_.Set(testing::kNtSymbolPathEnvVar, nt_symbol_path));
+    ASSERT_TRUE(scoped_symbol_path_.Setup());
 
     // Determine minidump path.
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
@@ -364,7 +309,7 @@ class StackAndFrameAnalyzersTest : public testing::Test {
   Address expected_udt_address_;
   Address expected_udt_ptr_address_;
 
-  testing::ScopedEnvironmentVariable scoped_env_variable_;
+  testing::ScopedSymbolPath scoped_symbol_path_;
 };
 
 // This test fails under coverage instrumentation which is probably not friendly

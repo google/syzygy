@@ -78,6 +78,8 @@ LFHDetectorTest::LFHDetectorTest() : heap_(nullptr) {
 }
 
 void LFHDetectorTest::SetUp() {
+  ASSERT_TRUE(scoped_symbol_path_.Setup());
+
   repo_ = new refinery::TypeRepository;
   heap_ = ::HeapCreate(0, 0, 0);
 
