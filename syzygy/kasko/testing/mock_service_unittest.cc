@@ -54,10 +54,10 @@ TEST(MockServiceTest, ParameterMapping) {
   ASSERT_EQ(kThreadId, call_log[0].thread_id);
   ASSERT_EQ(MinidumpRequest::SMALL_DUMP_TYPE, call_log[0].minidump_type);
   ASSERT_EQ(1u, call_log[0].user_selected_memory_ranges.size());
-  ASSERT_EQ(memory_range.base_address,
-            call_log[0].user_selected_memory_ranges[0].base_address);
-  ASSERT_EQ(memory_range.length,
-            call_log[0].user_selected_memory_ranges[0].length);
+  ASSERT_EQ(memory_range.start(),
+            call_log[0].user_selected_memory_ranges[0].start());
+  ASSERT_EQ(memory_range.size(),
+            call_log[0].user_selected_memory_ranges[0].size());
   ASSERT_EQ(1u, call_log[0].crash_keys.size());
   auto crash_keys_entry = call_log[0].crash_keys.find(L"foo");
   ASSERT_NE(call_log[0].crash_keys.end(), crash_keys_entry);

@@ -86,12 +86,12 @@ BOOL MinidumpCallbackHandler::MemoryCallback(ULONG64* memory_base,
        ++next_memory_range_index_) {
     // A zero-length range will terminate memory callbacks. If there is one in
     // our input vector, skip it.
-    if ((*memory_ranges_)[next_memory_range_index_].length == 0)
+    if ((*memory_ranges_)[next_memory_range_index_].size() == 0)
       continue;
 
     // Include the specified memory region.
-    *memory_base = (*memory_ranges_)[next_memory_range_index_].base_address;
-    *memory_size = (*memory_ranges_)[next_memory_range_index_].length;
+    *memory_base = (*memory_ranges_)[next_memory_range_index_].start();
+    *memory_size = (*memory_ranges_)[next_memory_range_index_].size();
     ++next_memory_range_index_;
     return TRUE;
   }

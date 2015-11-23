@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "base/strings/string16.h"
+#include "syzygy/core/address_range.h"
 
 namespace kasko {
 
@@ -47,10 +48,7 @@ struct MinidumpRequest {
 
   // Represents a user-selected memory range to be included in the generated
   // minidump.
-  struct MemoryRange {
-    uint32_t base_address;
-    uint32_t length;
-  };
+  using MemoryRange = core::AddressRange<uint32_t, uint32_t>;
 
   // Represents a single crash key and its value.
   using CrashKey = std::pair<const base::char16*, const base::char16*>;

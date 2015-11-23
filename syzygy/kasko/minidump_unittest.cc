@@ -119,8 +119,8 @@ class MinidumpTest : public ::testing::Test {
 
     MinidumpRequest adjusted_request = request_;
     for (auto& range : request_.user_selected_memory_ranges) {
-      range.base_address +=
-          child_image_base - reinterpret_cast<uint32_t>(&__ImageBase);
+      range = range.Offset(child_image_base -
+                           reinterpret_cast<uint32_t>(&__ImageBase));
     }
     *result = kasko::GenerateMinidump(dump_file_path,
                                       base::GetProcId(child_process.Handle()),

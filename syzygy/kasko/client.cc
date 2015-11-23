@@ -67,8 +67,8 @@ void Client::SendReport(const MinidumpRequest& request) const {
 
   std::vector<MemoryRange> rpc_memory_ranges;
   for (auto& client_memory_range : request.user_selected_memory_ranges) {
-    MemoryRange rpc_memory_range = {client_memory_range.base_address,
-                                    client_memory_range.length};
+    MemoryRange rpc_memory_range = {client_memory_range.start(),
+                                    client_memory_range.size()};
     rpc_memory_ranges.push_back(rpc_memory_range);
   }
 

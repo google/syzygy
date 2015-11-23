@@ -105,10 +105,10 @@ TEST(ClientTest, BasicTest) {
   ASSERT_NE(call_log[1].custom_streams.end(), custom_streams_entry);
   ASSERT_EQ(protobuf, custom_streams_entry->second);
   ASSERT_EQ(1u, call_log[1].user_selected_memory_ranges.size());
-  ASSERT_EQ(memory_range.base_address,
-            call_log[1].user_selected_memory_ranges[0].base_address);
-  ASSERT_EQ(memory_range.length,
-            call_log[1].user_selected_memory_ranges[0].length);
+  ASSERT_EQ(memory_range.start(),
+            call_log[1].user_selected_memory_ranges[0].start());
+  ASSERT_EQ(memory_range.size(),
+            call_log[1].user_selected_memory_ranges[0].size());
   ASSERT_EQ(MinidumpRequest::LARGER_DUMP_TYPE, call_log[1].minidump_type);
 
   ASSERT_EQ(::GetCurrentProcessId(), call_log[2].client_process_id);

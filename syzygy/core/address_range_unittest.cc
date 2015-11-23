@@ -124,4 +124,11 @@ TEST(AddressRangeTest, AddressRangeSerialization) {
   EXPECT_TRUE(testing::TestSerialization(range));
 }
 
+TEST(AddressRangeTest, Offset) {
+  EXPECT_EQ(IntegerRange(100, 20).Offset(40).start(), 140);
+
+  AddressRange<uint32_t*, size_t> pointer_range(nullptr, 20);
+  EXPECT_EQ(pointer_range.Offset(40).start(), pointer_range.start() + 40);
+}
+
 }  // namespace core

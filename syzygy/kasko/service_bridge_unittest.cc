@@ -225,9 +225,9 @@ TEST(KaskoServiceBridgeTest, InvokeService) {
 
   ASSERT_EQ(1u, call_log[0].user_selected_memory_ranges.size());
   ASSERT_EQ(memory_ranges[0].base_address,
-            call_log[0].user_selected_memory_ranges[0].base_address);
+            call_log[0].user_selected_memory_ranges[0].start());
   ASSERT_EQ(memory_ranges[0].length,
-            call_log[0].user_selected_memory_ranges[0].length);
+            call_log[0].user_selected_memory_ranges[0].size());
 
   ASSERT_EQ(1u, call_log[0].custom_streams.size());
   auto custom_streams_entry = call_log[0].custom_streams.find(kStreamType);

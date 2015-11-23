@@ -97,6 +97,11 @@ class AddressRange {
   }
   // @}
 
+  // @returns A new AdressRange offsetted by @p offset.
+  AddressRange Offset(SizeType offset) {
+    return AddressRange(start_ + offset, size_);
+  }
+
   AddressType start() const { return start_; }
   AddressType end() const { return start_ + size_; }
   SizeType size() const { return size_; }
