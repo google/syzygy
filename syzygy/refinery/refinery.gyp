@@ -66,6 +66,7 @@
         'analyzers/unloaded_module_analyzer_unittest.cc',
         'core/address_unittest.cc',
         'core/addressed_data_unittest.cc',
+        'detectors/lfh_entry_detector_unittest.cc',
         'process_state/process_state_unittest.cc',
         'process_state/process_state_util_unittest.cc',
         'symbols/simple_cache_unittest.cc',
@@ -83,6 +84,8 @@
       'dependencies': [
         'analyzers/analyzers.gyp:analyzers_lib',
         'core/core.gyp:refinery_core_lib',
+        'detectors/detectors.gyp:detectors_lib',
+        'detectors/detectors.gyp:detectors_unittest_utils',
         'process_state/process_state.gyp:process_state_lib',
         'symbols/symbols.gyp:symbols_lib',
         'refinery_unittest_utils',
