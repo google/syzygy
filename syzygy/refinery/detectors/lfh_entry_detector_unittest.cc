@@ -39,6 +39,10 @@ TEST_F(LFHEntryDetectorTest, Detect) {
   const size_t kBlockSize = 17;
   // Allocate blocks until we get an LFH bucket.
   Address bucket = AllocateLFHBucket(kBlockSize);
+  if (bucket == 0) {
+    LOG(ERROR) << "Couldn't find an LFH bucket - is AppVerifier enabled?";
+    return;
+  }
 
   // Form a range covering the LFH bucket start and perform detection on it.
   AddressRange range(bucket - 256, 1024);
@@ -49,13 +53,19 @@ TEST_F(LFHEntryDetectorTest, Detect) {
 
   bool suitable_size_found = false;
   for (const auto& found_run : found_runs) {
+    ASSERT_NE(0U, found_run.entries_found);
+    ASSERT_LE(found_run.entry_distance_bytes * (found_run.entries_found - 1),
+              found_run.last_entry - found_run.first_entry);
+    ASSERT_LT(1, found_run.size_votes);
+    ASSERT_GT(found_run.entries_found, found_run.size_votes);
+
     const size_t kEntrySize = 8;
     if (found_run.entry_distance_bytes > kBlockSize + kEntrySize)
       suitable_size_found = true;
 
     AddressRange found_span(found_run.first_entry,
                             found_run.last_entry - found_run.first_entry);
-
+    ASSERT_TRUE(found_span.IsValid());
     // All found spans should be contained within the range we constrain the
     // search to.
     ASSERT_TRUE(range.Spans(found_span));
