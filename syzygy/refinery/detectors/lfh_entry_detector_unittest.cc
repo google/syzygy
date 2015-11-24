@@ -56,7 +56,7 @@ TEST_F(LFHEntryDetectorTest, Detect) {
     ASSERT_NE(0U, found_run.entries_found);
     ASSERT_LE(found_run.entry_distance_bytes * (found_run.entries_found - 1),
               found_run.last_entry - found_run.first_entry);
-    ASSERT_LT(1, found_run.size_votes);
+    ASSERT_NE(0U, found_run.size_votes);
     ASSERT_GT(found_run.entries_found, found_run.size_votes);
 
     const size_t kEntrySize = 8;
