@@ -156,6 +156,19 @@ struct MinidumpSpecification::ModuleSpecification {
   std::string name;
 };
 
+// Allows grabbing a minidump of our own process.
+class ScopedMinidump {
+ public:
+  bool GenerateMinidump();
+
+  base::FilePath temp_dir() { return temp_dir_.path(); }
+  base::FilePath minidump_path() { return minidump_path_; }
+
+ private:
+  base::ScopedTempDir temp_dir_;
+  base::FilePath minidump_path_;
+};
+
 }  // namespace testing
 
 #endif  // SYZYGY_REFINERY_UNITTEST_UTIL_H_
