@@ -17,6 +17,7 @@
 #include <Windows.h>  // NOLINT
 #include <Dbgeng.h>
 #include <DbgHelp.h>
+#include <Psapi.h>
 
 #include <cstring>
 #include <vector>
@@ -36,9 +37,11 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/test/multiprocess_test.h"
 #include "gtest/gtest.h"
+#include "syzygy/kasko/loader_lock.h"
 #include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/testing/minidump_unittest_helpers.h"
 #include "syzygy/kasko/testing/safe_pipe_reader.h"
+#include "syzygy/minidump/minidump.h"
 #include "testing/multiprocess_func_list.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx
@@ -260,6 +263,104 @@ TEST_F(MinidumpTest, NonexistantTargetDirectory) {
   ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(
       temp_dir.path().Append(L"Foobar").Append(L"HelloWorld"), &result));
   ASSERT_FALSE(result);
+}
+
+// Tests that the ranges for loader lock and the loader lock debug info is
+// included in the minidump.
+TEST_F(MinidumpTest, LoaderLock) {
+  // Generate a minidump for the current process.
+  base::FilePath default_dump_file_path = temp_dir().Append(L"default.dump");
+  bool result = false;
+  ASSERT_NO_FATAL_FAILURE(
+      CallGenerateMinidump(default_dump_file_path, &result));
+  ASSERT_TRUE(result);
+
+  minidump::Minidump minidump;
+  ASSERT_TRUE(minidump.Open(default_dump_file_path));
+
+  minidump::Minidump::Stream stream =
+      minidump.FindNextStream(nullptr, MemoryListStream);
+  ASSERT_TRUE(stream.IsValid());
+
+  bool loader_lock_found = false;
+  bool debug_info_found = false;
+  core::AddressRange<uint32_t, uint32_t> loader_lock_range(
+      reinterpret_cast<uint32_t>(GetLoaderLock()), sizeof(CRITICAL_SECTION));
+  core::AddressRange<uint32_t, uint32_t> debug_info_range(
+      reinterpret_cast<uint32_t>(GetLoaderLock()->DebugInfo),
+      sizeof(CRITICAL_SECTION_DEBUG));
+
+  ULONG32 num_memory_descriptors = 0;
+  stream.ReadElement(&num_memory_descriptors);
+  for (size_t i = 0;
+       i < num_memory_descriptors && !(loader_lock_found && debug_info_found);
+       ++i) {
+    MINIDUMP_MEMORY_DESCRIPTOR memory_descriptor = {};
+    stream.ReadElement(&memory_descriptor);
+    core::AddressRange<uint32_t, uint32_t> descriptor_range(
+        memory_descriptor.StartOfMemoryRange,
+        memory_descriptor.Memory.DataSize);
+
+    // It is possible that adjacent ranges have been merged in the minidump so
+    // comparing start address and size might not work.
+    if (!loader_lock_found && descriptor_range.Contains(loader_lock_range))
+      loader_lock_found = true;
+    if (!debug_info_found && descriptor_range.Contains(debug_info_range))
+      debug_info_found = true;
+  }
+
+  ASSERT_TRUE(loader_lock_found && debug_info_found);
+}
+
+// When generating the minidump, it is assumed that ntdll is always loaded at
+// the same address in all processes on the system. This test is to make sure
+// the assertion never changes in the future.
+TEST_F(MinidumpTest, NtdllLoadAddress) {
+  // Generate a minidump for the current process.
+  base::FilePath dump_file_path = temp_dir().Append(L"default.dump");
+  bool result = false;
+  ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path, &result));
+  ASSERT_TRUE(result);
+
+  minidump::Minidump minidump;
+  ASSERT_TRUE(minidump.Open(dump_file_path));
+
+  // Retrieve the unique module list stream.
+  minidump::Minidump::Stream module_list =
+      minidump.FindNextStream(nullptr, ModuleListStream);
+  ASSERT_TRUE(module_list.IsValid());
+
+  ULONG32 num_modules = 0;
+  ASSERT_TRUE(module_list.ReadElement(&num_modules));
+
+  bool ntdll_found = false;
+  for (size_t i = 0; i < num_modules; ++i) {
+    MINIDUMP_MODULE module = {};
+    ASSERT_TRUE(module_list.ReadElement(&module));
+
+    // Get the module name. The length of the name is included in the stream.
+    MINIDUMP_LOCATION_DESCRIPTOR name_location = {static_cast<ULONG32>(-1),
+                                                  module.ModuleNameRva};
+    minidump::Minidump::Stream name_stream =
+        minidump.GetStreamFor(name_location);
+    ASSERT_TRUE(name_stream.IsValid());
+
+    std::wstring module_name;
+    ASSERT_TRUE(name_stream.ReadString(&module_name));
+
+    if (module_name.find(L"ntdll.dll") != -1) {
+      MODULEINFO ntdll_module_info = {};
+      ASSERT_TRUE(::GetModuleInformation(
+          ::GetCurrentProcess(), ::GetModuleHandle(L"ntdll.dll"),
+          &ntdll_module_info, sizeof(MODULEINFO)));
+      ASSERT_EQ(reinterpret_cast<uintptr_t>(ntdll_module_info.lpBaseOfDll),
+                module.BaseOfImage);
+      ntdll_found = true;
+      break;
+    }
+  }
+  // Don't succeed if the address hasn't been checked.
+  ASSERT_TRUE(ntdll_found);
 }
 
 }  // namespace kasko

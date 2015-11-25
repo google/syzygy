@@ -16,12 +16,17 @@
 
 #include <Windows.h>  // NOLINT
 #include <DbgHelp.h>
+#include <Psapi.h>
+#include <winternl.h>
 
 #include "base/files/file.h"
 #include "base/process/process_handle.h"
+#include "base/win/pe_image.h"
 #include "base/win/scoped_handle.h"
 
 #include "syzygy/common/com_utils.h"
+#include "syzygy/core/address_range.h"
+#include "syzygy/kasko/loader_lock.h"
 #include "syzygy/kasko/minidump_request.h"
 
 namespace kasko {
@@ -130,6 +135,63 @@ BOOL CALLBACK MinidumpCallbackHandler::CallbackRoutine(
   return FALSE;
 }
 
+// Checks that the range lives in a readable section of the module.
+bool VerifyRangeInModule(HMODULE module,
+                         const kasko::MinidumpRequest::MemoryRange& range) {
+  base::win::PEImage module_image(module);
+  IMAGE_SECTION_HEADER* section = module_image.GetImageSectionFromAddr(
+      reinterpret_cast<void*>(range.start()));
+
+  // If no section was returned, then the range doesn't reside in the module.
+  if (!section)
+    return false;
+
+  // Make sure the range is in a readable section.
+  if ((section->Characteristics & IMAGE_SCN_MEM_READ) != IMAGE_SCN_MEM_READ)
+    return false;
+
+  kasko::MinidumpRequest::MemoryRange section_range(
+      reinterpret_cast<uint32_t>(
+          module_image.RVAToAddr(section->VirtualAddress)),
+      section->SizeOfRawData);
+  return section_range.Contains(range);
+}
+
+void AppendLoaderLockMemoryRanges(
+    std::vector<kasko::MinidumpRequest::MemoryRange>* memory_ranges) {
+  DCHECK(memory_ranges);
+
+  CRITICAL_SECTION* loader_lock = GetLoaderLock();
+
+  // Add the range for the loader lock. This works because ntdll is loaded at
+  // the same address in all processes.
+  kasko::MinidumpRequest::MemoryRange loader_lock_memory_range(
+      reinterpret_cast<uint32_t>(loader_lock), sizeof(CRITICAL_SECTION));
+  memory_ranges->push_back(loader_lock_memory_range);
+
+  // Add range for loader lock debuginfo. Dereferencing the loader lock is
+  // required so a basic check is performed first. The loader lock should always
+  // be living in ntdll globals and in a readable section.
+  HMODULE ntdll_module = ::GetModuleHandle(L"ntdll.dll");
+  if (VerifyRangeInModule(ntdll_module, loader_lock_memory_range)) {
+    kasko::MinidumpRequest::MemoryRange debug_info_memory_range(
+        reinterpret_cast<uint32_t>(loader_lock->DebugInfo),
+        sizeof(CRITICAL_SECTION_DEBUG));
+    memory_ranges->push_back(debug_info_memory_range);
+    DCHECK(VerifyRangeInModule(ntdll_module, debug_info_memory_range));
+  }
+}
+
+std::vector<kasko::MinidumpRequest::MemoryRange> AugmentMemoryRanges(
+    const std::vector<kasko::MinidumpRequest::MemoryRange>* memory_ranges) {
+  std::vector<kasko::MinidumpRequest::MemoryRange> augmented_memory_ranges(
+      *memory_ranges);
+
+  AppendLoaderLockMemoryRanges(&augmented_memory_ranges);
+
+  return augmented_memory_ranges;
+}
+
 }  // namespace
 
 bool GenerateMinidump(const base::FilePath& destination,
@@ -190,8 +252,11 @@ bool GenerateMinidump(const base::FilePath& destination,
   MINIDUMP_USER_STREAM_INFORMATION
   user_stream_information = {user_streams.size(), user_streams.data()};
 
-  MinidumpCallbackHandler callback_handler(
-      &request.user_selected_memory_ranges);
+  // Add loader lock to the memory_ranges.
+  std::vector<kasko::MinidumpRequest::MemoryRange> augmented_memory_ranges =
+      AugmentMemoryRanges(&request.user_selected_memory_ranges);
+
+  MinidumpCallbackHandler callback_handler(&augmented_memory_ranges);
 
   if (::MiniDumpWriteDump(
           target_process_handle.Get(), target_process_id,
