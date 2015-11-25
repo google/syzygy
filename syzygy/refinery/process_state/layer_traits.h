@@ -12,19 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/symbols/symbol_provider_util.h"
+#ifndef SYZYGY_REFINERY_PROCESS_STATE_LAYER_TRAITS_H_
+#define SYZYGY_REFINERY_PROCESS_STATE_LAYER_TRAITS_H_
 
-#include <string>
-
-#include "gtest/gtest.h"
-#include "syzygy/refinery/core/address.h"
-#include "syzygy/refinery/process_state/process_state.h"
-#include "syzygy/refinery/process_state/process_state_util.h"
+#include "syzygy/refinery/process_state/layer_data.h"
+#include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {
 
-TEST(GetPdbPath, BasicTest) {
-  // TODO(manzagop): implement a basic test.
-}
+template <typename T>
+class LayerTraits {
+ public:
+  typedef NoData DataType;
+};
+
+template<>
+class LayerTraits<Module> {
+ public:
+  typedef ModuleLayerData DataType;
+};
 
 }  // namespace refinery
+
+#endif  // SYZYGY_REFINERY_PROCESS_STATE_LAYER_TRAITS_H_

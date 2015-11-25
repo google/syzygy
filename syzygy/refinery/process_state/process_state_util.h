@@ -39,11 +39,33 @@ using TypedBlockRecordPtr = ProcessState::Layer<TypedBlock>::RecordPtr;
 using ModuleLayerPtr = scoped_refptr<ProcessState::Layer<Module>>;
 using ModuleRecordPtr = ProcessState::Layer<Module>::RecordPtr;
 
-void AddModuleRecord(const AddressRange& range,
-                     const uint32 checksum,
-                     const uint32 timestamp,
-                     const std::string& path,
-                     ProcessState* process_state);
+// A class for interacting with a ProcessState's module layer.
+class ModuleLayerAccessor {
+ public:
+  explicit ModuleLayerAccessor(ProcessState* process_state);
+
+  // Adds a module instance record to the process state. Also updates the module
+  // layer's data if the instance if for a new module.
+  // @param range the module instance's memory range.
+  // @param checksum the module's checksum.
+  // @param timestamp the module's timestamp.
+  // @param path the module's path.
+  void AddModuleRecord(const AddressRange& range,
+                       const uint32 checksum,
+                       const uint32 timestamp,
+                       const std::wstring& path);
+
+  // Retrieves the signature of the module instance containing @p va.
+  // @note On sucess, the signature's base address is set to the module
+  //     instance's actual load address.
+  // @param va virtual address for which to get a module signature.
+  // @param signature on success, the module signature.
+  // @returns true on success, false on failure.
+  bool GetModuleSignature(const Address va, pe::PEFile::Signature* signature);
+
+ private:
+  ProcessState* process_state_;  // Not owned, must outlive this class.
+};
 
 bool AddTypedBlockRecord(const AddressRange& range,
                          base::StringPiece16 data_name,

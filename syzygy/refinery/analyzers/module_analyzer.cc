@@ -48,6 +48,8 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
   if (!module_list.ReadElement(&num_modules))
     return ANALYSIS_ERROR;
 
+  ModuleLayerAccessor layer_accessor(process_state);
+
   for (size_t i = 0; i < num_modules; ++i) {
     MINIDUMP_MODULE module = {};
     if (!module_list.ReadElement(&module))
@@ -65,19 +67,15 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
     minidump::Minidump::Stream name_stream =
         minidump.GetStreamFor(name_location);
     DCHECK(name_stream.IsValid());
-    std::wstring module_name_wide;
-    if (!name_stream.ReadString(&module_name_wide))
-      return ANALYSIS_ERROR;
-    std::string module_name;
-    if (!base::WideToUTF8(module_name_wide.c_str(), module_name_wide.length(),
-                          &module_name))
+    std::wstring module_name;
+    if (!name_stream.ReadString(&module_name))
       return ANALYSIS_ERROR;
 
     // TODO(manzagop): get version / debug info by also reading VersionInfo,
     // CvRecord and MiscRecord.
 
-    AddModuleRecord(range, module.CheckSum, module.TimeDateStamp, module_name,
-                    process_state);
+    layer_accessor.AddModuleRecord(range, module.CheckSum, module.TimeDateStamp,
+                                   module_name);
   }
 
   return ANALYSIS_COMPLETE;

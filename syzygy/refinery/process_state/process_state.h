@@ -24,6 +24,7 @@
 #include "base/memory/ref_counted.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/core/bit_source.h"
+#include "syzygy/refinery/process_state/layer_traits.h"
 #include "syzygy/refinery/process_state/record_traits.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
@@ -193,7 +194,11 @@ class ProcessState::Layer : public ProcessState::LayerBase {
 
   size_t size() const { return records_.size(); }
 
+  typename const LayerTraits<RecordType>::DataType& data() { return data_; }
+  typename LayerTraits<RecordType>::DataType* mutable_data() { return &data_; }
+
  private:
+  typename LayerTraits<RecordType>::DataType data_;
   std::multimap<Address, RecordPtr> records_;
 };
 

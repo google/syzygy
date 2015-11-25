@@ -20,6 +20,7 @@
 #include "syzygy/common/com_utils.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
+#include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/symbols/symbol_provider_util.h"
 
 namespace refinery {
@@ -39,8 +40,9 @@ bool DiaSymbolProvider::FindOrCreateDiaSession(
   *session = nullptr;
 
   // Get the module's signature.
+  ModuleLayerAccessor accessor(process_state);
   pe::PEFile::Signature signature;
-  if (!GetModuleSignature(va, process_state, &signature))
+  if (!accessor.GetModuleSignature(va, &signature))
     return false;
 
   // Retrieve the session.

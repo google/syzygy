@@ -26,20 +26,21 @@ namespace refinery {
 
 namespace {
 
-const Address kAddress = 0xCAFECAFE;
+const Address kAddress = 0x0000CAFE;  // Fits 32-bit.
 const Size kSize = 42U;
 const uint32 kChecksum = 11U;
 const uint32 kTimestamp = 22U;
-const char kPath[] = "c:\\path\\ModuleName";
+const wchar_t kPath[] = L"c:\\path\\ModuleName";
 const char kDataName[] = "data_name";
 const char kTypeName[] = "Type::Name*";
 
 }  // namespace
 
-TEST(AddModuleRecord, BasicTest) {
+TEST(ModuleLayerAccessorTest, AddModuleRecord) {
   ProcessState state;
-  AddModuleRecord(AddressRange(kAddress, kSize), kChecksum, kTimestamp, kPath,
-                  &state);
+  ModuleLayerAccessor accessor(&state);
+  accessor.AddModuleRecord(AddressRange(kAddress, kSize), kChecksum, kTimestamp,
+                           kPath);
 
   // Validate a record was added.
   ModuleLayerPtr module_layer;
@@ -48,15 +49,50 @@ TEST(AddModuleRecord, BasicTest) {
   module_layer->GetRecordsAt(kAddress, &matching_records);
   ASSERT_EQ(1, matching_records.size());
 
-  // Validate range.
+  // Validate the record.
   ModuleRecordPtr record = matching_records[0];
   ASSERT_EQ(AddressRange(kAddress, kSize), record->range());
+  const Module& module = matching_records[0]->data();
+  ASSERT_NE(kNoModuleId, module.module_id());
 
-  // Validate module proto.
-  Module* proto = record->mutable_data();
-  ASSERT_EQ(kChecksum, proto->checksum());
-  ASSERT_EQ(kTimestamp, proto->timestamp());
-  ASSERT_EQ(kPath, proto->name());
+  // Validate the layer data contains the module information.
+  pe::PEFile::Signature signature;
+  ASSERT_TRUE(module_layer->data().Find(module.module_id(), &signature));
+  ASSERT_EQ(kPath, signature.path);
+  ASSERT_EQ(0U, signature.base_address.value());
+  ASSERT_EQ(kSize, signature.module_size);
+  ASSERT_EQ(kChecksum, signature.module_checksum);
+  ASSERT_EQ(kTimestamp, signature.module_time_date_stamp);
+
+  ASSERT_EQ(module.module_id(), module_layer->data().Find(signature));
+}
+
+TEST(ModuleLayerAccessorTest, GetModuleSignatureTest) {
+  ProcessState state;
+  ModuleLayerAccessor accessor(&state);
+  pe::PEFile::Signature signature;
+
+  // Fails when VA doesn't correspond to a module.
+  ASSERT_FALSE(accessor.GetModuleSignature(kAddress, &signature));
+
+  // Add a module.
+  accessor.AddModuleRecord(AddressRange(kAddress, kSize), kChecksum, kTimestamp,
+                           kPath);
+
+  // Fails outside the module's range.
+  ASSERT_FALSE(accessor.GetModuleSignature(kAddress - 1, &signature));
+  ASSERT_FALSE(accessor.GetModuleSignature(kAddress + kSize, &signature));
+
+  // Succeeds within the module's range.
+  ASSERT_TRUE(accessor.GetModuleSignature(kAddress, &signature));
+  ASSERT_TRUE(accessor.GetModuleSignature(kAddress + kSize - 1, &signature));
+
+  // Validate signature on the last hit.
+  ASSERT_EQ(kAddress, signature.base_address.value());
+  ASSERT_EQ(kSize, signature.module_size);
+  ASSERT_EQ(kChecksum, signature.module_checksum);
+  ASSERT_EQ(kTimestamp, signature.module_time_date_stamp);
+  ASSERT_EQ(kPath, signature.path);
 }
 
 TEST(AddTypedBlockRecord, BasicTest) {

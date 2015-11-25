@@ -15,6 +15,8 @@
 #include "syzygy/refinery/process_state/process_state_util.h"
 
 #include "base/strings/utf_string_conversions.h"
+#include "syzygy/core/address.h"
+#include "syzygy/refinery/process_state/layer_traits.h"
 
 namespace refinery {
 
@@ -37,18 +39,56 @@ RecordType* CreateRecord(const AddressRange& range,
 
 }  // namespace
 
-void AddModuleRecord(const AddressRange& range,
-                     const uint32 checksum,
-                     const uint32 timestamp,
-                     const std::string& path,
-                     ProcessState* process_state) {
-  DCHECK(range.IsValid());
+ModuleLayerAccessor::ModuleLayerAccessor(ProcessState* process_state)
+    : process_state_(process_state) {
   DCHECK(process_state);
+}
 
-  Module* module_proto = CreateRecord<Module>(range, process_state);
-  module_proto->set_checksum(checksum);
-  module_proto->set_timestamp(timestamp);
-  module_proto->set_name(path);
+void ModuleLayerAccessor::AddModuleRecord(const AddressRange& range,
+                                          const uint32 checksum,
+                                          const uint32 timestamp,
+                                          const std::wstring& path) {
+  DCHECK(range.IsValid());
+
+  // Note: we set the preferred loading address to 0.
+  pe::PEFile::Signature signature(path, core::AbsoluteAddress(0U), range.size(),
+                                  checksum, timestamp);
+
+  ModuleLayerPtr layer;
+  process_state_->FindOrCreateLayer(&layer);
+  ModuleId id = layer->mutable_data()->FindOrIndex(signature);
+
+  Module* module_proto = CreateRecord<Module>(range, process_state_);
+  module_proto->set_module_id(id);
+}
+
+bool ModuleLayerAccessor::GetModuleSignature(const Address va,
+                                             pe::PEFile::Signature* signature) {
+  DCHECK(signature);
+
+  // Find the module record corresponding to the virtual address.
+  ModuleRecordPtr module_record;
+  if (!process_state_->FindSingleRecord(va, &module_record))
+    return false;
+
+  // Retrieve the signature.
+  ModuleLayerPtr layer;
+  process_state_->FindOrCreateLayer(&layer);
+  const Module& module = module_record->data();
+  if (!layer->mutable_data()->Find(module.module_id(), signature))
+    return false;
+
+  // Set the signature's address.
+  const AddressRange& module_range = module_record->range();
+  if (!base::IsValueInRangeForNumericType<uint32>(module_range.start())) {
+    LOG(ERROR) << "PE::Signature doesn't support 64bit addresses. Address: "
+               << module_range.start();
+    return false;
+  }
+  signature->base_address =
+      core::AbsoluteAddress(base::checked_cast<uint32>(module_range.start()));
+
+  return true;
 }
 
 bool AddTypedBlockRecord(const AddressRange& range,

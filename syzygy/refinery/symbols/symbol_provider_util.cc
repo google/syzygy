@@ -55,46 +55,6 @@ bool GetEnvVar(const char* name, base::string16* value) {
 
 }  // namespace
 
-bool GetModuleSignature(const Address va,
-                        ProcessState* process_state,
-                        pe::PEFile::Signature* signature) {
-  DCHECK(process_state); DCHECK(signature);
-
-  // Find the module record corresponding to the virtual address.
-  ModuleRecordPtr module_record;
-  if (!process_state->FindSingleRecord(va, &module_record))
-    return false;
-
-  const AddressRange& module_range = module_record->range();
-  const Module& module = module_record->data();
-
-  // Get the module's path.
-  const std::string& module_path = module.name();
-  base::string16 module_path_wide;
-  if (!base::UTF8ToUTF16(module_path.c_str(), module_path.size(),
-                         &module_path_wide)) {
-    LOG(ERROR) << "base::UTF8ToUTF16(\"" << module_path << "\" failed.";
-    return false;
-  }
-
-  // Get the module's address.
-  if (!base::IsValueInRangeForNumericType<uint32>(module_range.start())) {
-    LOG(ERROR) << "PE::Signature doesn't support 64bit addresses. Address: "
-               << module_range.start();
-    return false;
-  }
-  pe::PEFile::AbsoluteAddress module_address(
-      base::checked_cast<uint32>(module_range.start()));
-
-  signature->path = module_path_wide;
-  signature->base_address = module_address;
-  signature->module_size = module_range.size();
-  signature->module_checksum = module.checksum();
-  signature->module_time_date_stamp = module.timestamp();
-
-  return true;
-}
-
 bool GetPdbPath(const pe::PEFile::Signature& signature,
                 base::FilePath* pdb_path) {
   DCHECK(pdb_path);

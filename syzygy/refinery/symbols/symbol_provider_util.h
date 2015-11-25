@@ -25,15 +25,6 @@ namespace refinery {
 // Fwd.
 class ProcessState;
 
-// Retrieves the signature of the module corresponding to @p va.
-// @param va virtual address for which to get a module signature.
-// @param process_state the process state within which to interpret @p va.
-// @param signature on success, the module signature.
-// @returns true on success, false on failure.
-bool GetModuleSignature(const Address va,
-                        ProcessState* process_state,
-                        pe::PEFile::Signature* signature);
-
 // Retrieves a pdb path corresponding to a module signature.
 // @param signature the signature of the module for which to get a pdb path.
 // @param on success, the path to a pdb file for the module signature.

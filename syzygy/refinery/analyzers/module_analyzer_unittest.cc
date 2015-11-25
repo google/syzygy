@@ -72,9 +72,12 @@ TEST_F(ModuleAnalyzerSyntheticTest, BasicTest) {
   ASSERT_EQ(AddressRange(module_spec.addr, module_spec.size),
             matching_records[0]->range());
   const Module& module = matching_records[0]->data();
-  ASSERT_EQ(module_spec.checksum, module.checksum());
-  ASSERT_EQ(module_spec.timestamp, module.timestamp());
-  ASSERT_EQ(module_spec.name, module.name());
+  ASSERT_NE(kNoModuleId, module.module_id());
+
+  // Validate the layer data contains the module information.
+  pe::PEFile::Signature signature;
+  ASSERT_TRUE(module_layer->data().Find(module.module_id(), &signature));
+  ASSERT_NE(kNoModuleId, module_layer->data().Find(signature));
 }
 
 }  // namespace refinery

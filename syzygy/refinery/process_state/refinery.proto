@@ -112,10 +112,10 @@ message TypedBlock {
   optional string type_name = 2;
 }
 
+// An instance of a module.
 message Module {
-  optional uint32 checksum = 1;
-  optional uint32 timestamp = 2;
-  optional string name = 3;
+  // Module identifier for this instance.
+  optional uint32 module_id = 1;
 }
 
 // TODO(manzagop): flesh out ValidationReport once we have a better idea of the

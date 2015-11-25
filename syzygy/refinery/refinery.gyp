@@ -67,6 +67,7 @@
         'core/address_unittest.cc',
         'core/addressed_data_unittest.cc',
         'detectors/lfh_entry_detector_unittest.cc',
+        'process_state/layer_data_unittest.cc',
         'process_state/process_state_unittest.cc',
         'process_state/process_state_util_unittest.cc',
         'symbols/simple_cache_unittest.cc',

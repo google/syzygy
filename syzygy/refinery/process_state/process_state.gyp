@@ -63,6 +63,9 @@
       'target_name': 'process_state_lib',
       'type': 'static_library',
       'sources': [
+        'layer_data.cc',
+        'layer_data.h',
+        'layer_traits.h',
         'process_state.cc',
         'process_state.h',
         'process_state_util.cc',
@@ -77,6 +80,7 @@
         'refinery_proto',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lib',
       ],

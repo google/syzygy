@@ -17,6 +17,7 @@
 #include "base/bind.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/refinery/process_state/process_state.h"
+#include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/symbols/symbol_provider_util.h"
 #include "syzygy/refinery/types/pdb_crawler.h"
 
@@ -37,8 +38,9 @@ bool SymbolProvider::FindOrCreateTypeRepository(
   *type_repo = nullptr;
 
   // Get the module's signature.
+  ModuleLayerAccessor accessor(process_state);
   pe::PEFile::Signature signature;
-  if (!GetModuleSignature(va, process_state, &signature))
+  if (!accessor.GetModuleSignature(va, &signature))
     return false;
 
   // Retrieve the type repository.
@@ -70,8 +72,9 @@ bool SymbolProvider::FindOrCreateTypeNameIndex(
   *typename_index = nullptr;
 
   // Get the module's signature.
+  ModuleLayerAccessor accessor(process_state);
   pe::PEFile::Signature signature;
-  if (!GetModuleSignature(va, process_state, &signature))
+  if (!accessor.GetModuleSignature(va, &signature))
     return false;
 
   // Retrieve the type repository.
