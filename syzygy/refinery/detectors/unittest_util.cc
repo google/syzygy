@@ -58,47 +58,27 @@ bool GetNtdllTypes(refinery::TypeRepository* repo) {
   return true;
 }
 
-bool IsLFHBlock(uint32_t* ptr) {
-  __try {
-    // Search back a bounded distance for the LFH bin signature.
-    for (size_t i = 0; i < 32; ++i) {
-      if (*ptr-- == 0xF0E0D0C0)
-        return true;
-    }
-  } __except(EXCEPTION_EXECUTE_HANDLER) {
-    // On exception, we conclude this isn't an LFH block.
-  }
-
-  return false;
-}
-
 }  // namespace
 
-LFHDetectorTest::LFHDetectorTest() : heap_(nullptr) {
+LFHDetectorTest::LFHDetectorTest() {
 }
 
 void LFHDetectorTest::SetUp() {
   ASSERT_TRUE(scoped_symbol_path_.Setup());
 
   repo_ = new refinery::TypeRepository;
-  heap_ = ::HeapCreate(0, 0, 0);
-
+  ASSERT_TRUE(scoped_heap_.Create());
   ASSERT_TRUE(testing::GetNtdllTypes(repo_.get()));
 }
 
 void LFHDetectorTest::TearDown() {
-  if (heap_) {
-    ::HeapDestroy(heap_);
-    heap_ = nullptr;
-  }
 }
 
 refinery::Address LFHDetectorTest::AllocateLFHBucket(size_t block_size) {
   for (size_t i = 0; i < 10000; ++i) {
-    uint32_t* ptr =
-        reinterpret_cast<uint32_t*>(::HeapAlloc(heap_, 0, block_size));
+    void* ptr = scoped_heap_.Allocate(block_size);
 
-    if (IsLFHBlock(ptr))
+    if (scoped_heap_.IsLFHBlock(ptr))
       return reinterpret_cast<refinery::Address>(ptr);
   }
 

@@ -159,6 +159,8 @@ struct MinidumpSpecification::ModuleSpecification {
 // Allows grabbing a minidump of our own process.
 class ScopedMinidump {
  public:
+  ScopedMinidump() = default;
+
   bool GenerateMinidump();
 
   base::FilePath temp_dir() { return temp_dir_.path(); }
@@ -167,6 +169,27 @@ class ScopedMinidump {
  private:
   base::ScopedTempDir temp_dir_;
   base::FilePath minidump_path_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedMinidump);
+};
+
+// Wraps a Windows heap for testing purposes.
+class ScopedHeap {
+ public:
+  ScopedHeap();
+  ~ScopedHeap();
+
+  bool Create();
+
+  void* Allocate(size_t block_size);
+  bool Free(void* block);
+
+  bool IsLFHBlock(const void* ptr);
+
+ private:
+  HANDLE heap_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedHeap);
 };
 
 }  // namespace testing

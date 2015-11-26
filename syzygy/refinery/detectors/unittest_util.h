@@ -17,6 +17,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/common/unittest_util.h"
+#include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/core/address.h"
 #include "syzygy/refinery/testing/self_bit_source.h"
 #include "syzygy/refinery/types/type_repository.h"
@@ -35,7 +36,7 @@ class LFHDetectorTest : public testing::Test {
 
  private:
   testing::ScopedSymbolPath scoped_symbol_path_;
-  HANDLE heap_;
+  ScopedHeap scoped_heap_;
   testing::SelfBitSource bit_source_;
   scoped_refptr<refinery::TypeRepository> repo_;
 };

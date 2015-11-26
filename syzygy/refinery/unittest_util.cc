@@ -22,6 +22,7 @@
 
 #include "base/base_switches.h"
 #include "base/command_line.h"
+#include "base/logging.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
 #include "base/numerics/safe_math.h"
@@ -734,6 +735,52 @@ bool ScopedMinidump::GenerateMinidump() {
   }
 
   return exit_code == 0;
+}
+
+ScopedHeap::ScopedHeap() : heap_(nullptr) {
+}
+
+ScopedHeap::~ScopedHeap() {
+  if (heap_ != nullptr) {
+    EXPECT_TRUE(::HeapDestroy(heap_));
+    heap_ = nullptr;
+  }
+}
+
+bool ScopedHeap::Create() {
+  CHECK(heap_ == nullptr);
+  heap_ = ::HeapCreate(0, 0, 0);
+  return heap_ != nullptr;
+}
+
+void* ScopedHeap::Allocate(size_t block_size) {
+  CHECK(heap_ != nullptr);
+
+  return ::HeapAlloc(heap_, 0, block_size);
+}
+
+bool ScopedHeap::Free(void* block) {
+  CHECK(heap_ != nullptr);
+
+  return ::HeapFree(heap_, 0, block);
+}
+
+bool ScopedHeap::IsLFHBlock(const void* block) {
+  const uint32_t* ptr = reinterpret_cast<const uint32_t*>(block);
+  __try {
+    // Search back a bounded distance for the LFH bin signature.
+    for (size_t i = 0; i < 32; ++i) {
+      const uint32_t kLFHBinSignature = 0xF0E0D0C0;
+      if (*ptr-- == kLFHBinSignature)
+        return true;
+    }
+  } __except (EXCEPTION_EXECUTE_HANDLER) {  // NOLINT
+    // Note that git cl format yields the above, which is then contrary to
+    // our presubmit checks.
+    // On exception, we conclude this isn't an LFH block.
+  }
+
+  return false;
 }
 
 }  // namespace testing
