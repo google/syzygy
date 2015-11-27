@@ -45,7 +45,7 @@ class LoaderLockTest : public ::testing::Test {
   ~LoaderLockTest() override {}
 
  private:
-  void SetUp() override { scoped_symbol_path_.Setup(); }
+  void SetUp() override { ASSERT_TRUE(scoped_symbol_path_.Setup()); }
 
   testing::ScopedSymbolPath scoped_symbol_path_;
 
@@ -65,6 +65,7 @@ TEST_F(LoaderLockTest, SymbolOffset) {
 
   base::FilePath ntdll_pdb_path;
   ASSERT_TRUE(pe::FindPdbForModule(ntdll_path, &ntdll_pdb_path));
+  ASSERT_FALSE(ntdll_pdb_path.empty());
 
   // Open the pdb file.
   base::win::ScopedComPtr<IDiaDataSource> source;
