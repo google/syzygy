@@ -68,7 +68,7 @@ class TypePropagatorAnalyzerTest : public testing::Test {
     basic_type_ = new BasicType(L"int32_t", sizeof(int32_t));
     repo_->AddType(basic_type_);
 
-    ptr_type_ = new PointerType(basic_type_->size(), PointerType::PTR_MODE_PTR);
+    ptr_type_ = new PointerType(sizeof(int32_t*), PointerType::PTR_MODE_PTR);
     repo_->AddType(ptr_type_);
     ptr_type_->Finalize(kNoTypeFlags, basic_type_->type_id());
     CHECK(type_namer_.EnsureTypeName(ptr_type_));
