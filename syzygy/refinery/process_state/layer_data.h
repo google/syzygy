@@ -57,6 +57,11 @@ class ModuleLayerData {
   // @returns the corresponding module id.
   ModuleId FindOrIndex(const pe::PEFile::Signature& signature);
 
+  // Find and return the signature corresponding to a module @p id.
+  // @param id the module identifier.
+  // @param signature on success, contains the signature corresponding to module
+  //     @p id.
+  // @returns true on success, false otherwise.
   bool Find(ModuleId id, pe::PEFile::Signature* signature) const;
 
  private:

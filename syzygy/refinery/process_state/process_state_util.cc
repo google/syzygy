@@ -72,10 +72,8 @@ bool ModuleLayerAccessor::GetModuleSignature(const Address va,
     return false;
 
   // Retrieve the signature.
-  ModuleLayerPtr layer;
-  process_state_->FindOrCreateLayer(&layer);
   const Module& module = module_record->data();
-  if (!layer->mutable_data()->Find(module.module_id(), signature))
+  if (!GetModuleSignature(module.module_id(), signature))
     return false;
 
   // Set the signature's address.
@@ -91,9 +89,34 @@ bool ModuleLayerAccessor::GetModuleSignature(const Address va,
   return true;
 }
 
+bool ModuleLayerAccessor::GetModuleSignature(const ModuleId id,
+                                             pe::PEFile::Signature* signature) {
+  DCHECK_NE(kNoModuleId, id);
+  DCHECK(signature);
+
+  ModuleLayerPtr layer;
+  process_state_->FindOrCreateLayer(&layer);
+  return layer->data().Find(id, signature);
+}
+
+ModuleId ModuleLayerAccessor::GetModuleId(const Address va) {
+  ModuleRecordPtr module_record;
+  if (!process_state_->FindSingleRecord(va, &module_record))
+    return kNoModuleId;
+  return module_record->data().module_id();
+}
+
+ModuleId ModuleLayerAccessor::GetModuleId(
+    const pe::PEFile::Signature& signature) {
+  ModuleLayerPtr layer;
+  process_state_->FindOrCreateLayer(&layer);
+  return layer->data().Find(signature);
+}
+
 bool AddTypedBlockRecord(const AddressRange& range,
                          base::StringPiece16 data_name,
-                         base::StringPiece16 type_name,
+                         ModuleId module_id,
+                         TypeId type_id,
                          ProcessState* process_state) {
   DCHECK(range.IsValid());
   DCHECK(process_state);
@@ -105,10 +128,8 @@ bool AddTypedBlockRecord(const AddressRange& range,
     return false;
   typedblock_proto->set_data_name(data_name_narrow);
 
-  std::string type_name_narrow;
-  if (!base::UTF16ToUTF8(type_name.data(), type_name.size(), &type_name_narrow))
-    return false;
-  typedblock_proto->set_type_name(type_name_narrow);
+  typedblock_proto->set_module_id(module_id);
+  typedblock_proto->set_type_id(type_id);
 
   return true;
 }

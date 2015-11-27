@@ -54,51 +54,6 @@ __declspec(noinline) DWORD GetEip() {
   return reinterpret_cast<DWORD>(_ReturnAddress());
 }
 
-bool AnalyzeMinidump(const base::FilePath& minidump_path,
-                     ProcessState* process_state) {
-  minidump::Minidump minidump;
-  if (!minidump.Open(minidump_path))
-    return false;
-
-  scoped_refptr<DiaSymbolProvider> dia_symbol_provider(new DiaSymbolProvider());
-  scoped_refptr<SymbolProvider> symbol_provider(new SymbolProvider());
-
-  AnalysisRunner runner;
-  scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::ThreadAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::ExceptionAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::ModuleAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(new refinery::StackAnalyzer(dia_symbol_provider));
-  runner.AddAnalyzer(analyzer.Pass());
-  analyzer.reset(
-      new refinery::StackFrameAnalyzer(dia_symbol_provider, symbol_provider));
-  runner.AddAnalyzer(analyzer.Pass());
-
-  return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
-}
-
-void ValidateTypedBlock(ProcessState* process_state,
-                        Address expected_address,
-                        Size expected_size,
-                        const std::string& expected_variable_name,
-                        const std::string& expected_type_name) {
-  TypedBlockRecordPtr typedblock_record;
-  // Note: using FindSingleRecord as there should be no typed block overlap in
-  // the context of this test.
-  ASSERT_TRUE(
-      process_state->FindSingleRecord(expected_address, &typedblock_record));
-
-  ASSERT_EQ(expected_address, typedblock_record->range().addr());
-  ASSERT_EQ(expected_size, typedblock_record->range().size());
-  const TypedBlock& typedblock = typedblock_record->data();
-  ASSERT_EQ(expected_variable_name, typedblock.data_name());
-  ASSERT_EQ(expected_type_name, typedblock.type_name());
-}
-
 }  // namespace
 
 class StackAndFrameAnalyzersTest : public testing::Test {
@@ -106,6 +61,8 @@ class StackAndFrameAnalyzersTest : public testing::Test {
   void SetUp() override {
     // Override NT symbol path.
     ASSERT_TRUE(scoped_symbol_path_.Setup());
+
+    symbol_provider_ = new SymbolProvider();
 
     expected_esp_ = 0U;
     eip_lowerbound_ = 0U;
@@ -155,8 +112,71 @@ class StackAndFrameAnalyzersTest : public testing::Test {
     return success;
   }
 
+  bool AnalyzeMinidump(ProcessState* process_state) {
+    minidump::Minidump minidump;
+    if (!minidump.Open(minidump_path()))
+      return false;
+
+    scoped_refptr<DiaSymbolProvider> dia_symbol_provider(
+        new DiaSymbolProvider());
+
+    AnalysisRunner runner;
+    scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
+    runner.AddAnalyzer(analyzer.Pass());
+    analyzer.reset(new refinery::ThreadAnalyzer());
+    runner.AddAnalyzer(analyzer.Pass());
+    analyzer.reset(new refinery::ExceptionAnalyzer());
+    runner.AddAnalyzer(analyzer.Pass());
+    analyzer.reset(new refinery::ModuleAnalyzer());
+    runner.AddAnalyzer(analyzer.Pass());
+    analyzer.reset(new refinery::StackAnalyzer(dia_symbol_provider));
+    runner.AddAnalyzer(analyzer.Pass());
+    analyzer.reset(new refinery::StackFrameAnalyzer(dia_symbol_provider,
+                                                    symbol_provider_));
+    runner.AddAnalyzer(analyzer.Pass());
+
+    return runner.Analyze(minidump, process_state) ==
+           Analyzer::ANALYSIS_COMPLETE;
+  }
+
+  void ValidateTypedBlock(ProcessState* process_state,
+                          Address expected_address,
+                          Size expected_size,
+                          ModuleId expected_module_id,
+                          const std::string& expected_variable_name,
+                          const base::string16& expected_type_name) {
+    TypedBlockRecordPtr typedblock_record;
+    // Note: using FindSingleRecord as there should be no typed block overlap in
+    // the context of this test.
+    ASSERT_TRUE(
+        process_state->FindSingleRecord(expected_address, &typedblock_record));
+
+    ASSERT_EQ(expected_address, typedblock_record->range().addr());
+    ASSERT_EQ(expected_size, typedblock_record->range().size());
+
+    const TypedBlock& typedblock = typedblock_record->data();
+    ASSERT_EQ(expected_module_id, typedblock.module_id());
+
+    // Validate the recovered type id corresponds to the expected name.
+    ModuleLayerAccessor accessor(process_state);
+    pe::PEFile::Signature signature;
+    ASSERT_TRUE(accessor.GetModuleSignature(expected_module_id, &signature));
+
+    scoped_refptr<TypeRepository> type_repository;
+    ASSERT_TRUE(symbol_provider_->FindOrCreateTypeRepository(signature,
+                                                             &type_repository));
+
+    TypePtr recovered_type = type_repository->GetType(typedblock.type_id());
+    ASSERT_NE(nullptr, recovered_type);
+    ASSERT_EQ(expected_type_name, recovered_type->name());
+
+    ASSERT_EQ(expected_variable_name, typedblock.data_name());
+  }
+
  private:
   testing::ScopedMinidump scoped_minidump_;
+
+  scoped_refptr<SymbolProvider> symbol_provider_;
 
   // For stack frame validation.
   uint32 expected_esp_;
@@ -197,7 +217,7 @@ TEST_F(StackAndFrameAnalyzersTest, BasicTest) {
   ASSERT_TRUE(SetupStackFrameAndGenerateMinidump(dummy_argument));
 
   ProcessState process_state;
-  ASSERT_TRUE(AnalyzeMinidump(minidump_path(), &process_state));
+  ASSERT_TRUE(AnalyzeMinidump(&process_state));
 
   // Ensure the test's thread was successfully walked.
   StackRecordPtr stack;
@@ -233,17 +253,23 @@ TEST_F(StackAndFrameAnalyzersTest, BasicTest) {
   // the frame base, to account for ebp.
 
   // Validate typed block layer for SetupStackFrameAndGenerateMinidump.
+  ModuleLayerAccessor accessor(&process_state);
+  ModuleId expected_module_id = accessor.GetModuleId(recovered_eip);
+  ASSERT_NE(kNoModuleId, expected_module_id);
+
   // - Validate some locals.
-  ASSERT_NO_FATAL_FAILURE(ValidateTypedBlock(
-      &process_state, expected_udt_address(), sizeof(SimpleUDT), "udt_local",
-      "refinery::`anonymous-namespace'::SimpleUDT"));
+  ASSERT_NO_FATAL_FAILURE(
+      ValidateTypedBlock(&process_state, expected_udt_address(),
+                         sizeof(SimpleUDT), expected_module_id, "udt_local",
+                         L"refinery::`anonymous-namespace'::SimpleUDT"));
   ASSERT_NO_FATAL_FAILURE(ValidateTypedBlock(
       &process_state, expected_udt_ptr_address(), sizeof(SimpleUDT*),
-      "udt_ptr_local", "refinery::`anonymous-namespace'::SimpleUDT*"));
+      expected_module_id, "udt_ptr_local",
+      L"refinery::`anonymous-namespace'::SimpleUDT*"));
   // - Validate a parameter.
   ASSERT_NO_FATAL_FAILURE(
       ValidateTypedBlock(&process_state, expected_param_address(), sizeof(int),
-                         "dummy_param", "int32_t"));
+                         expected_module_id, "dummy_param", L"int32_t"));
 }
 
 }  // namespace refinery

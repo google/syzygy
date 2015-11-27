@@ -19,8 +19,10 @@
 
 #include "base/strings/string_piece.h"
 #include "syzygy/refinery/core/address.h"
+#include "syzygy/refinery/process_state/layer_data.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
+#include "syzygy/refinery/types/type.h"
 
 namespace refinery {
 
@@ -45,7 +47,10 @@ class ModuleLayerAccessor {
   explicit ModuleLayerAccessor(ProcessState* process_state);
 
   // Adds a module instance record to the process state. Also updates the module
-  // layer's data if the instance if for a new module.
+  // layer's data if the instance is for a new module.
+  // @note If the module is added to the layer's data, it is with a signature
+  // that has a load address of 0, as we fold multiple module instances to a
+  // single module identifier (and signature).
   // @param range the module instance's memory range.
   // @param checksum the module's checksum.
   // @param timestamp the module's timestamp.
@@ -56,20 +61,43 @@ class ModuleLayerAccessor {
                        const std::wstring& path);
 
   // Retrieves the signature of the module instance containing @p va.
-  // @note On sucess, the signature's base address is set to the module
+  // @note On success, the signature's base address is set to the module
   //     instance's actual load address.
   // @param va virtual address for which to get a module signature.
   // @param signature on success, the module signature.
   // @returns true on success, false on failure.
   bool GetModuleSignature(const Address va, pe::PEFile::Signature* signature);
 
+  // Retrieves the signature of module @p id.
+  // @note On success, the returned signature's base address is 0.
+  // @param id module identifier for which to get a module signature.
+  // @param signature on success, the module signature.
+  // @returns true on success, false on failure.
+  bool GetModuleSignature(const ModuleId id, pe::PEFile::Signature* signature);
+
+  // Retrieves the module identifier corresponding to @p va.
+  // @param virtual address for which to get a module identifier.
+  // @returns the module identifier, or kNoModuleId if @p va does not correspond
+  //     to a module.
+  ModuleId GetModuleId(const Address va);
+
+  // Retrieves the module identifier corresponding to @p signature.
+  // @param signature for which to get a module identifier.
+  // @returns the module identifier, or kNoModuleId if @p signature does not
+  //     correspond to a module known to the process state.
+  ModuleId GetModuleId(const pe::PEFile::Signature& signature);
+
  private:
   ProcessState* process_state_;  // Not owned, must outlive this class.
 };
 
+// Adds a typed block record to @p process_state.
+// TODO(manzagop): avoid adding typed block duplicates. Longer term we may
+// introduce more complex handling (eg notions of certainty).
 bool AddTypedBlockRecord(const AddressRange& range,
                          base::StringPiece16 data_name,
-                         base::StringPiece16 type_name,
+                         ModuleId module_id,
+                         TypeId type_id,
                          ProcessState* process_state);
 
 }  // namespace refinery

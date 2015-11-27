@@ -16,6 +16,7 @@
 
 #include "base/memory/ref_counted.h"
 #include "gtest/gtest.h"
+#include "syzygy/pe/pe_file.h"
 #include "syzygy/refinery/types/type.h"
 
 namespace refinery {
@@ -82,6 +83,18 @@ TEST(TypeRepositoryTest, AddTypeWithId) {
 
   EXPECT_EQ(t1, repo->GetType(kId1));
   EXPECT_EQ(t2, repo->GetType(kId2));
+}
+
+TEST(TypeRepositoryTest, GetSignature) {
+  pe::PEFile::Signature retrieved_sig;
+
+  scoped_refptr<TypeRepository> repo = new TypeRepository();
+  ASSERT_FALSE(repo->GetModuleSignature(&retrieved_sig));
+
+  pe::PEFile::Signature sig(L"Path", core::AbsoluteAddress(1U), 2, 3, 4);
+  repo = new TypeRepository(sig);
+  ASSERT_TRUE(repo->GetModuleSignature(&retrieved_sig));
+  ASSERT_EQ(sig, retrieved_sig);
 }
 
 TEST(TypeRepositoryTest, Iteration) {

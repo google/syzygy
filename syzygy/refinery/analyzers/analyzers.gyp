@@ -52,6 +52,8 @@
         'stack_analyzer_impl.h',
         'thread_analyzer.cc',
         'thread_analyzer.h',
+        'type_propagator_analyzer.cc',
+        'type_propagator_analyzer.h',
         'unloaded_module_analyzer.cc',
         'unloaded_module_analyzer.h',
       ],

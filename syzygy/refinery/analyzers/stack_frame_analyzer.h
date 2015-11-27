@@ -31,9 +31,8 @@ namespace refinery {
 // about the contents of stack frames.
 class StackFrameAnalyzer : public Analyzer {
  public:
-  explicit StackFrameAnalyzer(
-      scoped_refptr<DiaSymbolProvider> dia_symbol_provider,
-      scoped_refptr<SymbolProvider> symbol_provider);
+  StackFrameAnalyzer(scoped_refptr<DiaSymbolProvider> dia_symbol_provider,
+                     scoped_refptr<SymbolProvider> symbol_provider);
 
   const char* name() const override { return kStackFrameAnalyzerName; }
 

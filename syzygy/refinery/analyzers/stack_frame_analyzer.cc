@@ -22,6 +22,7 @@
 #include "syzygy/common/com_utils.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/refinery/analyzers/stack_frame_analyzer_impl.h"
+#include "syzygy/refinery/process_state/layer_data.h"
 #include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
@@ -101,6 +102,12 @@ bool StackFrameAnalyzer::AnalyzeFrame(StackFrameRecordPtr frame_record,
     LOG(INFO) << "Unable to get symbol information for frame. Skipping.";
     return true;  // Not an error.
   }
+  ModuleLayerAccessor accessor(process_state);
+  ModuleId module_id = accessor.GetModuleId(instruction_pointer);
+  if (module_id == kNoModuleId) {
+    LOG(INFO) << "No module corresponding to instruction pointer.";
+    return false;
+  }
 
   // Get the innermost scope, be it a block or the function itself.
   // TODO(manzagop): Identical code folding means there may be more than one
@@ -110,7 +117,7 @@ bool StackFrameAnalyzer::AnalyzeFrame(StackFrameRecordPtr frame_record,
     return false;
 
   // Walk up the scopes, processing scope's data.
-  StackFrameDataAnalyzer data_analyzer(frame_record, typename_index_,
+  StackFrameDataAnalyzer data_analyzer(frame_record, typename_index_, module_id,
                                        process_state);
   while (true) {
     // Process each SymTagData child in the block / function.

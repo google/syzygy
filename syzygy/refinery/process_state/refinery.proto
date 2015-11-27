@@ -108,8 +108,10 @@ message HeapSnippet {
 }
 
 message TypedBlock {
-  optional string data_name = 1;
-  optional string type_name = 2;
+  // A module identifier within the module layer.
+  optional uint32 module_id = 1;
+  optional uint32 type_id = 2;
+  optional string data_name = 3;
 }
 
 // An instance of a module.

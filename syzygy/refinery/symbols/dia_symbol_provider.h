@@ -33,6 +33,9 @@ class ProcessState;
 // The DiaSymbolProvider provides symbol information via the DIA interfaces.
 // @note It is *not* safe to interleave access to a session in the context of
 //     different process states, as the session's load address may be different.
+// TODO(manzagop): replace the functions that take in a process state by
+// functions that take in a signature. Symbol providers should not need to know
+// about the process state.
 class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
  public:
   DiaSymbolProvider();

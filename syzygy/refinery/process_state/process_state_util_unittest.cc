@@ -19,8 +19,10 @@
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/refinery/core/address.h"
+#include "syzygy/refinery/process_state/layer_data.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
+#include "syzygy/refinery/types/type.h"
 
 namespace refinery {
 
@@ -32,7 +34,8 @@ const uint32 kChecksum = 11U;
 const uint32 kTimestamp = 22U;
 const wchar_t kPath[] = L"c:\\path\\ModuleName";
 const char kDataName[] = "data_name";
-const char kTypeName[] = "Type::Name*";
+const ModuleId kModuleId = 100;
+const TypeId kTypeId = 42;
 
 }  // namespace
 
@@ -67,7 +70,7 @@ TEST(ModuleLayerAccessorTest, AddModuleRecord) {
   ASSERT_EQ(module.module_id(), module_layer->data().Find(signature));
 }
 
-TEST(ModuleLayerAccessorTest, GetModuleSignatureTest) {
+TEST(ModuleLayerAccessorTest, GetModuleSignatureVATest) {
   ProcessState state;
   ModuleLayerAccessor accessor(&state);
   pe::PEFile::Signature signature;
@@ -95,11 +98,58 @@ TEST(ModuleLayerAccessorTest, GetModuleSignatureTest) {
   ASSERT_EQ(kPath, signature.path);
 }
 
+TEST(ModuleLayerAccessorTest, GetModuleSignatureIdTest) {
+  ProcessState state;
+  ModuleLayerAccessor accessor(&state);
+
+  // Add a module and get its id.
+  accessor.AddModuleRecord(AddressRange(kAddress, kSize), kChecksum, kTimestamp,
+                           kPath);
+  ModuleId module_id = accessor.GetModuleId(kAddress);
+
+  // Validate.
+  pe::PEFile::Signature signature;
+  ASSERT_TRUE(accessor.GetModuleSignature(module_id, &signature));
+
+  ASSERT_EQ(0U, signature.base_address.value());
+  ASSERT_EQ(kSize, signature.module_size);
+  ASSERT_EQ(kChecksum, signature.module_checksum);
+  ASSERT_EQ(kTimestamp, signature.module_time_date_stamp);
+  ASSERT_EQ(kPath, signature.path);
+}
+
+TEST(ModuleLayerAccessorTest, GetModuleIdTest) {
+  ProcessState state;
+  ModuleLayerAccessor accessor(&state);
+
+  // Not hitting a module case.
+  ASSERT_EQ(kNoModuleId, accessor.GetModuleId(kAddress));
+
+  // Hitting a module case.
+  accessor.AddModuleRecord(AddressRange(kAddress, kSize), kChecksum, kTimestamp,
+                           kPath);
+  ModuleId module_id = accessor.GetModuleId(kAddress);
+  ASSERT_NE(kNoModuleId, module_id);
+
+  // Consistency check: the signature associated to module_id must be equal to
+  // that associated with va, up to the base address being 0.
+  pe::PEFile::Signature sig_from_va;
+  ASSERT_TRUE(accessor.GetModuleSignature(kAddress, &sig_from_va));
+  sig_from_va.base_address = core::AbsoluteAddress(0U);
+
+  pe::PEFile::Signature sig_from_id;
+  ModuleLayerPtr layer;
+  state.FindOrCreateLayer(&layer);
+  ASSERT_TRUE(layer->data().Find(module_id, &sig_from_id));
+
+  ASSERT_EQ(sig_from_va, sig_from_id);
+}
+
 TEST(AddTypedBlockRecord, BasicTest) {
   ProcessState state;
   AddTypedBlockRecord(AddressRange(kAddress, kSize),
-                      base::ASCIIToUTF16(kDataName),
-                      base::ASCIIToUTF16(kTypeName), &state);
+                      base::ASCIIToUTF16(kDataName), kModuleId, kTypeId,
+                      &state);
 
   // Validate a record was added.
   TypedBlockLayerPtr layer;
@@ -115,7 +165,8 @@ TEST(AddTypedBlockRecord, BasicTest) {
   // Validate TypedBlock proto.
   TypedBlock* proto = record->mutable_data();
   ASSERT_EQ(kDataName, proto->data_name());
-  ASSERT_EQ(kTypeName, proto->type_name());
+  ASSERT_EQ(kTypeId, proto->type_id());
+  ASSERT_EQ(kModuleId, proto->module_id());
 }
 
 }  // namespace refinery

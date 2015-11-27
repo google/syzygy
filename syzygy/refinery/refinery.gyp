@@ -63,6 +63,7 @@
         'analyzers/memory_analyzer_unittest.cc',
         'analyzers/module_analyzer_unittest.cc',
         'analyzers/thread_analyzer_unittest.cc',
+        'analyzers/type_propagator_analyzer_unittest.cc',
         'analyzers/unloaded_module_analyzer_unittest.cc',
         'core/address_unittest.cc',
         'core/addressed_data_unittest.cc',

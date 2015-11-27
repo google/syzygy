@@ -82,6 +82,7 @@
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
+        '<(src)/syzygy/refinery/types/types.gyp:types_lib',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lib',
       ],
       'export_dependent_settings': [

@@ -32,10 +32,13 @@ class ProcessState;
 
 // The SymbolProvider provides symbol information. See DiaSymbolProvider for an
 // alternative.
+// TODO(manzagop): get rid of the functions that take in a process state. The
+// symbol provider shouldn't offer that service.
 class SymbolProvider : public base::RefCounted<SymbolProvider> {
  public:
   SymbolProvider();
-  ~SymbolProvider();
+  // @note virtual to enable mocking.
+  virtual ~SymbolProvider();
 
   // Retrieves or creates a TypeRepository for the module within @p
   // process_state corresponding to @p va.
@@ -51,13 +54,15 @@ class SymbolProvider : public base::RefCounted<SymbolProvider> {
 
   // Retrieves or creates a TypeRepository for the module  corresponding to @p
   // signature.
+  // @note virtual to enable mocking.
   // @param signature the signature of the module for which to get a type
   //     repository.
   // @param type_repo on success, returns a type repository for the module. On
   //     failure, contains nullptr.
   // @returns true on success, false on failure.
-  bool FindOrCreateTypeRepository(const pe::PEFile::Signature& signature,
-                                  scoped_refptr<TypeRepository>* type_repo);
+  virtual bool FindOrCreateTypeRepository(
+      const pe::PEFile::Signature& signature,
+      scoped_refptr<TypeRepository>* type_repo);
 
   // Retrieves or creates a TypeNameIndex for the module within @p
   // process_state corresponding to @p va.

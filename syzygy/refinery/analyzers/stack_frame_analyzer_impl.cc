@@ -105,9 +105,11 @@ bool GetDataType(TypeNameIndex* typename_index,
 StackFrameDataAnalyzer::StackFrameDataAnalyzer(
     StackFrameRecordPtr frame_record,
     scoped_refptr<TypeNameIndex> typename_index,
+    ModuleId module_id,
     ProcessState* process_state)
     : frame_record_(frame_record),
       typename_index_(typename_index),
+      module_id_(module_id),
       process_state_(process_state) {
   DCHECK(frame_record.get());
   DCHECK(typename_index.get());
@@ -145,12 +147,15 @@ bool StackFrameDataAnalyzer::Analyze(IDiaSymbol* data) {
   if (!pe::GetSymName(data, &data_name))
     return false;
 
-  base::string16 type_name;
-  if (!GetTypeName(data, &type_name))
+  // Get the data's type from the type_repository.
+  TypePtr type;
+  if (!GetDataType(typename_index_.get(), data, &type))
     return false;
+  if (type.get() == nullptr)
+    return true;  // The type was not found.
 
   AddressRange range;
-  if (!GetAddressRange(data, &range))
+  if (!GetAddressRange(data, type, &range))
     return false;
   // Note: successfully returning an invalid address range means the location
   // type is not yet supported.
@@ -161,10 +166,12 @@ bool StackFrameDataAnalyzer::Analyze(IDiaSymbol* data) {
   // Add the typed block to the process state's typed block layer.
   // TODO(manzagop): handle CV qualifiers.
   // TODO(manzagop): avoid duplicating types we already know about.
-  return AddTypedBlockRecord(range, data_name, type_name, process_state_);
+  return AddTypedBlockRecord(range, data_name, module_id_, type->type_id(),
+                             process_state_);
 }
 
 bool StackFrameDataAnalyzer::GetAddressRange(IDiaSymbol* data,
+                                             TypePtr type,
                                              AddressRange* range) {
   DCHECK(data); DCHECK(range);
 
@@ -174,7 +181,7 @@ bool StackFrameDataAnalyzer::GetAddressRange(IDiaSymbol* data,
 
   switch (location_type) {
     case LocIsRegRel:
-      return GetAddressRangeRegRel(data, range);
+      return GetAddressRangeRegRel(data, type, range);
     case LocIsStatic:
     case LocIsTLS:
     case LocIsThisRel:
@@ -195,6 +202,7 @@ bool StackFrameDataAnalyzer::GetAddressRange(IDiaSymbol* data,
 }
 
 bool StackFrameDataAnalyzer::GetAddressRangeRegRel(IDiaSymbol* data,
+                                                   TypePtr type,
                                                    AddressRange* range) {
   DCHECK(data); DCHECK(range);
   DCHECK(IsLocType(data, LocIsRegRel));
@@ -209,13 +217,6 @@ bool StackFrameDataAnalyzer::GetAddressRangeRegRel(IDiaSymbol* data,
   ptrdiff_t register_offset = 0;
   if (!pe::GetSymOffset(data, &register_offset))
     return false;
-
-  // Get the data's type from the type_repository.
-  TypePtr type;
-  if (!GetDataType(typename_index_.get(), data, &type))
-    return false;
-  if (type.get() == nullptr)
-    return true;  // The type was not found.
 
   // Figure out the data's range.
   uint32_t register_value = 0U;

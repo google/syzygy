@@ -19,6 +19,7 @@
 
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
+#include "syzygy/refinery/process_state/layer_data.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/types/type_repository.h"
@@ -33,6 +34,7 @@ class StackFrameDataAnalyzer {
  public:
   StackFrameDataAnalyzer(StackFrameRecordPtr frame_record,
                          scoped_refptr<TypeNameIndex> typename_index,
+                         ModuleId module_id,
                          ProcessState* process_state);
 
   // Analyze @p data in the context of the frame record to populate the process
@@ -45,11 +47,14 @@ class StackFrameDataAnalyzer {
   bool Analyze(IDiaSymbol* data);
 
  private:
-  bool GetAddressRange(IDiaSymbol* data, AddressRange* range);
-  bool GetAddressRangeRegRel(IDiaSymbol* data, AddressRange* range);
+  bool GetAddressRange(IDiaSymbol* data, TypePtr type, AddressRange* range);
+  bool GetAddressRangeRegRel(IDiaSymbol* data,
+                             TypePtr type,
+                             AddressRange* range);
 
   StackFrameRecordPtr frame_record_;
   scoped_refptr<TypeNameIndex> typename_index_;
+  ModuleId module_id_;
   // Not owned. Must outlive the StackFrameDataAnalyzer.
   ProcessState* process_state_;
 

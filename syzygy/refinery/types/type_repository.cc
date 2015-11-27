@@ -19,7 +19,11 @@
 
 namespace refinery {
 
-TypeRepository::TypeRepository() {
+TypeRepository::TypeRepository() : is_signature_set_(false) {
+}
+
+TypeRepository::TypeRepository(const pe::PEFile::Signature& signature)
+    : is_signature_set_(true), signature_(signature) {
 }
 
 TypeRepository::~TypeRepository() {
@@ -54,6 +58,15 @@ bool TypeRepository::AddTypeWithId(TypePtr type, TypeId id) {
   type->SetRepository(this, id);
   types_[id] = type;
 
+  return true;
+}
+
+bool TypeRepository::GetModuleSignature(pe::PEFile::Signature* signature) {
+  DCHECK(signature);
+
+  if (!is_signature_set_)
+    return false;
+  *signature = signature_;
   return true;
 }
 

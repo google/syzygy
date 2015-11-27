@@ -22,6 +22,7 @@
 #include "base/macros.h"
 #include "base/containers/hash_tables.h"
 #include "base/memory/ref_counted.h"
+#include "syzygy/pe/pe_file.h"
 
 namespace refinery {
 
@@ -31,11 +32,14 @@ using TypePtr = scoped_refptr<Type>;
 
 // Keeps type instances, assigns them an ID and vends them out by ID on demand.
 // TODO(manzagop): cleave the interface so as to obtain something immutable.
+// TODO(manzagop): abstract the module id away from a pe file signature.
 class TypeRepository : public base::RefCounted<TypeRepository> {
  public:
   class Iterator;
 
+  // TODO(manzagop): make it mandatory to provide a module signature.
   TypeRepository();
+  explicit TypeRepository(const pe::PEFile::Signature& signature);
 
   // Retrieve a type by @p id.
   TypePtr GetType(TypeId id) const;
@@ -49,6 +53,10 @@ class TypeRepository : public base::RefCounted<TypeRepository> {
   // @returns true on success, failure typically means id is already taken.
   bool AddTypeWithId(TypePtr type, TypeId id);
 
+
+  // Get the signature for the module this type represents.
+  bool GetModuleSignature(pe::PEFile::Signature* signature);
+
   // @name Accessors.
   // @{
   size_t size() const;
@@ -60,6 +68,8 @@ class TypeRepository : public base::RefCounted<TypeRepository> {
   friend class base::RefCounted<TypeRepository>;
   ~TypeRepository();
 
+  bool is_signature_set_;
+  pe::PEFile::Signature signature_;
   base::hash_map<TypeId, TypePtr> types_;
 
   DISALLOW_COPY_AND_ASSIGN(TypeRepository);
