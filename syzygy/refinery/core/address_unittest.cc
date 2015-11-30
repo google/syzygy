@@ -18,6 +18,23 @@
 
 namespace refinery {
 
+TEST(AddressTest, ConversionTest) {
+  // An integer with its most significant bit set.
+  uint32_t integer = 0xffffffff;
+
+  // The expected address corresponding to this integer.
+  Address expected_address = static_cast<Address>(integer);
+  ASSERT_EQ(0xffffffffULL, expected_address);
+
+  // The coresponding pointer with its most significant bit set (note: this is a
+  // 32 bit test).
+  int* ptr = reinterpret_cast<int*>(integer);
+
+  // Validate conversion is as expected.
+  ASSERT_EQ(expected_address,
+            static_cast<Address>(reinterpret_cast<uintptr_t>(ptr)));
+}
+
 TEST(AddressRangeTest, AddressRangeSpans) {
   AddressRange range(80ULL, 16U);
 

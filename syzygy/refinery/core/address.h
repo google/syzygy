@@ -19,6 +19,9 @@
 
 namespace refinery {
 
+// TODO(manzagop): consider making Address a class for stricter control on
+// conversions. In particular, we've hit an issue where an int* being
+// reinterpret_cast'ed to an Address triggered sign extension in the pointer.
 typedef uint64_t Address;
 typedef uint32_t Size;
 

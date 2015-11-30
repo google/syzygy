@@ -131,7 +131,10 @@ TEST_F(TypePropagatorAnalyzerTest, AnalyzeMinidump) {
   // Validate the new typed block.
   ASSERT_EQ(2, typedblock_layer->size());
 
-  Address expected_addr = reinterpret_cast<Address>(variable_ptr_);
+  // First reinterpret_cast to an unsigned type, to avoid sign extension.
+  Address expected_addr =
+      static_cast<Address>(reinterpret_cast<uintptr_t>(variable_ptr_));
+
   TypedBlockRecordPtr typed_record;
   ASSERT_TRUE(process_state.FindSingleRecord(expected_addr, &typed_record));
 
