@@ -443,6 +443,14 @@ void MinidumpSerializer::AddDirectoryEntry(MINIDUMP_STREAM_TYPE type,
 
 }  // namespace
 
+const uint32_t ScopedMinidump::kMinidumpWithStacks =
+    MiniDumpWithProcessThreadData |  // Get PEB and TEB.
+    MiniDumpWithUnloadedModules;     // Get unloaded modules when available.
+
+const uint32_t ScopedMinidump::kMinidumpWithData =
+    kMinidumpWithStacks |
+    MiniDumpWithIndirectlyReferencedMemory;  // Get referenced memory.
+
 MinidumpSpecification::MinidumpSpecification() {
 }
 
@@ -605,9 +613,7 @@ const char kSwitchExceptionPtrs[] = "exception-ptrs";
 const char kSwitchPid[] = "dump-pid";
 const char kSwitchMinidumpPath[] = "dump-path";
 const char kSwitchTid[] = "exception-thread-id";
-const MINIDUMP_TYPE kSmallDumpType = static_cast<MINIDUMP_TYPE>(
-    MiniDumpWithProcessThreadData |  // Get PEB and TEB.
-    MiniDumpWithUnloadedModules);    // Get unloaded modules when available.
+const char kSwitchMinidumpType[] = "minidump-type";
 
 __declspec(noinline) DWORD GetEip() {
   return reinterpret_cast<DWORD>(_ReturnAddress());
@@ -640,6 +646,11 @@ MULTIPROCESS_TEST_MAIN(MinidumpDumperProcess) {
   unsigned exception_ptrs = 0ULL;
   if (!base::StringToUint(exception_ptrs_string, &exception_ptrs))
     return 1;
+  std::string minidump_type_string =
+      cmd_line->GetSwitchValueASCII(kSwitchMinidumpType);
+  uint32_t minidump_type = 0U;
+  if (!base::StringToUint(minidump_type_string, &minidump_type))
+    return 1;
 
   base::FilePath minidump_path =
       cmd_line->GetSwitchValuePath(kSwitchMinidumpPath);
@@ -670,10 +681,10 @@ MULTIPROCESS_TEST_MAIN(MinidumpDumperProcess) {
   MINIDUMP_CALLBACK_INFORMATION* callback_info = nullptr;
 
   // Take the minidump.
-  if (::MiniDumpWriteDump(dumpee_process.Handle(), pid,
-                          minidump_file.GetPlatformFile(), kSmallDumpType,
-                          &exception_information, user_info,
-                          callback_info) == FALSE) {
+  if (::MiniDumpWriteDump(
+          dumpee_process.Handle(), pid, minidump_file.GetPlatformFile(),
+          static_cast<MINIDUMP_TYPE>(minidump_type), &exception_information,
+          user_info, callback_info) == FALSE) {
     LOG(ERROR) << "MiniDumpWriteDump failed: " << ::common::LogWe() << ".";
     return 1;
   }
@@ -681,7 +692,7 @@ MULTIPROCESS_TEST_MAIN(MinidumpDumperProcess) {
   return 0;
 }
 
-bool ScopedMinidump::GenerateMinidump() {
+bool ScopedMinidump::GenerateMinidump(uint32_t minidump_type) {
   // Determine minidump path.
   if (!temp_dir_.CreateUniqueTempDir())
     return false;
@@ -721,6 +732,8 @@ bool ScopedMinidump::GenerateMinidump() {
       reinterpret_cast<unsigned>(&exception_pointers);
   dumper_command_line.AppendSwitchASCII(
       kSwitchExceptionPtrs, base::UintToString(exception_pointers_uint));
+  dumper_command_line.AppendSwitchASCII(kSwitchMinidumpType,
+                                        base::UintToString(minidump_type));
   dumper_command_line.AppendSwitchPath(kSwitchMinidumpPath, minidump_path());
 
   // Launch the dumper.

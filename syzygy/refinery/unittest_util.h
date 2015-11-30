@@ -159,9 +159,14 @@ struct MinidumpSpecification::ModuleSpecification {
 // Allows grabbing a minidump of our own process.
 class ScopedMinidump {
  public:
+  // Minidump with stacks, but no referenced data.
+  static const uint32_t kMinidumpWithStacks;
+  // Minidump with stacks and referenced data.
+  static const uint32_t kMinidumpWithData;
+
   ScopedMinidump() = default;
 
-  bool GenerateMinidump();
+  bool GenerateMinidump(uint32_t minidump_type);
 
   base::FilePath temp_dir() { return temp_dir_.path(); }
   base::FilePath minidump_path() { return minidump_path_; }

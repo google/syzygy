@@ -99,9 +99,12 @@ class StackAndFrameAnalyzersTest : public testing::Test {
 
     eip_lowerbound_ = GetEip();
 
-    // Note: GenerateMinidump takes no parameters. This means when the frame is
-    // walked, its top should equal the captured esp.
-    success = scoped_minidump_.GenerateMinidump();
+    // Note: GenerateMinidump takes one parameters. This means when the frame
+    // is walked, its top should equal the captured esp less the size of that
+    // argument.
+    expected_esp_ -= sizeof(testing::ScopedMinidump::kMinidumpWithStacks);
+    success = scoped_minidump_.GenerateMinidump(
+        testing::ScopedMinidump::kMinidumpWithStacks);
 
     eip_upperbound_ = GetEip();
 
