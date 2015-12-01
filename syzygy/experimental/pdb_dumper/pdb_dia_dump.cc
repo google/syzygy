@@ -32,44 +32,18 @@ namespace pdb {
 
 namespace {
 
-bool GetSymTagName(enum SymTagEnum sym_tag, std::string* sym_tag_name) {
-  DCHECK(sym_tag_name);
-
-  // TODO(manzagop): set up something akin to SYM_TYPE_CASE_TABLE.
+// Return the string value associated with a SymTagEnum.
+const char* GetSymTagName(enum SymTagEnum sym_tag) {
   switch (sym_tag) {
-    case SymTagFunction:
-      *sym_tag_name = "SymTagFunction";
-      return true;
-    case SymTagData:
-      *sym_tag_name = "SymTagData";
-      return true;
-    case SymTagLabel:
-      *sym_tag_name = "SymTagLabel";
-      return true;
-    case SymTagFunctionType:
-      *sym_tag_name = "SymTagFunctionType";
-      return true;
-    case SymTagFunctionArgType:
-      *sym_tag_name = "SymTagFunctionArgType";
-      return true;
-    case SymTagFuncDebugStart:
-      *sym_tag_name = "SymTagFuncDebugStart";
-      return true;
-    case SymTagFuncDebugEnd:
-      *sym_tag_name = "SymTagFuncDebugEnd";
-      return true;
-    case SymTagCallSite:
-      *sym_tag_name = "SymTagCallSite";
-      return true;
-    case SymTagInlineSite:
-      *sym_tag_name = "SymTagInlineSite";
-      return true;
-    case SymTagCallee:
-      *sym_tag_name = "SymTagCallee";
-      return true;
+#define SYMTAG_NAME(symtag) \
+    case symtag: { \
+      return #symtag; \
+    }
+    SYMTAG_CASE_TABLE(SYMTAG_NAME)
+#undef SYMTAG_NAME
     default:
-      base::SStringPrintf(sym_tag_name, "%d", sym_tag);
-      return true;
+      LOG(ERROR) << "Unknown SymTagEnum: " << sym_tag;
+      return "<unknown>";
   }
 }
 
@@ -201,12 +175,10 @@ bool PdbDiaDumpApp::DumpSymbol(uint8 indent_level, IDiaSymbol* symbol) {
   }
 
   enum SymTagEnum sym_tag = SymTagNull;
-  std::string sym_tag_name;
-  CHECK(pe::GetSymTag(symbol, &sym_tag) &&
-        GetSymTagName(sym_tag, &sym_tag_name));
+  CHECK(pe::GetSymTag(symbol, &sym_tag));
 
   DumpIndentedText(out(), indent_level, "Id: %d, Name: %s (%s)\n", index_id,
-                   name.c_str(), sym_tag_name.c_str());
+                   name.c_str(), GetSymTagName(sym_tag));
 
   // Symbol cycle detection.
   if (visited_symbols_.find(index_id) != visited_symbols_.end()) {

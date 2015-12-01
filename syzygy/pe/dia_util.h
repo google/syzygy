@@ -299,6 +299,47 @@ class LineVisitor {
   DISALLOW_COPY_AND_ASSIGN(LineVisitor);
 };
 
+// This macro allows the easy construction of switch statements over the
+// SymTagEnum.
+#define SYMTAG_CASE_TABLE(decl) \
+    decl(SymTagNull) \
+    decl(SymTagExe) \
+    decl(SymTagCompiland) \
+    decl(SymTagCompilandDetails) \
+    decl(SymTagCompilandEnv) \
+    decl(SymTagFunction) \
+    decl(SymTagBlock) \
+    decl(SymTagData) \
+    decl(SymTagAnnotation) \
+    decl(SymTagLabel) \
+    decl(SymTagPublicSymbol) \
+    decl(SymTagUDT) \
+    decl(SymTagEnum) \
+    decl(SymTagFunctionType) \
+    decl(SymTagPointerType) \
+    decl(SymTagArrayType) \
+    decl(SymTagBaseType) \
+    decl(SymTagTypedef) \
+    decl(SymTagBaseClass) \
+    decl(SymTagFriend) \
+    decl(SymTagFunctionArgType) \
+    decl(SymTagFuncDebugStart) \
+    decl(SymTagFuncDebugEnd) \
+    decl(SymTagUsingNamespace) \
+    decl(SymTagVTableShape) \
+    decl(SymTagVTable) \
+    decl(SymTagCustom) \
+    decl(SymTagThunk) \
+    decl(SymTagCustomType) \
+    decl(SymTagManagedType) \
+    decl(SymTagDimension) \
+    decl(SymTagCallSite) \
+    decl(SymTagInlineSite) \
+    decl(SymTagBaseInterface) \
+    decl(SymTagVectorType) \
+    decl(SymTagMatrixType) \
+    decl(SymTagHLSLType)
+
 }  // namespace pe
 
 // Bring in the templated implementation details.
