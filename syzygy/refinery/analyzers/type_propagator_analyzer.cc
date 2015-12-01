@@ -120,7 +120,18 @@ bool TypePropagatorAnalyzer::AnalyzeTypedDataUDT(const TypedData& typed_data,
   DCHECK_EQ(Type::USER_DEFINED_TYPE_KIND, typed_data.type()->kind());
   DCHECK(process_state != nullptr);
 
-  // TODO(manzagop): implement.
+  UserDefinedTypePtr udt;
+  if (!typed_data.type()->CastTo(&udt))
+    return false;
+
+  for (const auto& field : udt->fields()) {
+    TypedData field_data;
+    if (!typed_data.GetField(field, &field_data))
+      return false;  // No valid reason for this to fail.
+
+    if (!AnalyzeTypedData(field_data, process_state))
+      return false;
+  }
 
   return true;
 }
@@ -128,7 +139,7 @@ bool TypePropagatorAnalyzer::AnalyzeTypedDataUDT(const TypedData& typed_data,
 bool TypePropagatorAnalyzer::AnalyzeTypedDataPointer(
     const TypedData& typed_data,
     ProcessState* process_state) {
-  DCHECK_EQ(Type::POINTER_TYPE_KIND, typed_data.type()->kind());
+  DCHECK(typed_data.IsPointerType());
   DCHECK(process_state != nullptr);
 
   TypedData content_data;
@@ -147,10 +158,22 @@ bool TypePropagatorAnalyzer::AnalyzeTypedDataPointer(
 bool TypePropagatorAnalyzer::AnalyzeTypedDataArray(
     const TypedData& typed_data,
     ProcessState* process_state) {
-  DCHECK_EQ(Type::ARRAY_TYPE_KIND, typed_data.type()->kind());
+  DCHECK(typed_data.IsArrayType());
   DCHECK(process_state != nullptr);
 
-  // TODO(manzagop): implement.
+  ArrayTypePtr array_type;
+  if (!typed_data.type()->CastTo(&array_type))
+    return false;
+
+  for (int i = 0; i < array_type->num_elements(); ++i) {
+    TypedData element;
+    if (!typed_data.GetArrayElement(i, &element))
+      continue;  // Not an error.
+
+    if (!AnalyzeTypedData(element, process_state))
+      return false;
+  }
+
   return true;
 }
 
