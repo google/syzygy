@@ -93,7 +93,7 @@ class MinidumpTest : public ::testing::Test {
   ~MinidumpTest() override {}
 
   // ::testing::Test implementation.
-  virtual void SetUp() override { temp_dir_.CreateUniqueTempDir(); }
+  void SetUp() override { temp_dir_.CreateUniqueTempDir(); }
 
   // Launches a child process, waits until it has loaded, and then invokes
   // GenerateMinidump for the child.
@@ -125,9 +125,8 @@ class MinidumpTest : public ::testing::Test {
       range = range.Offset(child_image_base -
                            reinterpret_cast<uint32_t>(&__ImageBase));
     }
-    *result = kasko::GenerateMinidump(dump_file_path,
-                                      base::GetProcId(child_process.Handle()),
-                                      0, adjusted_request);
+    *result = kasko::GenerateMinidump(dump_file_path, child_process.Handle(), 0,
+                                      adjusted_request);
 
     ASSERT_TRUE(child_process.Terminate(0, true));
   }

@@ -78,7 +78,8 @@ KASKO_EXPORT bool InitializeReporter(
 
 // Sends a diagnostic report for a specified process with the specified crash
 // keys. May only be invoked after a successful call to InitializeReporter.
-// @param process_handle A handle to the process to report on.
+// @param process_handle A handle to the process to report on. It must be
+//     possible to reopen the process.
 // @param thread_id The crashing thread to report on. Ignored if
 //     exception_info_address is null.
 // @param exception_info_address Optional exception information.

@@ -24,6 +24,7 @@
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/files/file_util.h"
+#include "base/process/process.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/platform_thread.h"
 #include "base/time/time.h"
@@ -111,7 +112,7 @@ void HandlePermanentFailure(const base::FilePath& permanent_failure_directory,
 
 void GenerateReport(const base::FilePath& temporary_directory,
                     ReportRepository* report_repository,
-                    base::ProcessId client_process_id,
+                    base::ProcessHandle client_process,
                     base::PlatformThreadId thread_id,
                     const MinidumpRequest& request) {
   if (!base::CreateDirectory(temporary_directory)) {
@@ -126,7 +127,7 @@ void GenerateReport(const base::FilePath& temporary_directory,
     return;
   }
 
-  if (!GenerateMinidump(dump_file, client_process_id, thread_id, request)) {
+  if (!GenerateMinidump(dump_file, client_process, thread_id, request)) {
     LOG(ERROR) << "Minidump generation failed.";
     base::DeleteFile(dump_file, false);
     return;
@@ -146,32 +147,36 @@ void GenerateReport(const base::FilePath& temporary_directory,
 // Implements kasko::Service to capture minidumps and store them in a
 // ReportRepository.
 class ServiceImpl : public Service {
-  public:
-   ServiceImpl(const base::FilePath& temporary_directory,
-               ReportRepository* report_repository,
-               UploadThread* upload_thread)
-       : temporary_directory_(temporary_directory),
-         report_repository_(report_repository),
-         upload_thread_(upload_thread) {}
+ public:
+  ServiceImpl(const base::FilePath& temporary_directory,
+              ReportRepository* report_repository,
+              UploadThread* upload_thread)
+      : temporary_directory_(temporary_directory),
+        report_repository_(report_repository),
+        upload_thread_(upload_thread) {}
 
-   ~ServiceImpl() override {}
+  ~ServiceImpl() override {}
 
-   // Service implementation.
-   void SendDiagnosticReport(
-       base::ProcessId client_process_id,
-       base::PlatformThreadId thread_id,
-       const MinidumpRequest &request) override {
-     GenerateReport(temporary_directory_, report_repository_, client_process_id,
-                    thread_id, request);
-     upload_thread_->UploadOneNowAsync();
-   }
+  // Service implementation.
+  void SendDiagnosticReport(base::ProcessId client_process_id,
+                            base::PlatformThreadId thread_id,
+                            const MinidumpRequest& request) override {
+    base::win::ScopedHandle client_process(
+        ::OpenProcess(GetRequiredAccessForMinidumpType(request.type), FALSE,
+                      client_process_id));
+    if (client_process.IsValid()) {
+      GenerateReport(temporary_directory_, report_repository_,
+                     client_process.Get(), thread_id, request);
+    }
+    upload_thread_->UploadOneNowAsync();
+  }
 
-  private:
-   base::FilePath temporary_directory_;
-   ReportRepository* report_repository_;
-   UploadThread* upload_thread_;
+ private:
+  base::FilePath temporary_directory_;
+  ReportRepository* report_repository_;
+  UploadThread* upload_thread_;
 
-   DISALLOW_COPY_AND_ASSIGN(ServiceImpl);
+  DISALLOW_COPY_AND_ASSIGN(ServiceImpl);
 };
 
 }  // namespace
@@ -241,7 +246,7 @@ void Reporter::SendReportForProcess(base::ProcessHandle process_handle,
                                     base::PlatformThreadId thread_id,
                                     MinidumpRequest request) {
   GenerateReport(temporary_minidump_directory_, report_repository_.get(),
-                 base::GetProcId(process_handle), thread_id, request);
+                 process_handle, thread_id, request);
   upload_thread_->UploadOneNowAsync();
 }
 

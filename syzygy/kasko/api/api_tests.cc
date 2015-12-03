@@ -266,8 +266,10 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
       // Request a dump of the client process.
       base::char16* keys[] = {L"hello", L"", nullptr};
       base::char16* values[] = {L"world", L"bar", nullptr};
+      // Open with minimal access as SendReportForProcess() will reopen the
+      // process with the access it needs.
       base::Process client_process = base::Process::OpenWithAccess(
-          client_process_id(), PROCESS_QUERY_INFORMATION | PROCESS_VM_READ);
+          client_process_id(), PROCESS_QUERY_LIMITED_INFORMATION);
       CHECK(client_process.IsValid());
 
       CONTEXT ctx = {};

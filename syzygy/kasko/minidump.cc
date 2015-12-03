@@ -27,7 +27,6 @@
 #include "syzygy/common/com_utils.h"
 #include "syzygy/core/address_range.h"
 #include "syzygy/kasko/loader_lock.h"
-#include "syzygy/kasko/minidump_request.h"
 
 namespace kasko {
 
@@ -192,18 +191,32 @@ std::vector<kasko::MinidumpRequest::MemoryRange> AugmentMemoryRanges(
   return augmented_memory_ranges;
 }
 
+DWORD GetRequiredAccessForMinidumpTypeImpl(bool is_full_type) {
+  DWORD required_access = PROCESS_QUERY_INFORMATION | PROCESS_VM_READ;
+
+  if (is_full_type) {
+    // A full dump includes handle data (MiniDumpWithHandleData).
+    required_access |= PROCESS_DUP_HANDLE;
+  }
+
+  return required_access;
+}
+
 }  // namespace
 
+DWORD GetRequiredAccessForMinidumpType(MinidumpRequest::Type type) {
+  return GetRequiredAccessForMinidumpTypeImpl(type ==
+                                              MinidumpRequest::FULL_DUMP_TYPE);
+}
+
+DWORD GetRequiredAccessForMinidumpType(api::MinidumpType type) {
+  return GetRequiredAccessForMinidumpTypeImpl(type == api::FULL_DUMP_TYPE);
+}
+
 bool GenerateMinidump(const base::FilePath& destination,
-                      base::ProcessId target_process_id,
+                      base::ProcessHandle target_process,
                       base::PlatformThreadId thread_id,
                       const MinidumpRequest& request) {
-  base::win::ScopedHandle target_process_handle(
-      ::OpenProcess(GENERIC_ALL, FALSE, target_process_id));
-  if (!target_process_handle.IsValid()) {
-    LOG(ERROR) << "Failed to open target process: " << ::common::LogWe() << ".";
-    return false;
-  }
   MINIDUMP_EXCEPTION_INFORMATION* dump_exception_pointers = nullptr;
   MINIDUMP_EXCEPTION_INFORMATION dump_exception_info;
 
@@ -259,7 +272,7 @@ bool GenerateMinidump(const base::FilePath& destination,
   MinidumpCallbackHandler callback_handler(&augmented_memory_ranges);
 
   if (::MiniDumpWriteDump(
-          target_process_handle.Get(), target_process_id,
+          target_process, base::GetProcId(target_process),
           destination_file.GetPlatformFile(), platform_minidump_type,
           dump_exception_pointers, &user_stream_information,
           const_cast<MINIDUMP_CALLBACK_INFORMATION*>(

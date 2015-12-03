@@ -408,7 +408,15 @@ bool AgentLogger::SaveMinidumpWithProtobufAndMemoryRanges(
 
   {
     base::AutoLock auto_lock(symbol_lock_);
-    CHECK(kasko::GenerateMinidump(temp_file_path, pid, tid, request));
+    base::win::ScopedHandle target_process_handle(::OpenProcess(
+        GetRequiredAccessForMinidumpType(request.type), FALSE, pid));
+    if (!target_process_handle.IsValid()) {
+      LOG(ERROR) << "Failed to open target process: " << ::common::LogWe()
+                 << ".";
+      return false;
+    }
+    CHECK(kasko::GenerateMinidump(temp_file_path, target_process_handle.Get(),
+                                  tid, request));
   }
 
   // Rename the temporary file so that its recognizable as a dump.

@@ -25,7 +25,9 @@
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
 #include "base/time/time.h"
+#include "base/win/scoped_handle.h"
 #include "syzygy/kasko/dll_lifetime.h"
+#include "syzygy/kasko/minidump.h"
 #include "syzygy/kasko/minidump_request.h"
 #include "syzygy/kasko/reporter.h"
 #include "syzygy/kasko/api/crash_key.h"
@@ -128,8 +130,16 @@ void SendReportForProcess(base::ProcessHandle process_handle,
     DCHECK(!values[i]);
   }
 
+  // Reopen the process handle with the necessary access level to read memory
+  // and create a minidump.
+  base::win::ScopedHandle augmented_process_handle(
+      ::OpenProcess(GetRequiredAccessForMinidumpType(minidump_type), FALSE,
+                    base::GetProcId(process_handle)));
+  if (!augmented_process_handle.IsValid())
+    return;
+
   std::vector<CrashKey> registered_crash_keys;
-  if (internal::ReadCrashKeysFromProcess(process_handle,
+  if (internal::ReadCrashKeysFromProcess(augmented_process_handle.Get(),
                                          &registered_crash_keys)) {
     for (auto& crash_key : registered_crash_keys) {
       if (crash_key.name[0] == 0 || crash_key.value[0] == 0)
@@ -154,7 +164,8 @@ void SendReportForProcess(base::ProcessHandle process_handle,
       break;
   }
 
-  g_reporter->SendReportForProcess(process_handle, thread_id, request);
+  g_reporter->SendReportForProcess(augmented_process_handle.Get(), thread_id,
+                                   request);
 }
 
 void ShutdownReporter() {
