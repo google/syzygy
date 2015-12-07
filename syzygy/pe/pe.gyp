@@ -54,6 +54,20 @@
       },
     },
     {
+      'target_name': 'symsrv_dll_copy',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'copies': [
+        {
+          'destination': '<(PRODUCT_DIR)',
+          'files': [
+            '<(src)/third_party/debugging_tools/files/SymSrv.dll',
+            '<(src)/third_party/debugging_tools/files/symsrv.yes',
+          ],
+        },
+      ],
+    },
+    {
       'target_name': 'pe_lib',
       'type': 'static_library',
       'sources': [
@@ -129,6 +143,7 @@
       ],
       'dependencies': [
         'dia_sdk',
+        'symsrv_dll_copy',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_lib',
         '<(src)/syzygy/block_graph/orderers/block_graph_orderers.gyp:'

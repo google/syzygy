@@ -41,20 +41,6 @@
       ],
     },
     {
-      'target_name': 'symsrv_dll_copy',
-      'type': 'none',
-      'msvs_cygwin_shell': 0,
-      'copies': [
-        {
-          'destination': '<(PRODUCT_DIR)',
-          'files': [
-            '<(src)/third_party/debugging_tools/files/SymSrv.dll',
-            '<(src)/third_party/debugging_tools/files/symsrv.yes',
-          ],
-        },
-      ],
-    },
-    {
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
@@ -91,7 +77,6 @@
         'process_state/process_state.gyp:process_state_lib',
         'symbols/symbols.gyp:symbols_lib',
         'refinery_unittest_utils',
-        'symsrv_dll_copy',
         'testing/testing.gyp:refinery_testing_lib',
         'types/types.gyp:types_lib',
         'validators/validators.gyp:validators_lib',
@@ -117,7 +102,6 @@
         'process_state/process_state.gyp:process_state_lib',
         'symbols/symbols.gyp:symbols_lib',
         'refinery_unittest_utils',
-        'symsrv_dll_copy',
         'types/types.gyp:types_lib',
         'validators/validators.gyp:validators_lib',
         '<(src)/base/base.gyp:base',
