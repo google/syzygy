@@ -139,6 +139,12 @@ bool IsSymTag(IDiaSymbol* symbol, enum SymTagEnum expected_sym_tag);
 // @returns true on success, false on failure.
 bool GetSymName(IDiaSymbol* symbol, base::string16* name);
 
+// Gets the undecorated name associated with the given symbol.
+// @param symbol the symbol to examine.
+// @param name on success, returns @p symbol's undecorated name.
+// @returns true on success, false on failure.
+bool GetSymUndecoratedName(IDiaSymbol* symbol, base::string16* name);
+
 // Gets the symbol's data kind.
 // @param symbol the symbol to examine.
 // @param kind on success, returns @p symbol's data kind.

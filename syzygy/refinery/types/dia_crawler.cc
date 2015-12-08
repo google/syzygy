@@ -856,4 +856,63 @@ bool DiaCrawler::GetTypes(TypeRepository* types) {
   return creator.CreateTypes(global_.get());
 }
 
+bool DiaCrawler::GetVFTableRVAs(base::hash_set<Address>* vftable_rvas) {
+  DCHECK(vftable_rvas); DCHECK(global_);
+  vftable_rvas->clear();
+
+  // VFTables are represented as public symbols. Note: we search through all
+  // public symbols as we match on the undecorated name, not on the name.
+  base::win::ScopedComPtr<IDiaEnumSymbols> public_symbols;
+  HRESULT hr = global_->findChildren(SymTagPublicSymbol, nullptr, nsNone,
+                                     public_symbols.Receive());
+  if (!SUCCEEDED(hr))
+    return false;
+
+  // Note: the function get_Count from DIA has either a bug or is really badly
+  // implemented thus taking forever to finish. Therefore we simply load next
+  // symbol until reaching the end. Unfortunately, this also means we don't use
+  // it for reserving the container's size.
+  base::win::ScopedComPtr<IDiaSymbol> symbol;
+  ULONG received = 0;
+  hr = public_symbols->Next(1, symbol.Receive(), &received);
+
+  while (hr == S_OK) {
+    base::string16 undecorated_name;
+    if (!pe::GetSymUndecoratedName(symbol.get(), &undecorated_name))
+      return false;  // Public symbols are expected to have names.
+
+    // Vftable names should look like:
+    //     const std::Foo::`vftable'
+    //     const testing::Foo::`vftable'{for `testing::Foo'}
+    if (undecorated_name.find(L"::`vftable'") != base::string16::npos) {
+      LocationType location_type = LocIsNull;
+      if (!pe::GetLocationType(symbol.get(), &location_type))
+        return false;
+      if (location_type != LocIsStatic) {
+        LOG(ERROR) << "Unexpected vftable location type: " << location_type;
+        return false;
+      }
+
+      DWORD rva = 0U;
+      HRESULT hr = symbol->get_relativeVirtualAddress(&rva);
+      if (hr != S_OK) {
+        LOG(ERROR) << "Unable to get vftable's RVA: " << common::LogHr(hr)
+                   << ".";
+        return false;
+      }
+
+      vftable_rvas->insert(static_cast<Address>(rva));
+    }
+
+    symbol.Release();
+    received = 0;
+    hr = public_symbols->Next(1, symbol.Receive(), &received);
+  }
+
+  if (!SUCCEEDED(hr))
+    return false;
+
+  return true;
+}
+
 }  // namespace refinery

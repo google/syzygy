@@ -21,9 +21,19 @@ del %SYZYGY_ROOT%\out\Release\test_types.dll.pdb
 del %SYZYGY_ROOT%\out\Release_x64\test_types.dll
 del %SYZYGY_ROOT%\out\Release_x64\test_types.dll.pdb
 
+del %SYZYGY_ROOT%\out\Release\test_typenames.dll
+del %SYZYGY_ROOT%\out\Release\test_typenames.dll.pdb
+
+del %SYZYGY_ROOT%\out\Release\test_vtables.dll
+del %SYZYGY_ROOT%\out\Release\test_vtables.dll.pdb
+
 :: Build a brand-spanking new version.
 ninja -C %SYZYGY_ROOT%\out\Release test_types.dll
 ninja -C %SYZYGY_ROOT%\out\Release_x64 test_types.dll
+
+ninja -C %SYZYGY_ROOT%\out\Release test_typenames.dll
+
+ninja -C %SYZYGY_ROOT%\out\Release test_vtables.dll
 
 :: And copy it, with it's associated PDB to the test_data directory.
 copy /Y %SYZYGY_ROOT%\out\Release_x64\test_types.dll^
@@ -32,5 +42,11 @@ copy /Y %SYZYGY_ROOT%\out\Release_x64\test_types.dll.pdb^
  "%~dp0test_data\test_types_x64.dll.pdb"
 copy /Y %SYZYGY_ROOT%\out\Release\test_types.dll "%~dp0test_data"
 copy /Y %SYZYGY_ROOT%\out\Release\test_types.dll.pdb "%~dp0test_data"
+
+copy /Y %SYZYGY_ROOT%\out\Release\test_typenames.dll "%~dp0test_data"
+copy /Y %SYZYGY_ROOT%\out\Release\test_typenames.dll.pdb "%~dp0test_data"
+
+copy /Y %SYZYGY_ROOT%\out\Release\test_vtables.dll "%~dp0test_data"
+copy /Y %SYZYGY_ROOT%\out\Release\test_vtables.dll.pdb "%~dp0test_data"
 
 set SYZYGY_ROOT=

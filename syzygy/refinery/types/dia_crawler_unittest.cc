@@ -14,7 +14,10 @@
 
 #include "syzygy/refinery/types/dia_crawler.h"
 
+#include <windows.h>
+
 #include "base/path_service.h"
+#include "base/containers/hash_tables.h"
 #include "base/debug/alias.h"
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
@@ -342,6 +345,50 @@ TEST_F(DiaCrawlerTest, TestGlobals) {
 
   ASSERT_EQ(global->GetDataType(), FindTypeEndingWith(L"TestAllInOneUDT"));
   ASSERT_NE(0, global->rva());
+}
+
+namespace {
+typedef bool (*GetExpectedVftableVAsPtr)(unsigned buffer_size,
+                                         unsigned long long* vftable_vas,
+                                         unsigned* count);
+}  // namespace
+
+TEST(DiaCrawlerVTableTest, TestGetVFTableRVAs) {
+  // Crawl the pdb for vftable RVAs.
+  DiaCrawler crawler;
+  ASSERT_TRUE(crawler.InitializeForFile(testing::GetSrcRelativePath(
+      L"syzygy\\refinery\\test_data\\test_vtables.dll.pdb")));
+
+  base::hash_set<Address> vftable_rvas;
+  ASSERT_TRUE(crawler.GetVFTableRVAs(&vftable_rvas));
+
+  // Get the expectation from the dll.
+  base::FilePath dll_path = testing::GetSrcRelativePath(
+      L"syzygy\\refinery\\test_data\\test_vtables.dll");
+  HMODULE module = ::LoadLibrary(dll_path.value().c_str());
+  ASSERT_TRUE(module != nullptr);
+
+  GetExpectedVftableVAsPtr get_vas = reinterpret_cast<GetExpectedVftableVAsPtr>(
+      ::GetProcAddress(module, "GetExpectedVftableVAs"));
+  ASSERT_TRUE(get_vas != nullptr);
+
+  unsigned buffer_size = 10U;
+  std::vector<uint64_t> vftable_vas;
+  vftable_vas.resize(buffer_size);
+  unsigned count = 0U;
+  ASSERT_TRUE(get_vas(buffer_size, &vftable_vas.at(0), &count));
+
+  // Validate the expectation.
+  ASSERT_LE(count, vftable_rvas.size());
+
+  for (size_t i = 0; i < count; ++i) {
+    Address expected_rva = static_cast<Address>(vftable_vas[i]) -
+                           reinterpret_cast<Address>(module);
+    ASSERT_NE(vftable_rvas.end(), vftable_rvas.find(expected_rva));
+  }
+
+  ASSERT_TRUE(::FreeLibrary(module));
+  module = nullptr;
 }
 
 }  // namespace refinery

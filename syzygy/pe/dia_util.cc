@@ -235,6 +235,21 @@ bool GetSymName(IDiaSymbol* symbol, base::string16* name) {
   return true;
 }
 
+bool GetSymUndecoratedName(IDiaSymbol* symbol, base::string16* name) {
+  DCHECK(symbol); DCHECK(name);
+
+  base::win::ScopedBstr tmp;
+  HRESULT hr = symbol->get_undecoratedName(tmp.Receive());
+  if (hr != S_OK) {
+    LOG(ERROR) << "Error getting symbol's undecorated name: "
+               << common::LogHr(hr) << ".";
+    return false;
+  }
+
+  *name = common::ToString(tmp);
+  return true;
+}
+
 bool GetDataKind(IDiaSymbol* symbol, enum DataKind* data_kind) {
   DCHECK(symbol); DCHECK(data_kind);
 

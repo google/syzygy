@@ -47,9 +47,9 @@
       'type': 'loadable_module',
       'sources': [
         'test_typenames.def',
-        'test_typenames.h',
         'test_typenames_main.cc',
         'test_typenames.cc',
+        'test_typenames.h',
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -73,6 +73,21 @@
       'msvs_settings': {
         'VCLinkerTool': {
           'EntryPointSymbol': 'EntryPoint',
+          # Turn down incremental linking for the test to avoid types
+          # languishing from build to build.
+          'LinkIncremental': '1',
+        },
+      },
+    },
+    {
+      'target_name': 'test_vtables',
+      'type': 'loadable_module',
+      'sources': [
+        'test_vtables.def',
+        'test_vtables.cc',
+      ],
+      'msvs_settings': {
+        'VCLinkerTool': {
           # Turn down incremental linking for the test to avoid types
           # languishing from build to build.
           'LinkIncremental': '1',

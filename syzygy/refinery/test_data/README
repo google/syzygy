@@ -15,5 +15,5 @@ the dumps:
 
 DLLs and PDBs
 =============
-These were generated in release mode.
+These were generated in release mode using syzygy/refinery/build_test_types.bat.
 

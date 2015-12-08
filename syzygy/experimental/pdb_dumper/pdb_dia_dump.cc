@@ -188,12 +188,32 @@ bool PdbDiaDumpApp::DumpSymbol(uint8 indent_level, IDiaSymbol* symbol) {
   auto insertion = visited_symbols_.insert(index_id);
   CHECK(insertion.second);
 
+  // Output the undecorated name.
+  base::string16 undecorated_name;
+  if (!pe::GetSymUndecoratedName(symbol, &undecorated_name))
+    undecorated_name = L"<none>";
+  DumpIndentedText(out(), indent_level + 1, "undecorated_name: %ls\n",
+                   undecorated_name.c_str());
+
   // Symtag specific output.
   // TODO(manzagop): flesh this out.
   if (sym_tag == SymTagFunction) {
     base::win::ScopedComPtr<IDiaSymbol> sym_type;
     CHECK(pe::GetSymType(symbol, &sym_type));
     DumpSymbol(indent_level + 1, sym_type.get());
+  } else if (sym_tag == SymTagPublicSymbol) {
+    if (undecorated_name.find(L"::`vftable'") != base::string16::npos) {
+      // This is a vtable.
+      LocationType location_type = LocIsNull;
+      if (!pe::GetLocationType(symbol, &location_type))
+        return false;
+
+      DWORD rva;
+      HRESULT hr = symbol->get_relativeVirtualAddress(&rva);
+      if (hr != S_OK)
+        return false;
+      DumpIndentedText(out(), indent_level + 1, "rva: %x\n", rva);
+    }
   }
 
   // Output the children.
