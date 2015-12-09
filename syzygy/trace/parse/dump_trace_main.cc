@@ -491,6 +491,15 @@ class TraceFileDumper : public ParseEventHandler {
               data->comment);
   }
 
+  void OnProcessHeap(base::Time time,
+                     DWORD process_id,
+                     const TraceProcessHeap* data) override {
+    DCHECK_NE(static_cast<TraceProcessHeap*>(nullptr), data);
+    ::fprintf(file_,
+              "[%012lld] OnProcessHeap: process-id=%d; process-heap=%08X\n",
+              time.ToInternalValue(), process_id, data->process_heap);
+  }
+
  private:
   FILE* file_;
   const char* indentation_;

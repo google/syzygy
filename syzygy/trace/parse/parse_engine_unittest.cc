@@ -217,6 +217,10 @@ class ParseEngineUnitTest
                void(base::Time time,
                     DWORD process_id,
                     const TraceComment* data));
+  MOCK_METHOD3(OnProcessHeap,
+               void(base::Time time,
+                    DWORD process_id,
+                    const TraceProcessHeap* data));
 
   static const DWORD kProcessId;
   static const DWORD kThreadId;
@@ -757,6 +761,20 @@ TEST_F(ParseEngineUnitTest, Comment) {
   // Dispatch a malformed record and make sure the parser errors.
   ASSERT_NO_FATAL_FAILURE(DispatchEventData(
       TRACE_COMMENT, data, sizeof(buffer) - 1));
+  ASSERT_TRUE(error_occurred());
+}
+
+TEST_F(ParseEngineUnitTest, ProcessHeap) {
+  TraceProcessHeap proc_heap = {0xF005BA11};
+
+  EXPECT_CALL(*this, OnProcessHeap(_, kProcessId, &proc_heap));
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_PROCESS_HEAP, &proc_heap, sizeof(proc_heap)));
+  ASSERT_FALSE(error_occurred());
+
+  // Dispatch a malformed record and make sure the parser errors.
+  ASSERT_NO_FATAL_FAILURE(
+      DispatchEventData(TRACE_PROCESS_HEAP, &proc_heap, sizeof(proc_heap) - 1));
   ASSERT_TRUE(error_occurred());
 }
 

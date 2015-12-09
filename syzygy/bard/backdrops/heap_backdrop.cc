@@ -22,11 +22,6 @@ namespace backdrops {
 HeapBackdrop::HeapBackdrop() {
 }
 
-HANDLE HeapBackdrop::GetProcessHeap() {
-  DCHECK(!get_process_heap_.is_null());
-  return get_process_heap_.Run();
-}
-
 LPVOID HeapBackdrop::HeapAlloc(HANDLE heap, DWORD flags, SIZE_T bytes) {
   DCHECK(!heap_alloc_.is_null());
   return heap_alloc_.Run(heap, flags, bytes);

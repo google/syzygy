@@ -183,6 +183,8 @@ class MemoryProfilerTest : public testing::Test {
     EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
     EXPECT_CALL(handler_, OnProcessAttach(_, process_id, _, _))
         .Times(testing::AnyNumber());
+    EXPECT_CALL(handler_, OnProcessHeap(_, process_id, _))
+        .Times(testing::AnyNumber());
 
     EXPECT_CALL(handler_,
                 OnFunctionNameTableEntry(_, process_id, _)).Times(4);

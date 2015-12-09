@@ -92,6 +92,7 @@ enum TraceEventType {
   TRACE_STACK_TRACE,
   TRACE_DETAILED_FUNCTION_CALL,
   TRACE_COMMENT,
+  TRACE_PROCESS_HEAP,
 };
 
 // All traces are emitted at this trace level.
@@ -506,8 +507,16 @@ struct TraceComment {
   // The size of the comment in bytes.
   uint32 comment_size;
 
-  // Actuall of size |comment_size|. A UTF8 encoded string.
+  // Actually of size |comment_size|. A UTF8 encoded string.
   char comment[1];
 };
+
+// Records the address of the process heap.
+struct TraceProcessHeap {
+  enum { kTypeId = TRACE_PROCESS_HEAP };
+
+  uint32 process_heap;
+};
+COMPILE_ASSERT_IS_POD(TraceProcessHeap);
 
 #endif  // SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_

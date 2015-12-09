@@ -230,6 +230,11 @@ class ParseEventHandler {
       base::Time time,
       DWORD process_id,
       const TraceComment* data) = 0;
+
+  // Issed for process heap records.
+  virtual void OnProcessHeap(base::Time time,
+                             DWORD process_id,
+                             const TraceProcessHeap* data) = 0;
 };
 
 // A default implementation of the ParseEventHandler interface. Provides
@@ -239,73 +244,74 @@ class ParseEventHandlerImpl : public ParseEventHandler {
  public:
   // @name ParseEventHandler implementation.
   // @{
-  virtual void OnProcessStarted(base::Time time,
-                                DWORD process_id,
-                                const TraceSystemInfo* data) override;
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) override;
-  virtual void OnFunctionEntry(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceEnterExitEventData* data) override;
-  virtual void OnFunctionExit(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceEnterExitEventData* data) override;
-  virtual void OnBatchFunctionEntry(base::Time time,
-                                    DWORD process_id,
-                                    DWORD thread_id,
-                                    const TraceBatchEnterData* data) override;
-  virtual void OnProcessAttach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) override;
-  virtual void OnProcessDetach(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceModuleData* data) override;
-  virtual void OnThreadAttach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) override;
-  virtual void OnThreadDetach(base::Time time,
-                              DWORD process_id,
-                              DWORD thread_id,
-                              const TraceModuleData* data) override;
-  virtual void OnInvocationBatch(base::Time time,
-                                 DWORD process_id,
-                                 DWORD thread_id,
-                                 size_t num_invocations,
-                                 const TraceBatchInvocationInfo* data) override;
-  virtual void OnThreadName(base::Time time,
+  void OnProcessStarted(base::Time time,
+                        DWORD process_id,
+                        const TraceSystemInfo* data) override;
+  void OnProcessEnded(base::Time time, DWORD process_id) override;
+  void OnFunctionEntry(base::Time time,
+                       DWORD process_id,
+                       DWORD thread_id,
+                       const TraceEnterExitEventData* data) override;
+  void OnFunctionExit(base::Time time,
+                      DWORD process_id,
+                      DWORD thread_id,
+                      const TraceEnterExitEventData* data) override;
+  void OnBatchFunctionEntry(base::Time time,
                             DWORD process_id,
                             DWORD thread_id,
-                            const base::StringPiece& thread_name) override;
-  virtual void OnIndexedFrequency(
-      base::Time time,
-      DWORD process_id,
-      DWORD thread_id,
-      const TraceIndexedFrequencyData* data) override;
-  virtual void OnDynamicSymbol(DWORD process_id,
-                               uint32 symbol_id,
-                               const base::StringPiece& symbol_name) override;
-  virtual void OnSampleData(base::Time time,
-                            DWORD process_id,
-                            const TraceSampleData* data) override;
-  virtual void OnFunctionNameTableEntry(
+                            const TraceBatchEnterData* data) override;
+  void OnProcessAttach(base::Time time,
+                       DWORD process_id,
+                       DWORD thread_id,
+                       const TraceModuleData* data) override;
+  void OnProcessDetach(base::Time time,
+                       DWORD process_id,
+                       DWORD thread_id,
+                       const TraceModuleData* data) override;
+  void OnThreadAttach(base::Time time,
+                      DWORD process_id,
+                      DWORD thread_id,
+                      const TraceModuleData* data) override;
+  void OnThreadDetach(base::Time time,
+                      DWORD process_id,
+                      DWORD thread_id,
+                      const TraceModuleData* data) override;
+  void OnInvocationBatch(base::Time time,
+                         DWORD process_id,
+                         DWORD thread_id,
+                         size_t num_invocations,
+                         const TraceBatchInvocationInfo* data) override;
+  void OnThreadName(base::Time time,
+                    DWORD process_id,
+                    DWORD thread_id,
+                    const base::StringPiece& thread_name) override;
+  void OnIndexedFrequency(base::Time time,
+                          DWORD process_id,
+                          DWORD thread_id,
+                          const TraceIndexedFrequencyData* data) override;
+  void OnDynamicSymbol(DWORD process_id,
+                       uint32 symbol_id,
+                       const base::StringPiece& symbol_name) override;
+  void OnSampleData(base::Time time,
+                    DWORD process_id,
+                    const TraceSampleData* data) override;
+  void OnFunctionNameTableEntry(
       base::Time time,
       DWORD process_id,
       const TraceFunctionNameTableEntry* data) override;
-  virtual void OnStackTrace(base::Time time,
-                            DWORD process_id,
-                            const TraceStackTrace* data) override;
-  virtual void OnDetailedFunctionCall(
-      base::Time time,
-      DWORD process_id,
-      DWORD thread_id,
-      const TraceDetailedFunctionCall* data) override;
-  virtual void OnComment(base::Time time,
-                         DWORD process_id,
-                         const TraceComment* data) override;
+  void OnStackTrace(base::Time time,
+                    DWORD process_id,
+                    const TraceStackTrace* data) override;
+  void OnDetailedFunctionCall(base::Time time,
+                              DWORD process_id,
+                              DWORD thread_id,
+                              const TraceDetailedFunctionCall* data) override;
+  void OnComment(base::Time time,
+                 DWORD process_id,
+                 const TraceComment* data) override;
+  void OnProcessHeap(base::Time time,
+                     DWORD process_id,
+                     const TraceProcessHeap* data) override;
   // @}
 };
 

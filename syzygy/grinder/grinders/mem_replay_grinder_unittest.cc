@@ -19,6 +19,7 @@
 #include "base/strings/string_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
+#include "syzygy/bard/events/linked_event.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace grinder {
@@ -40,8 +41,8 @@ class TestMemReplayGrinder : public MemReplayGrinder {
   using MemReplayGrinder::process_data_map_;
 
   // Member functions.
-  using MemReplayGrinder::FindOrCreatePlotLine;
   using MemReplayGrinder::FindOrCreateProcessData;
+  using MemReplayGrinder::FindOrCreateThreadData;
 
   // Creates and dispatches a TraceFunctionNameTableEntry event.
   void PlayFunctionNameTableEntry(uint32_t process_id,
@@ -161,17 +162,17 @@ TEST_F(MemReplayGrinderTest, NameBeforeCall) {
   EXPECT_EQ(1u, proc_data->function_id_map.size());
   EXPECT_TRUE(proc_data->pending_function_ids.empty());
   EXPECT_TRUE(proc_data->pending_calls.empty());
-  EXPECT_TRUE(proc_data->plot_line_map.empty());
+  EXPECT_TRUE(proc_data->thread_data_map.empty());
 
   // The function call is processed immediately upon being seen.
   grinder.PlayHeapAllocCall(1, 1, 0, 1, 0, kHandle, kFlags, kBytes, kRet);
   EXPECT_EQ(1u, proc_data->function_id_map.size());
   EXPECT_TRUE(proc_data->pending_function_ids.empty());
   EXPECT_TRUE(proc_data->pending_calls.empty());
-  EXPECT_EQ(1u, proc_data->plot_line_map.size());
-  auto plot_line = grinder.FindOrCreatePlotLine(proc_data, 1);
-  EXPECT_EQ(1u, plot_line->size());
-  auto evt = (*plot_line)[0];
+  EXPECT_EQ(1u, proc_data->thread_data_map.size());
+  auto thread_data = grinder.FindOrCreateThreadData(proc_data, 1);
+  EXPECT_EQ(1u, thread_data->plot_line->size());
+  auto evt = (*thread_data->plot_line)[0];
   EXPECT_EQ(bard::EventInterface::EventType::kHeapAllocEvent, evt->type());
   auto ha = reinterpret_cast<const bard::events::HeapAllocEvent*>(&(*evt));
   EXPECT_EQ(kHandle, ha->trace_heap());
@@ -198,17 +199,17 @@ TEST_F(MemReplayGrinderTest, CallBeforeName) {
   EXPECT_TRUE(proc_data->function_id_map.empty());
   EXPECT_EQ(1u, proc_data->pending_function_ids.size());
   EXPECT_EQ(1u, proc_data->pending_calls.size());
-  EXPECT_TRUE(proc_data->plot_line_map.empty());
+  EXPECT_TRUE(proc_data->thread_data_map.empty());
 
   // And processed once the name is defined.
   grinder.PlayFunctionNameTableEntry(1, 1, kHeapAlloc);
   EXPECT_EQ(1u, proc_data->function_id_map.size());
   EXPECT_TRUE(proc_data->pending_function_ids.empty());
   EXPECT_TRUE(proc_data->pending_calls.empty());
-  EXPECT_EQ(1u, proc_data->plot_line_map.size());
-  auto plot_line = grinder.FindOrCreatePlotLine(proc_data, 1);
-  EXPECT_EQ(1u, plot_line->size());
-  auto evt = (*plot_line)[0];
+  EXPECT_EQ(1u, proc_data->thread_data_map.size());
+  auto thread_data = grinder.FindOrCreateThreadData(proc_data, 1);
+  EXPECT_EQ(1u, thread_data->plot_line->size());
+  auto evt = (*thread_data->plot_line)[0];
   EXPECT_EQ(bard::EventInterface::EventType::kHeapAllocEvent, evt->type());
   auto ha = reinterpret_cast<const bard::events::HeapAllocEvent*>(&(*evt));
   EXPECT_EQ(kHandle, ha->trace_heap());
@@ -228,11 +229,80 @@ TEST_F(MemReplayGrinderTest, GrindHarnessTrace) {
   ASSERT_TRUE(parser.OpenTraceFile(trace_file));
   grinder.SetParser(&parser);
   EXPECT_TRUE(parser.Consume());
-
   EXPECT_FALSE(grinder.parse_error_);
 
-  // TODO(chrisha): Implement Grind!
-  EXPECT_FALSE(grinder.Grind());
+  // Grind the data and expect there to be a single process entry that is
+  // fully parsed.
+  EXPECT_TRUE(grinder.Grind());
+  EXPECT_EQ(1u, grinder.process_data_map_.size());
+  const auto& proc = grinder.process_data_map_.begin()->second;
+  EXPECT_TRUE(proc.pending_function_ids.empty());
+  EXPECT_TRUE(proc.story);
+
+  // The story should consist of 3 plotlines, corresponding to the main thread
+  // and the two worker threads.
+  EXPECT_EQ(3u, proc.story->plot_lines().size());
+
+  // Find the plotline for thread 1 and thread 2 of the harness. The first has
+  // 9 events, the second has 10.
+  bard::Story::PlotLine* pl1 = nullptr;
+  bard::Story::PlotLine* pl2 = nullptr;
+  for (size_t i = 0; i < proc.story->plot_lines().size(); ++i) {
+    if (pl1 == nullptr && proc.story->plot_lines()[i]->size() == 9)
+      pl1 = proc.story->plot_lines()[i];
+    else if (pl2 == nullptr && proc.story->plot_lines()[i]->size() == 10)
+      pl2 = proc.story->plot_lines()[i];
+  }
+  DCHECK(pl1 && pl2);
+
+  // Validate the contents of plot line 1.
+  EXPECT_EQ((*pl1)[0]->type(), bard::EventInterface::kHeapCreateEvent);
+  EXPECT_EQ((*pl1)[1]->type(), bard::EventInterface::kHeapAllocEvent);
+  EXPECT_EQ((*pl1)[2]->type(), bard::EventInterface::kLinkedEvent);
+  EXPECT_EQ((*pl1)[3]->type(), bard::EventInterface::kLinkedEvent);
+  EXPECT_EQ((*pl1)[4]->type(), bard::EventInterface::kHeapAllocEvent);
+  EXPECT_EQ((*pl1)[5]->type(), bard::EventInterface::kHeapFreeEvent);
+  EXPECT_EQ((*pl1)[6]->type(), bard::EventInterface::kHeapSetInformationEvent);
+  EXPECT_EQ((*pl1)[7]->type(), bard::EventInterface::kHeapFreeEvent);
+  EXPECT_EQ((*pl1)[8]->type(), bard::EventInterface::kHeapDestroyEvent);
+
+  // Validate the contents of plot line 2.
+  EXPECT_EQ((*pl2)[0]->type(), bard::EventInterface::kHeapCreateEvent);
+  EXPECT_EQ((*pl2)[1]->type(), bard::EventInterface::kHeapAllocEvent);
+  EXPECT_EQ((*pl2)[2]->type(), bard::EventInterface::kLinkedEvent);
+  EXPECT_EQ((*pl2)[3]->type(), bard::EventInterface::kLinkedEvent);
+  EXPECT_EQ((*pl2)[4]->type(), bard::EventInterface::kHeapReAllocEvent);
+  EXPECT_EQ((*pl2)[5]->type(), bard::EventInterface::kHeapFreeEvent);
+  EXPECT_EQ((*pl2)[6]->type(), bard::EventInterface::kHeapFreeEvent);
+  EXPECT_EQ((*pl2)[7]->type(), bard::EventInterface::kHeapDestroyEvent);
+  EXPECT_EQ((*pl2)[8]->type(), bard::EventInterface::kHeapFreeEvent);
+  EXPECT_EQ((*pl2)[9]->type(), bard::EventInterface::kHeapDestroyEvent);
+
+  // Validate the dependencies between the two plot lines.
+
+  bard::events::LinkedEvent* pl12 =
+      reinterpret_cast<bard::events::LinkedEvent*>((*pl1)[2]);
+  EXPECT_EQ(pl12->event()->type(), bard::EventInterface::kHeapCreateEvent);
+  EXPECT_TRUE(pl12->deps().empty());
+
+  bard::events::LinkedEvent* pl13 =
+      reinterpret_cast<bard::events::LinkedEvent*>((*pl1)[3]);
+  EXPECT_EQ(pl13->event()->type(), bard::EventInterface::kHeapAllocEvent);
+  EXPECT_TRUE(pl13->deps().empty());
+
+  bard::events::LinkedEvent* pl22 =
+      reinterpret_cast<bard::events::LinkedEvent*>((*pl2)[2]);
+  EXPECT_EQ(pl22->event()->type(), bard::EventInterface::kHeapAllocEvent);
+  EXPECT_EQ(1u, pl22->deps().size());
+  EXPECT_EQ((*pl1)[2], pl22->deps().front());
+
+  bard::events::LinkedEvent* pl23 =
+      reinterpret_cast<bard::events::LinkedEvent*>((*pl2)[3]);
+  EXPECT_EQ(pl23->event()->type(), bard::EventInterface::kHeapSizeEvent);
+  EXPECT_EQ(1u, pl23->deps().size());
+  EXPECT_EQ((*pl1)[3], pl23->deps().front());
+
+  // TODO(chrisha): Implement OutputData!
 }
 
 }  // namespace grinders

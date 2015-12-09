@@ -391,7 +391,7 @@ bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
 
   if (env->GetVar(::kSyzygyRpcSessionMandatoryEnvVar, &var)) {
     LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is \"" << var
-                << "\".";
+               << "\".";
   } else {
     LOG(ERROR) << ::kSyzygyRpcSessionMandatoryEnvVar << " is not set.";
   }

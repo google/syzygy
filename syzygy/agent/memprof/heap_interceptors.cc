@@ -35,9 +35,9 @@
 extern "C" {
 
 HANDLE WINAPI asan_GetProcessHeap() {
-  HANDLE ret = ::GetProcessHeap();
-  EMIT_DETAILED_HEAP_FUNCTION_CALL(ret);
-  return ret;
+  // This function doesn't need to be logged, but does need to be implemented
+  // for compatibility with old ASAN implementations.
+  return ::GetProcessHeap();
 }
 
 HANDLE WINAPI asan_HeapCreate(DWORD options,

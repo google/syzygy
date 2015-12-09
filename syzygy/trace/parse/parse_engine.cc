@@ -30,10 +30,10 @@ namespace parser {
 using ::common::BinaryBufferReader;
 
 ParseEngine::ParseEngine(const char* name, bool fail_on_module_conflict)
-    : event_handler_(NULL),
+    : event_handler_(nullptr),
       error_occurred_(false),
       fail_on_module_conflict_(fail_on_module_conflict) {
-  DCHECK(name != NULL);
+  DCHECK(name != nullptr);
   DCHECK(name[0] != '\0');
   name_ = name;
 }
@@ -54,8 +54,8 @@ void ParseEngine::set_error_occurred(bool value) {
 }
 
 void ParseEngine::set_event_handler(ParseEventHandler* event_handler) {
-  DCHECK(event_handler_ == NULL);
-  DCHECK(event_handler != NULL);
+  DCHECK(event_handler_ == nullptr);
+  DCHECK(event_handler != nullptr);
   event_handler_ = event_handler;
 }
 
@@ -63,14 +63,14 @@ const ModuleInformation* ParseEngine::GetModuleInformation(
     uint32 process_id, AbsoluteAddress64 addr) const {
   ProcessMap::const_iterator processes_it = processes_.find(process_id);
   if (processes_it == processes_.end())
-    return NULL;
+    return nullptr;
 
   const ModuleSpace& module_space = processes_it->second;
   ModuleSpace::Range range(addr, 1);
   ModuleSpace::RangeMapConstIter module_it =
       module_space.FindFirstIntersection(range);
   if (module_it == module_space.end())
-    return NULL;
+    return nullptr;
 
   return &module_it->second;
 }
@@ -266,14 +266,17 @@ bool ParseEngine::DispatchEvent(EVENT_TRACE* event) {
       success = DispatchComment(event);
       break;
 
+    case TRACE_PROCESS_HEAP:
+      success = DispatchProcessHeap(event);
+      break;
+
     default:
       LOG(ERROR) << "Unknown event type encountered.";
       break;
   }
 
-  if (!success) {
+  if (!success)
     error_occurred_ = true;
-  }
 
   return true;
 }
@@ -286,7 +289,7 @@ bool ParseEngine::DispatchEntryExitEvent(EVENT_TRACE* event,
   DCHECK(type == TRACE_ENTER_EVENT || type == TRACE_EXIT_EVENT);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceEnterExitEventData* data = NULL;
+  const TraceEnterExitEventData* data = nullptr;
 
   if (!reader.Read(sizeof(TraceEnterExitEventData), &data)) {
     LOG(ERROR) << "Short entry exit event.";
@@ -321,7 +324,7 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceBatchEnterData* data = NULL;
+  const TraceBatchEnterData* data = nullptr;
   size_t offset_to_calls = FIELD_OFFSET(TraceBatchEnterData, calls);
   if (!reader.Read(offset_to_calls, &data)) {
     LOG(ERROR) << "Short or empty batch event.";
@@ -337,16 +340,16 @@ bool ParseEngine::DispatchBatchEnterEvent(EVENT_TRACE* event) {
     return false;
   }
 
-  // Trim the batch entries if the last one is NULL, indicating that the
+  // Trim the batch entries if the last one is nullptr, indicating that the
   // reporting thread was interrupted mid-write.
   if (data->num_calls != 0 &&
-      data->calls[data->num_calls - 1].function == NULL) {
+      data->calls[data->num_calls - 1].function == nullptr) {
     // Yuck! Cast away constness because the BinaryBufferReader only likes
     // to deal with const output pointers.
     const_cast<TraceBatchEnterData*>(data)->num_calls -= 1;
   }
   DCHECK(data->num_calls == 0 ||
-         data->calls[data->num_calls - 1].function != NULL);
+         data->calls[data->num_calls - 1].function != nullptr);
 
   base::Time time(base::Time::FromFileTime(
       reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
@@ -382,7 +385,7 @@ bool ParseEngine::DispatchBatchInvocationEvent(EVENT_TRACE* event) {
     return false;
   }
 
-  const TraceBatchInvocationInfo* data = NULL;
+  const TraceBatchInvocationInfo* data = nullptr;
   if (!reader.Read(event->MofLength, &data)) {
     LOG(ERROR) << "Short or empty batch event.";
     return false;
@@ -409,7 +412,7 @@ bool ParseEngine::DispatchThreadNameEvent(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const char* thread_name = NULL;
+  const char* thread_name = nullptr;
   size_t thread_name_len = 0;
   if (!reader.ReadString(&thread_name, &thread_name_len)) {
     LOG(ERROR) << "Unable to read string.";
@@ -439,12 +442,12 @@ bool ParseEngine::DispatchIndexedFrequencyEvent(EVENT_TRACE* event) {
   }
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceIndexedFrequencyData* data = NULL;
+  const TraceIndexedFrequencyData* data = nullptr;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty coverage data event.";
     return false;
   }
-  DCHECK(data != NULL);
+  DCHECK(data != nullptr);
 
   // Calculate the expected size of the entire payload, headers included.
   size_t expected_length = data->frequency_size * data->num_entries +
@@ -470,8 +473,8 @@ bool ParseEngine::DispatchDynamicSymbolEvent(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceDynamicSymbol* symbol = NULL;
-  const char* symbol_name = NULL;
+  const TraceDynamicSymbol* symbol = nullptr;
+  const char* symbol_name = nullptr;
   size_t symbol_name_len = 0;
   if (!reader.Read(FIELD_OFFSET(TraceDynamicSymbol, symbol_name), &symbol) ||
       !reader.ReadString(&symbol_name, &symbol_name_len)) {
@@ -493,12 +496,12 @@ bool ParseEngine::DispatchSampleDataEvent(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceSampleData* data = NULL;
+  const TraceSampleData* data = nullptr;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty TraceSampleData event.";
     return false;
   }
-  DCHECK(data != NULL);
+  DCHECK(data != nullptr);
 
   // Calculate the expected size of the entire payload, headers included.
   size_t expected_length = FIELD_OFFSET(TraceSampleData, buckets) +
@@ -523,12 +526,12 @@ bool ParseEngine::DispatchFunctionNameTableEntryEvent(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceFunctionNameTableEntry* data = NULL;
+  const TraceFunctionNameTableEntry* data = nullptr;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty TraceFunctionNameTableEntry event.";
     return false;
   }
-  DCHECK(data != NULL);
+  DCHECK(data != nullptr);
 
   // Calculate the expected size of the payload and ensure there's
   // enough data.
@@ -554,12 +557,12 @@ bool ParseEngine::DispatchStackTrace(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceStackTrace* data = NULL;
+  const TraceStackTrace* data = nullptr;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty TraceStackTrace event.";
     return false;
   }
-  DCHECK(data != NULL);
+  DCHECK(data != nullptr);
 
   // Calculate the expected size of the payload and ensure there's
   // enough data.
@@ -585,12 +588,12 @@ bool ParseEngine::DispatchDetailedFunctionCall(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceDetailedFunctionCall* data = NULL;
+  const TraceDetailedFunctionCall* data = nullptr;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty TraceDetailedFunctionCall event.";
     return false;
   }
-  DCHECK(data != NULL);
+  DCHECK(data != nullptr);
 
   // Calculate the expected size of the payload and ensure there's
   // enough data.
@@ -618,12 +621,12 @@ bool ParseEngine::DispatchComment(EVENT_TRACE* event) {
   DCHECK(!error_occurred_);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceComment* data = NULL;
+  const TraceComment* data = nullptr;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty TraceComment event.";
     return false;
   }
-  DCHECK(data != NULL);
+  DCHECK(data != nullptr);
 
   // Calculate the expected size of the payload and ensure there's
   // enough data.
@@ -644,12 +647,33 @@ bool ParseEngine::DispatchComment(EVENT_TRACE* event) {
   return true;
 }
 
+bool ParseEngine::DispatchProcessHeap(EVENT_TRACE* event) {
+  DCHECK_NE(static_cast<EVENT_TRACE*>(nullptr), event);
+  DCHECK_NE(static_cast<ParseEventHandler*>(nullptr), event_handler_);
+  DCHECK(!error_occurred_);
+
+  BinaryBufferReader reader(event->MofData, event->MofLength);
+  const TraceProcessHeap* data = nullptr;
+  if (!reader.Read(&data)) {
+    LOG(ERROR) << "Short or empty TraceProcessHeap event.";
+    return false;
+  }
+  DCHECK(data != nullptr);
+
+  base::Time time(base::Time::FromFileTime(
+      reinterpret_cast<FILETIME&>(event->Header.TimeStamp)));
+  DWORD process_id = event->Header.ProcessId;
+  event_handler_->OnProcessHeap(time, process_id, data);
+
+  return true;
+}
+
 namespace {
 
 void ModuleTraceDataToModuleInformation(
     const TraceModuleData& module_data,
     ModuleInformation* module_info) {
-  DCHECK_NE(reinterpret_cast<ModuleInformation*>(NULL), module_info);
+  DCHECK_NE(static_cast<ModuleInformation*>(nullptr), module_info);
   module_info->base_address.set_value(
       reinterpret_cast<uint32>(module_data.module_base_addr));
   module_info->module_size = module_data.module_base_size;
@@ -671,13 +695,13 @@ bool ParseEngine::DispatchModuleEvent(EVENT_TRACE* event,
          type == TRACE_THREAD_DETACH_EVENT);
 
   BinaryBufferReader reader(event->MofData, event->MofLength);
-  const TraceModuleData* data = NULL;
+  const TraceModuleData* data = nullptr;
   if (!reader.Read(&data)) {
     LOG(ERROR) << "Short or empty module event.";
     return false;
   }
 
-  if (data->module_base_addr == NULL) {
+  if (data->module_base_addr == nullptr) {
     LOG(INFO) << "Encountered incompletely written module event record.";
     return true;
   }

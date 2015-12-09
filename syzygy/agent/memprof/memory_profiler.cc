@@ -37,6 +37,36 @@ bool MemoryProfiler::Init() {
     return false;
   }
 
+  // Get a list of all existing heaps.
+  std::vector<HANDLE> heaps(16, 0);
+  size_t heap_count = GetProcessHeaps(0, nullptr);
+  heaps.resize(heap_count);
+  heap_count = GetProcessHeaps(heaps.size(), heaps.data());
+  DCHECK_EQ(heap_count, heaps.size());
+
+  // Ensure the process heap is reported first.
+  HANDLE proc_heap = ::GetProcessHeap();
+  for (size_t i = 1; i < heaps.size(); ++i) {
+    if (heaps[i] == proc_heap) {
+      heaps[i] = heaps[0];
+      heaps[0] = proc_heap;
+      break;
+    }
+  }
+
+  // Log all pre-existing heaps.
+  for (auto heap : heaps) {
+    CHECK(state->segment()->CanAllocate(sizeof(TraceProcessHeap)) ||
+          session_.ExchangeBuffer(state->segment()));
+    DCHECK(state->segment()->CanAllocate(sizeof(TraceProcessHeap)));
+    TraceProcessHeap* proc_heap =
+        state->segment()->AllocateTraceRecord<TraceProcessHeap>();
+    DCHECK(proc_heap);
+    static_assert(sizeof(proc_heap->process_heap) == sizeof(heap),
+                  "incompatible sizes of heap handle types");
+    proc_heap->process_heap = reinterpret_cast<uint32_t>(heap);
+  }
+
   // Setup the DLL watcher. This will be notified of module load and unload
   // events as they occur.
   dll_watcher_.Init(base::Bind(&MemoryProfiler::OnDllEvent,

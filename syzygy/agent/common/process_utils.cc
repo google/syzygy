@@ -77,13 +77,12 @@ bool LogModule(HMODULE module,
   }
 
   // Make sure the event we're about to write will fit.
-  if (!segment->CanAllocate(sizeof(TraceModuleData)) ||
+  if (!segment->CanAllocate(sizeof(TraceModuleData)) &&
       !session->ExchangeBuffer(segment)) {
     // Failed to allocate a new segment.
     LOG(ERROR) << "Failed to exchange buffer.";
     return false;
   }
-
   DCHECK(segment->CanAllocate(sizeof(TraceModuleData)));
 
   // Allocate a record in the log.

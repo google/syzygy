@@ -16,10 +16,6 @@
 // by the memory profiler. The harness also uses threading so that the traces
 // produced by profiling this harness put the grinder through its paces.
 //
-// The threads are actually executed sequentially so that there's no need for
-// locks, but the analysis should infer that they can be run concurrently and
-// automatically infer required points of synchronization.
-//
 // The output of the grinder should look like the following (with a minimal set
 // of dependencies drawn as arrows):
 //
@@ -31,14 +27,17 @@
 //  4: create alloc 1 on heap 1 ---------> get size of alloc 1 on heap 1
 //  5: create alloc 2 on heap 1            realloc alloc 1 on heap 1
 //  6: free alloc 2 on heap 1              free alloc 1 on heap 1
-//  7: get process heap 2                  free alloc 4 on heap 1
-//  8: set info on heap 2                  destroy heap 1
-//  9: free alloc 0 on heap 0              free alloc 3 on heap 3
-// 10: destroy heap 0                      destroy heap 3
+//  7: set info on heap 2                  free alloc 4 on heap 1
+//  8: free alloc 0 on heap 0              destroy heap 1
+//  9: destroy heap 0                      free alloc 3 on heap 3
+// 10:                                     destroy heap 3
 
 #include "windows.h"
 
 namespace {
+
+// Mutex synchronizing access to shared_heap and shared_alloc.
+HANDLE shared_mutex = nullptr;
 
 // Heap that has shared use across two threads.
 HANDLE shared_heap = nullptr;
@@ -47,10 +46,19 @@ HANDLE shared_heap = nullptr;
 // shared_heap.
 void* shared_alloc = nullptr;
 
+// Helper function for acquiring |shared_mutex| on the current thread.
+void AcquireMutex() {
+  while (::WaitForSingleObject(shared_mutex, INFINITE) != WAIT_OBJECT_0) {}
+}
+
+// Body of the first worker thread. This thread is responsible for creating the
+// shared heap and allocation.
 DWORD WINAPI WorkerThread1Main(LPVOID param) {
   // Allocate a heap and a buffer on this thread.
   HANDLE heap = ::HeapCreate(0, 0, 0);                     // 1
   void* alloc1 = ::HeapAlloc(heap, HEAP_ZERO_MEMORY, 42);  // 2
+
+  AcquireMutex();
 
   shared_heap = ::HeapCreate(0, 0, 0);                  // 3
   shared_alloc = ::HeapAlloc(shared_heap, 0, 1 << 20);  // 4
@@ -58,24 +66,46 @@ DWORD WINAPI WorkerThread1Main(LPVOID param) {
   void* alloc2 = ::HeapAlloc(shared_heap, 0, 16);  // 5
   ::HeapFree(shared_heap, 0, alloc2);              // 6
 
+  ::ReleaseMutex(shared_mutex);
+
   // Tinker with the process heap a bit.
-  HANDLE process_heap = ::GetProcessHeap();                              // 7
-  ::HeapSetInformation(process_heap, HeapEnableTerminationOnCorruption,  // 8
+  HANDLE process_heap = ::GetProcessHeap();
+  ::HeapSetInformation(process_heap, HeapEnableTerminationOnCorruption,  // 7
                        0, 0);
 
   // Free the allocation and heap made on this thread.
-  ::HeapFree(heap, 0, alloc1);  // 9
+  ::HeapFree(heap, 0, alloc1);  // 8
   alloc1 = nullptr;
-  ::HeapDestroy(heap);  // 10
+  ::HeapDestroy(heap);  // 9
   heap = nullptr;
+
+  // Wait for the shared_heap to be cleaned up. This ensures that the two
+  // threads do run simultaneously and get distinct thread IDs.
+  while (true) {
+    AcquireMutex();
+    if (shared_heap == nullptr)
+      break;
+    ::ReleaseMutex(shared_mutex);
+  }
+  ::ReleaseMutex(shared_mutex);
 
   return 0;
 }
 
+// Body of the second worker thread. This thread is responsible for releasing
+// the shared heap and allocation.
 DWORD WINAPI WorkerThread2Main(LPVOID param) {
   // Allocate a heap and a buffer on this thread.
   HANDLE heap = ::HeapCreate(0, 0, 0);                       // 1
   void* alloc1 = ::HeapAlloc(heap, HEAP_ZERO_MEMORY, 1024);  // 2
+
+  // Wait until the shared heap is initialized.
+  while (true) {
+    AcquireMutex();
+    if (shared_heap != nullptr)
+      break;
+    ::ReleaseMutex(shared_mutex);
+  }
 
   // Create an allocation on this thread that is only used on this thread,
   // but which references the shared heap.
@@ -94,6 +124,8 @@ DWORD WINAPI WorkerThread2Main(LPVOID param) {
   ::HeapDestroy(shared_heap);  // 8
   shared_heap = nullptr;
 
+  ::ReleaseMutex(shared_mutex);
+
   ::HeapFree(heap, 0, alloc1);  // 9
   alloc1 = nullptr;
   ::HeapDestroy(heap);  // 10
@@ -109,15 +141,21 @@ int main(int argc, const char* const* argv) {
   // threads. This keeps them separated from the CRT code that runs on the main
   // thread and which we don't directly control.
 
+  // Create a mutex not owned by anyone.
+  shared_mutex = ::CreateMutex(NULL, FALSE, NULL);
+
+  // Run the two threads simultaneously and wait for them both to finish.
   DWORD worker_thread_1_id = 0;
   HANDLE worker_thread_1 = ::CreateThread(nullptr, 0, WorkerThread1Main,
                                           nullptr, 0, &worker_thread_1_id);
-  ::WaitForSingleObject(worker_thread_1, INFINITE);
-
   DWORD worker_thread_2_id = 0;
   HANDLE worker_thread_2 = ::CreateThread(nullptr, 0, WorkerThread2Main,
                                           nullptr, 0, &worker_thread_2_id);
+  ::WaitForSingleObject(worker_thread_1, INFINITE);
   ::WaitForSingleObject(worker_thread_2, INFINITE);
+
+  // Destroy the mutex.
+  ::CloseHandle(shared_mutex);
 
   return 0;
 }

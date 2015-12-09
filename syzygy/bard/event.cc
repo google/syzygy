@@ -18,7 +18,6 @@
 
 #include "syzygy/bard/event.h"
 
-#include "syzygy/bard/events/get_process_heap_event.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
 #include "syzygy/bard/events/heap_create_event.h"
 #include "syzygy/bard/events/heap_destroy_event.h"
@@ -49,8 +48,6 @@ bool EventInterface::Save(const EventInterface* event,
   switch (event->type()) {
     case kLinkedEvent:
       return events::LinkedEvent::Save(event, out_archive);
-    case kGetProcessHeapEvent:
-      return events::GetProcessHeapEvent::Save(event, out_archive);
     case kHeapAllocEvent:
       return events::HeapAllocEvent::Save(event, out_archive);
     case kHeapCreateEvent:
@@ -86,8 +83,6 @@ scoped_ptr<EventInterface> EventInterface::Load(core::InArchive* in_archive) {
   switch (static_cast<EventType>(type)) {
     case kLinkedEvent:
       return events::LinkedEvent::Load(in_archive);
-    case kGetProcessHeapEvent:
-      return events::GetProcessHeapEvent::Load(in_archive);
     case kHeapAllocEvent:
       return events::HeapAllocEvent::Load(in_archive);
     case kHeapCreateEvent:

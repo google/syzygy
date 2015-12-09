@@ -17,7 +17,6 @@
 #include <cstring>
 
 #include "syzygy/bard/raw_argument_converter.h"
-#include "syzygy/bard/events/get_process_heap_event.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
 #include "syzygy/bard/events/heap_create_event.h"
 #include "syzygy/bard/events/heap_destroy_event.h"
@@ -32,7 +31,6 @@ namespace grinders {
 namespace {
 
 const char* kAsanHeapFunctionNames[] = {
-    "asan_GetProcessHeap",
     "asan_HeapAlloc",
     "asan_HeapCreate",
     "asan_HeapDestroy",
@@ -233,8 +231,62 @@ bool MemReplayGrinder::Grind() {
     }
   }
 
-  // TODO(chrisha): Implement this
-  return false;
+  // Grind each set of process data on its own.
+  for (auto& proc : process_data_map_) {
+    // Make a heap of events across all threads in this process.
+    std::vector<ThreadDataIterator> heap;
+    for (auto& thread : proc.second.thread_data_map) {
+      if (thread.second.timestamps.empty())
+        continue;
+      ThreadDataIterator thread_it = {&thread.second, 0};
+      heap.push_back(thread_it);
+    }
+    std::make_heap(heap.begin(), heap.end());
+
+    // This is used to track known objects while they are alive.
+    ObjectMap object_map;
+    // This is used to track synchronization points between threads.
+    WaitedMap waited_map;
+
+    // Prepopulate the object map with entries for all the process heaps that
+    // existed at process startup.
+    const ThreadDataIterator kDummyThreadDataIterator = {nullptr, 0};
+    for (auto heap : proc.second.existing_heaps)
+      object_map.insert(std::make_pair(heap, kDummyThreadDataIterator));
+
+    // Process all of the thread events in the serial order in which they
+    // occurred. While doing so update object_map and waited_map, and encode
+    // dependencies in the underlying PlotLine structures.
+    while (!heap.empty()) {
+      std::pop_heap(heap.begin(), heap.end());
+      auto thread_it = heap.back();
+      heap.pop_back();
+
+      // Determine input dependencies for this event.
+      Deps deps;
+      if (!GetDeps(thread_it, &deps))
+        return false;
+
+      // Encode dependencies as explicit synchronization points as required,
+      // and update the |waited_map| with this information.
+      if (!ApplyDeps(thread_it, object_map, deps, &waited_map))
+        return false;
+
+      // Update the object map to reflect objects that have been destroyed or
+      // created.
+      if (!UpdateObjectMap(thread_it, &object_map))
+        return false;
+
+      // Increment the thread event iterator and reinsert it in the heap if
+      // there are remaining events.
+      if (thread_it.increment()) {
+        heap.push_back(thread_it);
+        std::push_heap(heap.begin(), heap.end());
+      }
+    }
+  }
+
+  return true;
 }
 
 bool MemReplayGrinder::OutputData(FILE* file) {
@@ -297,28 +349,55 @@ void MemReplayGrinder::OnDetailedFunctionCall(
   ProcessData* proc_data = FindOrCreateProcessData(process_id);
   DCHECK_NE(static_cast<ProcessData*>(nullptr), proc_data);
 
-  // Lookup the function name.
+  // If function calls are already pending then all new calls must continue to
+  // be added to the pending list.
+  bool push_pending = !proc_data->pending_calls.empty();
+
+  // If the function name doesn't exist then the call can't be processed.
+  // Push it to the pending list and defer its processing until the function
+  // name has been resolved.
   const auto& function = proc_data->function_id_map.find(data->function_id);
   if (function == proc_data->function_id_map.end()) {
-    // If the function name doesn't exist then the call can't be processed.
-    // Push it to the pending list and defer its processing until the function
-    // name has been resolved.
     proc_data->pending_function_ids.insert(data->function_id);
+    push_pending = true;
+  }
+
+  // Defer processing if required.
+  if (push_pending) {
     proc_data->pending_calls.push_back(
         PendingDetailedFunctionCall(time, thread_id, data));
     return;
   }
 
-  // The function name exists so parse the record immediately.
+  // The function name exists and there are no pending calls so parse the record
+  // immediately.
+  DCHECK(function != proc_data->function_id_map.end());
+  DCHECK(proc_data->pending_calls.empty());
   if (!ParseDetailedFunctionCall(time, thread_id, data, proc_data))
     return SetParseError();
+}
+
+void MemReplayGrinder::OnProcessHeap(base::Time time,
+                                     DWORD process_id,
+                                     const TraceProcessHeap* data) {
+  DCHECK_NE(0u, process_id);
+  DCHECK_NE(static_cast<TraceProcessHeap*>(nullptr), data);
+  DCHECK_NE(0u, data->process_heap);
+
+  if (parse_error_)
+    return;
+
+  ProcessData* proc_data = FindOrCreateProcessData(process_id);
+  DCHECK_NE(static_cast<ProcessData*>(nullptr), proc_data);
+  proc_data->existing_heaps.push_back(
+      reinterpret_cast<const void*>(data->process_heap));
 }
 
 void MemReplayGrinder::LoadAsanFunctionNames() {
   function_enum_map_.clear();
   for (size_t i = 0; i < arraysize(kAsanHeapFunctionNames); ++i) {
     function_enum_map_[kAsanHeapFunctionNames[i]] =
-        static_cast<EventType>(EventInterface::kGetProcessHeapEvent + i);
+        static_cast<EventType>(EventInterface::kHeapAllocEvent + i);
   }
 }
 
@@ -339,21 +418,15 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
   if (!BuildArgumentConverters(data, &args))
     return false;
 
-  // Get the associated plotline. This should not fail.
-  bard::Story::PlotLine* plot_line = FindOrCreatePlotLine(proc_data, thread_id);
-  DCHECK_NE(static_cast<bard::Story::PlotLine*>(nullptr), plot_line);
+  // Get the associated thread data. This should not fail.
+  ThreadData* thread_data = FindOrCreateThreadData(proc_data, thread_id);
+  DCHECK_NE(static_cast<ThreadData*>(nullptr), thread_data);
+  DCHECK_NE(static_cast<bard::Story::PlotLine*>(nullptr),
+            thread_data->plot_line);
 
   scoped_ptr<bard::EventInterface> evt;
 
   switch (function->second) {
-    case EventType::kGetProcessHeapEvent: {
-      ArgumentParser<HANDLE> parser;
-      if (!parser.Parse(args))
-        return false;
-      evt.reset(new bard::events::GetProcessHeapEvent(parser.arg0()));
-      break;
-    }
-
     case EventType::kHeapAllocEvent: {
       ArgumentParser<HANDLE, DWORD, SIZE_T, LPVOID> parser;
       if (!parser.Parse(args))
@@ -428,7 +501,8 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
     }
   }
 
-  plot_line->push_back(evt.Pass());
+  thread_data->plot_line->push_back(evt.Pass());
+  thread_data->timestamps.push_back(data->timestamp);
   return true;
 }
 
@@ -464,16 +538,199 @@ MemReplayGrinder::ProcessData* MemReplayGrinder::FindOrCreateProcessData(
   return &it->second;
 }
 
-bard::Story::PlotLine* MemReplayGrinder::FindOrCreatePlotLine(
+MemReplayGrinder::ThreadData* MemReplayGrinder::FindOrCreateThreadData(
     ProcessData* proc_data,
     DWORD thread_id) {
-  auto it = proc_data->plot_line_map.lower_bound(thread_id);
-  if (it != proc_data->plot_line_map.end() && it->first == thread_id)
-    return it->second;
+  auto it = proc_data->thread_data_map.lower_bound(thread_id);
+  if (it != proc_data->thread_data_map.end() && it->first == thread_id)
+    return &it->second;
 
   bard::Story::PlotLine* plot_line = proc_data->story->CreatePlotLine();
-  proc_data->plot_line_map.insert(it, std::make_pair(thread_id, plot_line));
-  return plot_line;
+  ThreadData thread_data;
+  thread_data.plot_line = plot_line;
+  it = proc_data->thread_data_map.insert(
+      it, std::make_pair(thread_id, thread_data));
+  return &it->second;
+}
+
+void MemReplayGrinder::EnsureLinkedEvent(const ThreadDataIterator& iter) {
+  if (iter.event()->type() == EventInterface::kLinkedEvent)
+    return;
+
+  bard::events::LinkedEvent* linked_event =
+      new bard::events::LinkedEvent(scoped_ptr<EventInterface>(iter.event()));
+  (*iter.plot_line())[iter.index] = linked_event;
+}
+
+bool MemReplayGrinder::GetDeps(const ThreadDataIterator& iter, Deps* deps) {
+  DCHECK_NE(static_cast<Deps*>(nullptr), deps);
+  DCHECK(deps->empty());
+
+  auto evt = iter.inner_event();
+
+  switch (evt->type()) {
+    case EventInterface::kHeapAllocEvent: {
+      auto e =
+          reinterpret_cast<const bard::events::HeapAllocEvent*>(iter.event());
+      deps->insert(e->trace_heap());
+      break;
+    }
+    case EventInterface::kHeapDestroyEvent: {
+      auto e =
+          reinterpret_cast<const bard::events::HeapDestroyEvent*>(iter.event());
+      deps->insert(e->trace_heap());
+      break;
+    }
+    case EventInterface::kHeapFreeEvent: {
+      auto e =
+          reinterpret_cast<const bard::events::HeapFreeEvent*>(iter.event());
+      deps->insert(e->trace_heap());
+      deps->insert(e->trace_alloc());
+      break;
+    }
+    case EventInterface::kHeapReAllocEvent: {
+      auto e =
+          reinterpret_cast<const bard::events::HeapReAllocEvent*>(iter.event());
+      deps->insert(e->trace_heap());
+      deps->insert(e->trace_alloc());
+      break;
+    }
+    case EventInterface::kHeapSetInformationEvent: {
+      auto e = reinterpret_cast<const bard::events::HeapSetInformationEvent*>(
+          iter.event());
+      deps->insert(e->trace_heap());
+      break;
+    }
+    case EventInterface::kHeapSizeEvent: {
+      auto e =
+          reinterpret_cast<const bard::events::HeapSizeEvent*>(iter.event());
+      deps->insert(e->trace_heap());
+      deps->insert(e->trace_alloc());
+      break;
+    }
+    default: break;
+  }
+
+  return true;
+}
+
+bool MemReplayGrinder::ApplyDeps(const ThreadDataIterator& iter,
+                                 const ObjectMap& object_map,
+                                 const Deps& deps,
+                                 WaitedMap* waited_map) {
+  DCHECK_NE(static_cast<WaitedMap*>(nullptr), waited_map);
+
+  for (auto dep : deps) {
+    auto dep_it = object_map.find(dep);
+    if (dep_it == object_map.end()) {
+      LOG(ERROR) << "Unable to find required input object " << dep;
+      return false;
+    }
+
+    // If the object was created on a dummy thread then it exists at startup
+    // and doesn't need to be encoded as a dependency.
+    if (dep_it->second.thread_data == nullptr)
+      continue;
+
+    // If the object was created on the same thread as the current object
+    // being processed then an implicit dependency already exists.
+    if (iter.plot_line() == dep_it->second.plot_line())
+      continue;
+
+    // Determine if there's already a sufficiently recent encoded dependency
+    // between these two plot lines.
+    auto plot_line_pair =
+        PlotLinePair(iter.plot_line(), dep_it->second.plot_line());
+    auto waited_it = waited_map->lower_bound(plot_line_pair);
+    if (waited_it != waited_map->end() && waited_it->first == plot_line_pair) {
+      DCHECK_EQ(dep_it->second.plot_line(), waited_it->second.plot_line());
+      if (waited_it->second.index >= dep_it->second.index)
+        continue;
+    }
+
+    // Arriving here indicates that the dependency must be explicitly encoded.
+
+    // Update the |waiting_map| to reflect the dependency.
+    if (waited_it->first == plot_line_pair) {
+      waited_it->second = dep_it->second;
+    } else {
+      waited_map->insert(waited_it,
+                         std::make_pair(plot_line_pair, dep_it->second));
+    }
+
+    // Make ourselves and the dependency linked events if necessary.
+    EnsureLinkedEvent(iter);
+    EnsureLinkedEvent(dep_it->second);
+
+    // Finally, wire up the dependency.
+    reinterpret_cast<bard::events::LinkedEvent*>(iter.event())
+        ->AddDep(dep_it->second.event());
+  }
+
+  return true;
+}
+
+bool MemReplayGrinder::UpdateObjectMap(const ThreadDataIterator& iter,
+                                       ObjectMap* object_map) {
+  DCHECK_NE(static_cast<ObjectMap*>(nullptr), object_map);
+
+  bool allow_existing = false;
+  void* created = nullptr;
+  void* destroyed = nullptr;
+
+  auto evt = iter.inner_event();
+
+  // Determine which objects are created and/or destroyed by the event.
+  switch (evt->type()) {
+    case EventInterface::kHeapAllocEvent: {
+      auto e = reinterpret_cast<const bard::events::HeapAllocEvent*>(evt);
+      created = e->trace_alloc();
+      break;
+    }
+    case EventInterface::kHeapCreateEvent: {
+      auto e = reinterpret_cast<const bard::events::HeapCreateEvent*>(evt);
+      created = e->trace_heap();
+      break;
+    }
+    case EventInterface::kHeapDestroyEvent: {
+      auto e = reinterpret_cast<const bard::events::HeapDestroyEvent*>(evt);
+      destroyed = e->trace_heap();
+      break;
+    }
+    case EventInterface::kHeapFreeEvent: {
+      auto e = reinterpret_cast<const bard::events::HeapFreeEvent*>(evt);
+      destroyed = e->trace_alloc();
+      break;
+    }
+    case EventInterface::kHeapReAllocEvent: {
+      auto e = reinterpret_cast<const bard::events::HeapReAllocEvent*>(evt);
+      destroyed = e->trace_alloc();
+      created = e->trace_realloc();
+      break;
+    }
+    default: break;
+  }
+
+  if (destroyed) {
+    auto it = object_map->find(destroyed);
+    if (it == object_map->end()) {
+      // TODO(chrisha): Make events be able to represent themselves as
+      // strings and log detailed information here?
+      LOG(ERROR) << "Failed to destroy object " << destroyed;
+      return false;
+    }
+    object_map->erase(it);
+  }
+
+  if (created) {
+    auto result = object_map->insert(std::make_pair(created, iter));
+    if (!result.second && !allow_existing) {
+      LOG(ERROR) << "Failed to create object " << created;
+      return false;
+    }
+  }
+
+  return true;
 }
 
 }  // namespace grinders

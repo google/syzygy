@@ -33,7 +33,6 @@ class EventInterface {
   enum EventType {
     kLinkedEvent,
     // Memory-profiling related events.
-    kGetProcessHeapEvent,
     kHeapAllocEvent,
     kHeapCreateEvent,
     kHeapDestroyEvent,

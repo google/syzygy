@@ -244,5 +244,10 @@ void ParseEventHandlerImpl::OnComment(
     const TraceComment* data) {
 }
 
+void ParseEventHandlerImpl::OnProcessHeap(base::Time time,
+                                          DWORD process_id,
+                                          const TraceProcessHeap* data) {
+}
+
 }  // namespace parser
 }  // namespace trace

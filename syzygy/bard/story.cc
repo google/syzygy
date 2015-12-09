@@ -14,7 +14,6 @@
 
 #include "syzygy/bard/story.h"
 
-#include "syzygy/bard/events/get_process_heap_event.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
 #include "syzygy/bard/events/heap_create_event.h"
 #include "syzygy/bard/events/heap_destroy_event.h"

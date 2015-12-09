@@ -16,7 +16,6 @@
 
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "syzygy/bard/events/get_process_heap_event.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
 #include "syzygy/bard/events/heap_create_event.h"
 #include "syzygy/bard/events/heap_destroy_event.h"
@@ -31,12 +30,6 @@ namespace bard {
 // for each event type are below.
 template <typename EventType>
 scoped_ptr<EventInterface> CreateTestEvent();
-
-template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::GetProcessHeapEvent>() {
-  return scoped_ptr<EventInterface>(
-      new events::GetProcessHeapEvent(reinterpret_cast<HANDLE>(0x1000)));
-}
 
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapAllocEvent>() {
@@ -108,8 +101,6 @@ void EventSerializationTest() {
 
 // Test abstract serialization of each event type.
 TEST(EventInterfaceTest, AbstractSerialization) {
-  EXPECT_NO_FATAL_FAILURE(
-      EventSerializationTest<events::GetProcessHeapEvent>());
   EXPECT_NO_FATAL_FAILURE(EventSerializationTest<events::HeapAllocEvent>());
   EXPECT_NO_FATAL_FAILURE(EventSerializationTest<events::HeapCreateEvent>());
   EXPECT_NO_FATAL_FAILURE(EventSerializationTest<events::HeapDestroyEvent>());
