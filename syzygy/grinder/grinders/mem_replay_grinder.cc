@@ -651,7 +651,7 @@ bool MemReplayGrinder::ApplyDeps(const ThreadDataIterator& iter,
     // Arriving here indicates that the dependency must be explicitly encoded.
 
     // Update the |waiting_map| to reflect the dependency.
-    if (waited_it->first == plot_line_pair) {
+    if (waited_it != waited_map->end() && waited_it->first == plot_line_pair) {
       waited_it->second = dep_it->second;
     } else {
       waited_map->insert(waited_it,
