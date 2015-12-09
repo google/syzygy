@@ -16,8 +16,10 @@
 # Presubmit script for Syzygy.
 
 import itertools
+import json
 import os
 import re
+import subprocess
 import sys
 
 
@@ -282,3 +284,22 @@ def CheckChangeOnUpload(input_api, output_api):
 
 def CheckChangeOnCommit(input_api, output_api):
   return CheckChange(input_api, output_api, True)
+
+# Unused argument - pylint: disable=W0613
+def GetPreferredTryMasters(project, change):  # pragma: no cover
+  cq_config_path = os.path.join(
+      change.RepositoryRoot(), 'syzygy', 'infra', 'config', 'cq.cfg')
+  # commit_queue.py below is a script in depot_tools directory, which has a
+  # 'builders' command to retrieve a list of CQ builders from the CQ config.
+  masters = json.loads(subprocess.check_output(
+      ['commit_queue', 'builders', cq_config_path], shell=True))
+  try_config = {}
+  for master in masters:
+    try_config.setdefault(master, {})
+    for builder in masters[master]:
+      # Do not trigger presubmit builders, since they're likely to fail
+      # (e.g. OWNERS checks before finished code review), and we're
+      # running local presubmit anyway.
+      if 'presubmit' not in builder.lower():
+        try_config[master][builder] = ['defaulttests']
+  return try_config
