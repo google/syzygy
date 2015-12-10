@@ -24,6 +24,8 @@
 #include "syzygy/bard/events/heap_realloc_event.h"
 #include "syzygy/bard/events/heap_set_information_event.h"
 #include "syzygy/bard/events/heap_size_event.h"
+#include "syzygy/core/serialization.h"
+#include "syzygy/core/zstream.h"
 
 namespace grinder {
 namespace grinders {
@@ -291,8 +293,34 @@ bool MemReplayGrinder::Grind() {
 
 bool MemReplayGrinder::OutputData(FILE* file) {
   DCHECK_NE(static_cast<FILE*>(nullptr), file);
-  // TODO(chrisha): Implement this
-  return false;
+
+  if (process_data_map_.empty())
+    return false;
+
+  // Set up the streams/archives for serialization. Using gzip compression
+  // reduces the size of the archive by over 70%.
+  core::FileOutStream out_stream(file);
+  core::ZOutStream zout_stream(&out_stream);
+  core::NativeBinaryOutArchive out_archive(&zout_stream);
+  if (!zout_stream.Init(9))
+    return false;
+
+  // Serialize the stories, back to back.
+  if (!out_archive.Save(static_cast<size_t>(process_data_map_.size())))
+    return false;
+  for (const auto& proc_data_pair : process_data_map_) {
+    auto story = proc_data_pair.second.story;
+    if (!story->Save(&out_archive))
+      return false;
+  }
+
+  // Ensure everything is written.
+  if (!zout_stream.Flush())
+    return false;
+  if (!out_stream.Flush())
+    return false;
+
+  return true;
 }
 
 void MemReplayGrinder::OnFunctionNameTableEntry(

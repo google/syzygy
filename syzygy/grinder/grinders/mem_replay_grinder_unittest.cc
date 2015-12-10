@@ -16,6 +16,7 @@
 
 #include "base/command_line.h"
 #include "base/files/file.h"
+#include "base/files/scoped_temp_dir.h"
 #include "base/strings/string_util.h"
 #include "gtest/gtest.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
@@ -302,7 +303,12 @@ TEST_F(MemReplayGrinderTest, GrindHarnessTrace) {
   EXPECT_EQ(1u, pl23->deps().size());
   EXPECT_EQ((*pl1)[3], pl23->deps().front());
 
-  // TODO(chrisha): Implement OutputData!
+  base::ScopedTempDir temp_dir;
+  ASSERT_TRUE(temp_dir.CreateUniqueTempDir());
+  base::FilePath output_path = temp_dir.path().AppendASCII("output.bin");
+  base::ScopedFILE output_file(base::OpenFile(output_path, "wb"));
+  EXPECT_TRUE(grinder.OutputData(output_file.get()));
+  output_file.reset();
 }
 
 }  // namespace grinders
