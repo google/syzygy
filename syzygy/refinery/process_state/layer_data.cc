@@ -62,17 +62,17 @@ ModuleId ModuleLayerData::FindOrIndex(const pe::PEFile::Signature& signature) {
   id = signature_to_id_.size();
 
   signature_to_id_[signature] = id;
-  id_to_signature_.push_back(signature);
+  signatures_.push_back(signature);
 
   return id;
 }
 
 bool ModuleLayerData::Find(ModuleId id,
                            pe::PEFile::Signature* signature) const {
-  if (id >= id_to_signature_.size())
+  if (id >= signatures_.size())
     return false;
 
-  *signature = id_to_signature_[id];
+  *signature = signatures_[id];
   return true;
 }
 

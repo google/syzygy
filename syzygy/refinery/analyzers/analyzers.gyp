@@ -38,6 +38,8 @@
         'analyzer_util.h',
         'exception_analyzer.cc',
         'exception_analyzer.h',
+        'heap_analyzer.cc',
+        'heap_analyzer.h',
         'memory_analyzer.cc',
         'memory_analyzer.h',
         'module_analyzer.cc',

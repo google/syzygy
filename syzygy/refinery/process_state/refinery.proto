@@ -104,7 +104,18 @@ message StackFrame {
   // TODO(manzagop): Add function name, for easier human consumption?
 }
 
-message HeapSnippet {
+// A header can be either corrupt or valid.
+message HeapMetadata {
+  // TODO(siggi): Maybe this wants more data. Maybe the type of heap, the
+  //    kind of metadata?
+  optional bool corrupt = 1;
+}
+
+// A heap allocation is either free or used.
+// Note that for the windows heap (at least), a free block's size may exceed
+// the size of the allocation that previously occupied it.
+message HeapAllocation {
+  optional bool is_free = 1;
 }
 
 message TypedBlock {

@@ -43,6 +43,8 @@ struct PESignatureHasher {
 // Data relevant to a process state's module layer.
 class ModuleLayerData {
  public:
+  using Signatures = std::vector<pe::PEFile::Signature>;
+
   ModuleLayerData();
 
   // Find the module id corresponding to a signature.
@@ -64,10 +66,12 @@ class ModuleLayerData {
   // @returns true on success, false otherwise.
   bool Find(ModuleId id, pe::PEFile::Signature* signature) const;
 
+  const Signatures& signatures() const { return signatures_; }
+
  private:
   base::hash_map<pe::PEFile::Signature, ModuleId, PESignatureHasher>
       signature_to_id_;
-  std::vector<pe::PEFile::Signature> id_to_signature_;
+  Signatures signatures_;
 };
 
 }  // namespace refinery

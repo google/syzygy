@@ -20,7 +20,13 @@
 namespace refinery {
 
 enum class RecordId {
-  BYTES, STACK, STACK_FRAME, HEAP_SNIPPET, TYPED_BLOCK, MODULE
+  BYTES,
+  STACK,
+  STACK_FRAME,
+  TYPED_BLOCK,
+  MODULE,
+  HEAP_METADATA,
+  HEAP_ALLOCATION,
 };
 
 template <typename T>
@@ -45,12 +51,6 @@ class RecordTraits<StackFrame> {
 };
 
 template<>
-class RecordTraits<HeapSnippet> {
- public:
-  static const RecordId ID = RecordId::HEAP_SNIPPET;
-};
-
-template<>
 class RecordTraits<TypedBlock> {
  public:
   static const RecordId ID = RecordId::TYPED_BLOCK;
@@ -60,6 +60,18 @@ template<>
 class RecordTraits<Module> {
  public:
   static const RecordId ID = RecordId::MODULE;
+};
+
+template <>
+class RecordTraits<HeapMetadata> {
+ public:
+  static const RecordId ID = RecordId::HEAP_METADATA;
+};
+
+template <>
+class RecordTraits<HeapAllocation> {
+ public:
+  static const RecordId ID = RecordId::HEAP_ALLOCATION;
 };
 
 }  // namespace refinery

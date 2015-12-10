@@ -70,6 +70,9 @@ class LFHEntryDetector {
     // equidistant.
     size_t size_votes;
     size_t entries_found;
+
+    // The subsegment code for the voted size.
+    uint64_t subsegment_code;
   };
   using LFHEntryRuns = std::vector<LFHEntryRun>;
 
@@ -91,6 +94,13 @@ class LFHEntryDetector {
   //     found - check the size of @p found_runs to see whether runs were
   //     found.
   bool Detect(const AddressRange& range, LFHEntryRuns* found_runs);
+
+  // Convenience decoding function.
+  static bool GetDecodedLFHEntrySubsegment(const TypedData& lfh_heap_entry,
+                                           uint64_t* decoded_subseg);
+
+  // Accessor.
+  UserDefinedTypePtr entry_type() const { return entry_type_; }
 
  private:
   typedef std::set<uint64_t> SubsegmentSet;

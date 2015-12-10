@@ -41,6 +41,13 @@ using TypedBlockRecordPtr = ProcessState::Layer<TypedBlock>::RecordPtr;
 using ModuleLayerPtr = scoped_refptr<ProcessState::Layer<Module>>;
 using ModuleRecordPtr = ProcessState::Layer<Module>::RecordPtr;
 
+using HeapMetadataLayerPtr = scoped_refptr<ProcessState::Layer<HeapMetadata>>;
+using HeapMetadataRecordPtr = ProcessState::Layer<HeapMetadata>::RecordPtr;
+
+using HeapAllocationLayerPtr =
+    scoped_refptr<ProcessState::Layer<HeapAllocation>>;
+using HeapAllocationRecordPtr = ProcessState::Layer<HeapAllocation>::RecordPtr;
+
 // A class for interacting with a ProcessState's module layer.
 class ModuleLayerAccessor {
  public:

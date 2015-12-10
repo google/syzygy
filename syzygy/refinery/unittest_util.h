@@ -15,6 +15,7 @@
 #ifndef SYZYGY_REFINERY_UNITTEST_UTIL_H_
 #define SYZYGY_REFINERY_UNITTEST_UTIL_H_
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>
@@ -196,6 +197,12 @@ class ScopedHeap {
 
   DISALLOW_COPY_AND_ASSIGN(ScopedHeap);
 };
+
+// Casts a pointer to an address.
+refinery::Address ToAddress(const void* ptr);
+
+// Tests for the presence of appverifier.
+bool IsAppVerifierActive();
 
 }  // namespace testing
 

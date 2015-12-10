@@ -21,28 +21,6 @@
 
 namespace refinery {
 
-namespace {
-
-bool GetDecodedLFHEntrySubsegment(const TypedData& lfh_heap_entry,
-                                  uint64_t* decoded_subseg) {
-  TypedData subseg_field;
-  if (!lfh_heap_entry.GetNamedField(L"SubSegmentCode", &subseg_field)) {
-    VLOG(1) << "Getting LFHEntry SubSegmentCode field failed.";
-    return false;
-  }
-  uint64_t entry_subseg = 0;
-  if (!subseg_field.GetUnsignedValue(&entry_subseg)) {
-    VLOG(1) << "Getting LFHEntry SubSegmentCode value failed.";
-    return false;
-  }
-  // Back out he XORed address of the entry itself.
-  *decoded_subseg = entry_subseg ^ (lfh_heap_entry.addr() >> 3);
-
-  return true;
-}
-
-}  // namespace
-
 LFHEntryDetector::LFHEntryDetector() : bit_source_(nullptr) {
 }
 
@@ -74,6 +52,8 @@ bool LFHEntryDetector::Detect(const AddressRange& range,
   DCHECK(bit_source_);
   DCHECK(entry_type_);
 
+  found_runs->clear();
+
   // This will be 8 or 16 depending on bitness.
   // TODO(siggi): Fix this code for 64 bit.
   const size_t kEntrySize = entry_type_->size();
@@ -97,6 +77,25 @@ bool LFHEntryDetector::Detect(const AddressRange& range,
       found_runs->push_back(found_run);
     }
   }
+
+  return true;
+}
+
+bool LFHEntryDetector::GetDecodedLFHEntrySubsegment(
+    const TypedData& lfh_heap_entry,
+    uint64_t* decoded_subseg) {
+  TypedData subseg_field;
+  if (!lfh_heap_entry.GetNamedField(L"SubSegmentCode", &subseg_field)) {
+    VLOG(1) << "Getting LFHEntry SubSegmentCode field failed.";
+    return false;
+  }
+  uint64_t entry_subseg = 0;
+  if (!subseg_field.GetUnsignedValue(&entry_subseg)) {
+    VLOG(1) << "Getting LFHEntry SubSegmentCode value failed.";
+    return false;
+  }
+  // Back out he XORed address of the entry itself.
+  *decoded_subseg = entry_subseg ^ (lfh_heap_entry.addr() >> 3);
 
   return true;
 }
@@ -188,16 +187,15 @@ bool LFHEntryDetector::ScanForEntryMatch(const AddressRange& range,
   if (distances.size() == 0)
     return false;
 
-  // TODO(siggi): Break ties by lowest distance, as corruption will result
-  //     in multiples of entry distance.
-  // TODO(siggi): Threshold matches to cut down on false positives.
   size_t voted_size = 0;
   size_t voted_count = 0;
   size_t num_votes = 0;
   for (const auto& entry : distances) {
     const auto& size = entry.first;
     const auto& count = entry.second;
-    if (count > voted_count) {
+    // Voting count ties are broken by the lowest size, as corruption in a run
+    // of entries of size D will show as kD.
+    if (count > voted_count || (count == voted_count && size < voted_size)) {
       voted_size = size;
       voted_count = count;
     }
@@ -210,6 +208,7 @@ bool LFHEntryDetector::ScanForEntryMatch(const AddressRange& range,
   found_run->entry_distance_bytes = voted_size;
   found_run->size_votes = voted_count;
   found_run->entries_found = num_votes + 1;
+  found_run->subsegment_code = subseg;
 
   return true;
 }

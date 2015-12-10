@@ -46,6 +46,7 @@
       'sources': [
         'analyzers/analysis_runner_unittest.cc',
         'analyzers/exception_analyzer_unittest.cc',
+        'analyzers/heap_analyzer_unittest.cc',
         'analyzers/memory_analyzer_unittest.cc',
         'analyzers/module_analyzer_unittest.cc',
         'analyzers/thread_analyzer_unittest.cc',

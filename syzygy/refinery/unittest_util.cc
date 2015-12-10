@@ -796,4 +796,13 @@ bool ScopedHeap::IsLFHBlock(const void* block) {
   return false;
 }
 
+refinery::Address ToAddress(const void* ptr) {
+  return static_cast<refinery::Address>(reinterpret_cast<uintptr_t>(ptr));
+}
+
+bool IsAppVerifierActive() {
+  // TODO(siggi): This seems like a solid proxy for verifier present.
+  return ::GetModuleHandle(L"verifier.dll") != nullptr;
+}
+
 }  // namespace testing
