@@ -225,6 +225,9 @@ class AsanRuntime {
   // once the problem gets fixed.
   AsanFeatureSet enabled_features_;
 
+  // Indicates if Kasko is enabled.
+  bool enable_kasko_;
+
  private:
   // Sets up the shadow memory.
   // @returns true on success, false otherwise.
@@ -316,9 +319,6 @@ class AsanRuntime {
   // A random key that is generated on object creation. This is used for
   // correlating duplicate crash reports on the back-end.
   const uint64_t random_key_;
-
-  // Indicates if Kasko is enabled.
-  bool enable_kasko_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

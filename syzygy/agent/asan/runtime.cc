@@ -1079,6 +1079,7 @@ AsanFeatureSet AsanRuntime::GenerateRandomFeatureSet() {
       (enabled_features & ASAN_FEATURE_ENABLE_CTMALLOC) != 0;
   params_.enable_large_block_heap =
       (enabled_features & ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP) != 0;
+  enable_kasko_ = (enabled_features & ASAN_FEATURE_ENABLE_KASKO) != 0;
   return enabled_features;
 }
 

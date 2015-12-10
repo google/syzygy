@@ -17,6 +17,7 @@
 #include <map>
 
 #include "base/bind.h"
+#include "base/bits.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/memory/scoped_ptr.h"
@@ -32,12 +33,19 @@ namespace {
 
 using agent::asan::AsanErrorInfo;
 
-// A derived class to expose protected members for unit-testing.
+// Derived classes to expose protected members for unit-testing.
+class TestBlockHeapManager : public heap_managers::BlockHeapManager {
+ public:
+  using heap_managers::BlockHeapManager::enable_page_protections_;
+};
+
 class TestAsanRuntime : public AsanRuntime {
  public:
   using AsanRuntime::GenerateRandomFeatureSet;
   using AsanRuntime::PropagateParams;
+  using AsanRuntime::enable_kasko_;
   using AsanRuntime::enabled_features_;
+  using AsanRuntime::heap_manager_;
 };
 
 class AsanRuntimeTest : public testing::TestWithAsanLogger {
@@ -248,6 +256,9 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
   const size_t kIterations = 10000;
 
   std::map<size_t, size_t> feature_group_frequency;
+  const size_t kFeatureMaskBitCount =
+      static_cast<size_t>(base::bits::Log2Floor(ASAN_FEATURE_MAX));
+  std::vector<size_t> feature_activation_count(kFeatureMaskBitCount, 0);
 
   for (size_t i = 0; i < kIterations; ++i) {
     AsanFeatureSet feature_group = asan_runtime_.GenerateRandomFeatureSet();
@@ -257,6 +268,24 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
       feature_group_frequency[feature_group]++;
     } else {
       feature_group_frequency[feature_group] = 0;
+    }
+    TestBlockHeapManager* test_block_heap_manager =
+        static_cast<TestBlockHeapManager*>(asan_runtime_.heap_manager_.get());
+    if (test_block_heap_manager->enable_page_protections_) {
+      feature_activation_count[base::bits::Log2Floor(
+          ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS)]++;
+    }
+    if (asan_runtime_.params().enable_ctmalloc) {
+      feature_activation_count[base::bits::Log2Floor(
+          ASAN_FEATURE_ENABLE_CTMALLOC)]++;
+    }
+    if (asan_runtime_.params().enable_large_block_heap) {
+      feature_activation_count[base::bits::Log2Floor(
+          ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP)]++;
+    }
+    if (asan_runtime_.enable_kasko_) {
+      feature_activation_count[base::bits::Log2Floor(
+          ASAN_FEATURE_ENABLE_KASKO)]++;
     }
   }
 
@@ -277,6 +306,26 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
   for (const auto& iter : feature_group_frequency) {
     EXPECT_LT(kExpectedCount - kErrorMargin, iter.second);
     EXPECT_GT(kExpectedCount + kErrorMargin, iter.second);
+  }
+
+  // Every feature has a 50% chance of being turned on, so we expect a standard
+  // deviation of sqrt(10000 * 0.5 * (1 - 0.5)) = 50. So with a 10% margin we're
+  // at 20 standard deviations. For |z| > 30, the p-value is < 0.0001 and can
+  // be considered as insignificant.
+  const size_t kExpectedFeatureFrequency = kIterations / 2;
+  const size_t kExpectedFeatureFrequencyErrorMargin =
+      kExpectedFeatureFrequency / 10;
+  for (size_t i = 0; i < feature_activation_count.size(); ++i) {
+    if ((kAsanDisabledFeatureMask & (1 << i)) != 0) {
+      EXPECT_LT(
+          kExpectedFeatureFrequency - kExpectedFeatureFrequencyErrorMargin,
+          feature_activation_count[i]);
+      EXPECT_GT(
+          kExpectedFeatureFrequency + kExpectedFeatureFrequencyErrorMargin,
+          feature_activation_count[i]);
+    } else {
+      EXPECT_EQ(0U, feature_activation_count[i]);
+    }
   }
 
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
