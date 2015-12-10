@@ -27,30 +27,13 @@
 
 namespace refinery {
 
-// Fwd.
-class ProcessState;
-
 // The SymbolProvider provides symbol information. See DiaSymbolProvider for an
 // alternative.
-// TODO(manzagop): get rid of the functions that take in a process state. The
-// symbol provider shouldn't offer that service.
 class SymbolProvider : public base::RefCounted<SymbolProvider> {
  public:
   SymbolProvider();
   // @note virtual to enable mocking.
   virtual ~SymbolProvider();
-
-  // Retrieves or creates a TypeRepository for the module within @p
-  // process_state corresponding to @p va.
-  // @param va virtual address within a module for which to get a
-  //     TypeRepository.
-  // @param process_state the process state within which to interpret @p va.
-  // @param type_repo on success, returns a type repository for the module. On
-  //     failure, contains nullptr.
-  // @returns true on success, false on failure.
-  bool FindOrCreateTypeRepository(const Address va,
-                                  ProcessState* process_state,
-                                  scoped_refptr<TypeRepository>* type_repo);
 
   // Retrieves or creates a TypeRepository for the module  corresponding to @p
   // signature.
@@ -63,18 +46,6 @@ class SymbolProvider : public base::RefCounted<SymbolProvider> {
   virtual bool FindOrCreateTypeRepository(
       const pe::PEFile::Signature& signature,
       scoped_refptr<TypeRepository>* type_repo);
-
-  // Retrieves or creates a TypeNameIndex for the module within @p
-  // process_state corresponding to @p va.
-  // @param va virtual address within a module for which to get a
-  //     TypeRepository.
-  // @param process_state the process state within which to interpret @p va.
-  // @param type_repo on success, returns a typename index for the module. On
-  //     failure, contains nullptr.
-  // @returns true on success, false on failure.
-  bool FindOrCreateTypeNameIndex(const Address va,
-                                 ProcessState* process_state,
-                                 scoped_refptr<TypeNameIndex>* typename_index);
 
   // Retrieves or creates a TypeNameIndex for the module  corresponding to @p
   // signature.

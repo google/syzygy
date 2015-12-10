@@ -27,31 +27,13 @@
 
 namespace refinery {
 
-// Fwd.
-class ProcessState;
-
 // The DiaSymbolProvider provides symbol information via the DIA interfaces.
 // @note It is *not* safe to interleave access to a session in the context of
 //     different process states, as the session's load address may be different.
-// TODO(manzagop): replace the functions that take in a process state by
-// functions that take in a signature. Symbol providers should not need to know
-// about the process state.
 class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
  public:
   DiaSymbolProvider();
   ~DiaSymbolProvider();
-
-  // Retrieves or creates an IDiaSession for the module within @p process_state
-  // corresponding to @p va.
-  // @note on success, the session's load address is set.
-  // @param va virtual address for which to get a session.
-  // @param process_state the process state within which to interpret @p va.
-  // @param session on success, returns a session for the module. On failure,
-  //   contains nullptr.
-  // @returns true on success, false on failure.
-  bool FindOrCreateDiaSession(const Address va,
-                              ProcessState* process_state,
-                              base::win::ScopedComPtr<IDiaSession>* session);
 
   // Retrieves or creates an IDiaSession for the module corresponding to @p
   // signature.

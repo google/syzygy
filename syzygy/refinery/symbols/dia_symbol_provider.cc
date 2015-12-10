@@ -19,8 +19,6 @@
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/pe/dia_util.h"
-#include "syzygy/refinery/process_state/process_state.h"
-#include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/symbols/symbol_provider_util.h"
 
 namespace refinery {
@@ -29,36 +27,6 @@ DiaSymbolProvider::DiaSymbolProvider() {
 }
 
 DiaSymbolProvider::~DiaSymbolProvider() {
-}
-
-bool DiaSymbolProvider::FindOrCreateDiaSession(
-    const Address va,
-    ProcessState* process_state,
-    base::win::ScopedComPtr<IDiaSession>* session) {
-  DCHECK(process_state != nullptr);
-  DCHECK(session != nullptr);
-  *session = nullptr;
-
-  // Get the module's signature.
-  ModuleLayerAccessor accessor(process_state);
-  pe::PEFile::Signature signature;
-  if (!accessor.GetModuleSignature(va, &signature))
-    return false;
-
-  // Retrieve the session.
-  base::win::ScopedComPtr<IDiaSession> session_temp;
-  if (!FindOrCreateDiaSession(signature, &session_temp))
-    return false;
-
-  // Set the load address (the same module might be loaded at multiple VAs).
-  HRESULT hr = session_temp->put_loadAddress(signature.base_address.value());
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to set session's load address: " << common::LogHr(hr);
-    return false;
-  }
-
-  *session = session_temp;
-  return true;
 }
 
 // TODO(manzagop): revise this function using the code from dia_util.h.

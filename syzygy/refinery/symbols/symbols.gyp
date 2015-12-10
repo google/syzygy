@@ -25,8 +25,6 @@
         '<(src)/syzygy/pe/pe.gyp:dia_sdk',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
-        '<(src)/syzygy/'
-            'refinery/process_state/process_state.gyp:process_state_lib',
         '<(src)/syzygy/refinery/types/types.gyp:types_lib',
       ],
       'sources': [

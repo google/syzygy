@@ -21,8 +21,6 @@
 #include "base/strings/string16.h"
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/pe/find.h"
-#include "syzygy/refinery/process_state/process_state.h"
-#include "syzygy/refinery/process_state/process_state_util.h"
 
 namespace refinery {
 

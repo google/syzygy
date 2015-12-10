@@ -23,6 +23,8 @@
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/refinery/analyzers/stack_frame_analyzer_impl.h"
 #include "syzygy/refinery/process_state/layer_data.h"
+#include "syzygy/refinery/process_state/process_state.h"
+#include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
@@ -156,17 +158,28 @@ bool StackFrameAnalyzer::SetSymbolInformation(Address instruction_pointer,
   dia_session_.Release();
   typename_index_ = nullptr;
 
+  // Get the module's signature.
+  ModuleLayerAccessor accessor(process_state);
+  pe::PEFile::Signature signature;
+  if (!accessor.GetModuleSignature(instruction_pointer, &signature))
+    return false;
+
   // Get the typename index for the module.
-  if (!symbol_provider_->FindOrCreateTypeNameIndex(
-          instruction_pointer, process_state, &typename_index_)) {
+  if (!symbol_provider_->FindOrCreateTypeNameIndex(signature,
+                                                   &typename_index_)) {
     return false;
   }
 
-  // Get dia session for the module.
-  if (!dia_symbol_provider_->FindOrCreateDiaSession(
-          instruction_pointer, process_state, &dia_session_)) {
+  // Get dia session for the module and set its address.
+  base::win::ScopedComPtr<IDiaSession> session_tmp;
+  if (!dia_symbol_provider_->FindOrCreateDiaSession(signature, &session_tmp))
+    return false;
+  HRESULT hr = session_tmp->put_loadAddress(signature.base_address.value());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Unable to set session's load address: " << common::LogHr(hr);
     return false;
   }
+  dia_session_ = session_tmp;
 
   return true;
 }

@@ -16,8 +16,6 @@
 
 #include "base/bind.h"
 #include "base/strings/stringprintf.h"
-#include "syzygy/refinery/process_state/process_state.h"
-#include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/symbols/symbol_provider_util.h"
 #include "syzygy/refinery/types/pdb_crawler.h"
 
@@ -27,24 +25,6 @@ SymbolProvider::SymbolProvider() {
 }
 
 SymbolProvider::~SymbolProvider() {
-}
-
-bool SymbolProvider::FindOrCreateTypeRepository(
-    const Address va,
-    ProcessState* process_state,
-    scoped_refptr<TypeRepository>* type_repo) {
-  DCHECK(process_state);
-  DCHECK(type_repo);
-  *type_repo = nullptr;
-
-  // Get the module's signature.
-  ModuleLayerAccessor accessor(process_state);
-  pe::PEFile::Signature signature;
-  if (!accessor.GetModuleSignature(va, &signature))
-    return false;
-
-  // Retrieve the type repository.
-  return FindOrCreateTypeRepository(signature, type_repo);
 }
 
 bool SymbolProvider::FindOrCreateTypeRepository(
@@ -61,24 +41,6 @@ bool SymbolProvider::FindOrCreateTypeRepository(
 
   type_repos_.GetOrLoad(cache_key, load_cb, type_repo);
   return type_repo->get() != nullptr;
-}
-
-bool SymbolProvider::FindOrCreateTypeNameIndex(
-    const Address va,
-    ProcessState* process_state,
-    scoped_refptr<TypeNameIndex>* typename_index) {
-  DCHECK(process_state);
-  DCHECK(typename_index);
-  *typename_index = nullptr;
-
-  // Get the module's signature.
-  ModuleLayerAccessor accessor(process_state);
-  pe::PEFile::Signature signature;
-  if (!accessor.GetModuleSignature(va, &signature))
-    return false;
-
-  // Retrieve the type repository.
-  return FindOrCreateTypeNameIndex(signature, typename_index);
 }
 
 bool SymbolProvider::FindOrCreateTypeNameIndex(

@@ -36,6 +36,37 @@
 
 namespace refinery {
 
+namespace {
+
+bool GetDiaSession(ULONGLONG va,
+                   ProcessState* process_state,
+                   scoped_refptr<DiaSymbolProvider> symbol_provider,
+                   base::win::ScopedComPtr<IDiaSession>* session) {
+  DCHECK(process_state); DCHECK(session);
+
+  // Get the module's signature.
+  ModuleLayerAccessor accessor(process_state);
+  pe::PEFile::Signature signature;
+  if (!accessor.GetModuleSignature(va, &signature))
+    return false;
+
+  // Retrieve the session.
+  base::win::ScopedComPtr<IDiaSession> session_tmp;
+  if (!symbol_provider->FindOrCreateDiaSession(signature, &session_tmp))
+    return false;
+
+  // Set the load address (the same module might be loaded at multiple VAs).
+  HRESULT hr = session_tmp->put_loadAddress(signature.base_address.value());
+  if (FAILED(hr)) {
+    LOG(ERROR) << "Unable to set session's load address: " << common::LogHr(hr);
+    return false;
+  }
+  *session = session_tmp;
+  return true;
+}
+
+}  // namespace
+
 StackWalkHelper::StackWalkHelper(
     scoped_refptr<DiaSymbolProvider> symbol_provider)
     : symbol_provider_(symbol_provider) {
@@ -200,8 +231,8 @@ STDMETHODIMP StackWalkHelper::searchForReturnAddressStart(
 STDMETHODIMP StackWalkHelper::frameForVA(ULONGLONG va,
                                          IDiaFrameData** frame_data) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!symbol_provider_->FindOrCreateDiaSession(va, process_state_, &session)) {
-    LOG(ERROR) << "Failed to get dia session by va.";
+  if (!GetDiaSession(va, process_state_, symbol_provider_, &session)) {
+    LOG(ERROR) << "Failed to get dia session.";
     return E_FAIL;
   }
 
@@ -230,8 +261,8 @@ STDMETHODIMP StackWalkHelper::frameForVA(ULONGLONG va,
 
 STDMETHODIMP StackWalkHelper::symbolForVA(ULONGLONG va, IDiaSymbol** ppSymbol) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!symbol_provider_->FindOrCreateDiaSession(va, process_state_, &session)) {
-    LOG(ERROR) << "Failed to get dia session by va.";
+  if (!GetDiaSession(va, process_state_, symbol_provider_, &session)) {
+    LOG(ERROR) << "Failed to get dia session.";
     return E_FAIL;
   }
 
@@ -289,8 +320,8 @@ STDMETHODIMP StackWalkHelper::addressForVA(ULONGLONG va,
                                            _Out_ DWORD* pISect,
                                            _Out_ DWORD* pOffset) {
   base::win::ScopedComPtr<IDiaSession> session;
-  if (!symbol_provider_->FindOrCreateDiaSession(va, process_state_, &session)) {
-    LOG(ERROR) << "Failed to get dia session by va.";
+  if (!GetDiaSession(va, process_state_, symbol_provider_, &session)) {
+    LOG(ERROR) << "Failed to get dia session.";
     return E_FAIL;
   }
 
