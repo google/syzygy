@@ -24,11 +24,14 @@
         '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
         '<(src)/syzygy/'
             'refinery/process_state/process_state.gyp:process_state_lib',
+        '<(src)/syzygy/refinery/symbols/symbols.gyp:symbols_lib',
       ],
       'sources': [
         'validator.h',
         'exception_handler_validator.cc',
         'exception_handler_validator.h',
+        'vftable_ptr_validator.cc',
+        'vftable_ptr_validator.h',
       ],
     },
   ],

@@ -831,6 +831,14 @@ bool DiaCrawler::InitializeForFile(const base::FilePath& path) {
   if (!pe::CreateDiaSession(path, source.get(), session.Receive()))
     return false;
 
+  return InitializeForSession(source, session);
+}
+
+bool DiaCrawler::InitializeForSession(
+    base::win::ScopedComPtr<IDiaDataSource> source,
+    base::win::ScopedComPtr<IDiaSession> session) {
+  DCHECK(source.get()); DCHECK(session.get());
+
   HRESULT hr = session->get_globalScope(global_.Receive());
   if (!SUCCEEDED(hr) || !global_)
     return false;

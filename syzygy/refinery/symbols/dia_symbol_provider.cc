@@ -20,6 +20,7 @@
 #include "syzygy/common/com_utils.h"
 #include "syzygy/pe/dia_util.h"
 #include "syzygy/refinery/symbols/symbol_provider_util.h"
+#include "syzygy/refinery/types/dia_crawler.h"
 
 namespace refinery {
 
@@ -36,19 +37,59 @@ bool DiaSymbolProvider::FindOrCreateDiaSession(
   DCHECK(session != nullptr);
   *session = nullptr;
 
-  // Determine the cache key. Note that the cache key does not contain the
-  // module's base address.
-  base::string16 cache_key;
-  base::SStringPrintf(&cache_key, L"%ls:%d:%d:%d",
+  base::win::ScopedComPtr<IDiaDataSource> tmp_source;
+  return GetOrLoad(signature, &tmp_source, session);
+}
+
+bool DiaSymbolProvider::GetVFTableRVAs(const pe::PEFile::Signature& signature,
+                                       base::hash_set<Address>* vftable_rvas) {
+  DCHECK(vftable_rvas);
+
+  base::win::ScopedComPtr<IDiaDataSource> source;
+  base::win::ScopedComPtr<IDiaSession> session;
+  if (!GetOrLoad(signature, &source, &session))
+    return false;
+
+  DiaCrawler crawler;
+  if (!crawler.InitializeForSession(source, session))
+    return false;
+
+  return crawler.GetVFTableRVAs(vftable_rvas);
+}
+
+void DiaSymbolProvider::GetCacheKey(const pe::PEFile::Signature& signature,
+                                    base::string16* cache_key) {
+  DCHECK(cache_key);
+  // Note that the cache key does not contain the module's base address.
+  base::SStringPrintf(cache_key, L"%ls:%d:%d:%d",
                       base::FilePath(signature.path).BaseName().value().c_str(),
                       signature.module_size, signature.module_checksum,
                       signature.module_time_date_stamp);
+}
+
+bool DiaSymbolProvider::GetOrLoad(
+    const pe::PEFile::Signature& signature,
+    base::win::ScopedComPtr<IDiaDataSource>* source,
+    base::win::ScopedComPtr<IDiaSession>* session) {
+  DCHECK(source); DCHECK(session);
+  *source = nullptr;
+  *session = nullptr;
+
+  base::string16 cache_key;
+  GetCacheKey(signature, &cache_key);
 
   // Look for a pre-existing entry.
   auto session_it = pdb_sessions_.find(cache_key);
   if (session_it != pdb_sessions_.end()) {
     if (session_it->second == nullptr)
       return false;  // Negative cache entry.
+
+    auto source_it = pdb_sources_.find(cache_key);
+    // Consistency validation: if there's a session, there should be a source.
+    DCHECK(source_it != pdb_sources_.end());
+    DCHECK(session_it->second.get() != nullptr);
+
+    *source = source_it->second;
     *session = session_it->second;
     return true;
   }
@@ -77,6 +118,7 @@ bool DiaSymbolProvider::FindOrCreateDiaSession(
   pdb_sources_[cache_key] = pdb_source;
   pdb_sessions_[cache_key] = pdb_session;
 
+  *source = pdb_source;
   *session = pdb_session;
   return true;
 }

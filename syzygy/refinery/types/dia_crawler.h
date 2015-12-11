@@ -38,7 +38,15 @@ class DiaCrawler {
 
   // Initializes this crawler for the file at @p path.
   // @param path the image file whose symbols to crawl for types.
+  // @returns true on success, false on failure.
   bool InitializeForFile(const base::FilePath& path);
+
+  // Initializes this crawler using @p source and @p session.
+  // @param source the dia source to initialize with.
+  // @param session the dia session to initialize with.
+  // @returns true on success, false on failure.
+  bool InitializeForSession(base::win::ScopedComPtr<IDiaDataSource> source,
+                            base::win::ScopedComPtr<IDiaSession> session);
 
   // Retrieves all types associated with the file this instance
   // is initialized to.

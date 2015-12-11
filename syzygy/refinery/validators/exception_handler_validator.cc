@@ -113,6 +113,8 @@ void AddChainAddressDecreaseViolation(Address record_addr,
 Validator::ValidationResult ExceptionHandlerValidator::Validate(
     ProcessState* process_state,
     ValidationReport* report) {
+  DCHECK(process_state); DCHECK(report);
+
   BytesLayerPtr bytes_layer;
   if (!process_state->FindLayer(&bytes_layer))
     return VALIDATION_ERROR;

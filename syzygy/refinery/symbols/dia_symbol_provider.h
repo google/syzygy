@@ -30,10 +30,14 @@ namespace refinery {
 // The DiaSymbolProvider provides symbol information via the DIA interfaces.
 // @note It is *not* safe to interleave access to a session in the context of
 //     different process states, as the session's load address may be different.
+// @note use of virtual is to allow mocking.
+// TODO(manzagop): this class should share an interface with SymbolProvider, for
+// providing type repositories. This would enable replacing one implementation
+// for the other and possibly sharing some implementation.
 class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
  public:
   DiaSymbolProvider();
-  ~DiaSymbolProvider();
+  virtual ~DiaSymbolProvider();
 
   // Retrieves or creates an IDiaSession for the module corresponding to @p
   // signature.
@@ -42,14 +46,34 @@ class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
   // @param session on success, returns a session for the module. On failure,
   //   contains nullptr.
   // @returns true on success, false on failure.
-  bool FindOrCreateDiaSession(const pe::PEFile::Signature& signature,
-                              base::win::ScopedComPtr<IDiaSession>* session);
+  virtual bool FindOrCreateDiaSession(
+      const pe::PEFile::Signature& signature,
+      base::win::ScopedComPtr<IDiaSession>* session);
+
+  // Retrieves the relative virtual addresses of all virtual function tables in
+  // the module identified by @p signature.
+  // @param signature the signature of the module.
+  // @param vftable_rvas on success contains zero or more addresses.
+  // @returns true on success, false on failure.
+  virtual bool GetVFTableRVAs(const pe::PEFile::Signature& signature,
+                              base::hash_set<Address>* vftable_rvas);
 
  private:
+  // TODO(manzagop): this function is duplicated in SymbolProvider. It should
+  // likely be extracted to a cross-platform Signature class.
+  static void GetCacheKey(const pe::PEFile::Signature& signature,
+                          base::string16* cache_key);
+
+  bool GetOrLoad(const pe::PEFile::Signature& signature,
+                 base::win::ScopedComPtr<IDiaDataSource>* source,
+                 base::win::ScopedComPtr<IDiaSession>* session);
+
   // Caching for dia pdb file sources and sessions (matching entries). The cache
   // key is "<basename>:<size>:<checksum>:<timestamp>". The cache may contain
   // negative entries (indicating a failed attempt at creating a session) in the
   // form of null pointers.
+  // The caches must be consistent: the presence of a valid source implies the
+  // presence of a valid session, and vice versa.
   base::hash_map<base::string16, base::win::ScopedComPtr<IDiaDataSource>>
       pdb_sources_;
   base::hash_map<base::string16, base::win::ScopedComPtr<IDiaSession>>

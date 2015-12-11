@@ -68,6 +68,7 @@
         'types/pdb_crawler_unittest.cc',
         'types/type_namer_unittest.cc',
         'validators/exception_handler_validator_unittest.cc',
+        'validators/vftable_ptr_validator_unittest.cc',
         '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
