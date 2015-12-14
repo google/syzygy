@@ -1,6 +1,15 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.11.0
+
+[70efbeafc9] SyzyASan - Fix Kasko/Breakpad feature flag.
+[3051479681] SyzyASan - Add a flag to turn on the reporting of the invalid
+             accesses.
+[600e5ed812] Add temporary parsing of security directory.
+[4a4554f4da] SyzyASan - Include the crashdata protobuf in the minidump produced
+             by agent_logger.
+
 Version 0.8.10.3
 
 [----------] Fixed a unittest failure.
@@ -16,7 +25,7 @@ Version 0.8.10.1
 
 Version 0.8.10.0
 
-[d692f37ef6] SyzyASan - Disable CtMalloc and put Kasko behind a feature flag..
+[d692f37ef6] SyzyASan - Disable CtMalloc and put Kasko behind a feature flag.
 [9eecf1f1f4] SyzyASan - Register some crash keys immediately upon SyzyASAN
              initialization.
 [e5ef6d14c8] SyzyASan - Disable optimization on key error handling functions.
