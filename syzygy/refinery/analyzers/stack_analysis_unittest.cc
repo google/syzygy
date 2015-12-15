@@ -154,7 +154,7 @@ class StackAndFrameAnalyzersTest : public testing::Test {
     ASSERT_TRUE(
         process_state->FindSingleRecord(expected_address, &typedblock_record));
 
-    ASSERT_EQ(expected_address, typedblock_record->range().addr());
+    ASSERT_EQ(expected_address, typedblock_record->range().start());
     ASSERT_EQ(expected_size, typedblock_record->range().size());
 
     const TypedBlock& typedblock = typedblock_record->data();
@@ -236,7 +236,7 @@ TEST_F(StackAndFrameAnalyzersTest, BasicTest) {
   ASSERT_TRUE(process_state.FindSingleRecord(
       static_cast<Address>(expected_esp()), &frame_record));
 
-  ASSERT_EQ(expected_esp(), frame_record->range().addr());
+  ASSERT_EQ(expected_esp(), frame_record->range().start());
   ASSERT_EQ(expected_frame_base - expected_esp(), frame_record->range().size());
 
   const StackFrame& frame = frame_record->data();

@@ -301,7 +301,7 @@ void ProcessState::Layer<RecordType>::CreateRecord(
   DCHECK(record != nullptr);
 
   RecordPtr new_record = new Record<RecordType>(range);
-  records_.insert(std::make_pair(range.addr(), new_record));
+  records_.insert(std::make_pair(range.start(), new_record));
 
   record->swap(new_record);
 }
@@ -330,7 +330,7 @@ void ProcessState::Layer<RecordType>::GetRecordsSpanning(
   for (const auto& entry : records_) {
     AddressRange record_range = entry.second->range();
     DCHECK(record_range.IsValid());
-    if (record_range.Spans(range))
+    if (record_range.Contains(range))
       records->push_back(entry.second);
 
     if (record_range.start() > range.start())
@@ -361,7 +361,7 @@ bool ProcessState::Layer<RecordType>::RemoveRecord(const RecordPtr& record) {
 
   // Note: a record can only appear once, as per API (CreateRecord is the only
   // mechanism to add a record).
-  auto matches = records_.equal_range(record->range().addr());
+  auto matches = records_.equal_range(record->range().start());
   for (auto it = matches.first; it != matches.second; ++it) {
     if (it->second.get() == record.get()) {
       records_.erase(it);

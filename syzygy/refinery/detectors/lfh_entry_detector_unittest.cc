@@ -118,7 +118,7 @@ TEST_F(LFHEntryDetectorTest, Detect) {
     ASSERT_TRUE(found_span.IsValid());
     // All found spans should be contained within the range we constrain the
     // search to.
-    ASSERT_TRUE(range.Spans(found_span));
+    ASSERT_TRUE(range.Contains(found_span));
   }
 
   ASSERT_TRUE(suitable_size_found);

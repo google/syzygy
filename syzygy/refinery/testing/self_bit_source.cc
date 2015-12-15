@@ -47,7 +47,7 @@ bool SelfBitSource::GetFrom(const refinery::AddressRange& range,
 
   DWORD read_bytes = 0;
   BOOL succeeded = ::ReadProcessMemory(
-      ::GetCurrentProcess(), reinterpret_cast<const void*>(range.addr()),
+      ::GetCurrentProcess(), reinterpret_cast<const void*>(range.start()),
       data_ptr, range.size(), &read_bytes);
   if (!succeeded)
     return false;

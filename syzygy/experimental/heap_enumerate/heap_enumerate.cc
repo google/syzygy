@@ -469,7 +469,7 @@ void HeapEnumerate::EnumSegment(const HeapEnumerator& enumerator,
     // The address range covered by the current entry.
     refinery::AddressRange range(segment_walker->curr_entry().addr(),
                                  entry.size * sizeof(entry));
-    ::fprintf(output_, "Entry@0x%08llX(%d)\n", range.addr(), range.size());
+    ::fprintf(output_, "Entry@0x%08llX(%d)\n", range.start(), range.size());
 
     ::fprintf(output_, " size: 0x%04X\n", entry.size);
     ::fprintf(output_, " flags: 0x%02X\n", entry.flags);
@@ -541,7 +541,7 @@ void HeapEnumerate::EnumLFHBin(const HeapEnumerator& enumerator,
     refinery::AddressRange range(bin_walker->curr_entry().addr(),
                                  bin_walker->entry_byte_size());
 
-    ::fprintf(output_, "LFHEntry@0x%08llX(%d)\n", range.addr(), range.size());
+    ::fprintf(output_, "LFHEntry@0x%08llX(%d)\n", range.start(), range.size());
 
     // TODO(siggi): Validate that each entry points to the same
     //     subsegment.

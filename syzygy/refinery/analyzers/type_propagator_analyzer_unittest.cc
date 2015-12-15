@@ -80,7 +80,7 @@ void ValidateTypedBlockLayerEntry(Address expected_addr,
   TypedBlockRecordPtr typed_record;
   ASSERT_TRUE(process_state->FindSingleRecord(expected_addr, &typed_record));
 
-  ASSERT_EQ(expected_addr, typed_record->range().addr());
+  ASSERT_EQ(expected_addr, typed_record->range().start());
   ASSERT_EQ(expected_size, typed_record->range().size());
 
   const TypedBlock& typedblock = typed_record->data();

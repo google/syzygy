@@ -162,7 +162,7 @@ TEST(ProcessStateTest, AddressRangeBasics) {
 
   AddressRange valid_range(kAddr, kSize);
   ASSERT_TRUE(valid_range.IsValid());
-  ASSERT_EQ(kAddr, valid_range.addr());
+  ASSERT_EQ(kAddr, valid_range.start());
   ASSERT_EQ(kSize, valid_range.size());
   ASSERT_EQ(kAddr, valid_range.start());
   ASSERT_EQ(kAddr, valid_range.start());
@@ -419,11 +419,11 @@ TEST(ProcessStateTest, LayerIteration) {
   // Note: for ease of testing, this test relies on the iterator returning
   // records by ascending address. However, this is not in the contract.
   ProcessState::Layer<Bytes>::Iterator it = bytes_layer->begin();
-  ASSERT_EQ(80ULL, (*it)->range().addr());
+  ASSERT_EQ(80ULL, (*it)->range().start());
   ++it;
-  ASSERT_EQ(84ULL, (*it)->range().addr());
+  ASSERT_EQ(84ULL, (*it)->range().start());
   ++it;
-  ASSERT_EQ(88ULL, (*it)->range().addr());
+  ASSERT_EQ(88ULL, (*it)->range().start());
   ++it;
   ASSERT_EQ(bytes_layer->end(), it);
 

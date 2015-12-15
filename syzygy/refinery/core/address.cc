@@ -19,45 +19,12 @@
 namespace refinery {
 
 bool AddressRange::IsValid() const {
-  if (!size_)
+  if (!size())
     return false;
 
-  base::CheckedNumeric<Address> range_end = addr_;
-  range_end += size_;
+  base::CheckedNumeric<Address> range_end = start();
+  range_end += size();
   return range_end.IsValid();
-}
-
-Address AddressRange::end() const {
-  DCHECK(IsValid());
-  return addr_ + size_;
-}
-
-AddressRange& AddressRange::operator=(const AddressRange& other) {
-  addr_ = other.addr_;
-  size_ = other.size_;
-  return *this;
-}
-
-bool AddressRange::operator==(const AddressRange& other) const {
-  return addr_ == other.addr_ && size_ == other.size_;
-}
-
-bool AddressRange::operator<(const AddressRange& other) const {
-  return addr_ < other.addr_ || (addr_ == other.addr_ && size_ < other.size_);
-}
-
-bool AddressRange::Intersects(const AddressRange& other) const {
-  DCHECK(IsValid());
-  DCHECK(other.IsValid());
-
-  return start() < other.end() && end() > other.start();
-}
-
-bool AddressRange::Spans(const AddressRange& other) const {
-  DCHECK(IsValid());
-  DCHECK(other.IsValid());
-
-  return start() <= other.start() && end() >= other.end();
 }
 
 }  // namespace refinery

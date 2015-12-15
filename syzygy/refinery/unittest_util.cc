@@ -423,7 +423,7 @@ bool MinidumpSerializer::GetPos(const refinery::AddressRange& range,
   // Note: given that memory ranges do not overlap, only the immediate
   // predecessor is a candidate match.
   --it;
-  if (it->first.Spans(range)) {
+  if (it->first.Contains(range)) {
     *pos = it->second;
     return true;
   }

@@ -174,7 +174,7 @@ TEST_F(TypedDataTest, GetRange) {
   TypedData data = GetTestInstance();
 
   AddressRange range = data.GetRange();
-  EXPECT_EQ(data.addr(), range.addr());
+  EXPECT_EQ(data.addr(), range.start());
   EXPECT_EQ(data.type()->size(), range.size());
 }
 

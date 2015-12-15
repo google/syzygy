@@ -39,23 +39,23 @@ TEST(AddressRangeTest, AddressRangeSpans) {
   AddressRange range(80ULL, 16U);
 
   // No match: candidate range is outside.
-  ASSERT_FALSE(range.Spans(AddressRange(73ULL, 5U)));
-  ASSERT_FALSE(range.Spans(AddressRange(96ULL, 3U)));
+  ASSERT_FALSE(range.Contains(AddressRange(73ULL, 5U)));
+  ASSERT_FALSE(range.Contains(AddressRange(96ULL, 3U)));
 
   // No match: candidate range straddles.
-  ASSERT_FALSE(range.Spans(AddressRange(75ULL, 10ULL)));
-  ASSERT_FALSE(range.Spans(AddressRange(90ULL, 10ULL)));
+  ASSERT_FALSE(range.Contains(AddressRange(75ULL, 10ULL)));
+  ASSERT_FALSE(range.Contains(AddressRange(90ULL, 10ULL)));
 
   // No match: candidate range is a superset.
-  ASSERT_FALSE(range.Spans(AddressRange(75ULL, 32ULL)));
+  ASSERT_FALSE(range.Contains(AddressRange(75ULL, 32ULL)));
 
   // Match: candidate range is a subset.
-  ASSERT_TRUE(range.Spans(AddressRange(84ULL, 4ULL)));
-  ASSERT_TRUE(range.Spans(AddressRange(80ULL, 4ULL)));
-  ASSERT_TRUE(range.Spans(AddressRange(92ULL, 4ULL)));
+  ASSERT_TRUE(range.Contains(AddressRange(84ULL, 4ULL)));
+  ASSERT_TRUE(range.Contains(AddressRange(80ULL, 4ULL)));
+  ASSERT_TRUE(range.Contains(AddressRange(92ULL, 4ULL)));
 
   // Match: candidate range is an exact match.
-  ASSERT_TRUE(range.Spans(AddressRange(80ULL, 16U)));
+  ASSERT_TRUE(range.Contains(AddressRange(80ULL, 16U)));
 }
 
 TEST(AddressRangeTest, AddressRangeIntersects) {

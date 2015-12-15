@@ -207,8 +207,7 @@ bool StackFrameDataAnalyzer::GetAddressRangeRegRel(IDiaSymbol* data,
   DCHECK(data); DCHECK(range);
   DCHECK(IsLocType(data, LocIsRegRel));
 
-  AddressRange address_range;
-  *range = address_range;
+  *range = AddressRange();
 
   // Register-relative: determine location.
   uint32_t register_id = 0U;
@@ -229,8 +228,7 @@ bool StackFrameDataAnalyzer::GetAddressRangeRegRel(IDiaSymbol* data,
 
   // TODO(manzagop): check validity of operation.
   Address data_va = register_value + register_offset;
-  address_range.set_start(data_va);
-  address_range.set_size(type->size());
+  AddressRange address_range(data_va, type->size());
   if (!address_range.IsValid())
     return false;
 

@@ -17,6 +17,8 @@
 
 #include <stdint.h>
 
+#include "syzygy/core/address_range.h"
+
 namespace refinery {
 
 // TODO(manzagop): consider making Address a class for stricter control on
@@ -28,47 +30,18 @@ typedef uint32_t Size;
 // AddressRange represents a range of memory with an address and a size.
 // TODO(manzagop): incorporate a notion of validity wrt the process (eg 32 vs
 // 64 bits).
-class AddressRange {
+class AddressRange : public core::AddressRange<Address, Size> {
  public:
-  AddressRange(Address addr, Size size) : addr_(addr), size_(size) {}
-  AddressRange() : addr_(0ULL), size_(0) {}
+  using Super = core::AddressRange<Address, Size>;
+
+  AddressRange(Address addr, Size size) : Super(addr, size) {}
+  AddressRange() {}
 
   // Determines the validity of the address range. All users of |AddressRange|
   // expect a valid range.
   // @returns true if the range is valid, false otherwise (empty range or
   //   overflow).
   bool IsValid() const;
-
-  // @name Accessors.
-  // @{
-  Address addr() const { return addr_; }
-  Size size() const { return size_; }
-  // @}
-
-  Address start() const { return addr_; }
-  void set_start(Address start) { addr_ = start; }
-  void set_size(Size size) { size_ = size; }
-  // @pre address range must be valid.
-  Address end() const;
-
-  AddressRange& operator=(const AddressRange& other);
-
-  bool operator==(const AddressRange& other) const;
-  bool operator<(const AddressRange& other) const;
-
-  // @pre IsValid returns true.
-  // @pre @p range must be a valid range.
-  // @returns true if this range intersects @p other.
-  bool Intersects(const AddressRange& other) const;
-
-  // @pre IsValid returns true.
-  // @pre @p range must be a valid range.
-  // @returns true if this range spans @p other.
-  bool Spans(const AddressRange& other) const;
-
- private:
-  Address addr_;
-  Size size_;
 };
 
 }  // namespace refinery

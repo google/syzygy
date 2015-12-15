@@ -142,7 +142,7 @@ Validator::ValidationResult ExceptionHandlerValidator::Validate(
       // Ensure the exception registration record is in stack.
       AddressRange record_range(record_address,
                                 sizeof(EXCEPTION_REGISTRATION_RECORD));
-      if (!stack->range().Spans(record_range)) {
+      if (!stack->range().Contains(record_range)) {
         AddChainOutsideStackViolation(record_address, stack, report);
         break;  // Stop processing the chain.
       }

@@ -29,7 +29,7 @@ bool AddressedData::GetAt(const AddressRange& range, void* data_ptr) {
   DCHECK(range.IsValid());
 
   // Ensure the desired range is fully contained.
-  if (!range_.Spans(range))
+  if (!range_.Contains(range))
     return false;
 
   // Determine offset into the backing buffer.
@@ -54,7 +54,7 @@ bool AddressedData::Slice(size_t index, size_t len, AddressedData* slice) {
   if (!buffer_parser_.GetAt(index, len, &inner_ptr))
     return false;
 
-  *slice = AddressedData(AddressRange(range_.addr() + index, len), inner_ptr);
+  *slice = AddressedData(AddressRange(range_.start() + index, len), inner_ptr);
   return true;
 }
 
