@@ -29,8 +29,8 @@ const uint32 kPESectionMinAlignment = 512;
 
 // Host function for compile asserts.
 void SectionOffsetAddressCompileAsserts() {
-  COMPILE_ASSERT(sizeof(SectionOffsetAddress) == 2 * sizeof(uint32),
-                 section_offset_address_must_be_8_bytes);
+  static_assert(sizeof(SectionOffsetAddress) == 2 * sizeof(uint32),
+                "SectionOffsetAddress should be 8 bytes.");
 }
 
 }  // namespace

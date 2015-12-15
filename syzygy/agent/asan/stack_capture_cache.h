@@ -320,18 +320,18 @@ class StackCaptureCache::CachePage {
   //       type. Thus, this needs to be maintained.
   static const size_t kDataSize = kCachePageSize - sizeof(CachePage*)
       - sizeof(size_t);
-  COMPILE_ASSERT(kDataSize < kCachePageSize,
-                 kCachePageSize_must_be_big_enough_for_CachePage_header);
+  static_assert(kDataSize < kCachePageSize,
+                "kCachePageSize must be big enough for CachePage header.");
   uint8 data_[kDataSize];
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CachePage);
 };
-COMPILE_ASSERT(sizeof(StackCaptureCache::CachePage) ==
-                   StackCaptureCache::kCachePageSize,
-               kDataSize_calculation_needs_to_be_updated);
-COMPILE_ASSERT(StackCaptureCache::kCachePageSize % 4096 == 0,
-               kCachePageSize_should_be_a_multiple_of_the_page_size);
+static_assert(sizeof(StackCaptureCache::CachePage) ==
+                  StackCaptureCache::kCachePageSize,
+              "kDataSize calculation needs to be updated.");
+static_assert(StackCaptureCache::kCachePageSize % 4096 == 0,
+              "kCachePageSize should be a multiple of the page size.");
 
 }  // namespace asan
 }  // namespace agent

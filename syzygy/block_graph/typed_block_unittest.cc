@@ -59,7 +59,7 @@ class TypedBlockTest: public testing::Test {
   };
 
   static void CompileAsserts() {
-    COMPILE_ASSERT(sizeof(Bar) > sizeof(Foo), Bar_must_be_bigger_than_Foo);
+    static_assert(sizeof(Bar) > sizeof(Foo), "Bar must be bigger than foo.");
   }
 
   BlockGraph block_graph_;

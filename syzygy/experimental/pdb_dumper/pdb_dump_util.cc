@@ -33,8 +33,8 @@ bool DumpUnknownBlock(FILE* out,
   const size_t kColumnCount = 16;
   // This should be an divisor of kColumnCount.
   const size_t kGroupSize = 8;
-  COMPILE_ASSERT(kColumnCount % kGroupSize == 0,
-                 kGroupSize_must_be_a_divisor_of_kColumnCount);
+  static_assert(kColumnCount % kGroupSize == 0,
+                "kGroupSize must be a divisor of kColumnCount.");
 
   uint8 buffer[kColumnCount];
   size_t bytes_read = 0;

@@ -1352,8 +1352,8 @@ TEST(BlockGraphAddressSpaceTest, ResizeBlock) {
 
   const size_t kNewSizes[] = { 0x28, 0x32, 0x20, 0x20 };
   const size_t kExpectedSizes[] = { 0x28, 0x28, 0x20, 0x20 };
-  COMPILE_ASSERT(sizeof(kNewSizes) == sizeof(kExpectedSizes),
-                 size_arrays_must_match);
+  static_assert(sizeof(kNewSizes) == sizeof(kExpectedSizes),
+                "The size of the arrays should match.");
 
   // Grow successfully first. Then grow, but expect failure. Then shrink.
   // Finally, stay the same size.

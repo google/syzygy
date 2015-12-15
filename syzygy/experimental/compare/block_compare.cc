@@ -38,8 +38,8 @@ int CompareReferences(const BlockGraph::Reference& ref1,
 // We assume that BlockGraph::Offset is a signed quantity. This ensures that
 // an error will be thrown if this is not the case. This assumption is made
 // in CompareBlocks and BlockHash::Hash, with the value last_source_offset.
-COMPILE_ASSERT(static_cast<BlockGraph::Offset>(-1) < 0,
-               BlockGraph_Offset_must_be_signed);
+static_assert(static_cast<BlockGraph::Offset>(-1) < 0,
+              "BlockGraph offset must be signed.");
 
 // Compares two blocks. This uses the same semantics as that used by the
 // BlockHash function, allowing us to use it to detect hash collisions.

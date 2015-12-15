@@ -350,9 +350,9 @@ bool GetModuleSignature(HANDLE process,
   DCHECK(module_sig != NULL);
 
   uint8 buffer[4096] = {};
-  COMPILE_ASSERT(
+  static_assert(
       sizeof(buffer) >= sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS),
-      buffer_must_be_at_least_as_big_as_headers);
+      "buffer must be at least as big as headers.");
 
   // Read the first page of the module from the remote process. We use
   // this to get the module headers so we can grab its signature.
@@ -544,8 +544,8 @@ bool WriteTraceSampleDataRecord(uint64 sampling_interval_in_cycles,
   std::vector<uint8> buffer(size);
   TraceSampleData* data = reinterpret_cast<TraceSampleData*>(buffer.data());
 
-  COMPILE_ASSERT(sizeof(buckets[0]) == sizeof(data->buckets[0]),
-                 buckets_have_mismatched_sizes);
+  static_assert(sizeof(buckets[0]) == sizeof(data->buckets[0]),
+                "buckets have mismatched sizes.");
 
   // Populate the TraceSampleData structure.
   data->module_base_addr = reinterpret_cast<ModuleAddr>(module->module());

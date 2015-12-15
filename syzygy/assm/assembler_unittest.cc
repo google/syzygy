@@ -1411,7 +1411,7 @@ TEST_F(AssemblerTest, Jpo) {
 TEST_F(AssemblerTest, Js) {
   ConditionCode cc = kSign;
   asm_.set_location(0xCAFEBABE);
-  COMPILE_ASSERT(kSign == kNegative, kSignAndPositiveAreAliases);
+  static_assert(kSign == kNegative, "Sign and Positive are aliases.");
 
   asm_.j(cc, Immediate(0xCAFEBABE, kSize8Bit, NULL));
   EXPECT_BYTES(0x78, 0xFE);
@@ -1460,7 +1460,7 @@ TEST_F(AssemblerTest, Jno) {
 }
 
 TEST_F(AssemblerTest, Jns) {
-  COMPILE_ASSERT(kNotSign == kPositive, kSignAndPositiveAreAliases);
+  static_assert(kNotSign == kPositive, "Sign and positive are aliases.");
   ConditionCode cc = kNotSign;
   asm_.set_location(0xCAFEBABE);
 

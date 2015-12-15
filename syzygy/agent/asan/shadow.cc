@@ -264,8 +264,8 @@ namespace {
 static const uint8 kFreedMarkers[] = {
     kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker,
     kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker };
-COMPILE_ASSERT(sizeof(kFreedMarkers) == sizeof(uint64),
-                wrong_number_of_freed_markers);
+static_assert(sizeof(kFreedMarkers) == sizeof(uint64),
+              "Wrong number of freed markers.");
 static const uint64& kFreedMarker64 =
     *reinterpret_cast<const uint64*>(kFreedMarkers);
 static const uint32& kFreedMarker32 =
@@ -421,7 +421,7 @@ ShadowMarker Shadow::GetShadowMarkerForAddress(const void* addr) const {
 }
 
 void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
-  COMPILE_ASSERT((sizeof(BlockHeader) % kShadowRatio) == 0, bad_header_size);
+  static_assert((sizeof(BlockHeader) % kShadowRatio) == 0, "Bad header size.");
   DCHECK(info.header->state == ALLOCATED_BLOCK);
 
   // Translate the block address to an offset. Sanity check a whole bunch

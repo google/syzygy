@@ -28,8 +28,8 @@ namespace {
 union LargeInteger {
   LARGE_INTEGER li;
   uint64 ui64;
-  COMPILE_ASSERT(sizeof(LARGE_INTEGER) == sizeof(uint64),
-                 LARGE_INTEGER_and_uint64_must_have_same_size);
+  static_assert(sizeof(LARGE_INTEGER) == sizeof(uint64),
+                "LARGE_INTEGER and uint64 must have the same size.");
 };
 
 typedef ULONGLONG (*GetTickCount64Ptr)();

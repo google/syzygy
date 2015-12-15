@@ -142,8 +142,8 @@ void ReturnThunkFactoryBase::AddPage() {
     data[i].self = this;
 
     // Note that the size of the thunk must match the assembly code below.
-    COMPILE_ASSERT(sizeof(ReturnThunkFactoryBase::Thunk) == 10,
-                   wonky_return_thunk_size);
+    static_assert(sizeof(ReturnThunkFactoryBase::Thunk) == 10,
+                  "Wonky return thunk size.");
 
     // Initialize the thunk itself.
     assm.push(Immediate(reinterpret_cast<uint32>(&data[i]), kSize32Bit));

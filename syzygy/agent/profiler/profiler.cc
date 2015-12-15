@@ -651,8 +651,8 @@ InvocationInfo* Profiler::ThreadState::AllocateInvocationInfo() {
   // contains at least one invocation info as currently declared.
   // If this fails, please reconsider your implementation, or else revisit
   // the allocation code below.
-  COMPILE_ASSERT(sizeof(TraceBatchInvocationInfo) >= sizeof(InvocationInfo),
-                 invocation_info_batch_must_be_larger_than_invocation_info);
+  static_assert(sizeof(TraceBatchInvocationInfo) >= sizeof(InvocationInfo),
+                "Invocation info batch must be larger than invocation info.");
 
   // Do we have a record that we can grow?
   if (batch_ != NULL && segment_.CanAllocateRaw(sizeof(InvocationInfo))) {

@@ -380,10 +380,9 @@ class ScopedHeap {
     // As we'll cast an AsanShardedQuarantine directly into a TestQuarantine
     // there shouldn't be any new field defined by this class, this should only
     // act as an interface allowing to access some private fields.
-    COMPILE_ASSERT(
-        sizeof(TestQuarantine) ==
-            sizeof(TestBlockHeapManager::ShardedBlockQuarantine),
-        test_quarantine_is_not_an_interface);
+    static_assert(sizeof(TestQuarantine) ==
+                      sizeof(TestBlockHeapManager::ShardedBlockQuarantine),
+                  "TestQuarantine isn't an interface.");
     TestQuarantine* test_quarantine =
         reinterpret_cast<TestQuarantine*>(GetQuarantine());
     EXPECT_NE(static_cast<TestQuarantine*>(nullptr), test_quarantine);

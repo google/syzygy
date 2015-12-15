@@ -452,8 +452,8 @@ bool BlockGraphSerializer::SaveBlockLabels(const BlockGraph::Block& block,
   BlockGraph::Block::LabelMap::const_iterator label_iter =
       block.labels().begin();
   for (; label_iter != block.labels().end(); ++label_iter) {
-    COMPILE_ASSERT(BlockGraph::LABEL_ATTRIBUTES_MAX <= (1 << 16),
-                   label_attributes_require_more_than_16_bits);
+    static_assert(BlockGraph::LABEL_ATTRIBUTES_MAX <= (1 << 16),
+                  "Label attributes requires more than 16 bits.");
 
     int32 offset = label_iter->first;
     const BlockGraph::Label& label = label_iter->second;
@@ -749,10 +749,10 @@ bool BlockGraphSerializer::SaveReference(const BlockGraph::Reference& ref,
   DCHECK(ref.referenced() != NULL);
   DCHECK(out_archive != NULL);
 
-  COMPILE_ASSERT(BlockGraph::REFERENCE_TYPE_MAX < 16,
-                 reference_type_requires_more_than_one_nibble);
-  COMPILE_ASSERT(BlockGraph::Reference::kMaximumSize < 16,
-                 reference_size_requires_more_than_one_nibble);
+  static_assert(BlockGraph::REFERENCE_TYPE_MAX < 16,
+                "Reference type requires more than one nibble.");
+  static_assert(BlockGraph::Reference::kMaximumSize < 16,
+                "Reference size requires more than one nibble.");
 
   // The type and size are each stored as a nibble of one byte.
   uint8 type_size = (static_cast<uint8>(ref.type()) << 4) |

@@ -309,9 +309,9 @@ bool InflateAsanParameters(const AsanParameters* pod_params,
   // This must be kept up to date with AsanParameters as it evolves.
   static const size_t kSizeOfAsanParametersByVersion[] = {
       40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60, 60, 60};
-  COMPILE_ASSERT(arraysize(kSizeOfAsanParametersByVersion) ==
-                     kAsanParametersVersion + 1,
-                 kSizeOfAsanParametersByVersion_out_of_date);
+  static_assert(
+      arraysize(kSizeOfAsanParametersByVersion) == kAsanParametersVersion + 1,
+      "Size of parameters version out of date.");
 
   SetDefaultAsanParameters(inflated_params);
 

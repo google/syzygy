@@ -116,9 +116,10 @@ static const DWORD kAsanException =
     (1 << 29) |              // Customer defined code (not defined by MS).
     (kAsanFacility << 16) |  // Facility code.
     kAsanStatus;             // Status code.
-COMPILE_ASSERT((kAsanFacility >> 11) == 0, too_many_facility_bits);
-COMPILE_ASSERT((kAsanStatus >> 16) == 0, too_many_status_bits);
-COMPILE_ASSERT((kAsanException & (3 << 27)) == 0, bits_27_and_28_must_be_clear);
+static_assert((kAsanFacility >> 11) == 0, "Too many facility bits.");
+static_assert((kAsanStatus >> 16) == 0, "Too many status bits.");
+static_assert((kAsanException & (3 << 27)) == 0,
+              "Bits 27 and 28 should be clear.");
 
 // Raises an exception, first wrapping it an Asan specific exception. This
 // indicates to our unhandled exception handler that it doesn't need to

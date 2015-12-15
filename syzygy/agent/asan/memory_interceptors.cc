@@ -98,8 +98,8 @@ void CheckMemoryAccess(void* location,
 
 // The slow path relies on the fact that the shadow memory non accessible byte
 // mask has its upper bit set to 1.
-COMPILE_ASSERT((kHeapNonAccessibleMarkerMask & (1 << 7)) != 0,
-               asan_shadow_mask_upper_bit_is_0);
+static_assert((kHeapNonAccessibleMarkerMask & (1 << 7)) != 0,
+              "Asan shadow mask upper bit is 0.");
 
 extern "C" {
 

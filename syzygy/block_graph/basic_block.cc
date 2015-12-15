@@ -84,8 +84,8 @@ const char* kBasicBlockType[] = {
   "BASIC_END_BLOCK",
 };
 
-COMPILE_ASSERT(arraysize(kBasicBlockType) == BasicBlock::BASIC_BLOCK_TYPE_MAX,
-               kBasicBlockType_not_in_sync);
+static_assert(arraysize(kBasicBlockType) == BasicBlock::BASIC_BLOCK_TYPE_MAX,
+              "Basic block type not in sync.");
 
 const char kEnd[] = "<end>";
 

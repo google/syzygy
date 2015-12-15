@@ -278,8 +278,8 @@ OutStream* CreateByteOutStream(OutputIterator iter, OutputIterator end) {
 template<typename InputIterator> class ByteInStream : public InStream {
  public:
   typedef typename std::iterator_traits<InputIterator>::value_type ValueType;
-  COMPILE_ASSERT(internal::IsByteLike<ValueType>::Value,
-                 value_type_must_be_byte_like);
+  static_assert(internal::IsByteLike<ValueType>::Value,
+                "ValueType must be byte like.");
 
   ByteInStream(InputIterator begin, InputIterator end)
       : iter_(begin), end_(end) {

@@ -337,9 +337,9 @@ bool OutputNameHeatMap(SampleGrinder::AggregationLevel aggregation_level,
 // NOTE: This must be kept in sync with SampleGrinder::AggregationLevel.
 const char* SampleGrinder::kAggregationLevelNames[] = {
     "basic-block", "function", "compiland", "line" };
-COMPILE_ASSERT(arraysize(SampleGrinder::kAggregationLevelNames) ==
-                   SampleGrinder::kAggregationLevelMax,
-               AggregationLevelNames_out_of_sync);
+static_assert(arraysize(SampleGrinder::kAggregationLevelNames) ==
+                  SampleGrinder::kAggregationLevelMax,
+              "Aggregation level names out of sync.");
 
 const char SampleGrinder::kAggregationLevel[] = "aggregation-level";
 const char SampleGrinder::kImage[] = "image";

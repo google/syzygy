@@ -38,8 +38,9 @@ const char* IndexedFrequencyDataTypeName[] = {
   "coverage",
   "jumptable",
 };
-COMPILE_ASSERT(arraysize(IndexedFrequencyDataTypeName) ==
-    IndexedFrequencyData::MAX_DATA_TYPE, length_mismatch);
+static_assert(arraysize(IndexedFrequencyDataTypeName) ==
+                  IndexedFrequencyData::MAX_DATA_TYPE,
+              "Length mismatch");
 
 bool IndexedFrequencyDataTypeToString(IndexedFrequencyData::DataType type,
                                       std::string* result) {

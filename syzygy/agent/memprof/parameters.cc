@@ -26,8 +26,8 @@ namespace memprof {
 const char* kStackTraceTrackingValues[] = {
   "none", "track", "emit",
 };
-COMPILE_ASSERT(arraysize(kStackTraceTrackingValues) == kStackTraceTrackingMax,
-               array_and_enum_must_be_kept_in_sync);
+static_assert(arraysize(kStackTraceTrackingValues) == kStackTraceTrackingMax,
+              "Stack trace tracking values out of sync.");
 
 // The environment variable that is used for extracting parameters.
 const char kParametersEnvVar[] = "SYZYGY_MEMPROF_OPTIONS";

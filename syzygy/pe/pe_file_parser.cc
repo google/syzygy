@@ -424,8 +424,8 @@ bool PEFileParser::ParseImageHeader(PEHeader* header) {
   // Add the reference to the PE header. This reference can be interpreted
   // either as a disk or a relative reference, as disk and relative addresses
   // coincide in the image header.
-  COMPILE_ASSERT(sizeof(DWORD) == sizeof(dos_header_ptr->e_lfanew),
-                 dos_header_e_lfanew_is_wrong_size);
+  static_assert(sizeof(DWORD) == sizeof(dos_header_ptr->e_lfanew),
+                "dos_header_ptr->e_lfanew size is wrong.");
   if (!AddRelative(dos_header_ptr,
                    reinterpret_cast<const DWORD*>(&dos_header_ptr->e_lfanew))) {
     LOG(ERROR) << "Unable to add DOS to NT headers reference.";

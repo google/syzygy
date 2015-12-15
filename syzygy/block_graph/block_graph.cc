@@ -50,24 +50,24 @@ namespace block_graph {
 
 namespace {
 
-COMPILE_ASSERT(BlockGraph::BLOCK_ATTRIBUTES_MAX_BIT < 32,
-               too_many_block_attributes);
+static_assert(BlockGraph::BLOCK_ATTRIBUTES_MAX_BIT < 32,
+              "Too many block attributes.");
 
 // A list of printable names corresponding to image formats. This need to be
 // kept in sync with the BlockGraph::ImageFormat enum!
 const char* kImageFormat[] = {
   "UNKNOWN_FORMAT", "PE_FORMAT", "COFF_FORMAT", "PE_IN_MEMORY_FORMAT",
 };
-COMPILE_ASSERT(arraysize(kImageFormat) == BlockGraph::IMAGE_FORMAT_MAX,
-               kIamgeFormat_not_in_sync);
+static_assert(arraysize(kImageFormat) == BlockGraph::IMAGE_FORMAT_MAX,
+              "Image format not in sync.");
 
 // A list of printable names corresponding to block types. This needs to
 // be kept in sync with the BlockGraph::BlockType enum!
 const char* kBlockType[] = {
   "CODE_BLOCK", "DATA_BLOCK",
 };
-COMPILE_ASSERT(arraysize(kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
-               kBlockType_not_in_sync);
+static_assert(arraysize(kBlockType) == BlockGraph::BLOCK_TYPE_MAX,
+              "Block type not in sync.");
 
 // Shift all items in an offset -> item map by 'distance', provided the initial
 // item offset was >= @p offset.
@@ -237,8 +237,8 @@ std::string BlockGraph::LabelAttributesToString(
   static const char* kLabelAttributes[] = {
       "Code", "DebugStart", "DebugEnd", "ScopeStart", "ScopeEnd",
       "CallSite", "JumpTable", "CaseTable", "Data", "PublicSymbol" };
-  COMPILE_ASSERT((1 << arraysize(kLabelAttributes)) == LABEL_ATTRIBUTES_MAX,
-                 label_attribute_names_not_in_sync_with_enum);
+  static_assert((1 << arraysize(kLabelAttributes)) == LABEL_ATTRIBUTES_MAX,
+                "Label attributes not in sync.");
 
   std::string s;
   for (size_t i = 0; i < arraysize(kLabelAttributes); ++i) {

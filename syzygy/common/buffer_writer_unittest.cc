@@ -28,8 +28,8 @@ struct {
   char unused2;
   wchar_t wstring[2];
 } const kExpectedData = { 0x12345678, { 0xDEAD, 0xBEEF }, "f", 0, 0, L"b" };
-COMPILE_ASSERT(sizeof(kExpectedData) == 16,
-               alignment_issues_with_expected_data);
+static_assert(sizeof(kExpectedData) == 16,
+              "Alignment issues with expected data.");
 
 class BufferWriterTest : public ::testing::Test {
  public:
@@ -112,8 +112,8 @@ TEST_F(BufferWriterTest, WriteBehaviour) {
 
   char small_string[] = "h";
   char big_string[] = "the quick brown fox SAY WHAT?";
-  COMPILE_ASSERT(sizeof(big_string) >= sizeof(buffer_),
-                 big_string_too_small);
+  static_assert(sizeof(big_string) >= sizeof(buffer_),
+                "Big string is too small.");
 
   EXPECT_TRUE(writer.WriteString(small_string));
   EXPECT_EQ(8u, writer.pos());
@@ -121,8 +121,8 @@ TEST_F(BufferWriterTest, WriteBehaviour) {
 
   wchar_t small_wstring[] = L"z";
   wchar_t big_wstring[] = L"sally sells seashells";
-  COMPILE_ASSERT(sizeof(big_wstring) >= sizeof(buffer_),
-                 big_wstring_too_small);
+  static_assert(sizeof(big_wstring) >= sizeof(buffer_),
+                "Big wstring is too small.");
 
   EXPECT_TRUE(writer.WriteString(small_wstring));
   EXPECT_EQ(12u, writer.pos());
@@ -158,7 +158,7 @@ TEST_F(BufferWriterTest, AlignAndIsAligned) {
   EXPECT_TRUE(writer.IsAligned(8));
 
   // We don't have room for this alignment.
-  COMPILE_ASSERT(32 > sizeof(buffer_), need_a_bigger_failing_alignment);
+  static_assert(32 > sizeof(buffer_), "Need a bigger failing alignment.");
   EXPECT_FALSE(writer.Align(32));
 }
 

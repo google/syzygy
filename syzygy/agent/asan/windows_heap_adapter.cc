@@ -29,8 +29,8 @@ namespace {
 // @returns the heap ID casted as an HANDLE.
 HANDLE HeapIdToHandle(HeapManagerInterface::HeapId heap_id) {
   DCHECK_NE(static_cast<HeapManagerInterface::HeapId>(NULL), heap_id);
-  COMPILE_ASSERT(sizeof(HANDLE) == sizeof(HeapManagerInterface::HeapId),
-                 size_of_handle_and_heap_id_are_different);
+  static_assert(sizeof(HANDLE) == sizeof(HeapManagerInterface::HeapId),
+                "Size of HANDLE and HeapId are different.");
   return reinterpret_cast<HANDLE>(heap_id);
 }
 

@@ -78,7 +78,7 @@ class SegmentEntryWalker : public HeapEntryWalker {
     uint8_t segment_index;  // TODO(siggi): is this right???
     uint8_t unused_bytes;
   };
-  COMPILE_ASSERT(sizeof(HeapEntry) == 8, heap_entry_is_not_8_bytes);
+  static_assert(sizeof(HeapEntry) == 8, "HeapEntry is not 8 bytes.");
 
   SegmentEntryWalker() = default;
 
@@ -112,8 +112,8 @@ class LFHBinWalker : public HeapEntryWalker {
     uint8_t segment_index;  // TODO(siggi): is this right???
     uint8_t unused_bytes;
   };
-  COMPILE_ASSERT(sizeof(LFHEntry) == sizeof(SegmentEntryWalker::HeapEntry),
-                 heap_entry_wrong_size);
+  static_assert(sizeof(LFHEntry) == sizeof(SegmentEntryWalker::HeapEntry),
+                "LFHEntry size mismatch.");
 
   LFHBinWalker();
 

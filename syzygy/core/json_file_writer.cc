@@ -534,12 +534,12 @@ void JSONFileWriter::FlushValue(bool value_completed) {
 }
 
 void JSONFileWriter::CompileAsserts() {
-  COMPILE_ASSERT(
+  static_assert(
       arraysize(kStructureOpenings) == JSONFileWriter::kMaxStructureType,
-      StructureOpenings_not_in_sync_with_StructureType_enum);
-  COMPILE_ASSERT(
+      "StructureOpenings not in sync.");
+  static_assert(
       arraysize(kStructureClosings) == JSONFileWriter::kMaxStructureType,
-      StructureClosings_not_in_sync_with_StructureType_enum);
+      "StructureClosings not in sync.");
 }
 
 }  // namespace core

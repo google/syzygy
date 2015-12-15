@@ -47,8 +47,8 @@ bool ParseArNumber(const char (&s)[kArrayLength], OutputType* output) {
   // bits log(2) / log(10) >= digits
   // digits <= 0.3 * bits
   // 10 * digits <= 3 * bits
-  COMPILE_ASSERT(10 * kArrayLength <= 3 * 8 * sizeof(OutputType),
-                 output_type_to_small_for_input_string);
+  static_assert(10 * kArrayLength <= 3 * 8 * sizeof(OutputType),
+                "Output type is to small for input string.");
 
   size_t l = ArStringLength(s);
   if (l == 0) {

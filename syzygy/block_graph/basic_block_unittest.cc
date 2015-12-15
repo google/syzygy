@@ -580,11 +580,9 @@ TEST_F(SuccessorTest, OpCodeToCondition) {
       { I_JZ, Successor::kConditionEqual },
   };
 
-
-  COMPILE_ASSERT(
-      arraysize(kOpCodeToConditionTable) ==
-          Successor::kMaxConditionalBranch + 1,
-      unexpected_number_of_map_entries);
+  static_assert(arraysize(kOpCodeToConditionTable) ==
+                    Successor::kMaxConditionalBranch + 1,
+                "Unexpected number of map entries.");
 
   for (size_t i = 0; i < arraysize(kOpCodeToConditionTable); ++i) {
     const TableEntry& entry = kOpCodeToConditionTable[i];
@@ -621,9 +619,8 @@ TEST_F(SuccessorTest, InvertCondition) {
       { Successor::kConditionSigned, Successor::kConditionNotSigned },
   };
 
-  COMPILE_ASSERT(
-      arraysize(kConditionInversionTable) == Successor::kMaxCondition,
-      unexpected_number_of_inversion_table_entries);
+  static_assert(arraysize(kConditionInversionTable) == Successor::kMaxCondition,
+                "Unexpected number of inversion table entries.");
 
   for (size_t i = 0; i < arraysize(kConditionInversionTable); ++i) {
     const TableEntry& entry = kConditionInversionTable[i];

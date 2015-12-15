@@ -45,10 +45,10 @@ template <size_t max_name_len>
 class SymbolInfo {
  public:
   SymbolInfo() {
-    COMPILE_ASSERT(max_name_len > 0, error_maximum_name_length_is_zero);
-    COMPILE_ASSERT(
+    static_assert(max_name_len > 0, "Maximum name length should be > 0.");
+    static_assert(
         sizeof(buf_) - sizeof(info_) >= max_name_len * sizeof(wchar_t),
-        error_not_enough_buffer_space_for_max_name_len_wchars);
+        "Not enough buffer space for max_name_len wchars");
 
     ::memset(buf_, 0, sizeof(buf_));
     info_.SizeOfStruct = sizeof(info_);

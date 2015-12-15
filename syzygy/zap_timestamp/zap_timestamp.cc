@@ -822,8 +822,8 @@ bool ZapTimestamp::CalculatePdbGuid() {
 
   DCHECK_EQ(end.value(), static_cast<uint32>(::ftell(pe_file.get())));
 
-  COMPILE_ASSERT(sizeof(base::MD5Digest) == sizeof(pdb_guid_data_),
-                 md5_digest_and_guid_size_mismatch);
+  static_assert(sizeof(base::MD5Digest) == sizeof(pdb_guid_data_),
+                "MD5Digest and GUID size mismatch.");
   base::MD5Final(reinterpret_cast<base::MD5Digest*>(&pdb_guid_data_),
                  &md5_context);
   LOG(INFO) << "Final GUID is "

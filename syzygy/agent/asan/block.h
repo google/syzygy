@@ -166,9 +166,9 @@ struct BlockHeader {
   const common::StackCapture* free_stack;
 };
 #pragma pack(pop)
-COMPILE_ASSERT((sizeof(BlockHeader) % kShadowRatio) == 0,
-               invalid_BlockHeader_mod_size);
-COMPILE_ASSERT(sizeof(BlockHeader) == 16, invalid_BlockHeader_size);
+static_assert((sizeof(BlockHeader) % kShadowRatio) == 0,
+              "Invalid BlockHeader mod size.");
+static_assert(sizeof(BlockHeader) == 16, "Invalid BlockHeader size.");
 
 // Declares dummy types for various parts of a block. These are used for type
 // safety of the various utility functions for navigating blocks. These are
@@ -205,9 +205,9 @@ struct BlockTrailer {
   uint32 heap_id;
 };
 #pragma pack(pop)
-COMPILE_ASSERT((sizeof(BlockTrailer) % kShadowRatio) == (kShadowRatio / 2),
-               invalid_BlockTrailer_mod_size);
-COMPILE_ASSERT(sizeof(BlockTrailer) == 20, invalid_BlockTrailer_size);
+static_assert((sizeof(BlockTrailer) % kShadowRatio) == (kShadowRatio / 2),
+              "Invalid BlockTrailer mod size.");
+static_assert(sizeof(BlockTrailer) == 20, "Invalid BlockTrailer size.");
 
 // A structure for recording the minimum pertinent information about a block.
 // Can easily be expanded into a BlockInfo, but requires less space. This makes
@@ -228,7 +228,7 @@ struct CompactBlockInfo {
     unsigned is_nested : 1;
   };
 };
-COMPILE_ASSERT(sizeof(CompactBlockInfo) == 12, invalid_CompactBlockInfo_size);
+static_assert(sizeof(CompactBlockInfo) == 12, "Invalid CompactBlockInfo size.");
 
 // A struct for initializing, modifying and navigating the various portions
 // of an allocated block. This can be initialized as part of the creation of

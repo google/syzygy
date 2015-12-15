@@ -488,7 +488,7 @@ void PdbDumpApp::DumpFpoStream(const OffsetStringMap& string_table,
       WORD unknown3;
       WORD unknown4;
     };
-    COMPILE_ASSERT(sizeof(NewFPO) == 0x20, new_fpo_wrong_size);
+    static_assert(sizeof(NewFPO) == 0x20, "New FPO has the wrong size.");
 
     ::fprintf(out(), "New FPO Records:\n");
     NewFPO new_fpo = {};

@@ -165,8 +165,8 @@ size_t StackCapture::HashCompare::operator()(
   DCHECK(stack_capture != NULL);
   // We're assuming that the StackId and size_t have the same size, so let's
   // make sure that's the case.
-  COMPILE_ASSERT(sizeof(StackId) == sizeof(size_t),
-                 stack_id_and_size_t_not_same_size);
+  static_assert(sizeof(StackId) == sizeof(size_t),
+                "StackId and size_t should have the same size.");
   return stack_capture->absolute_stack_id();
 }
 

@@ -35,8 +35,8 @@ const char kFunction[] = "function";
 const char kPublicSymbol[] = "public_symbol";
 
 const char* kRuleTypeStrings[] = { kFunction, kPublicSymbol };
-COMPILE_ASSERT(arraysize(kRuleTypeStrings) == FilterCompiler::kRuleTypeCount,
-               kRuleTypeStrings_out_of_sync_with_RuleType_enum);
+static_assert(arraysize(kRuleTypeStrings) == FilterCompiler::kRuleTypeCount,
+              "Rule type string out of sync.");
 
 // Read a newline terminated line from a file. The newline is part of the
 // returned string.

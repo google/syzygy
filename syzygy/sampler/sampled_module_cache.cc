@@ -321,8 +321,8 @@ bool SampledModuleCache::Module::Init() {
 
   const IMAGE_DOS_HEADER* dos_header =
       reinterpret_cast<const IMAGE_DOS_HEADER*>(headers);
-  COMPILE_ASSERT(sizeof(IMAGE_DOS_HEADER) <= sizeof(headers),
-                 headers_must_be_big_enough_for_DOS_headers);
+  static_assert(sizeof(IMAGE_DOS_HEADER) <= sizeof(headers),
+                "headers must be big enough for DOS headers.");
 
   // Get the NT headers and make sure they're fully contained in the block we
   // read.

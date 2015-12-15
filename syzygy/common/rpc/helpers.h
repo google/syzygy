@@ -256,9 +256,9 @@ struct dereference_pointer<T*> {
 
 template <class T>
 RPC_WSTR AsRpcWstr(T* value) {
-  COMPILE_ASSERT(
+  static_assert(
       sizeof(internal::dereference_pointer<RPC_WSTR>::value) == sizeof(T),
-      TypeIsCompatible);
+      "Type is incompatible.");
   return reinterpret_cast<RPC_WSTR>(value);
 }
 

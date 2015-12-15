@@ -47,7 +47,7 @@ size_t ShardedQuarantineHash(size_t a) {
 
 template<typename OT, typename SFT, typename HFT, size_t SF>
 ShardedQuarantine<OT, SFT, HFT, SF>::ShardedQuarantine() {
-  COMPILE_ASSERT(kShardingFactor >= 1, invalid_sharding_factor);
+  static_assert(kShardingFactor >= 1, "Invalid sharding factor.");
   ::memset(heads_, 0, sizeof(heads_));
   ::memset(tails_, 0, sizeof(tails_));
 }
@@ -56,7 +56,7 @@ template<typename OT, typename SFT, typename HFT, size_t SF>
 ShardedQuarantine<OT, SFT, HFT, SF>::ShardedQuarantine(
     const HashFunctor& hash_functor)
     : hash_functor_(hash_functor) {
-  COMPILE_ASSERT(kShardingFactor > 1, invalid_sharding_factor);
+  static_assert(kShardingFactor >= 1, "Invalid sharding factor.");
   ::memset(heads_, 0, sizeof(heads_));
   ::memset(tails_, 0, sizeof(tails_));
 }

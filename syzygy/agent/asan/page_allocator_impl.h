@@ -92,8 +92,8 @@ struct PageAllocatorPageSize {
   // The kPageSize calculation below presumes a 64KB allocation
   // granularity. If this changes for whatever reason the logic needs
   // to be updated.
-  COMPILE_ASSERT(64 * 1024 == kUsualAllocationGranularity,
-                 logic_out_of_sync_with_allocation_granularity);
+  static_assert(64 * 1024 == kUsualAllocationGranularity,
+                "Logic out of sync with allocation granularity.");
 
   // Round up to the nearest multiple of the allocation granularity.
   static const size_t kSlabSize =
@@ -149,13 +149,13 @@ PageAllocator<kObjectSize, kMaxObjectCount, kPageSize, kKeepStats>::
 PageAllocator()
     : page_count_(0), slab_(nullptr), slab_cursor_(nullptr), page_(nullptr),
       object_(nullptr) {
-  COMPILE_ASSERT(kPageSize > kObjectSize,
-                 page_size_must_be_bigger_than_the_object_size);
-  COMPILE_ASSERT(kObjectSize >= sizeof(uintptr_t), object_size_too_small);
-  COMPILE_ASSERT(kObjectSize <= sizeof(Object), object_too_small);
-  COMPILE_ASSERT(sizeof(Object) < kObjectSize + 4, object_too_large);
-  COMPILE_ASSERT(kPageSize <= sizeof(Page), page_too_small);
-  COMPILE_ASSERT(sizeof(Page) % kUsualPageSize == 0, invalid_page_size);
+  static_assert(kPageSize > kObjectSize,
+                "Page size should be bigger than the object size.");
+  static_assert(kObjectSize >= sizeof(uintptr_t), "Object size is too small.");
+  static_assert(kObjectSize <= sizeof(Object), "Object is too small.");
+  static_assert(sizeof(Object) < kObjectSize + 4, "Object is too large.");
+  static_assert(kPageSize <= sizeof(Page), "Page is too small.");
+  static_assert(sizeof(Page) % kUsualPageSize == 0, "Invalid page size.");
 
   // Clear the freelists.
   ::memset(free_, 0, sizeof(free_));
