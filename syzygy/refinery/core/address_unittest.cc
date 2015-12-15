@@ -35,52 +35,31 @@ TEST(AddressTest, ConversionTest) {
             static_cast<Address>(reinterpret_cast<uintptr_t>(ptr)));
 }
 
-TEST(AddressRangeTest, AddressRangeSpans) {
-  AddressRange range(80ULL, 16U);
+TEST(AddressRangeTest, IsValid) {
+  // TODO(siggi): IsValid is sort of a nonsense check, as the size of the
+  //     address space needs to go into it.
+  //     Move this check to the ProcessState.
 
-  // No match: candidate range is outside.
-  ASSERT_FALSE(range.Contains(AddressRange(73ULL, 5U)));
-  ASSERT_FALSE(range.Contains(AddressRange(96ULL, 3U)));
+  // The empty range is not valid.
+  AddressRange range;
+  EXPECT_TRUE(range.IsEmpty());
+  EXPECT_FALSE(range.IsValid());
 
-  // No match: candidate range straddles.
-  ASSERT_FALSE(range.Contains(AddressRange(75ULL, 10ULL)));
-  ASSERT_FALSE(range.Contains(AddressRange(90ULL, 10ULL)));
+  range = AddressRange(UINT64_MAX, 1);
+  EXPECT_FALSE(range.IsValid());
 
-  // No match: candidate range is a superset.
-  ASSERT_FALSE(range.Contains(AddressRange(75ULL, 32ULL)));
+  range = AddressRange(UINT64_MAX - UINT32_MAX + 1, UINT32_MAX);
+  EXPECT_FALSE(range.IsValid());
 
-  // Match: candidate range is a subset.
-  ASSERT_TRUE(range.Contains(AddressRange(84ULL, 4ULL)));
-  ASSERT_TRUE(range.Contains(AddressRange(80ULL, 4ULL)));
-  ASSERT_TRUE(range.Contains(AddressRange(92ULL, 4ULL)));
+  range = AddressRange(UINT64_MAX - UINT32_MAX, UINT32_MAX);
+  EXPECT_TRUE(range.IsValid());
 
-  // Match: candidate range is an exact match.
-  ASSERT_TRUE(range.Contains(AddressRange(80ULL, 16U)));
-}
+  // Empty range anywhere is not valid.
+  range = AddressRange(100, 0);
+  EXPECT_FALSE(range.IsValid());
 
-TEST(AddressRangeTest, AddressRangeIntersects) {
-  AddressRange range(80ULL, 16U);
-
-  // No match: candidate range is outside.
-  ASSERT_FALSE(range.Intersects(AddressRange(73ULL, 5U)));
-  ASSERT_FALSE(range.Intersects(AddressRange(100ULL, 3U)));
-
-  // No match: candidate range is contiguous.
-  ASSERT_FALSE(range.Intersects(AddressRange(75ULL, 5U)));
-  ASSERT_FALSE(range.Intersects(AddressRange(96ULL, 3U)));
-
-  // Match: candidate range straddles.
-  ASSERT_TRUE(range.Intersects(AddressRange(75ULL, 10ULL)));
-  ASSERT_TRUE(range.Intersects(AddressRange(90ULL, 10ULL)));
-
-  // Match: candidate range is a subset.
-  ASSERT_TRUE(range.Intersects(AddressRange(84ULL, 4ULL)));
-
-  // Match: candidate range is a superset.
-  ASSERT_TRUE(range.Intersects(AddressRange(75ULL, 32ULL)));
-
-  // Match: candidate range is exact match.
-  ASSERT_TRUE(range.Intersects(AddressRange(80ULL, 16U)));
+  range = AddressRange(100, 1);
+  EXPECT_TRUE(range.IsValid());
 }
 
 }  // namespace refinery

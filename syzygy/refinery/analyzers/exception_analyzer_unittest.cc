@@ -62,8 +62,9 @@ TEST_F(ExceptionAnalyzerSyntheticTest, NoExceptionTest) {
   // Create a minidump with no exception data.
   const char kData[] = "ABCD";
   testing::MinidumpSpecification::MemorySpecification mem_spec(80ULL, kData);
-  ASSERT_TRUE(minidump_spec_.AddMemoryRegion(mem_spec));
-  ASSERT_NO_FATAL_FAILURE(Serialize());
+  testing::MinidumpSpecification spec;
+  ASSERT_TRUE(spec.AddMemoryRegion(mem_spec));
+  ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Ensure analysis succeeds.
   minidump::Minidump minidump;
@@ -91,13 +92,14 @@ TEST_F(ExceptionAnalyzerSyntheticTest, BasicTest) {
 
   ThreadSpecification thread_spec(kThreadId, kStackAddr, kStackSize);
   MemorySpecification memory_spec;
+  testing::MinidumpSpecification spec;
   thread_spec.FillStackMemorySpecification(&memory_spec);
-  ASSERT_TRUE(minidump_spec_.AddMemoryRegion(memory_spec));
-  ASSERT_TRUE(minidump_spec_.AddThread(thread_spec));
+  ASSERT_TRUE(spec.AddMemoryRegion(memory_spec));
+  ASSERT_TRUE(spec.AddThread(thread_spec));
   ExceptionSpecification exception_spec(kThreadId);
-  ASSERT_TRUE(minidump_spec_.AddException(exception_spec));
+  ASSERT_TRUE(spec.AddException(exception_spec));
 
-  ASSERT_NO_FATAL_FAILURE(Serialize());
+  ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze.
   minidump::Minidump minidump;

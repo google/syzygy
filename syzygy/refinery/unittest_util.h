@@ -92,13 +92,11 @@ class SyntheticMinidumpTest : public testing::Test {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
   }
 
-  void Serialize() {
-    ASSERT_TRUE(minidump_spec_.Serialize(temp_dir_, &dump_file_));
+  void Serialize(const MinidumpSpecification& spec) {
+    ASSERT_TRUE(spec.Serialize(temp_dir_, &dump_file_));
   }
 
   const base::FilePath& dump_file() const { return dump_file_; }
-
-  MinidumpSpecification minidump_spec_;
 
  private:
   base::ScopedTempDir temp_dir_;

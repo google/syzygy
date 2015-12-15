@@ -53,13 +53,14 @@ TEST_F(ThreadAnalyzerSyntheticTest, BasicTest) {
   const Address kStackSize = 16U;
 
   // Generate a synthetic minidump with thread information.
-  testing::MinidumpSpecification::ThreadSpecification spec(
+  testing::MinidumpSpecification::ThreadSpecification thread_spec(
       kThreadId, kStackAddr, kStackSize);
   testing::MinidumpSpecification::MemorySpecification memory_spec;
-  spec.FillStackMemorySpecification(&memory_spec);
-  ASSERT_TRUE(minidump_spec_.AddMemoryRegion(memory_spec));
-  ASSERT_TRUE(minidump_spec_.AddThread(spec));
-  ASSERT_NO_FATAL_FAILURE(Serialize());
+  thread_spec.FillStackMemorySpecification(&memory_spec);
+  testing::MinidumpSpecification spec;
+  ASSERT_TRUE(spec.AddMemoryRegion(memory_spec));
+  ASSERT_TRUE(spec.AddThread(thread_spec));
+  ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze.
   minidump::Minidump minidump;
@@ -84,7 +85,7 @@ TEST_F(ThreadAnalyzerSyntheticTest, BasicTest) {
 
   const ThreadInformation& thread_info = stack.thread_info();
   const MINIDUMP_THREAD* thread =
-      reinterpret_cast<const MINIDUMP_THREAD*>(&spec.thread_data.at(0));
+      reinterpret_cast<const MINIDUMP_THREAD*>(&thread_spec.thread_data.at(0));
   ASSERT_EQ(thread->ThreadId, thread_info.thread_id());
   ASSERT_EQ(thread->SuspendCount, thread_info.suspend_count());
   ASSERT_EQ(thread->PriorityClass, thread_info.priority_class());
@@ -93,7 +94,7 @@ TEST_F(ThreadAnalyzerSyntheticTest, BasicTest) {
 
   const RegisterInformation& reg_info = thread_info.register_info();
   const CONTEXT* ctx =
-      reinterpret_cast<const CONTEXT*>(&spec.context_data.at(0));
+      reinterpret_cast<const CONTEXT*>(&thread_spec.context_data.at(0));
   ASSERT_EQ(ctx->SegGs, reg_info.seg_gs());
   ASSERT_EQ(ctx->SegFs, reg_info.seg_fs());
   ASSERT_EQ(ctx->SegEs, reg_info.seg_es());

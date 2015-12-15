@@ -102,16 +102,17 @@ class ExceptionHandlerValidatorSyntheticTest
 
     testing::MinidumpSpecification::MemorySpecification stack_memory_spec(
         kStackAddr, stack_buffer);
-    ASSERT_TRUE(minidump_spec_.AddMemoryRegion(stack_memory_spec));
+    testing::MinidumpSpecification spec;
+    ASSERT_TRUE(spec.AddMemoryRegion(stack_memory_spec));
 
     if (include_teb) {
       testing::MinidumpSpecification::MemorySpecification teb_memory_spec =
           CreateTibMemorySpec(kTebAddress, exception_registration_record_addr);
-      ASSERT_TRUE(minidump_spec_.AddMemoryRegion(teb_memory_spec));
+      ASSERT_TRUE(spec.AddMemoryRegion(teb_memory_spec));
     }
 
-    ASSERT_TRUE(minidump_spec_.AddThread(thread_spec));
-    ASSERT_NO_FATAL_FAILURE(Serialize());
+    ASSERT_TRUE(spec.AddThread(thread_spec));
+    ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
     // Perform analysis and validation, then inspect the report.
     ASSERT_NO_FATAL_FAILURE(Analyze());

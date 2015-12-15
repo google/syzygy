@@ -55,11 +55,12 @@ TEST_F(MemoryAnalyzerSyntheticTest, BasicTest) {
   const char kDataFirst[] = "ABCD";
   const char kDataSecond[] = "EFGHI";
 
+  testing::MinidumpSpecification spec;
   ASSERT_TRUE(
-      minidump_spec_.AddMemoryRegion(MemorySpecification(80ULL, kDataFirst)));
+      spec.AddMemoryRegion(MemorySpecification(80ULL, kDataFirst)));
   ASSERT_TRUE(
-      minidump_spec_.AddMemoryRegion(MemorySpecification(88ULL, kDataSecond)));
-  ASSERT_NO_FATAL_FAILURE(Serialize());
+      spec.AddMemoryRegion(MemorySpecification(88ULL, kDataSecond)));
+  ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze.
   minidump::Minidump minidump;

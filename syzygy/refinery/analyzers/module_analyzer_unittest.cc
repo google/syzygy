@@ -50,8 +50,9 @@ class ModuleAnalyzerSyntheticTest : public testing::SyntheticMinidumpTest {
 TEST_F(ModuleAnalyzerSyntheticTest, BasicTest) {
   // Create a minidump with a single module.
   testing::MinidumpSpecification::ModuleSpecification module_spec;
-  minidump_spec_.AddModule(module_spec);
-  ASSERT_NO_FATAL_FAILURE(Serialize());
+  testing::MinidumpSpecification spec;
+  spec.AddModule(module_spec);
+  ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze it for modules.
   minidump::Minidump minidump;
