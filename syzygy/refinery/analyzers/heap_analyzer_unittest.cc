@@ -50,9 +50,7 @@ class HeapAnalyzerTest : public testing::Test {};
 
 }  // namespace
 
-// TODO(siggi): This needs the bytes layer records to be non-overlapping,
-//   which is not the case sometimes right now.
-TEST(HeapAnalyzerTest, DISABLED_AnalyzeHeap) {
+TEST(HeapAnalyzerTest, AnalyzeHeap) {
   if (testing::IsAppVerifierActive()) {
     LOG(WARNING) << "HeapAnalyzerTest.AnalyzeHeap is incompatible with AV.";
     return;
