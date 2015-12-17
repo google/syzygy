@@ -45,21 +45,22 @@ TEST(MemoryAnalyzerTest, AnalyzeMinidump) {
 }
 
 class MemoryAnalyzerSyntheticTest : public testing::SyntheticMinidumpTest {
-};
-
-TEST_F(MemoryAnalyzerSyntheticTest, BasicTest) {
+ protected:
   using MemorySpecification =
       testing::MinidumpSpecification::MemorySpecification;
+  using MinidumpSpecification = testing::MinidumpSpecification;
 
-  // Create a synthetic minidump with memory information.
-  const char kDataFirst[] = "ABCD";
-  const char kDataSecond[] = "EFGHI";
+  static const char kDataFirst[];
+  static const char kDataSecond[];
+};
 
-  testing::MinidumpSpecification spec;
-  ASSERT_TRUE(
-      spec.AddMemoryRegion(MemorySpecification(80ULL, kDataFirst)));
-  ASSERT_TRUE(
-      spec.AddMemoryRegion(MemorySpecification(88ULL, kDataSecond)));
+const char MemoryAnalyzerSyntheticTest::kDataFirst[] = "ABCD";
+const char MemoryAnalyzerSyntheticTest::kDataSecond[] = "EFGHI";
+
+TEST_F(MemoryAnalyzerSyntheticTest, BasicTest) {
+  MinidumpSpecification spec;
+  ASSERT_TRUE(spec.AddMemoryRegion(MemorySpecification(80ULL, kDataFirst)));
+  ASSERT_TRUE(spec.AddMemoryRegion(MemorySpecification(88ULL, kDataSecond)));
   ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze.
@@ -74,7 +75,7 @@ TEST_F(MemoryAnalyzerSyntheticTest, BasicTest) {
   // Validate analysis.
   BytesLayerPtr bytes_layer;
   ASSERT_TRUE(process_state.FindLayer(&bytes_layer));
-  ASSERT_EQ(2, bytes_layer->size());
+  EXPECT_EQ(2, bytes_layer->size());
 
   std::vector<BytesRecordPtr> matching_records;
 
@@ -82,20 +83,88 @@ TEST_F(MemoryAnalyzerSyntheticTest, BasicTest) {
   {
     bytes_layer->GetRecordsAt(80ULL, &matching_records);
     ASSERT_EQ(1, matching_records.size());
-    ASSERT_EQ(AddressRange(80ULL, sizeof(kDataFirst) - 1),
+    EXPECT_EQ(AddressRange(80ULL, sizeof(kDataFirst) - 1),
               matching_records[0]->range());
     const Bytes& bytes = matching_records[0]->data();
-    ASSERT_EQ(kDataFirst, bytes.data());
+    EXPECT_EQ(kDataFirst, bytes.data());
   }
 
   // Retrieve second memory region.
   {
     bytes_layer->GetRecordsAt(88ULL, &matching_records);
     ASSERT_EQ(1, matching_records.size());
-    ASSERT_EQ(AddressRange(88ULL, sizeof(kDataSecond) - 1),
+    EXPECT_EQ(AddressRange(88ULL, sizeof(kDataSecond) - 1),
               matching_records[0]->range());
     const Bytes& bytes = matching_records[0]->data();
-    ASSERT_EQ(kDataSecond, bytes.data());
+    EXPECT_EQ(kDataSecond, bytes.data());
+  }
+}
+
+TEST_F(MemoryAnalyzerSyntheticTest, OverlappingRangesAreConsolidated) {
+  MinidumpSpecification spec(MinidumpSpecification::ALLOW_MEMORY_OVERLAP);
+
+  // Overlap at start.
+  ASSERT_TRUE(spec.AddMemoryRegion(MemorySpecification(84ULL, kDataFirst)));
+  ASSERT_TRUE(spec.AddMemoryRegion(MemorySpecification(86ULL, kDataSecond)));
+
+  // Overlap at end.
+  ASSERT_TRUE(spec.AddMemoryRegion(MemorySpecification(106ULL, kDataFirst)));
+  ASSERT_TRUE(spec.AddMemoryRegion(MemorySpecification(103ULL, kDataSecond)));
+
+  // Overlap at both ends.
+  ASSERT_TRUE(
+      spec.AddMemoryRegion(MemorySpecification(206ULL, "ABCDEFGHIJKLM")));
+  ASSERT_TRUE(spec.AddMemoryRegion(MemorySpecification(209ULL, kDataFirst)));
+
+  ASSERT_NO_FATAL_FAILURE(Serialize(spec));
+
+  // Analyze.
+  minidump::Minidump minidump;
+  ASSERT_TRUE(minidump.Open(dump_file()));
+
+  ProcessState process_state;
+  MemoryAnalyzer analyzer;
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
+            analyzer.Analyze(minidump, &process_state));
+
+  // Validate analysis.
+  BytesLayerPtr bytes_layer;
+  ASSERT_TRUE(process_state.FindLayer(&bytes_layer));
+  EXPECT_EQ(3, bytes_layer->size());
+
+  std::vector<BytesRecordPtr> matching_records;
+
+  // Retrieve first memory region.
+  {
+    bytes_layer->GetRecordsAt(84ULL, &matching_records);
+    ASSERT_EQ(1, matching_records.size());
+    static const char kExpectedData[] = "ABEFGHI";
+    EXPECT_EQ(AddressRange(84ULL, sizeof(kExpectedData) - 1),
+              matching_records[0]->range());
+    const Bytes& bytes = matching_records[0]->data();
+    EXPECT_EQ(kExpectedData, bytes.data());
+  }
+
+  // Retrieve second memory region.
+  {
+    bytes_layer->GetRecordsAt(103, &matching_records);
+    ASSERT_EQ(1, matching_records.size());
+    static const char kExpectedData[] = "EFGHICD";
+    EXPECT_EQ(AddressRange(103ULL, sizeof(kExpectedData) - 1),
+              matching_records[0]->range());
+    const Bytes& bytes = matching_records[0]->data();
+    EXPECT_EQ(kExpectedData, bytes.data());
+  }
+
+  // Retrieve third memory region.
+  {
+    bytes_layer->GetRecordsAt(206, &matching_records);
+    ASSERT_EQ(1, matching_records.size());
+    static const char kExpectedData[] = "ABCABCDHIJKLM";
+    EXPECT_EQ(AddressRange(206ULL, sizeof(kExpectedData) - 1),
+              matching_records[0]->range());
+    const Bytes& bytes = matching_records[0]->data();
+    EXPECT_EQ(kExpectedData, bytes.data());
   }
 }
 

@@ -41,7 +41,12 @@ class MinidumpSpecification {
   struct ExceptionSpecification;
   struct ModuleSpecification;
 
+  enum AllowMemoryOverlap {
+    ALLOW_MEMORY_OVERLAP,
+  };
+
   MinidumpSpecification();
+  explicit MinidumpSpecification(AllowMemoryOverlap dummy);
 
   // Adds thread data to the specification. Note that the stack's memory must
   // be added independently to the specification. The adbsence of a memory
@@ -81,6 +86,7 @@ class MinidumpSpecification {
   std::vector<ModuleSpecification> modules_;
   std::vector<ExceptionSpecification> exceptions_;
 
+  bool allow_memory_overlap_;
   std::map<refinery::Address, refinery::Size> region_sizes_;
 
   DISALLOW_COPY_AND_ASSIGN(MinidumpSpecification);

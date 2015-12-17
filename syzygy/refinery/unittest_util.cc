@@ -451,7 +451,11 @@ const uint32_t ScopedMinidump::kMinidumpWithData =
     kMinidumpWithStacks |
     MiniDumpWithIndirectlyReferencedMemory;  // Get referenced memory.
 
-MinidumpSpecification::MinidumpSpecification() {
+MinidumpSpecification::MinidumpSpecification() : allow_memory_overlap_(false) {
+}
+
+MinidumpSpecification::MinidumpSpecification(AllowMemoryOverlap dummy)
+    : allow_memory_overlap_(true) {
 }
 
 bool MinidumpSpecification::AddThread(const ThreadSpecification& spec) {
@@ -474,29 +478,32 @@ bool MinidumpSpecification::AddMemoryRegion(const MemorySpecification& spec) {
   if (!range.IsValid())
     return false;
 
-  // Overlap is not supported at this point - check with successor and
-  // predecessor.
-  auto it = region_sizes_.upper_bound(address);
+  if (!allow_memory_overlap_) {
+    // Overlap is not allowed in this instance - check with successor and
+    // predecessor.
+    auto it = region_sizes_.upper_bound(address);
 
-  if (it != region_sizes_.end()) {
-    refinery::AddressRange post_range(it->first, it->second);
-    DCHECK(post_range.IsValid());
-    if (range.Intersects(post_range))
+    if (it != region_sizes_.end()) {
+      refinery::AddressRange post_range(it->first, it->second);
+      DCHECK(post_range.IsValid());
+      if (range.Intersects(post_range))
+        return false;
+    }
+
+    if (it != region_sizes_.begin()) {
+      --it;
+      refinery::AddressRange pre_range(it->first, it->second);
+      DCHECK(pre_range.IsValid());
+      if (range.Intersects(pre_range))
+        return false;
+    }
+
+    // Add the specification.
+    auto inserted = region_sizes_.insert(std::make_pair(address, size_bytes));
+    if (!inserted.second)
       return false;
   }
 
-  if (it != region_sizes_.begin()) {
-    --it;
-    refinery::AddressRange pre_range(it->first, it->second);
-    DCHECK(pre_range.IsValid());
-    if (range.Intersects(pre_range))
-      return false;
-  }
-
-  // Add the specification.
-  auto inserted = region_sizes_.insert(std::make_pair(address, size_bytes));
-  if (!inserted.second)
-    return false;
   memory_regions_.push_back(spec);
 
   return true;
