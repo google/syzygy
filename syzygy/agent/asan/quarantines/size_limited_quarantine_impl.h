@@ -32,8 +32,10 @@ bool SizeLimitedQuarantineImpl<OT, SFT>::Push(
     return false;
   if (!PushImpl(object))
     return false;
-  base::subtle::NoBarrier_AtomicIncrement(&size_, static_cast<int32>(size));
-  base::subtle::NoBarrier_AtomicIncrement(&count_, 1);
+
+  ScopedQuarantineSizeCountLock size_count_lock(size_count_);
+  size_count_.Increment(static_cast<int32>(size), 1);
+
   return true;
 }
 
@@ -41,13 +43,23 @@ template<typename OT, typename SFT>
 bool SizeLimitedQuarantineImpl<OT, SFT>::Pop(
     Object* object) {
   DCHECK_NE(static_cast<Object*>(NULL), object);
-  if (max_quarantine_size_ == kUnboundedSize || size_ <= max_quarantine_size_)
+
+  if (max_quarantine_size_ == kUnboundedSize)
     return false;
+
+  {
+    ScopedQuarantineSizeCountLock size_count_lock(size_count_);
+    if (size_count_.size() <= max_quarantine_size_)
+      return false;
+  }
+
   if (!PopImpl(object))
     return false;
+
   size_t size = size_functor_(*object);
-  base::subtle::NoBarrier_AtomicIncrement(&size_, -static_cast<int32>(size));
-  base::subtle::NoBarrier_AtomicIncrement(&count_, -1);
+  ScopedQuarantineSizeCountLock size_count_lock(size_count_);
+  size_count_.Increment(-static_cast<int32>(size), -1);
+
   return true;
 }
 
@@ -59,7 +71,7 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
 
   // In order for the quarantine to remain long-term consistent we need to
   // remove a size and count consistent with the output of EmptyImpl. Simply
-  // setting size_ and count_ to zero could introduce inconsistency, as they
+  // setting the size and count to zero could introduce inconsistency, as they
   // may not yet reflect the contributions of some of the elements returned by
   // EmptyImpl.
   int32 net_size = 0;
@@ -68,14 +80,14 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
     net_size += size;
   }
 
-  base::subtle::NoBarrier_AtomicIncrement(&size_, -net_size);
-  base::subtle::NoBarrier_AtomicIncrement(
-      &count_, -static_cast<int32>(objects->size()));
+  ScopedQuarantineSizeCountLock size_count_lock(size_count_);
+  size_count_.Increment(-net_size, -static_cast<int32>(objects->size()));
 }
 
 template<typename OT, typename SFT>
 size_t SizeLimitedQuarantineImpl<OT, SFT>::GetCount() {
-  return count_;
+  ScopedQuarantineSizeCountLock size_count_lock(size_count_);
+  return size_count_.count();
 }
 
 template<typename OT, typename SFT>

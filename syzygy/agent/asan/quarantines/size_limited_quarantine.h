@@ -19,11 +19,80 @@
 #define SYZYGY_AGENT_ASAN_QUARANTINES_SIZE_LIMITED_QUARANTINE_H_
 
 #include "base/atomicops.h"
+#include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/quarantine.h"
 
 namespace agent {
 namespace asan {
 namespace quarantines {
+
+// Provides both the size of the quarantine and the number of elements it
+// contains. Both of these are accessed behind a lock, to ensure their
+// consistency. Hence, the lock must be acquired (by calling Lock) before any
+// other operation is performed. The lock should be returned (by calling Unlock)
+// as soon as possible to minimize the locked time.
+class QuarantineSizeCount {
+ public:
+  // Default constructor that sets the size and count to 0.
+  QuarantineSizeCount() : size_(0), count_(0) {}
+
+  // Must be called before any other operation to acquire the lock.
+  void Lock() { lock_.Acquire(); }
+
+  // Releases the lock.
+  void Unlock() {
+    lock_.AssertAcquired();
+    lock_.Release();
+  }
+
+  // @returns the size.
+  int32 size() const {
+    lock_.AssertAcquired();
+    return size_;
+  }
+
+  // @returns the count.
+  int32 count() const {
+    lock_.AssertAcquired();
+    return count_;
+  }
+
+  // Increments the size and count (accepts negative values for decrementing).
+  // @param size_delta The delta by which the size is incremented.
+  // @param count_delta The delta by which the count is incremented.
+  void Increment(int32 size_delta, int32 count_delta) {
+    lock_.AssertAcquired();
+    size_ += size_delta;
+    count_ += count_delta;
+  }
+
+ private:
+  // The current size of the quarantine.
+  int32 size_;
+  // The number of elements in the quarantine.
+  int32 count_;
+  // Single lock that's used for both |size_| and |count_|.
+  base::Lock lock_;
+};
+
+// An automatic lock on QuarantineSizeCount.
+class ScopedQuarantineSizeCountLock {
+ public:
+  // Constructor. Automatically lock the quarantine.
+  explicit ScopedQuarantineSizeCountLock(QuarantineSizeCount& size_count)
+      : size_count_(size_count) {
+    size_count_.Lock();
+  }
+
+  // Destructor. Automatically unlock the quarantine.
+  ~ScopedQuarantineSizeCountLock() { size_count_.Unlock(); }
+
+ private:
+  // The QuarantineSizeCount that this holds.
+  QuarantineSizeCount& size_count_;
+
+  DISALLOW_COPY_AND_ASSIGN(ScopedQuarantineSizeCountLock);
+};
 
 // A partial implementation of a size-limited quarantine. This quarantine
 // obeys a simple invariant: the sum of object weights within it must be
@@ -58,8 +127,6 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   SizeLimitedQuarantineImpl()
       : max_object_size_(kUnboundedSize),
         max_quarantine_size_(kUnboundedSize),
-        size_(0),
-        count_(0),
         size_functor_() {
   }
 
@@ -69,8 +136,6 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   explicit SizeLimitedQuarantineImpl(const SizeFunctor& size_functor)
       : max_object_size_(kUnboundedSize),
         max_quarantine_size_(kUnboundedSize),
-        size_(0),
-        count_(0),
         size_functor_(size_functor) {
   }
 
@@ -101,9 +166,18 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   size_t max_quarantine_size() const { return max_quarantine_size_; }
 
   // @returns the current size of the quarantine.
-  size_t size() const { return size_; }
+  // @note that this function could be racing with a push/pop operation and
+  // return a stale value. It should only be used when this is acceptable (in
+  // tests for example).
+  size_t size() {
+    ScopedQuarantineSizeCountLock size_count_lock(size_count_);
+    return size_count_.size();
+  }
 
   // @name QuarantineInterface implementation.
+  // @note that GetCount could be racing with a push/pop operation and return a
+  // stale value. It should only be used when this is acceptable (in tests for
+  // example).
   // @{
   virtual bool Push(const Object& object);
   virtual bool Pop(Object* object);
@@ -129,16 +203,7 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   size_t max_object_size_;
   size_t max_quarantine_size_;
 
-  // NOTE: The following variables are accessed atomically, but outside of any
-  //       lock held by the user-provided implementation. This means that these
-  //       two variables will race to catch up to the state of the quarantine,
-  //       and will potentially lag. These values are also signed because it is
-  //       possible for them to briefly dip below zero.
-
-  // The current size of the quarantine. Modified atomically.
-  volatile int32 size_;
-  // The number of elements in the quarantine. Modified atomically.
-  volatile int32 count_;
+  QuarantineSizeCount size_count_;
 
   // The size functor.
   SizeFunctor size_functor_;
