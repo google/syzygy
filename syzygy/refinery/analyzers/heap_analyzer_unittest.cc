@@ -15,6 +15,7 @@
 #include "syzygy/refinery/analyzers/heap_analyzer.h"
 
 #include "gtest/gtest.h"
+#include "syzygy/common/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
@@ -46,11 +47,19 @@ bool AnalyzeMinidump(const base::FilePath& minidump_path,
   return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
 }
 
-class HeapAnalyzerTest : public testing::Test {};
+class HeapAnalyzerTest : public testing::Test {
+ public:
+  void SetUp() override {
+    ASSERT_TRUE(scoped_symbol_path_.Setup());
+  }
+
+ private:
+  testing::ScopedSymbolPath scoped_symbol_path_;
+};
 
 }  // namespace
 
-TEST(HeapAnalyzerTest, AnalyzeHeap) {
+TEST_F(HeapAnalyzerTest, AnalyzeHeap) {
   if (testing::IsAppVerifierActive()) {
     LOG(WARNING) << "HeapAnalyzerTest.AnalyzeHeap is incompatible with AV.";
     return;
