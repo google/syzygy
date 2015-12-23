@@ -140,6 +140,24 @@ TEST_F(GrinderAppTest, BasicBlockEntryEndToEnd) {
   EXPECT_TRUE(base::PathExists(output_file));
 }
 
+TEST_F(GrinderAppTest, MemReplayEndToEnd) {
+  cmd_line_.AppendSwitchASCII("mode", "memreplay");
+  cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(
+      testing::kMemProfTraceFile));
+
+  base::FilePath output_file;
+  ASSERT_TRUE(base::CreateTemporaryFileInDir(temp_dir_, &output_file));
+  ASSERT_TRUE(base::DeleteFile(output_file, false));
+  cmd_line_.AppendSwitchPath("output-file", output_file);
+
+  ASSERT_TRUE(!base::PathExists(output_file));
+
+  EXPECT_EQ(0, app_.Run());
+
+  // Verify that the output file was created.
+  EXPECT_TRUE(base::PathExists(output_file));
+}
+
 TEST_F(GrinderAppTest, ProfileEndToEnd) {
   cmd_line_.AppendSwitchASCII("mode", "profile");
   cmd_line_.AppendArgPath(testing::GetExeTestDataRelativePath(

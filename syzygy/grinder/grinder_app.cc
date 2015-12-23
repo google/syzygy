@@ -20,6 +20,7 @@
 #include "base/strings/stringprintf.h"
 #include "syzygy/grinder/grinders/coverage_grinder.h"
 #include "syzygy/grinder/grinders/indexed_frequency_data_grinder.h"
+#include "syzygy/grinder/grinders/mem_replay_grinder.h"
 #include "syzygy/grinder/grinders/profile_grinder.h"
 #include "syzygy/grinder/grinders/sample_grinder.h"
 
@@ -32,20 +33,29 @@ const char kUsageFormatStr[] =
     "\n"
     "  A tool that parses trace files and produces summary output.\n"
     "\n"
-    "  In 'profile' mode it outputs KCacheGrind-compatible output files for\n"
-    "  visualization.\n"
+    "  In 'bbentry' mode it processes BB entry trace files and produces\n"
+    "  summarized BB entry counts for use with the BB optimizer.\n"
+    "\n"
+    "  In 'branch' mode it processes BB arc trace files and produces\n"
+    "  summarized BB arc counts for use with the BB optimizer.\n"
     "\n"
     "  In 'coverage' mode it outputs GCOV/LCOV-compatible or\n"
     "  KCacheGrind-compatible output files for further processing with code\n"
     "  coverage or line profiler visualization tools.\n"
+    "\n"
+    "  In 'memreplay' mode it processes memory profiler information and\n"
+    "  outputs a story for replay with the bard utility."
+    "\n"
+    "  In 'profile' mode it outputs KCacheGrind-compatible output files for\n"
+    "  visualization.\n"
     "\n"
     "  In 'sample' mode it processes sampling profiler data and outputs heat\n"
     "  per basic-block/function/compiland in CSV format.\n"
     "\n"
     "Required parameters\n"
     "  --mode=<mode>\n"
-    "    The processing mode. Must be one of 'bbentry', 'branch', 'coverage',\n"
-    "    'profile' or 'sample'.\n"
+    "    The processing mode. Must be one of 'bbentry', 'branch',\n"
+    "    'coverage', 'memreplay', 'profile' or 'sample'.\n"
     "\n"
     "Optional parameters\n"
     "  --output-file=<output file>\n"
@@ -75,7 +85,7 @@ const char kUsageFormatStr[] =
 }  // namespace
 
 GrinderApp::GrinderApp()
-    : application::AppImplBase("Grinder"), mode_(kProfile) {
+    : application::AppImplBase("Grinder"), mode_() {
 }
 
 void GrinderApp::PrintUsage(const base::FilePath& program,
@@ -114,18 +124,21 @@ bool GrinderApp::ParseCommandLine(const base::CommandLine* command_line) {
 
   // Parse the processing mode.
   std::string mode = command_line->GetSwitchValueASCII("mode");
-  if (base::LowerCaseEqualsASCII(mode, "profile")) {
-    mode_ = kProfile;
-    grinder_.reset(new grinders::ProfileGrinder());
-  } else if (base::LowerCaseEqualsASCII(mode, "coverage")) {
-    mode_ = kCoverage;
-    grinder_.reset(new grinders::CoverageGrinder());
-  } else if (base::LowerCaseEqualsASCII(mode, "bbentry")) {
+  if (base::LowerCaseEqualsASCII(mode, "bbentry")) {
     mode_ = kBasicBlockEntry;
     grinder_.reset(new grinders::IndexedFrequencyDataGrinder());
   } else if (base::LowerCaseEqualsASCII(mode, "branch")) {
     mode_ = kIndexedFrequencyData;
     grinder_.reset(new grinders::IndexedFrequencyDataGrinder());
+  } else if (base::LowerCaseEqualsASCII(mode, "coverage")) {
+    mode_ = kCoverage;
+    grinder_.reset(new grinders::CoverageGrinder());
+  } else if (base::LowerCaseEqualsASCII(mode, "memreplay")) {
+    mode = kMemReplay;
+    grinder_.reset(new grinders::MemReplayGrinder());
+  } else if (base::LowerCaseEqualsASCII(mode, "profile")) {
+    mode_ = kProfile;
+    grinder_.reset(new grinders::ProfileGrinder());
   } else if (base::LowerCaseEqualsASCII(mode, "sample")) {
     mode_ = kSample;
     grinder_.reset(new grinders::SampleGrinder());

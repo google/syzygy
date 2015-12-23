@@ -28,10 +28,11 @@ class GrinderApp : public application::AppImplBase {
 
   // The mode of processing we are performing.
   enum Mode {
-    kProfile,
-    kCoverage,
     kBasicBlockEntry,
+    kCoverage,
     kIndexedFrequencyData,
+    kMemReplay,
+    kProfile,
     kSample,
   };
 
