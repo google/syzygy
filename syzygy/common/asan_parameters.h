@@ -98,9 +98,9 @@ struct AsanParameters {
       // Runtime: If true, we won't try to report the crashes via breakpad
       // on failure.
       unsigned disable_breakpad_reporting : 1;
-      // BlockHeapManager: Indicates if CtMalloc should be used to serve the
-      // user's allocations.
-      unsigned enable_ctmalloc : 1;
+      // DEPRECATED: BlockHeapManager: Indicates if CtMalloc should be used to
+      // serve the user's allocations.
+      unsigned deprecated_enable_ctmalloc : 1;
       // ZebraBlockHeap: If true the ZebraBlockHeap will be used by the heap
       // manager.
       unsigned enable_zebra_block_heap : 1;
@@ -156,13 +156,13 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 60);
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 13;
+const uint32 kAsanParametersVersion = 14;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
 static_assert(kAsanParametersReserved1Bits == 20 &&
-                  kAsanParametersVersion == 13,
+                  kAsanParametersVersion == 14,
               "Version must change if reserved bits changes.");
 
 // The name of the section that will be injected into an instrumented image,
@@ -241,7 +241,6 @@ extern const bool kDefaultLogAsText;
 extern const uint32 kDefaultZebraBlockHeapSize;
 extern const float kDefaultZebraBlockHeapQuarantineRatio;
 // Default values of the BlockHeapManager parameters.
-extern const bool kDefaultEnableCtMalloc;
 extern const bool kDefaultEnableZebraBlockHeap;
 extern const bool kDefaultEnableAllocationFilter;
 extern const float kDefaultQuarantineFloodFillRate;
@@ -277,7 +276,6 @@ extern const char kParamLogAsText[];
 extern const char kParamZebraBlockHeapSize[];
 extern const char kParamZebraBlockHeapQuarantineRatio[];
 // String names of BlockHeapManager parameters.
-extern const char kParamDisableCtMalloc[];
 extern const char kParamDisableSizeTargetedHeaps[];
 extern const char kParamEnableZebraBlockHeap[];
 extern const char kParamEnableAllocationFilter[];

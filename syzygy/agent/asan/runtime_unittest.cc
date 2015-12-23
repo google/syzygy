@@ -244,7 +244,7 @@ TEST_F(AsanRuntimeTest, GetHeapType) {
       asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
 
   HeapManagerInterface::HeapId heap_id = asan_runtime_.GetProcessHeap();
-  EXPECT_EQ(kCtMallocHeap, asan_runtime_.GetHeapType(heap_id));
+  EXPECT_EQ(kWinHeap, asan_runtime_.GetHeapType(heap_id));
 
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
 }
@@ -274,10 +274,6 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
     if (test_block_heap_manager->enable_page_protections_) {
       feature_activation_count[base::bits::Log2Floor(
           ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS)]++;
-    }
-    if (asan_runtime_.params().enable_ctmalloc) {
-      feature_activation_count[base::bits::Log2Floor(
-          ASAN_FEATURE_ENABLE_CTMALLOC)]++;
     }
     if (asan_runtime_.params().enable_large_block_heap) {
       feature_activation_count[base::bits::Log2Floor(
@@ -344,7 +340,7 @@ TEST_F(AsanRuntimeTest, OnErrorSaveEnabledFeatureList) {
   AsanErrorInfo bad_access_info = {};
   RtlCaptureContext(&bad_access_info.context);
   AsanFeatureSet expected_feature_set = static_cast<AsanFeatureSet>(
-      ASAN_FEATURE_ENABLE_CTMALLOC | ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP);
+      ASAN_FEATURE_ENABLE_KASKO | ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP);
   asan_runtime_.enabled_features_ = expected_feature_set;
   asan_runtime_.OnError(&bad_access_info);
   EXPECT_TRUE(callback_called);

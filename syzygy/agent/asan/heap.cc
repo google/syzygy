@@ -20,7 +20,7 @@ namespace asan {
 const char* kHeapTypes[kHeapTypeMax] = {
     "(unknown)",
     "WinHeap",
-    "CtMallocHeap",
+    "DISABLED_CtMalloc",
     "LargeBlockHeap",
     "ZebraBlockHeap" };
 

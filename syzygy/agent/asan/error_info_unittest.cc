@@ -343,7 +343,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
     block_info.free_stack[1] = reinterpret_cast<void*>(4);
     block_info.free_stack[2] = reinterpret_cast<void*>(5);
     block_info.free_stack_size = 3;
-    block_info.heap_type = kCtMallocHeap;
+    block_info.heap_type = kWinHeap;
     block_info.milliseconds_since_free = 100;
 
     crashdata::Value value;
@@ -355,7 +355,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
         "  \"header\": \"0x%08X\",\n"
         "  \"user-size\": 8,\n"
         "  \"state\": \"quarantined (flooded)\",\n"
-        "  \"heap-type\": \"CtMallocHeap\",\n"
+        "  \"heap-type\": \"WinHeap\",\n"
         "  \"analysis\": {\n"
         "    \"block\": \"corrupt\",\n"
         "    \"header\": \"corrupt\",\n"
@@ -445,7 +445,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
     block_info.free_stack[1] = reinterpret_cast<void*>(4);
     block_info.free_stack[2] = reinterpret_cast<void*>(5);
     block_info.free_stack_size = 3;
-    block_info.heap_type = kCtMallocHeap;
+    block_info.heap_type = kWinHeap;
     block_info.milliseconds_since_free = 100;
 
     crashdata::Value value;
@@ -459,7 +459,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
         "  \"header\": \"0x%08X\",\n"
         "  \"user-size\": 8,\n"
         "  \"state\": \"quarantined (flooded)\",\n"
-        "  \"heap-type\": \"CtMallocHeap\",\n"
+        "  \"heap-type\": \"WinHeap\",\n"
         "  \"analysis\": {\n"
         "    \"block\": \"corrupt\",\n"
         "    \"header\": \"corrupt\",\n"
@@ -704,7 +704,6 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "    \"trailer-padding-size\": 0,\n"
       "    \"quarantine-block-size\": 4194304,\n"
       "    \"check-heap-on-failure\": 1,\n"
-      "    \"enable-ctmalloc\": 1,\n"
       "    \"enable-zebra-block-heap\": 0,\n"
       "    \"enable-large-block-heap\": 1,\n"
       "    \"enable-allocation-filter\": 0,\n"
@@ -846,7 +845,6 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "    \"trailer-padding-size\": 0,\n"
       "    \"quarantine-block-size\": 4194304,\n"
       "    \"check-heap-on-failure\": 1,\n"
-      "    \"enable-ctmalloc\": 1,\n"
       "    \"enable-zebra-block-heap\": 0,\n"
       "    \"enable-large-block-heap\": 1,\n"
       "    \"enable-allocation-filter\": 0,\n"

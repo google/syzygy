@@ -79,7 +79,7 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
   EXPECT_EQ(kDefaultZebraBlockHeapSize, aparams.zebra_block_heap_size);
   EXPECT_EQ(kDefaultZebraBlockHeapQuarantineRatio,
             aparams.zebra_block_heap_quarantine_ratio);
-  EXPECT_EQ(kDefaultEnableCtMalloc, static_cast<bool>(aparams.enable_ctmalloc));
+  EXPECT_FALSE(static_cast<bool>(aparams.deprecated_enable_ctmalloc));
   EXPECT_EQ(kDefaultEnableZebraBlockHeap,
             static_cast<bool>(aparams.enable_zebra_block_heap));
   EXPECT_EQ(kDefaultEnableLargeBlockHeap,
@@ -234,8 +234,7 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
   EXPECT_EQ(kDefaultZebraBlockHeapSize, iparams.zebra_block_heap_size);
   EXPECT_EQ(kDefaultZebraBlockHeapQuarantineRatio,
       iparams.zebra_block_heap_quarantine_ratio);
-  EXPECT_EQ(kDefaultEnableCtMalloc,
-            static_cast<bool>(iparams.enable_ctmalloc));
+  EXPECT_FALSE(static_cast<bool>(iparams.deprecated_enable_ctmalloc));
   EXPECT_EQ(kDefaultEnableZebraBlockHeap,
             static_cast<bool>(iparams.enable_zebra_block_heap));
   EXPECT_EQ(kDefaultEnableLargeBlockHeap,
@@ -272,7 +271,6 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
       L"--ignored_as_it_doesnt_exist "
       L"--zebra_block_heap_size=8388608 "
       L"--zebra_block_heap_quarantine_ratio=0.5 "
-      L"--disable_ctmalloc "
       L"--enable_zebra_block_heap "
       L"--disable_large_block_heap "
       L"--enable_allocation_filter "
@@ -305,7 +303,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
               testing::ElementsAre(0x1, 0xBAADF00D, 0xCAFEBABE, 0xDEADBEEF));
   EXPECT_EQ(8388608, iparams.zebra_block_heap_size);
   EXPECT_EQ(0.5f, iparams.zebra_block_heap_quarantine_ratio);
-  EXPECT_FALSE(static_cast<bool>(iparams.enable_ctmalloc));
+  EXPECT_FALSE(static_cast<bool>(iparams.deprecated_enable_ctmalloc));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_zebra_block_heap));
   EXPECT_FALSE(static_cast<bool>(iparams.enable_large_block_heap));
   EXPECT_TRUE(static_cast<bool>(iparams.enable_allocation_filter));

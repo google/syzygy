@@ -16,7 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
-#include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
+#include "syzygy/agent/asan/heaps/large_block_heap.h"
 #include "syzygy/agent/asan/heaps/win_heap.h"
 
 namespace agent {
@@ -84,8 +84,9 @@ TEST(InternalHeapTest, NotificationsWorkWithNonNotifyingHeap) {
 TEST(InternalHeapTest, NotificationsWorkWithNotifyingHeap) {
   memory_notifiers::NullMemoryNotifier null_notifier;
   testing::MockMemoryNotifier mock_notifier;
-  CtMallocHeap ctmalloc_heap(&null_notifier);
-  InternalHeap h(&mock_notifier, &ctmalloc_heap);
+  WinHeap win_heap;
+  LargeBlockHeap large_block_heap(&null_notifier, &win_heap);
+  InternalHeap h(&mock_notifier, &large_block_heap);
 
   EXPECT_CALL(mock_notifier, NotifyInternalUse(_, 16)).Times(1);
   EXPECT_CALL(mock_notifier, NotifyFutureHeapUse(_, 16)).Times(1);

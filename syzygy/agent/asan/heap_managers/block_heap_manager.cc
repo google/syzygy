@@ -23,7 +23,6 @@
 #include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/shadow.h"
 #include "syzygy/agent/asan/timed_try.h"
-#include "syzygy/agent/asan/heaps/ctmalloc_heap.h"
 #include "syzygy/agent/asan/heaps/internal_heap.h"
 #include "syzygy/agent/asan/heaps/large_block_heap.h"
 #include "syzygy/agent/asan/heaps/simple_block_heap.h"
@@ -121,12 +120,7 @@ HeapId BlockHeapManager::CreateHeap() {
   // Creates the underlying heap used by this heap.
   // TODO(chrisha): We should be using the internal allocator for these
   //     heap allocations!
-  HeapInterface* underlying_heap = nullptr;
-  if (parameters_.enable_ctmalloc) {
-    underlying_heap = new heaps::CtMallocHeap(memory_notifier_);
-  } else {
-    underlying_heap = new heaps::WinHeap();
-  }
+  HeapInterface* underlying_heap = new heaps::WinHeap();
   // Creates the heap.
   BlockHeapInterface* heap = new heaps::SimpleBlockHeap(underlying_heap);
 
@@ -408,11 +402,6 @@ void BlockHeapManager::UnlockAll() {
 
 void BlockHeapManager::set_parameters(
     const ::common::AsanParameters& parameters) {
-  // Once initialized we can't tolerate changes to enable_ctmalloc, as the
-  // internal heap and process heap would have to be reinitialized.
-  DCHECK(!initialized_ ||
-         parameters_.enable_ctmalloc == parameters.enable_ctmalloc);
-
   {
     base::AutoLock lock(lock_);
     parameters_ = parameters;
@@ -810,15 +799,8 @@ bool BlockHeapManager::FreeUnguardedAlloc(HeapId heap_id, void* alloc) {
   DCHECK(IsValidHeapId(heap_id, false));
   BlockHeapInterface* heap = GetHeapFromId(heap_id);
 
-  // Check if the allocation comes from the process heap, if so there's two
-  // possibilities:
-  //   - If CTMalloc is enabled the process heap underlying heap is a CTMalloc
-  //     heap. In this case we can explicitly check if the allocation was made
-  //     via the CTMalloc process heap.
-  //   - CTMalloc is disabled and in this case the process heap underlying heap
-  //     is always the real process heap.
-  if (heap == process_heap_ &&
-      (!parameters_.enable_ctmalloc || !heap->IsAllocated(alloc))) {
+  // Check if the allocation comes from the process heap.
+  if (heap == process_heap_) {
     // The shadow memory associated with this allocation is already green, so
     // no need to modify it.
     return ::HeapFree(::GetProcessHeap(), 0, alloc) == TRUE;
@@ -877,24 +859,14 @@ void BlockHeapManager::InitInternalHeap() {
   DCHECK_EQ(static_cast<HeapInterface*>(nullptr),
             internal_win_heap_.get());
 
-  if (parameters_.enable_ctmalloc) {
-    internal_heap_.reset(
-        new heaps::CtMallocHeap(memory_notifier_));
-  } else {
-    internal_win_heap_.reset(new heaps::WinHeap);
-    internal_heap_.reset(new heaps::InternalHeap(memory_notifier_,
-                                                 internal_win_heap_.get()));
-  }
+  internal_win_heap_.reset(new heaps::WinHeap);
+  internal_heap_.reset(
+      new heaps::InternalHeap(memory_notifier_, internal_win_heap_.get()));
 }
 
 void BlockHeapManager::InitProcessHeap() {
   DCHECK_EQ(static_cast<BlockHeapInterface*>(nullptr), process_heap_);
-  if (parameters_.enable_ctmalloc) {
-    process_heap_underlying_heap_ =
-        new heaps::CtMallocHeap(memory_notifier_);
-  } else {
-    process_heap_underlying_heap_ = new heaps::WinHeap(::GetProcessHeap());
-  }
+  process_heap_underlying_heap_ = new heaps::WinHeap(::GetProcessHeap());
   process_heap_ = new heaps::SimpleBlockHeap(process_heap_underlying_heap_);
   underlying_heaps_map_.insert(std::make_pair(process_heap_,
                                               process_heap_underlying_heap_));

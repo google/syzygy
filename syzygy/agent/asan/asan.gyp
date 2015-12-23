@@ -46,8 +46,6 @@
         'heap_manager.h',
         'heap_managers/block_heap_manager.cc',
         'heap_managers/block_heap_manager.h',
-        'heaps/ctmalloc_heap.cc',
-        'heaps/ctmalloc_heap.h',
         'heaps/internal_heap.cc',
         'heaps/internal_heap.h',
         'heaps/large_block_heap.cc',
@@ -113,7 +111,6 @@
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
-        '<(src)/third_party/ctmalloc/ctmalloc.gyp:ctmalloc_lib',
       ],
       'export_dependent_settings': [
         # We depend on crashdata_lib, which means we can see the include
@@ -220,7 +217,6 @@
         'system_interceptors_unittest.cc',
         'timed_try_unittest.cc',
         'windows_heap_adapter_unittest.cc',
-        'heaps/ctmalloc_heap_unittest.cc',
         'heaps/internal_heap_unittest.cc',
         'heaps/large_block_heap_unittest.cc',
         'heaps/simple_block_heap_unittest.cc',

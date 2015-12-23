@@ -1640,19 +1640,6 @@ TEST_F_2G(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
 }
 
-TEST_F_2G(InstrumentAppIntegrationTest,
-          AsanLargeBlockHeapCtMallocDisabledTest) {
-  TEST_ONLY_SUPPORTS_2G();
-
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--no_check_heap_on_failure "
-                              "--disable_large_block_heap "
-                              "--disable_ctmalloc");
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
-}
-
 TEST_F_2G(InstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
   TEST_ONLY_SUPPORTS_2G();
   AsanZebraHeapTest(false);

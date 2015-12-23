@@ -907,7 +907,7 @@ void AsanRuntime::PropagateParams() {
   // checks will ensure that this is the case.
   static_assert(sizeof(::common::AsanParameters) == 60,
                 "Must propagate parameters.");
-  static_assert(::common::kAsanParametersVersion == 13,
+  static_assert(::common::kAsanParametersVersion == 14,
                 "Must update parameters version.");
 
   // Push the configured parameter values to the appropriate endpoints.
@@ -1076,8 +1076,6 @@ AsanFeatureSet AsanRuntime::GenerateRandomFeatureSet() {
 
   heap_manager_->enable_page_protections_ =
       (enabled_features & ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS) != 0;
-  params_.enable_ctmalloc =
-      (enabled_features & ASAN_FEATURE_ENABLE_CTMALLOC) != 0;
   params_.enable_large_block_heap =
       (enabled_features & ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP) != 0;
   enable_kasko_ = (enabled_features & ASAN_FEATURE_ENABLE_KASKO) != 0;

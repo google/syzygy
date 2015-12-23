@@ -35,7 +35,7 @@ enum HeapType {
   // A catch-all heap type for test fixtures, etc.
   kUnknownHeapType,
   kWinHeap,
-  kCtMallocHeap,
+  kReserved, // Was kCtMalloc.
   kLargeBlockHeap,
   kZebraBlockHeap,
 

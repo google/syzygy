@@ -163,7 +163,6 @@ const uint32 kDefaultZebraBlockHeapSize = 16 * 1024 * 1024;
 const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 
 // Default values of the BlockHeapManager parameters.
-const bool kDefaultEnableCtMalloc = true;
 const bool kDefaultEnableRateTargetedHeaps = true;
 const bool kDefaultEnableZebraBlockHeap = false;
 const bool kDefaultEnableAllocationFilter = false;
@@ -289,7 +288,8 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->zebra_block_heap_size = kDefaultZebraBlockHeapSize;
   asan_parameters->zebra_block_heap_quarantine_ratio =
       kDefaultZebraBlockHeapQuarantineRatio;
-  asan_parameters->enable_ctmalloc = kDefaultEnableCtMalloc;
+  // CtMalloc has been deprecated.
+  asan_parameters->deprecated_enable_ctmalloc = false;
   asan_parameters->enable_zebra_block_heap = kDefaultEnableZebraBlockHeap;
   asan_parameters->enable_large_block_heap = kDefaultEnableLargeBlockHeap;
   asan_parameters->enable_allocation_filter = kDefaultEnableAllocationFilter;
@@ -308,7 +308,7 @@ bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
   static const size_t kSizeOfAsanParametersByVersion[] = {
-      40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60, 60, 60};
+      40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60, 60, 60, 60};
   static_assert(
       arraysize(kSizeOfAsanParametersByVersion) == kAsanParametersVersion + 1,
       "Size of parameters version out of date.");
@@ -459,7 +459,7 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
   if (cmd_line.HasSwitch(kParamDisableBreakpadReporting))
     asan_parameters->disable_breakpad_reporting = true;
   if (cmd_line.HasSwitch(kParamDisableCtMalloc))
-    asan_parameters->enable_ctmalloc = false;
+    LOG(WARNING) << "Ignoring deprecated " << kParamDisableCtMalloc << " flag.";
   if (cmd_line.HasSwitch(kParamEnableZebraBlockHeap))
     asan_parameters->enable_zebra_block_heap = true;
   if (cmd_line.HasSwitch(kParamDisableLargeBlockHeap))

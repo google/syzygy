@@ -562,7 +562,7 @@ void PopulateAsanParameters(const AsanErrorInfo& error_info,
 
   // Any new parameter added to the parameters structure should also be added
   // here.
-  static_assert(13 == ::common::kAsanParametersVersion,
+  static_assert(14 == ::common::kAsanParametersVersion,
                 "Pointers in the params must be linked up here.");
   crashdata::Dictionary* param_dict = crashdata::DictAddDict("asan-parameters",
                                                              dict);
@@ -577,9 +577,6 @@ void PopulateAsanParameters(const AsanErrorInfo& error_info,
                                                 param_dict));
   crashdata::LeafSetUInt(error_info.asan_parameters.check_heap_on_failure,
                          crashdata::DictAddLeaf("check-heap-on-failure",
-                                                param_dict));
-  crashdata::LeafSetUInt(error_info.asan_parameters.enable_ctmalloc,
-                         crashdata::DictAddLeaf("enable-ctmalloc",
                                                 param_dict));
   crashdata::LeafSetUInt(error_info.asan_parameters.enable_zebra_block_heap,
                          crashdata::DictAddLeaf("enable-zebra-block-heap",

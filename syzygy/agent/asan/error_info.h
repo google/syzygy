@@ -81,20 +81,15 @@ extern const char kCorruptHeap[];
 
 enum AsanFeatureSet {
   ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS = (1 << 0),
-  ASAN_FEATURE_ENABLE_CTMALLOC = (1 << 1),
+  DISABLED_ASAN_FEATURE_ENABLE_CTMALLOC = (1 << 1),
   ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP = (1 << 2),
   ASAN_FEATURE_ENABLE_KASKO = (1 << 3),
   ASAN_FEATURE_MAX = (1 << 4),
 };
 
-
-// Temporarily disable CtMalloc. There's a few known bugs in it that have been
-// fixed on the official implementation, so we shouldn't be using it until we
-// have rebased the version we're using.
-// TODO(sebmarchand): Remove this once our version of CtMalloc has been
-// updated.
+// Features that have been disabled.
 const size_t kAsanDisabledFeatureMask = static_cast<size_t>(
-    ~ASAN_FEATURE_ENABLE_CTMALLOC);
+    ~DISABLED_ASAN_FEATURE_ENABLE_CTMALLOC);
 
 // Store the information that we want to report about a block.
 // TODO(sebmarchand): Rename this to avoid the confusion with the BlockInfo
