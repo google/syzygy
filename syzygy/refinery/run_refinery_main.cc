@@ -24,12 +24,16 @@
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
+#include "syzygy/refinery/analyzers/heap_analyzer.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
+#include "syzygy/refinery/analyzers/stack_analyzer.h"
 #include "syzygy/refinery/analyzers/thread_analyzer.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
+#include "syzygy/refinery/symbols/dia_symbol_provider.h"
+#include "syzygy/refinery/symbols/symbol_provider.h"
 #include "syzygy/refinery/validators/exception_handler_validator.h"
 
 namespace {
@@ -69,6 +73,16 @@ bool Analyze(const Minidump& minidump, ProcessState* process_state) {
   analyzer.reset(new refinery::ExceptionAnalyzer());
   runner.AddAnalyzer(analyzer.Pass());
   analyzer.reset(new refinery::ModuleAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+
+  scoped_refptr<refinery::SymbolProvider> symbol_provider(
+      new refinery::SymbolProvider());
+  analyzer.reset(new refinery::HeapAnalyzer(symbol_provider));
+  runner.AddAnalyzer(analyzer.Pass());
+
+  scoped_refptr<refinery::DiaSymbolProvider> dia_symbol_provider(
+      new refinery::DiaSymbolProvider());
+  analyzer.reset(new refinery::StackAnalyzer(dia_symbol_provider));
   runner.AddAnalyzer(analyzer.Pass());
 
   return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
