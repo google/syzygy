@@ -21,7 +21,6 @@ import etw.descriptors.process as process
 import logging
 import os.path
 import re
-import trace_event
 
 # This import is required to have some setup performed behind the scenes, but
 # we don't ever directly refer to it. Ignore pylint complaining about an unused
@@ -56,10 +55,6 @@ _SOFTFAULT_TYPES = {
 _LOGGER = logging.getLogger(__name__)
 
 
-# The Chrome event corresponding to the start of the main message loop.
-_MESSAGE_LOOP_BEGIN = 'BrowserMain:MESSAGE_LOOP'
-
-
 def _MakeEmptySoftFaultDict():
   return dict((ftype, 0) for ftype in _SOFTFAULT_TYPES.itervalues())
 
@@ -81,7 +76,6 @@ class LogEventCounter(etw.EventConsumer):
     self._file_db = file_db
     self._module_db = module_db
     self._process_db = process_db
-    self._message_loop_begin = []
     self._process_launch = []
 
     # Initialize the fault counting structure. We count faults per module
@@ -94,19 +88,6 @@ class LogEventCounter(etw.EventConsumer):
     for module_name in _MODULES_TO_TRACK.union([_OTHER]):
       self._hardfaults[module_name] = 0
       self._softfaults[module_name] = _MakeEmptySoftFaultDict()
-
-  @etw.EventHandler(trace_event.Event.EVENT_BEGIN)
-  def _OnBegin(self, event):
-    if event.name == _MESSAGE_LOOP_BEGIN:
-      self._message_loop_begin.append(event.time_stamp)
-
-  @etw.EventHandler(trace_event.Event.EVENT_END)
-  def _OnEnd(self, event):
-    pass
-
-  @etw.EventHandler(trace_event.Event.EVENT_INSTANT)
-  def _OnInstant(self, event):
-    pass
 
   @etw.EventHandler(process.Event.Start)
   def _OnProcessStart(self, event):

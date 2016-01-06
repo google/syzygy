@@ -64,7 +64,6 @@ _MODULES = [
     'optimize',
     'profile',
     'runner',
-    'trace_event',
     'zip_http_server',
 ]
 

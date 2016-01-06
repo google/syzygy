@@ -30,7 +30,6 @@ using base::win::EtwTraceProperties;
 namespace {
 
 static const wchar_t kCallTraceSessionName[] = L"Call Trace Logger";
-static const wchar_t kChromeSessionName[] = L"Chrome Event Logger";
 static const wchar_t kDefaultCallTraceFile[] = L"call_trace.etl";
 static const wchar_t kDefaultKernelFile[] = L"kernel.etl";
 
@@ -42,7 +41,6 @@ enum FileMode {
 struct CallTraceOptions {
   base::FilePath call_trace_file;
   base::FilePath kernel_file;
-  base::FilePath chrome_file;
   FileMode file_mode;
   int flags;
   int min_buffers;
@@ -73,18 +71,6 @@ static bool ParseOptions(CallTraceOptions* options) {
   if (options->kernel_file.empty())
     options->kernel_file = base::FilePath(kDefaultKernelFile);
 
-  // This is an optional argument. If specified, it must be different from
-  // call-trace-file and kernel-file.
-  options->chrome_file = cmd_line->GetSwitchValuePath("chrome-file");
-  if (!options->chrome_file.empty()) {
-    if (options->chrome_file == options->call_trace_file ||
-        options->chrome_file == options->kernel_file) {
-      LOG(ERROR) << "chrome-file must be different from call-trace-file "
-          "and kernel-file.";
-      return false;
-    }
-  }
-
   if (options->call_trace_file == options->kernel_file) {
     LOG(ERROR) << "call-trace-file and kernel-file must be different.";
     return false;
@@ -111,7 +97,6 @@ static bool ParseOptions(CallTraceOptions* options) {
 enum EtwTraceType {
   kKernelType,
   kCallTraceType,
-  kChromeType,
 };
 
 // Sets up basic ETW trace properties.
@@ -162,20 +147,6 @@ static void SetupEtwProperties(EtwTraceType trace_type,
       if (options.min_buffers > signed(p->MinimumBuffers))
         p->MinimumBuffers = options.min_buffers;
       p->MaximumBuffers = kEtwBufferMultiplier * p->MinimumBuffers;
-
-      break;
-    }
-
-    case kChromeType: {
-      // This should never be called with an empty file name.
-      DCHECK(!options.chrome_file.empty());
-
-      properties->SetLoggerFileName(options.chrome_file.value().c_str());
-
-      // Chrome is quite low volume.
-      p->EnableFlags = 0;
-      p->MinimumBuffers = 1;
-      p->MaximumBuffers = 5;
 
       break;
     }
@@ -396,36 +367,6 @@ bool StartCallTraceImpl() {
   // Automatically clean up this session if we exit early.
   ScopedSession kernel_session(KERNEL_LOGGER_NAMEW, &kernel_props);
 
-  // If a chrome file name has been provided, enable it as well.
-  if (!options.chrome_file.empty()) {
-    EtwTraceProperties chrome_props;
-    SetupEtwProperties(kChromeType, options, &chrome_props);
-    result = StartSession(kChromeSessionName, &chrome_props, &session_handle);
-    if (result == kError) {
-      LOG(INFO) << "Failed to start '" << kChromeSessionName << "' session, "
-          << "shutting down other session.";
-      return false;
-    }
-
-    // Automatically clean up this session if we exit early.
-    ScopedSession chrome_session(kChromeSessionName, &chrome_props);
-
-    if (result == kStarted) {
-      // Enable Chrome trace events.
-      ULONG err = ::EnableTrace(TRUE, 0, TRACE_LEVEL_INFORMATION,
-                                &base::trace_event::kChromeTraceProviderName,
-                                session_handle);
-      if (err != ERROR_SUCCESS) {
-        LOG(ERROR) << "Failed to enable Chrome logging: "
-                   << ::common::LogWe(err) << ".";
-        return false;
-      }
-    }
-
-    // Release the ScopedSession so it doesn't get torn down.
-    chrome_session.Release();
-  }
-
   // Release the ScopedSessions so that they don't get torn down as we're
   // exiting successfully.
   kernel_session.Release();
@@ -451,9 +392,6 @@ bool QueryCallTraceImpl() {
   if (!DumpSessionStatus(KERNEL_LOGGER_NAMEW))
     success = false;
 
-  if (!DumpSessionStatus(kChromeSessionName))
-    success = false;
-
   return success;
 }
 
@@ -463,20 +401,11 @@ bool StopCallTraceImpl() {
   // return failure.
   std::wstring call_trace_file;
   std::wstring kernel_file;
-  std::wstring chrome_file;
   bool success = true;
   if (!FlushAndStopSession(kCallTraceSessionName, &call_trace_file))
     success = false;
   if (!FlushAndStopSession(KERNEL_LOGGER_NAMEW, &kernel_file))
     success = false;
-
-  EtwTraceProperties props;
-  HRESULT hr = EtwTraceController::Query(kChromeSessionName, &props);
-  if (SUCCEEDED(hr)) {
-    LOG(INFO) << "Detected optional session: '" << kChromeSessionName << "'.";
-    if (!FlushAndStopSession(kChromeSessionName, &chrome_file))
-      success = false;
-  }
 
   // TODO(chrisha): Add ETL file merging support here.
   return success;
