@@ -155,7 +155,7 @@ int SwapImportApp::SwapImports() {
           image.data() + name_offset.value());
       VLOG(1) << "Processing import " << import_index << " \""
               << name << "\".";
-      if (base::strcasecmp(import_name_.c_str(), name) == 0) {
+      if (base::CompareCaseInsensitiveASCII(import_name_.c_str(), name) == 0) {
         VLOG(1) << "Import " << import_index << " matches import name.";
         ++imports_matched;
 

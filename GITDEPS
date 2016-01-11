@@ -16,12 +16,12 @@
 # through sparse checkouts.
 
 vars = {
-  "chrome_revision": "bc4600abb6ba65953c6cefd139062e21f0b64977",
+  "chrome_revision": "f107bb8854c5f924ac99309e5fc102a002f264a9",
   "chrome_base_git": "https://chromium.googlesource.com/",
 
   "buildtools_revision": "ecc8e253abac3b6186a97573871a084f4c0ca3ae",
-  "gmock_revision": "2742c12ed43e7ff5823157e33f2a0ac5a2dd17e0",  # r455.
-  "gtest_revision": "bc830d325d07a8a943386446139be3ab3565e038",  # r668.
+  "gmock_revision": "0421b6f358139f02e102c9c332ce19a33faf75be",  # r455.
+  "gtest_revision": "86dec5c00225b34a0061127e5cc35b6cf1485b79",  # r746.
   "protobuf_revision": "786379af4766fa7ec22b51862ba6e84156b1f9cb",
 }
 

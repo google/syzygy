@@ -180,7 +180,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
         std::string name =
             base::StringPrintf("asan_check_repz_%d_byte_%s_access",
                                access_size, opcode_str);
-        base::StringToLowerASCII(&name);
+        name = base::ToLowerASCII(name);
         AddHookRef(name, AsanBasicBlockTransform::kRepzAccess, access_size,
                    opcode, true);
       }
@@ -197,15 +197,14 @@ class AsanTransformTest : public testing::TestDllTransformTest {
         std::string name =
             base::StringPrintf("asan_check_%d_byte_%s_access",
                                access_size, opcode_str);
-        base::StringToLowerASCII(&name);
+        name = base::ToLowerASCII(name);
         AddHookRef(name, AsanBasicBlockTransform::kInstrAccess, access_size,
                    opcode, true);
 
         // Initialize the strings with prefix access hooks.
-         std::string repz_name =
-            base::StringPrintf("asan_check_repz_%d_byte_%s_access",
-                               access_size, opcode_str);
-         base::StringToLowerASCII(&repz_name);
+        std::string repz_name = base::StringPrintf(
+            "asan_check_repz_%d_byte_%s_access", access_size, opcode_str);
+        name = base::ToLowerASCII(repz_name);
         AddHookRef(repz_name, AsanBasicBlockTransform::kRepzAccess, access_size,
                    opcode, true);
       }
@@ -1005,7 +1004,8 @@ bool EnumKernel32InterceptedFunctionsImports(const PEImage &image,
 
   if (_stricmp("kernel32.dll", module) == 0) {
     for (size_t i = 0; i < arraysize(kInterceptedFunctions); ++i) {
-      if (base::strcasecmp(kInterceptedFunctions[i], name) == 0) {
+      if (base::CompareCaseInsensitiveASCII(kInterceptedFunctions[i], name) ==
+          0) {
         EXPECT_NE(static_cast<const char*>(NULL), name);
         modules->push_back(name);
         return true;

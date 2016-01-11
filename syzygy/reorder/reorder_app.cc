@@ -78,8 +78,8 @@ bool ParseFlags(const std::string& flags_str, Reorderer::Flags* flags) {
   // If there is a string to process then extract its flags.
   if (!flags_str.empty()) {
     typedef std::vector<std::string> StringVector;
-    StringVector text_flags;
-    base::SplitString(flags_str, ',', &text_flags);
+    StringVector text_flags = base::SplitString(
+        flags_str, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
     StringVector::const_iterator flag_iter = text_flags.begin();
     for (; flag_iter != text_flags.end(); ++flag_iter) {
       if (*flag_iter == "no-data") {

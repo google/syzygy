@@ -75,15 +75,15 @@ bool GetModuleValueFromEnvVar(const char* env_var_name,
   CHECK(!abs_module_path.empty());
   base::FilePath base_module_path = module_path.BaseName();
 
-  std::vector<std::string> pairs;
-  base::SplitString(env_var, ';', &pairs);
+  std::vector<std::string> pairs = base::SplitString(
+      env_var, ";", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
 
   for (size_t i = 0; i < pairs.size(); ++i) {
     if (pairs[i].empty())
       continue;
 
-    std::vector<std::string> path_value;
-    base::SplitString(pairs[i], ',', &path_value);
+    std::vector<std::string> path_value = base::SplitString(
+        pairs[i], ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
 
     size_t score = 0;
 

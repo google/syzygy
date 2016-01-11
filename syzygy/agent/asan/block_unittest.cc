@@ -398,7 +398,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryInvalidPadding) {
 
   BlockInfo info = {};
   BlockInitialize(layout, data.get(), false, &info);
-  EXPECT_TRUE(info.header->has_header_padding = 1);
+  EXPECT_EQ(1, info.header->has_header_padding);
   BlockInfo info_recovered = {};
   EXPECT_TRUE(BlockInfoFromMemory(info.header, &info_recovered));
   EXPECT_EQ(info, info_recovered);

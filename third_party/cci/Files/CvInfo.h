@@ -40,8 +40,8 @@ typedef uint64 ulong;
 typedef int8 sbyte;
 typedef char string[1];
 typedef GUID Guid;
-COMPILE_ASSERT(sizeof(short) == 2, Size_of_short_must_equal_two);
-COMPILE_ASSERT(sizeof(int) == 4, Size_of_int_must_equal_four);
+static_assert(sizeof(short) == 2, "Size of short must be 2 bytes.");
+static_assert(sizeof(int) == 4, "Size of int must be 4 bytes.");
 
   /*internal*/ struct FLOAT10 {
     /*internal*/ byte Data_0;

@@ -18,6 +18,8 @@
 #include <intrin.h>
 #include <psapi.h>
 
+#include <limits>
+
 #include "base/bind.h"
 #include "base/scoped_native_library.h"
 #include "base/files/file_enumerator.h"
@@ -768,7 +770,7 @@ TEST_F(ProfilerTest, EntryHookPerformance) {
 
   // We grab the lowest value of 10 invocations to minimize scheduling
   // artifacts and such.
-  uint64 min_cycles = kuint64max;
+  uint64 min_cycles = std::numeric_limits<uint64>::max();
   for (size_t i = 0; i < 10; ++i) {
     // Invoke on the entry hook a hundred thousand times, and measure the
     // wall-clock time from start to finish.

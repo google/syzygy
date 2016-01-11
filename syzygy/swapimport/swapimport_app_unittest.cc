@@ -85,7 +85,7 @@ class SwapImportAppTest : public testing::PELibUnitTest {
         pe_file.nt_headers()->OptionalHeader.ImageBase + iid.Name);
     std::string name;
     ASSERT_TRUE(pe_file.ReadImageString(name_addr, &name));
-    ASSERT_EQ(0, base::strcasecmp(name.c_str(), import_name));
+    ASSERT_EQ(0, base::CompareCaseInsensitiveASCII(name.c_str(), import_name));
   }
 
   void ValidateImportsSwapped() {

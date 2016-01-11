@@ -366,7 +366,8 @@ TEST_F(PEFileTest, DecodeImports) {
 
   for (size_t i = 0; i < imports.size(); ++i) {
     PEFile::ImportDll& dll = imports[i];
-    if (0 == base::strcasecmp("export_dll.dll", dll.name.c_str())) {
+    if (0 ==
+        base::CompareCaseInsensitiveASCII("export_dll.dll", dll.name.c_str())) {
       ASSERT_EQ(4, dll.functions.size());
       // Depending on the optimization settings the order of these elements can
       // actually be different.
@@ -392,8 +393,10 @@ TEST_F(PEFileTest, DecodeImportsX64) {
   int expected_imports = 0;
   for (size_t i = 0; i < imports.size(); ++i) {
     PEFile64::ImportDll& dll = imports[i];
-    if (base::strcasecmp("kernel32.dll", dll.name.c_str()) == 0 ||
-        base::strcasecmp("user32.dll", dll.name.c_str()) == 0) {
+    if (base::CompareCaseInsensitiveASCII("kernel32.dll", dll.name.c_str()) ==
+            0 ||
+        base::CompareCaseInsensitiveASCII("user32.dll", dll.name.c_str()) ==
+            0) {
       expected_imports++;
     }
   }

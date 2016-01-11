@@ -802,9 +802,13 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     cmd.AppendArg(pdb_arg);
     cmd.AppendArg("-r");
     cmd.AppendArg("-s:nonexistent-stream-name");
-    std::string output;
-    ASSERT_TRUE(base::GetAppOutput(cmd, &output));
-    ASSERT_TRUE(output.empty());
+    base::LaunchOptions options;
+    options.inherit_handles = true;
+    base::Process process = base::LaunchProcess(cmd, options);
+
+    int exit_code = 0;
+    ASSERT_TRUE(process.WaitForExit(&exit_code));
+    ASSERT_EQ(-1, exit_code);
   }
 
   // Second test: read an existing stream (the one we just added). Should

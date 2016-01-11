@@ -153,7 +153,7 @@ bool FilterCompiler::ParseFilterDescriptionFile(const base::FilePath& path) {
       return false;
     }
     TrimComment(&line);
-    base::TrimWhitespace(line, base::TRIM_ALL, &line);
+    base::TrimWhitespaceASCII(line, base::TRIM_ALL, &line);
 
     // Skip empty lines.
     if (line.empty())
@@ -175,7 +175,7 @@ bool FilterCompiler::ParseFilterDescriptionFile(const base::FilePath& path) {
 
     // Get the rule type.
     RuleType rule_type = kFunctionRule;
-    base::StringToLowerASCII(&type);
+    type = base::ToLowerASCII(type);
     if (type == kFunction) {
       rule_type = kFunctionRule;
     } else if (type == kPublicSymbol) {

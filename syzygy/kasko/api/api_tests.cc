@@ -259,7 +259,7 @@ MULTIPROCESS_TEST_MAIN(SendReportForProcess) {
                                          sizeof(exception_record), nullptr);
       // If and only if kSynthesizeException, there should be an exception
       // record.
-      CHECK_IMPLIES(synthesize_exception, SUCCEEDED(result))
+      CHECK(!synthesize_exception || SUCCEEDED(result))
           << "IDebugAdvanced2::Request";
     }
     void OnInitialized() override {

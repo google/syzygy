@@ -804,20 +804,17 @@ bool SamplerApp::PrintUsage(const base::FilePath& program,
 }
 
 bool SamplerApp::ParsePids(const std::string& pids) {
-  std::vector<std::string> split;
-  base::SplitString(pids, ',', &split);
+  std::vector<std::string> split =
+      base::SplitString(pids, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_ALL);
 
   for (size_t i = 0; i < split.size(); ++i) {
-    std::string s;
-    base::TrimWhitespace(split[i], base::TRIM_ALL, &s);
-
     // Skip empty strings.
-    if (s.empty())
+    if (split[i].empty())
       continue;
 
     uint32 pid = 0;
-    if (!base::StringToUint(s, &pid)) {
-      LOG(ERROR) << "Unable to parse \"" << s << "\" as a PID.";
+    if (!base::StringToUint(split[i], &pid)) {
+      LOG(ERROR) << "Unable to parse \"" << split[i] << "\" as a PID.";
       return false;
     }
     pids_.insert(pid);

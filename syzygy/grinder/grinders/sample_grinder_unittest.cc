@@ -195,8 +195,8 @@ class SampleGrinderTest : public testing::PELibUnitTest {
         if (line.visit_count < min_visit_count)
           min_visit_count = line.visit_count;
 
-        EXPECT_EQ(base::StringToLowerASCII(source_file),
-                  base::StringToLowerASCII(*line.source_file_name));
+        EXPECT_EQ(base::ToLowerASCII(source_file),
+                  base::ToLowerASCII(*line.source_file_name));
         actual[line.line_number] = line.visit_count;
       }
       EXPECT_EQ(1u, min_visit_count);

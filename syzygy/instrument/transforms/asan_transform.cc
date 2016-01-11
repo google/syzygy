@@ -344,7 +344,7 @@ std::string GetAsanCheckAccessFunctionName(
                          info.size,
                          access_mode_str,
                          info.save_flags ? "" : "_no_flags");
-  base::StringToLowerASCII(&function_name);
+  function_name = base::ToLowerASCII(function_name);
   return function_name;
 }
 

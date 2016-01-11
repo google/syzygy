@@ -19,7 +19,6 @@
 #include "base/logging.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_number_conversions.h"
-#include "base/trace_event/trace_event_win.h"
 #include "base/win/event_trace_controller.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"

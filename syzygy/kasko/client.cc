@@ -72,8 +72,7 @@ void Client::SendReport(const MinidumpRequest& request) const {
     rpc_memory_ranges.push_back(rpc_memory_range);
   }
 
-  DCHECK_IMPLIES(request.exception_info_address,
-                 request.client_exception_pointers);
+  DCHECK(!request.exception_info_address || request.client_exception_pointers);
 
   ::MinidumpRequest rpc_request = {
       request.client_exception_pointers ? request.exception_info_address : 0,

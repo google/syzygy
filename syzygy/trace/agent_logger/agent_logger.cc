@@ -201,12 +201,17 @@ bool AgentLogger::AppendTrace(HANDLE process,
 
   base::AutoLock auto_lock(symbol_lock_);
 
+  // Make a unique "handle" for this use of the symbolizer.
+  base::win::ScopedHandle unique_handle(
+      ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE,
+                    ::GetCurrentProcessId()));
+
   // Initializes the symbols for the process:
   //     - Defer symbol load until they're needed
   //     - Use undecorated names
   //     - Get line numbers
   ::SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES);
-  if (!::common::SymInitialize(process, NULL, true))
+  if (!::common::SymInitialize(unique_handle.Get(), NULL, true))
     return false;
 
   // Try to find the PDB of the running process, if it's found its path will be
@@ -220,14 +225,17 @@ bool AgentLogger::AppendTrace(HANDLE process,
     base::FilePath temp_pdb_path;
     if (pe::FindPdbForModule(module_path, &temp_pdb_path)) {
       char current_search_path[1024];
-      if (!::SymGetSearchPath(process, current_search_path,
-          arraysize(current_search_path))) {
-        LOG(ERROR) << "Unable to get the current symbol search path.";
+      if (!::SymGetSearchPath(unique_handle.Get(), current_search_path,
+                              arraysize(current_search_path))) {
+        DWORD error = ::GetLastError();
+        LOG(ERROR) << "Unable to get the current symbol search path: "
+                   << ::common::LogWe(error);
         return false;
       }
       std::string new_pdb_search_path = std::string(current_search_path) + ";" +
-          temp_pdb_path.DirName().AsUTF8Unsafe();
-      if (!::SymSetSearchPath(process, new_pdb_search_path.c_str())) {
+                                        temp_pdb_path.DirName().AsUTF8Unsafe();
+      if (!::SymSetSearchPath(unique_handle.Get(),
+                              new_pdb_search_path.c_str())) {
         LOG(ERROR) << "Unable to set the symbol search path.";
         return false;
       }
@@ -241,8 +249,8 @@ bool AgentLogger::AppendTrace(HANDLE process,
     std::string symbol_name;
     std::string line_info;
 
-    GetSymbolInfo(process, frame_ptr, &symbol_name, &offset);
-    GetLineInfo(process, frame_ptr, &line_info);
+    GetSymbolInfo(unique_handle.Get(), frame_ptr, &symbol_name, &offset);
+    GetLineInfo(unique_handle.Get(), frame_ptr, &line_info);
 
     base::StringAppendF(message,
                         "    #%d 0x%012llx in %s%s%s\n",
@@ -253,7 +261,7 @@ bool AgentLogger::AppendTrace(HANDLE process,
                         line_info.c_str());
   }
 
-  if (!::SymCleanup(process)) {
+  if (!::SymCleanup(unique_handle.Get())) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "SymCleanup failed: " << ::common::LogWe(error) << ".";
     return false;
@@ -284,12 +292,17 @@ bool AgentLogger::CaptureRemoteTrace(HANDLE process,
 
   base::AutoLock auto_lock(symbol_lock_);
 
+  // Make a unique "handle" for this use of the symbolizer.
+  base::win::ScopedHandle unique_handle(
+      ::OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE,
+                    ::GetCurrentProcessId()));
+
   // Initializes the symbols for the process:
   //     - Defer symbol load until they're needed
   //     - Use undecorated names
   //     - Get line numbers
   ::SymSetOptions(SYMOPT_DEFERRED_LOADS | SYMOPT_UNDNAME | SYMOPT_LOAD_LINES);
-  if (!::common::SymInitialize(process, NULL, true))
+  if (!::common::SymInitialize(unique_handle.Get(), NULL, true))
     return false;
 
   // Initialize a stack frame structure.
@@ -311,19 +324,14 @@ bool AgentLogger::CaptureRemoteTrace(HANDLE process,
   stack_frame.AddrStack.Mode = AddrModeFlat;
 
   // Walk the stack.
-  while (::StackWalk64(machine_type,
-                       process,
-                       NULL,
-                       &stack_frame,
-                       context,
-                       &ReadProcessMemoryProc64,
-                       &::SymFunctionTableAccess64,
-                       &::SymGetModuleBase64,
+  while (::StackWalk64(machine_type, unique_handle.Get(), NULL, &stack_frame,
+                       context, &ReadProcessMemoryProc64,
+                       &::SymFunctionTableAccess64, &::SymGetModuleBase64,
                        NULL)) {
     trace_data->push_back(stack_frame.AddrPC.Offset);
   }
 
-  if (!::SymCleanup(process)) {
+  if (!::SymCleanup(unique_handle.Get())) {
     DWORD error = ::GetLastError();
     LOG(ERROR) << "SymCleanup failed: " << ::common::LogWe(error) << ".";
     return false;

@@ -78,7 +78,7 @@ bool Application<Impl, kInitLogging>::InitializeLogging() {
 
   if (command_line_->HasSwitch("verbose")) {
     std::string value_str(command_line_->GetSwitchValueASCII("verbose"));
-    base::TrimWhitespace(value_str, base::TRIM_ALL, &value_str);
+    base::TrimWhitespaceASCII(value_str, base::TRIM_ALL, &value_str);
     int value = 1;
     if (!base::StringToInt(value_str, &value))
       value = 1;

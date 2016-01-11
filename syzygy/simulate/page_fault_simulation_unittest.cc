@@ -424,7 +424,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
     ASSERT_EQ((*loaded_pages_iter)->GetType(), Value::TYPE_INTEGER);
     ASSERT_TRUE((*loaded_pages_iter)->GetAsInteger(&page));
 
-    EXPECT_EQ(*expected_pages_iter, implicit_cast<uint32>(page));
+    EXPECT_EQ(*expected_pages_iter, static_cast<uint32>(page));
   }
 }
 

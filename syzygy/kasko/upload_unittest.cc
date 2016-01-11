@@ -114,7 +114,7 @@ scoped_ptr<HttpResponse> MockHttpAgent::Post(
     ADD_FAILURE() << "Failed to parse Content-Type from extra headers: "
                   << extra_headers;
   } else {
-    EXPECT_EQ(L"content-type", base::StringToLowerASCII(tokenizer.token()));
+    EXPECT_EQ(L"content-type", base::ToLowerASCII(tokenizer.token()));
     if (!tokenizer.GetNext()) {
       ADD_FAILURE() << "Failed to parse Content-Type value from extra headers: "
                     << extra_headers;

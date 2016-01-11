@@ -106,11 +106,11 @@ TEST(BasicBlockSubGraphTest, AddBasicBlock) {
   ASSERT_EQ(bb4, BasicEndBlock::Cast(bb4));
 
   // And they are not the same basic-block.
-  EXPECT_NE(implicit_cast<BasicBlock*>(bb1), implicit_cast<BasicBlock*>(bb2));
-  EXPECT_NE(implicit_cast<BasicBlock*>(bb1), implicit_cast<BasicBlock*>(bb3));
-  EXPECT_NE(implicit_cast<BasicBlock*>(bb1), implicit_cast<BasicBlock*>(bb4));
-  EXPECT_NE(implicit_cast<BasicBlock*>(bb2), implicit_cast<BasicBlock*>(bb3));
-  EXPECT_NE(implicit_cast<BasicBlock*>(bb2), implicit_cast<BasicBlock*>(bb4));
+  EXPECT_NE(static_cast<BasicBlock*>(bb1), static_cast<BasicBlock*>(bb2));
+  EXPECT_NE(static_cast<BasicBlock*>(bb1), static_cast<BasicBlock*>(bb3));
+  EXPECT_NE(static_cast<BasicBlock*>(bb1), static_cast<BasicBlock*>(bb4));
+  EXPECT_NE(static_cast<BasicBlock*>(bb2), static_cast<BasicBlock*>(bb3));
+  EXPECT_NE(static_cast<BasicBlock*>(bb2), static_cast<BasicBlock*>(bb4));
 
   // Check BBCollection ordering.
   const BasicBlockSubGraph::BBCollection& blocks = subgraph.basic_blocks();

@@ -49,7 +49,7 @@ class HotPatchingAsanRuntime {
   // Access to the singleton class.
   // @returns the hot patching Asan runtime.
   static HotPatchingAsanRuntime* GetInstance() {
-    return Singleton<HotPatchingAsanRuntime>::get();
+    return base::Singleton<HotPatchingAsanRuntime>::get();
   }
 
   // Activates the hot patching Asan mode on a given module.
@@ -86,7 +86,7 @@ class HotPatchingAsanRuntime {
   std::unordered_set<HMODULE> hot_patched_modules_;
 
  private:
-  friend struct DefaultSingletonTraits<HotPatchingAsanRuntime>;
+  friend struct base::DefaultSingletonTraits<HotPatchingAsanRuntime>;
   friend class HotPatchingAsanRuntimeTest;
 
   HotPatchingAsanRuntime();

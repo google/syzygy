@@ -20,7 +20,6 @@
 // argument line to the process command line to increase the timeout of the
 // unittests.
 
-#include "base/at_exit.h"
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/test/test_suite.h"
@@ -29,17 +28,6 @@
 #include "syzygy/testing/laa.h"
 
 namespace {
-
-class NoAtExitBaseTestSuite : public base::TestSuite {
- public:
-  NoAtExitBaseTestSuite(int argc, char** argv)
-      : base::TestSuite(argc, argv, false) {
-  }
-};
-
-int RunTestSuite(int argc, char** argv) {
-  return NoAtExitBaseTestSuite(argc, argv).Run();
-}
 
 void AddOrSuffixGTestFilter(const char* filter) {
   static const char kGTestFilter[] = "gtest_filter";
@@ -59,8 +47,8 @@ void AddOrSuffixGTestFilter(const char* filter) {
 }  // namespace
 
 int main(int argc, char** argv) {
-  base::AtExitManager at_exit;
-  base::CommandLine::Init(argc, argv);
+  base::TestSuite test_suite(argc, argv);
+
   // We can't use the value from test_timeouts.h as they require
   // TestTimeouts::Initialize to have been called; this function can only be
   // called once, however, and gtest calls it later on.
@@ -89,9 +77,7 @@ int main(int argc, char** argv) {
 
   // We don't need to update |argc| and |argv|, gtest read the value from
   // base::CommandLine::ForCurrentProcess().
-  return base::LaunchUnitTests(argc,
-                               argv,
-                               base::Bind(&RunTestSuite,
-                                          argc,
-                                          argv));
+  return base::LaunchUnitTests(
+      argc, argv,
+      base::Bind(&base::TestSuite::Run, base::Unretained(&test_suite)));
 }

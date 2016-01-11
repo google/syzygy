@@ -22,7 +22,7 @@
 namespace common {
 
 // A wrapper for SymInitialize. It looks like it has an internal race condition
-// that can ocassionaly fail, so we wrap it and retry a finite number of times.
+// that can occasionally fail, so we wrap it and retry a finite number of times.
 // Ugly, but necessary.
 bool SymInitialize(HANDLE process,
                    const char* user_search_path,

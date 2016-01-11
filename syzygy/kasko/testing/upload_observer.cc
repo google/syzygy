@@ -40,7 +40,7 @@ void StartWatch(base::FilePathWatcher* watcher,
   LOG(INFO) << "Watching " << path.value();
   if (!watcher->Watch(path, true, callback)) {
     ADD_FAILURE() << "Failed to initiate file path watch.";
-    base::MessageLoop::current()->Quit();
+    base::MessageLoop::current()->QuitNow();
     return;
   }
 }
@@ -142,7 +142,7 @@ void UploadObserver::UploadObserverThread::WatchForUpload(
 
   if (error) {
     ADD_FAILURE() << "Failure in path watching.";
-    base::MessageLoop::current()->Quit();
+    base::MessageLoop::current()->QuitNow();
     return;
   }
 
@@ -172,7 +172,7 @@ void UploadObserver::UploadObserverThread::WatchForUpload(
           crash_key_value;
     }
     upload_success_ = true;
-    base::MessageLoop::current()->Quit();
+    base::MessageLoop::current()->QuitWhenIdle();
   } else {
     LOG(INFO) << "No minidump file detected.";
   }
@@ -187,7 +187,7 @@ void UploadObserver::UploadObserverThread::WatchForPermanentFailure(
   LOG(INFO) << "Detected potential permanent failure in " << path.value();
   if (error) {
     ADD_FAILURE() << "Failure in path watching.";
-    base::MessageLoop::current()->Quit();
+    base::MessageLoop::current()->QuitNow();
     return;
   }
 
@@ -227,7 +227,7 @@ void UploadObserver::UploadObserverThread::WatchForPermanentFailure(
           base::UTF16ToUTF8(entry.second);
     }
     upload_success_ = false;
-    base::MessageLoop::current()->Quit();
+    base::MessageLoop::current()->QuitWhenIdle();
     LOG(INFO) << "Successfully detected a minidump file.";
     return;
   }
