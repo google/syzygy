@@ -24,6 +24,7 @@
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "base/strings/utf_string_conversions.h"
 
 namespace common {
 
@@ -151,7 +152,7 @@ const uint32 kDefaultMaxNumFrames = 62;
 const bool kDefaultExitOnFailure = false;
 const bool kDefaultCheckHeapOnFailure = true;
 const bool kDefaultDisableBreakpadReporting = false;
-const bool kDefaultEnableFeatureRandomization = false;
+const bool kDefaultFeatureRandomization = false;
 const bool kDefaultReportInvalidAccesses = false;
 
 // Default values of AsanLogger parameters.
@@ -196,7 +197,7 @@ const char kParamIgnoredStackIds[] = "ignored_stack_ids";
 const char kParamExitOnFailure[] = "exit_on_failure";
 const char kParamNoCheckHeapOnFailure[] = "no_check_heap_on_failure";
 const char kParamDisableBreakpadReporting[]  = "disable_breakpad";
-const char kParamEnableFeatureRandomization[] = "enable_feature_randomization";
+const char kParamFeatureRandomization[] = "feature_randomization";
 const char kParamReportInvalidAccesses[] = "report_invalid_accesses";
 
 // String names of AsanLogger parameters.
@@ -295,8 +296,7 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->enable_allocation_filter = kDefaultEnableAllocationFilter;
   asan_parameters->large_allocation_threshold =
       kDefaultLargeAllocationThreshold;
-  asan_parameters->enable_feature_randomization =
-      kDefaultEnableFeatureRandomization;
+  asan_parameters->feature_randomization = kDefaultFeatureRandomization;
   asan_parameters->quarantine_flood_fill_rate =
       kDefaultQuarantineFloodFillRate;
   asan_parameters->prevent_duplicate_corruption_crashes =
@@ -360,6 +360,47 @@ bool InflateAsanParameters(const AsanParameters* pod_params,
 
   return true;
 }
+
+namespace {
+
+// Parses a boolean flag. Returns true if the flag was present in the given
+// command line, and sets the parsed value in |value|. If |name| is "foo" then
+// the switches "--foo" and "--enable_foo" will result in |value| being set to
+// true. A switch of "--disable_foo" will result in |value| being set to false.
+// The presence of none of these switches will result in the function returning
+// false, and |value| being left as is.
+bool ParseBooleanFlag(const char* name, const base::CommandLine& cmd_line,
+                      bool* value) {
+  DCHECK_NE(static_cast<const char*>(nullptr), name);
+  DCHECK_NE(static_cast<bool*>(nullptr), value);
+
+  std::string raw = std::string("--") + std::string(name);
+  std::string enable = std::string("--enable_") + std::string(name);
+  std::string disable = std::string("--enable_") + std::string(name);
+
+  // Parse the command-line from left to right so that position matters. This
+  // allows the same flag to be toggled back and forth on a single command
+  // line.
+  bool ret = false;
+  for (const auto& s16 : cmd_line.argv()) {
+    std::string s = base::WideToUTF8(s16);
+    if (s == raw || s == enable) {
+      *value = true;
+      ret = true;
+      continue;
+    }
+
+    if (s == disable) {
+      *value = false;
+      ret = true;
+      continue;
+    }
+  }
+
+  return ret;
+}
+
+}  // namespace
 
 bool ParseAsanParameters(const base::StringPiece16& param_string,
                          InflatedAsanParameters* asan_parameters) {
@@ -448,6 +489,7 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
   }
 
   // Parse the other (boolean) flags.
+  // TODO(chrisha): Transition these all to new style flags.
   if (cmd_line.HasSwitch(kParamMiniDumpOnFailure))
     asan_parameters->minidump_on_failure = true;
   if (cmd_line.HasSwitch(kParamExitOnFailure))
@@ -466,12 +508,17 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->enable_large_block_heap = false;
   if (cmd_line.HasSwitch(kParamEnableAllocationFilter))
     asan_parameters->enable_allocation_filter = true;
-  if (cmd_line.HasSwitch(kParamEnableFeatureRandomization))
-    asan_parameters->enable_feature_randomization = true;
   if (cmd_line.HasSwitch(kParamPreventDuplicateCorruptionCrashes))
     asan_parameters->prevent_duplicate_corruption_crashes = true;
   if (cmd_line.HasSwitch(kParamReportInvalidAccesses))
     asan_parameters->report_invalid_accesses = true;
+
+  // New style boolean flags with both positive and negative setters. This
+  // allows them to be set one way in the baked in configuration, and set
+  // another way in the environment specified runtime configuration.
+  bool value = false;
+  if (ParseBooleanFlag(kParamFeatureRandomization, cmd_line, &value))
+    asan_parameters->feature_randomization = value;
 
   return true;
 }

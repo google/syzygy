@@ -252,7 +252,7 @@ void SetEarlyCrashKeys(BreakpadFunctions breakpad_functions,
       breakpad_functions, "asan-random-key",
       base::StringPrintf("%016llx", runtime->random_key()).c_str());
 
-  if (runtime->params().enable_feature_randomization) {
+  if (runtime->params().feature_randomization) {
     SetCrashKeyValuePair(
         breakpad_functions, "asan-feature-set",
         base::UintToString(runtime->enabled_features()).c_str());
@@ -320,7 +320,7 @@ void SetCrashKeys(BreakpadFunctions breakpad_functions,
                          error_info->shadow_info);
   }
 
-  if (error_info->asan_parameters.enable_feature_randomization) {
+  if (error_info->asan_parameters.feature_randomization) {
     SetCrashKeyValuePair(breakpad_functions, "asan-feature-set",
                          base::UintToString(error_info->feature_set).c_str());
   }
@@ -592,7 +592,7 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
     return false;
   WindowsHeapAdapter::SetUp(heap_manager_.get());
 
-  if (params_.enable_feature_randomization)
+  if (params_.feature_randomization)
     enabled_features_ = GenerateRandomFeatureSet();
 
   // Propagates the flags values to the different modules.

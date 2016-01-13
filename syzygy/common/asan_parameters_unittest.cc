@@ -90,8 +90,8 @@ TEST(AsanParametersTest, SetDefaultAsanParameters) {
             aparams.large_allocation_threshold);
   EXPECT_EQ(kDefaultQuarantineFloodFillRate,
             aparams.quarantine_flood_fill_rate);
-  EXPECT_EQ(kDefaultEnableFeatureRandomization,
-            static_cast<bool>(aparams.enable_feature_randomization));
+  EXPECT_EQ(kDefaultFeatureRandomization,
+            static_cast<bool>(aparams.feature_randomization));
   EXPECT_EQ(kDefaultPreventDuplicateCorruptionCrashes,
             static_cast<bool>(aparams.prevent_duplicate_corruption_crashes));
   EXPECT_EQ(kDefaultReportInvalidAccesses,
@@ -245,8 +245,8 @@ TEST(AsanParametersTest, ParseAsanParametersMinimal) {
             iparams.large_allocation_threshold);
   EXPECT_EQ(kDefaultQuarantineFloodFillRate,
             iparams.quarantine_flood_fill_rate);
-  EXPECT_EQ(kDefaultEnableFeatureRandomization,
-            static_cast<bool>(iparams.enable_feature_randomization));
+  EXPECT_EQ(kDefaultFeatureRandomization,
+            static_cast<bool>(iparams.feature_randomization));
   EXPECT_EQ(kDefaultPreventDuplicateCorruptionCrashes,
             static_cast<bool>(iparams.prevent_duplicate_corruption_crashes));
   EXPECT_EQ(kDefaultReportInvalidAccesses,
@@ -309,7 +309,7 @@ TEST(AsanParametersTest, ParseAsanParametersMaximal) {
   EXPECT_TRUE(static_cast<bool>(iparams.enable_allocation_filter));
   EXPECT_EQ(4096, iparams.large_allocation_threshold);
   EXPECT_EQ(0.25f, iparams.quarantine_flood_fill_rate);
-  EXPECT_EQ(true, static_cast<bool>(iparams.enable_feature_randomization));
+  EXPECT_EQ(true, static_cast<bool>(iparams.feature_randomization));
   EXPECT_EQ(true, static_cast<bool>(
       iparams.prevent_duplicate_corruption_crashes));
   EXPECT_EQ(true, static_cast<bool>(iparams.report_invalid_accesses));

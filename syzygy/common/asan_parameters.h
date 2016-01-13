@@ -111,7 +111,7 @@ struct AsanParameters {
       // so, only blocks from filtered sites can make it into the zebra heap.
       unsigned enable_allocation_filter : 1;
       // Runtime: Indicates if the feature randomization is enabled.
-      unsigned enable_feature_randomization : 1;
+      unsigned feature_randomization : 1;
       // BlockHeapManager: Indicates if we shouldn't report a crash for the same
       // corrupt block twice.
       unsigned prevent_duplicate_corruption_crashes : 1;
@@ -232,7 +232,7 @@ extern const uint32 kDefaultBottomFramesToSkip;
 extern const bool kDefaultExitOnFailure;
 extern const bool kDefaultCheckHeapOnFailure;
 extern const bool kDefaultDisableBreakpadReporting;
-extern const bool kDefaultEnableFeatureRandomization;
+extern const bool kDefaultFeatureRandomization;
 extern const bool kDefaultReportInvalidAccesses;
 // Default values of AsanLogger parameters.
 extern const bool kDefaultMiniDumpOnFailure;
@@ -267,7 +267,7 @@ extern const char kParamMaxNumFrames[];
 extern const char kParamIgnoredStackIds[];
 extern const char kParamExitOnFailure[];
 extern const char kParamDisableBreakpadReporting[];
-extern const char kParamEnableFeatureRandomization[];
+extern const char kParamFeatureRandomization[];
 extern const char kParamReportInvalidAccesses[];
 // String names of AsanLogger parameters.
 extern const char kParamMiniDumpOnFailure[];
