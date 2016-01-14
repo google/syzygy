@@ -61,5 +61,23 @@
         'unloaded_module_analyzer.h',
       ],
     },
+    {
+      'target_name': 'run_analyzer',
+      'type': 'executable',
+      'sources': [
+        'run_analyzer_main.cc',
+      ],
+      'dependencies': [
+        'analyzers_lib',
+        '<(src)/syzygy/application/application.gyp:application_lib',
+        '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
+        '<(src)/syzygy/refinery/process_state/'
+            'process_state.gyp:process_state_lib',
+        '<(src)/syzygy/refinery/types/types.gyp:types_lib',
+        '<(src)/syzygy/refinery/validators/validators.gyp:validators_lib',
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',
+      ],
+    }
   ],
 }
