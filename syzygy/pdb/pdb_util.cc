@@ -127,7 +127,7 @@ size_t SetNamedStreamsHashTableBit(
 
   while (bitset->IsSet(index)) {
     ++index;
-    if (index > max)
+    if (index == max)
       index = 0;
   }
 
