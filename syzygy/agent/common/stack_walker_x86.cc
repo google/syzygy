@@ -54,7 +54,12 @@ struct StackFrame {
 // Helper function to determine if the given stack frame is in bounds with
 // respect to the top of the stack.
 __forceinline bool IsFrameInBounds(const void* stack_top, const void* frame) {
-  return reinterpret_cast<const StackFrame*>(frame) + 1 <= stack_top;
+  // We've already confirmed that stack_bottom < stack_top, so stack_top can be
+  // safely decremented without underflowing. On the other hand, we can't
+  // increment |frame| without potentially overflowing. Yup, learned that one
+  // the hard way.
+  DCHECK_LE(reinterpret_cast<const void*>(4), stack_top);
+  return frame <= reinterpret_cast<const StackFrame*>(stack_top) - 1;
 }
 
 // Returns true if the stack frame has a valid return address that can be
@@ -102,6 +107,15 @@ size_t __declspec(noinline) WalkStack(size_t bottom_frames_to_skip,
   void* stack_bottom = tib->StackLimit;  // Lower address.
   void* stack_top = tib->StackBase;  // Higher address.
 
+  // Ensure that the stack extents make sense, and bail early if they
+  // don't. Only proceed if there's at least room for a single pointer on
+  // the stack.
+  if (!::common::IsAligned(stack_top, kPointerSize) ||
+      stack_bottom >= stack_top ||
+      reinterpret_cast<StackFrame*>(stack_bottom) + 1 >= stack_top) {
+    return 0;
+  }
+
   // Ensure that the stack makes sense. If not, it's been hijacked and
   // something is seriously wrong.
   void *current_esp = GetEsp();
@@ -125,6 +139,8 @@ size_t WalkStackImpl(const void* current_ebp,
                      StackId* absolute_stack_id) {
   DCHECK(::common::IsAligned(current_ebp, kPointerSize));
   DCHECK(::common::IsAligned(stack_top, kPointerSize));
+  DCHECK_LT(stack_bottom, stack_top);
+  DCHECK_LE(reinterpret_cast<const StackFrame*>(stack_bottom) + 1, stack_top);
   DCHECK_LE(current_ebp, stack_top);
   DCHECK_NE(static_cast<void**>(nullptr), frames);
   DCHECK_NE(static_cast<StackId*>(nullptr), absolute_stack_id);

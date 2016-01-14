@@ -110,6 +110,13 @@ class StackWalkerX86Test : public testing::Test {
     PushRet();
   }
 
+  void BuildInvalidFrameOverflowingBasePointer() {
+    // This base pointer will overflow to 0 when incremented.
+    Push(0xFFFFFFFC);
+    dummy_ebp_ = dummy_esp_;
+    PushRet();
+  }
+
   void ExpectSuccessfulWalk(size_t num_frames,
                             size_t frames_to_skip) {
     // Push a dummy EBP on the stack, which simulates the stack frame of the
@@ -216,6 +223,21 @@ TEST_F(StackWalkerX86Test, WalkStopsAtInvalidBasePointer) {
   ExpectSuccessfulWalk(2, 0);
 
   BuildInvalidFrameInvalidBasePointer();
+  ExpectSuccessfulWalk(2, 0);
+
+  BuildValidFrame(2);
+  ExpectSuccessfulWalk(3, 0);
+
+  BuildValidFrame(1);
+  ExpectSuccessfulWalk(4, 0);
+  ExpectSuccessfulWalk(3, 1);
+}
+
+TEST_F(StackWalkerX86Test, WalkStopAtOverflowingBasePointer) {
+  BuildValidFrame(0);
+  ExpectSuccessfulWalk(2, 0);
+
+  BuildInvalidFrameOverflowingBasePointer();
   ExpectSuccessfulWalk(2, 0);
 
   BuildValidFrame(2);
