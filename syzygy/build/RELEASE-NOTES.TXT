@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.11.2
+
+[----------] Fixed the build configuration and an overflow.
+
 Version 0.8.11.1
 
 [e7dc3c69c8] Bugfix for PDB named streams hash table.
