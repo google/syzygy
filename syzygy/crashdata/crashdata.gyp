@@ -67,10 +67,11 @@
         '<(SHARED_INTERMEDIATE_DIR)/syzygy/crashdata/crashdata.pb.h',
       ],
       'dependencies': [
-        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
         'crashdata_proto',
+        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],
       'export_dependent_settings': [
+        'crashdata_proto',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ]
     },

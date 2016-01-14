@@ -26,7 +26,6 @@
       'dependencies': [
         'poirot_lib',
         '<(src)/syzygy/version/version.gyp:syzygy_version',
-        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],
     },
     {
@@ -44,6 +43,9 @@
         '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
         '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
+      ],
+      'export_dependent_settings': [
+        '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
       ],
     },
     {
@@ -70,7 +72,6 @@
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
-        '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],
     },
   ]
