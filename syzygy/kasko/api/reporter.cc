@@ -21,9 +21,11 @@
 
 #include "base/bind.h"
 #include "base/bind_helpers.h"
+#include "base/environment.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/kasko/dll_lifetime.h"
@@ -37,8 +39,14 @@ namespace kasko {
 namespace api {
 namespace {
 
-const uint16_t kUploadDelayInSeconds = 180;
-const uint16_t kRetryIntevalInMinutes = 180;
+// Default upload and retry times. These can be overridden by an environment
+// variable.
+const uint16_t kDefaultUploadDelayInSeconds = 180;
+const uint16_t kDefaultRetryIntervalInMinutes = 180;
+
+// Environment variables for overriding the above times.
+const char kEnvUploadDelayInSeconds[] = "KASKO_UPLOAD_DELAY_IN_SECONDS";
+const char kEnvRetryIntervalInMinutes[] = "KASKO_RETRY_INTERVAL_IN_MINUTES";
 
 const DllLifetime* g_dll_lifetime;
 Reporter* g_reporter;
@@ -66,6 +74,25 @@ void InvokeOnUploadProc(
                  crash_key_values.data());
 }
 
+// Returns an integer value from the environment. If not present or malformed,
+// returns the specified default. Only allows positive values.
+int64_t GetIntegerFromEnvironment(const char* key_name,
+                                  int64_t default_value) {
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::string value;
+  if (!env->GetVar(key_name, &value))
+    return default_value;
+
+  int64_t i = 0;
+  if (!base::StringToInt64(value, &i))
+    return default_value;
+
+  if (i <= 0)
+    return default_value;
+
+  return i;
+}
+
 }  // namespace
 
 const base::char16* const kPermanentFailureCrashKeysExtension =
@@ -90,12 +117,17 @@ bool InitializeReporter(const base::char16* endpoint_name,
                    base::Unretained(on_upload_context));
   }
 
+
+  int64_t upload_delay = GetIntegerFromEnvironment(
+      kEnvUploadDelayInSeconds, kDefaultUploadDelayInSeconds);
+  int64_t retry_interval = GetIntegerFromEnvironment(
+      kEnvRetryIntervalInMinutes, kDefaultRetryIntervalInMinutes);
   DCHECK(!g_reporter);
   g_reporter =
       Reporter::Create(endpoint_name, url, base::FilePath(data_directory),
                        base::FilePath(permanent_failure_directory),
-                       base::TimeDelta::FromSeconds(kUploadDelayInSeconds),
-                       base::TimeDelta::FromMinutes(kRetryIntevalInMinutes),
+                       base::TimeDelta::FromSeconds(upload_delay),
+                       base::TimeDelta::FromMinutes(retry_interval),
                        on_upload_callback)
           .release();
 
