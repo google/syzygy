@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.11.3
+
+[----------] Fixed some unittests.
+
 Version 0.8.11.2
 
 [----------] Fixed the build configuration and an overflow.
