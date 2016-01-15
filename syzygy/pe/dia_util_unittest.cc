@@ -36,6 +36,8 @@ namespace {
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 
+typedef std::vector<std::wstring> StringVector;
+
 static const wchar_t kNonsenseStreamName[] =
     L"ThisStreamNameCertainlyDoesNotExist";
 
@@ -51,11 +53,25 @@ struct FilePathLess {
 class DiaUtilTest : public testing::PELibUnitTest {
 };
 
-MATCHER_P(IsSameFile, value, "") {
-  base::FilePath path1(arg);
-  base::FilePath path2(value);
+bool PathAreEquivalents(const base::FilePath::StringType& path1_val,
+                        const base::FilePath::StringType& path2_val) {
+  base::FilePath path1(path1_val);
+  base::FilePath path2(path2_val);
   core::FilePathCompareResult result = core::CompareFilePaths(path1, path2);
   return result == core::kEquivalentFilePaths;
+}
+
+MATCHER_P(IsSameFile, value, "") {
+  return PathAreEquivalents(arg, value);
+}
+
+bool StringVectorContainsPath(const StringVector& string_vector,
+                              const base::FilePath::StringType& path) {
+  for (const auto& iter : string_vector) {
+    if (PathAreEquivalents(iter, path))
+      return true;
+  }
+  return false;
 }
 
 }  // namespace
@@ -199,7 +215,6 @@ class DiaUtilVisitorTest : public DiaUtilTest {
     ASSERT_EQ(S_OK, dia_session_->get_globalScope(dia_globals_.Receive()));
   }
 
-  typedef std::vector<std::wstring> StringVector;
   bool OnFunction(StringVector* names, IDiaSymbol* function) {
     EXPECT_TRUE(IsSymTag(function, SymTagFunction));
     ScopedBstr name;
@@ -296,8 +311,8 @@ TEST_F(DiaUtilVisitorTest, CompilandVisitorTest) {
   base::FilePath test_dll_obj =
       base::MakeAbsoluteFilePath(
           testing::GetOutputRelativePath(test_dll_wide_path.c_str()));
-  ASSERT_THAT(compiland_names,
-              testing::Contains(IsSameFile(test_dll_obj.value())));
+
+  ASSERT_TRUE(StringVectorContainsPath(compiland_names, test_dll_obj.value()));
 }
 
 TEST_F(DiaUtilVisitorTest, LineVisitorTest) {

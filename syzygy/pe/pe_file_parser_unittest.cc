@@ -350,10 +350,12 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   EXPECT_THAT(import_map_, ContainerEq(expected_import_map));
 
   EXPECT_EQ(kNumKernel32Symbols + kNumExportDllSymbols, import_set_.size());
-  EXPECT_THAT(import_set_, Contains(std::make_pair(
-      std::string("KERNEL32.dll"), std::string("ExitProcess"))));
-  EXPECT_THAT(import_set_, Contains(std::make_pair(
-      std::string("export_dll.dll"), std::string("function1"))));
+  std::pair<std::string, std::string> exit_process_entry =
+      std::make_pair(std::string("KERNEL32.dll"), std::string("ExitProcess"));
+  EXPECT_THAT(import_set_, Contains(exit_process_entry));
+  std::pair<std::string, std::string> function1_entry =
+      std::make_pair(std::string("export_dll.dll"), std::string("function1"));
+  EXPECT_THAT(import_set_, Contains(function1_entry));
 }
 
 TEST_F(PEFileParserTest, ParseDelayImportDir) {
