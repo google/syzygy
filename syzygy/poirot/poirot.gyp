@@ -23,6 +23,9 @@
       'sources': [
         'poirot_main.cc',
       ],
+      # TODO(sebmarchand): Fix the dependency inheritance from the crashdata
+      # proto library.
+      'include_dirs': ['<(SHARED_INTERMEDIATE_DIR)'],
       'dependencies': [
         'poirot_lib',
         '<(src)/syzygy/version/version.gyp:syzygy_version',
