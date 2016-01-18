@@ -195,6 +195,9 @@ class AssemblerBase {
   void sub(const Operand& dst, const Register32& src);
   void sub(const Register32& dst, const Immediate& src);
   void sub(const Operand& dst, const Immediate& src);
+
+  void imul(const Register32& dst, const Register32& src);
+  void imul(const Register32& dst, const Operand& src);
   // @}
 
   // @name Logical operations.

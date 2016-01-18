@@ -1069,6 +1069,17 @@ TEST_F(AssemblerTest, Sub) {
   EXPECT_BYTES(0x2D, 0xEF, 0xBE, 0xAD, 0xDE);
 }
 
+TEST_F(AssemblerTest, Imul) {
+  asm_.imul(ecx, eax);
+  EXPECT_BYTES(0x0F, 0xAF, 0xC8);
+  asm_.imul(ecx, Operand(eax));
+  EXPECT_BYTES(0x0F, 0xAF, 0x08);
+  asm_.imul(ecx, Operand(eax, Displacement(10, kSize8Bit)));
+  EXPECT_BYTES(0x0F, 0xAF, 0x48, 0x0A);
+  asm_.imul(ecx, Operand(eax, Displacement(10, kSize32Bit)));
+  EXPECT_BYTES(0x0F, 0xAF, 0x88, 0x0A, 0x00, 0x00, 0x00);
+}
+
 TEST_F(AssemblerTest, And) {
   asm_.and(eax, eax);
   EXPECT_BYTES(0x21, 0xC0);

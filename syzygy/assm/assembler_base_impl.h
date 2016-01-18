@@ -1168,6 +1168,22 @@ void AssemblerBase<ReferenceType>::sub(const Operand&  dst,
 }
 
 template <class ReferenceType>
+void AssemblerBase<ReferenceType>::imul(const Register32& dst,
+                                        const Register32& src) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0x0F);
+  instr.EmitArithmeticInstruction(0xAF, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::imul(const Register32& dst,
+                                        const Operand& src) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0x0F);
+  instr.EmitArithmeticInstruction(0xAF, dst, src);
+}
+
+template <class ReferenceType>
 void AssemblerBase<ReferenceType>::and(const Register8& dst,
                                        const Register8& src) {
   InstructionBuffer instr(this);
