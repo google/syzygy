@@ -16,6 +16,7 @@
 
 #include <algorithm>
 
+#include "base/lazy_instance.h"
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/agent/asan/logger.h"
@@ -27,6 +28,9 @@ namespace agent {
 namespace asan {
 
 namespace {
+
+static base::LazyInstance<common::StackCapture> g_empty_stack_capture =
+    LAZY_INSTANCE_INITIALIZER;
 
 // Gives us access to the first frame of a stack capture as link-list pointer.
 common::StackCapture** GetFirstFrameAsLink(
@@ -161,8 +165,13 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
   auto num_frames = stack_capture.num_frames();
   auto absolute_stack_id = stack_capture.absolute_stack_id();
   DCHECK_NE(static_cast<void**>(nullptr), frames);
-  DCHECK_NE(num_frames, 0U);
   DCHECK_NE(static_cast<CachePage*>(nullptr), current_page_);
+
+  // If the number of frames is zero, the stack_capture was not captured
+  // correctly. In that case, return an empty stack_capture. Otherwise, saving a
+  // zero framed stack capture and then releasing it will lead to an explosion.
+  if (!num_frames)
+    return &g_empty_stack_capture.Get();
 
   bool already_cached = false;
   common::StackCapture* stack_trace = nullptr;
@@ -242,6 +251,11 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
 void StackCaptureCache::ReleaseStackTrace(
     const common::StackCapture* stack_capture) {
   DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
+
+  if (!stack_capture->num_frames()) {
+    DCHECK_EQ(&g_empty_stack_capture.Get(), stack_capture);
+    return;
+  }
 
   size_t known_stack_shard =
       stack_capture->absolute_stack_id() % kKnownStacksSharding;

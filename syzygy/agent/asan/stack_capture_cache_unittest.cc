@@ -421,5 +421,20 @@ TEST_F(StackCaptureCacheTest, AllocateMultiplePages) {
   EXPECT_NE(page, cache.current_page());
 }
 
+TEST_F(StackCaptureCacheTest, EmptyStackCapture) {
+  AsanLogger logger;
+  TestStackCaptureCache cache(&logger);
+
+  StackCapture stack;
+  auto saved_stack = cache.SaveStackTrace(stack);
+  EXPECT_EQ(0U, saved_stack->num_frames());
+  cache.ReleaseStackTrace(saved_stack);
+
+  StackCapture stack2;
+  auto saved_stack2 = cache.SaveStackTrace(stack2);
+  EXPECT_EQ(saved_stack, saved_stack2);
+  cache.ReleaseStackTrace(saved_stack2);
+}
+
 }  // namespace asan
 }  // namespace agent
