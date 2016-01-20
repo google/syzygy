@@ -110,6 +110,19 @@ class Reporter {
   // @param instance The Reporter process instance to shut down.
   static void Shutdown(scoped_ptr<Reporter> instance);
 
+  // Uploads a crash report containing the minidump at @p minidump_path and
+  // @p crash_keys to @p upload_url. Returns true if successful.
+  // @param on_upload_callback The callback to invoke on successful upload.
+  // @param upload_url The URL where the minidump will be uploaded.
+  // @param minidump_path The path to the minidump to upload.
+  // @param crash_keys The crash-keys associated with the minidump.
+  // @returns true on success, false otherwise.
+  static bool UploadCrashReport(
+      const Reporter::OnUploadCallback& on_upload_callback,
+      const base::string16& upload_url,
+      const base::FilePath& minidump_path,
+      const std::map<base::string16, base::string16>& crash_keys);
+
  private:
   // Instantiates a Reporter process instance. Does not start any background
   // processes.

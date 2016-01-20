@@ -48,39 +48,6 @@ const base::char16* const kRpcProtocol = L"ncalrpc";
 // The subdirectory where minidumps are generated.
 const base::char16* const kTemporarySubdir = L"Temporary";
 
-// Uploads a crash report containing the minidump at |minidump_path| and
-// |crash_keys| to |upload_url|. Returns true if successful.
-bool UploadCrashReport(
-    const Reporter::OnUploadCallback& on_upload_callback,
-    const base::string16& upload_url,
-    const base::FilePath& minidump_path,
-    const std::map<base::string16, base::string16>& crash_keys) {
-  std::string dump_contents;
-  if (!base::ReadFileToString(minidump_path, &dump_contents)) {
-    LOG(ERROR) << "Failed to read the minidump file at "
-               << minidump_path.value();
-    return false;
-  }
-
-  HttpAgentImpl http_agent(
-      L"Kasko", base::ASCIIToUTF16(KASKO_VERSION_STRING));
-  base::string16 remote_dump_id;
-  uint16_t response_code = 0;
-  std::map<base::string16, base::string16> augmented_crash_keys(crash_keys);
-  augmented_crash_keys[Reporter::kKaskoUploadedByVersion] =
-      base::ASCIIToUTF16(KASKO_VERSION_STRING);
-  if (!SendHttpUpload(&http_agent, upload_url, augmented_crash_keys,
-                      dump_contents, Reporter::kMinidumpUploadFilePart,
-                      &remote_dump_id, &response_code)) {
-    LOG(ERROR) << "Failed to upload the minidump file to " << upload_url;
-    return false;
-  } else if (!on_upload_callback.is_null()) {
-    on_upload_callback.Run(remote_dump_id, minidump_path, crash_keys);
-  }
-
-  return true;
-}
-
 // Moves |minidump_path| and |crash_keys_path| to |permanent_failure_directory|.
 // The destination filenames have the filename from |minidump_path| and the
 // extensions Reporter::kPermanentFailureMinidumpExtension and
@@ -255,6 +222,38 @@ void Reporter::Shutdown(scoped_ptr<Reporter> instance) {
   instance->upload_thread_->Stop();  // Non-blocking.
   instance->service_bridge_.Stop();  // Blocking.
   instance->upload_thread_->Join();  // Blocking.
+}
+
+// static
+bool Reporter::UploadCrashReport(
+    const Reporter::OnUploadCallback& on_upload_callback,
+    const base::string16& upload_url,
+    const base::FilePath& minidump_path,
+    const std::map<base::string16, base::string16>& crash_keys) {
+  std::string dump_contents;
+  if (!base::ReadFileToString(minidump_path, &dump_contents)) {
+    LOG(ERROR) << "Failed to read the minidump file at "
+               << minidump_path.value();
+    return false;
+  }
+
+  HttpAgentImpl http_agent(
+      L"Kasko", base::ASCIIToUTF16(KASKO_VERSION_STRING));
+  base::string16 remote_dump_id;
+  uint16_t response_code = 0;
+  std::map<base::string16, base::string16> augmented_crash_keys(crash_keys);
+  augmented_crash_keys[Reporter::kKaskoUploadedByVersion] =
+      base::ASCIIToUTF16(KASKO_VERSION_STRING);
+  if (!SendHttpUpload(&http_agent, upload_url, augmented_crash_keys,
+                      dump_contents, Reporter::kMinidumpUploadFilePart,
+                      &remote_dump_id, &response_code)) {
+    LOG(ERROR) << "Failed to upload the minidump file to " << upload_url;
+    return false;
+  } else if (!on_upload_callback.is_null()) {
+    on_upload_callback.Run(remote_dump_id, minidump_path, crash_keys);
+  }
+
+  return true;
 }
 
 Reporter::Reporter(scoped_ptr<ReportRepository> report_repository,

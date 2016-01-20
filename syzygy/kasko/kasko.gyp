@@ -99,6 +99,8 @@
         'http_response.h',
         'internet_helpers.cc',
         'internet_helpers.h',
+        'kasko_upload_app.cc',
+        'kasko_upload_app.h',
         'loader_lock.cc',
         'loader_lock.h',
         'minidump.cc',
@@ -220,7 +222,7 @@
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/testing/gtest.gyp:gtest',
-       ],
+      ],
       'msvs_settings': {
         'VCLinkerTool': {
           # Disable support for large address spaces.
@@ -233,6 +235,20 @@
       },
     },
     {
+      'target_name': 'kasko_upload',
+      'type': 'executable',
+      'sources': [
+        'kasko_upload.rc',
+        'kasko_upload_main.cc',
+      ],
+      'dependencies': [
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/application/application.gyp:application_lib',
+        'kasko_lib',
+        'kasko_version',
+      ],
+    },
+    {
       'target_name': 'kasko_unittests',
       'type': 'executable',
       'sources': [
@@ -241,6 +257,7 @@
         'crash_keys_serialization_unittest.cc',
         'http_agent_impl_unittest.cc',
         'internet_helpers_unittest.cc',
+        'kasko_upload_app_unittest.cc',
         'loader_lock_unittest.cc',
         'minidump_unittest.cc',
         'report_repository_unittest.cc',
@@ -258,11 +275,12 @@
         'kasko_lib',
         'test_support_kasko',
         '<(src)/base/base.gyp:test_support_base',
+        '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/testing/gtest.gyp:gtest',
-       ],
+      ],
       'msvs_settings': {
         'VCLinkerTool': {
           # Disable support for large address spaces.
