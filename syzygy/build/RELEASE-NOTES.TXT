@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.12.1
+
+[76a00d3bec] Fix missing kasko_upload dependency.
+
 Version 0.8.12.0
 
 [d18da087d2] Created kasko_upload utility.
