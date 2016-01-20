@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.12.0
+
+[d18da087d2] Created kasko_upload utility.
+[867c355fb6] SyzyASan - Fixed empty stack trace bug.
+
 Version 0.8.11.4
 
 [----------] Fixed the build configuration.
@@ -11,7 +16,8 @@ Version 0.8.11.3
 
 Version 0.8.11.2
 
-[----------] Fixed the build configuration and an overflow.
+[----------] Fixed the build configuration.
+[2380fe379e] SyzyASan - Fixed overflow in stack walking code.
 
 Version 0.8.11.1
 
