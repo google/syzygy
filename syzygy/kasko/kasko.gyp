@@ -138,6 +138,7 @@
         },
       },
       'dependencies': [
+        '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
         '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',

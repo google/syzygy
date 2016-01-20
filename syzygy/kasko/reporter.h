@@ -34,7 +34,6 @@ class TimeDelta;
 namespace kasko {
 
 struct MinidumpRequest;
-class ServiceBridge;
 class UploadThread;
 
 // Implements the reporter process lifetime. Maintains state, operates a
