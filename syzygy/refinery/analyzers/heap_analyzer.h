@@ -27,15 +27,13 @@ class HeapAnalyzer : public Analyzer {
  public:
   const char* name() const override { return kHeapAnalyzerName; }
 
-  explicit HeapAnalyzer(scoped_refptr<SymbolProvider> symbol_provider);
+  HeapAnalyzer();
 
   AnalysisResult Analyze(const minidump::Minidump& minidump,
-                         ProcessState* process_state) override;
+                         const ProcessAnalysis& process_state) override;
 
  private:
   static const char kHeapAnalyzerName[];
-
-  scoped_refptr<SymbolProvider> symbol_provider_;
 
   DISALLOW_COPY_AND_ASSIGN(HeapAnalyzer);
 };

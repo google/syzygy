@@ -28,8 +28,8 @@ const char ExceptionAnalyzer::kExceptionAnalyzerName[] = "ExceptionAnalyzer";
 
 Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
 
   // Retrieve the unique exception stream.
   minidump::Minidump::Stream exception_stream =
@@ -75,7 +75,7 @@ Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
   ParseContext(ctx, exception.mutable_register_info());
 
   // Add the exception information to the process state.
-  if (!process_state->SetException(exception))
+  if (!process_analysis.process_state()->SetException(exception))
     return ANALYSIS_ERROR;
 
   return ANALYSIS_COMPLETE;

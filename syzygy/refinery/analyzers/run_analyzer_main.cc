@@ -28,6 +28,7 @@
 #include "syzygy/application/application.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/analyzers/heap_analyzer.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
@@ -48,14 +49,9 @@ class RunAnalyzerApplication : public application::AppImplBase {
  private:
   void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
-  bool AddAnalyzers(
-      scoped_refptr<refinery::SymbolProvider> symbol_provider,
-      scoped_refptr<refinery::DiaSymbolProvider> dia_symbol_provider,
-      refinery::AnalysisRunner* runner);
+  bool AddAnalyzers(refinery::AnalysisRunner* runner);
   bool Analyze(const minidump::Minidump& minidump,
-               scoped_refptr<refinery::SymbolProvider> symbol_provider,
-               scoped_refptr<refinery::DiaSymbolProvider> dia_symbol_provider,
-               refinery::ProcessState* process_state);
+               const refinery::Analyzer::ProcessAnalysis& process_analysis);
 
   std::vector<base::FilePath> mindump_paths_;
   std::vector<std::string> analyzer_names_;
@@ -139,8 +135,9 @@ int RunAnalyzerApplication::Run() {
     }
 
     refinery::ProcessState process_state;
-    if (!Analyze(minidump, symbol_provider, dia_symbol_provider,
-                 &process_state)) {
+    refinery::SimpleProcessAnalysis analysis(
+        &process_state, dia_symbol_provider, symbol_provider);
+    if (!Analyze(minidump, analysis)) {
       LOG(ERROR) << "Failure processing minidump " << minidump_path.value();
     }
   }
@@ -148,10 +145,7 @@ int RunAnalyzerApplication::Run() {
   return 0;
 }
 
-bool RunAnalyzerApplication::AddAnalyzers(
-    scoped_refptr<refinery::SymbolProvider> symbol_provider,
-    scoped_refptr<refinery::DiaSymbolProvider> dia_symbol_provider,
-    refinery::AnalysisRunner* runner) {
+bool RunAnalyzerApplication::AddAnalyzers(refinery::AnalysisRunner* runner) {
   scoped_ptr<refinery::Analyzer> analyzer;
   // TODO(siggi): Figure a better way to do this.
   for (const auto& analyzer_name : analyzer_names_) {
@@ -162,10 +156,10 @@ bool RunAnalyzerApplication::AddAnalyzers(
       analyzer.reset(new refinery::ModuleAnalyzer());
       runner->AddAnalyzer(analyzer.Pass());
     } else if (analyzer_name == "HeapAnalyzer") {
-      analyzer.reset(new refinery::HeapAnalyzer(symbol_provider));
+      analyzer.reset(new refinery::HeapAnalyzer());
       runner->AddAnalyzer(analyzer.Pass());
     } else if (analyzer_name == "StackAnalyzer") {
-      analyzer.reset(new refinery::StackAnalyzer(dia_symbol_provider));
+      analyzer.reset(new refinery::StackAnalyzer());
       runner->AddAnalyzer(analyzer.Pass());
     } else {
       return false;
@@ -177,12 +171,8 @@ bool RunAnalyzerApplication::AddAnalyzers(
 
 bool RunAnalyzerApplication::Analyze(
     const minidump::Minidump& minidump,
-    scoped_refptr<refinery::SymbolProvider> symbol_provider,
-    scoped_refptr<refinery::DiaSymbolProvider> dia_symbol_provider,
-    refinery::ProcessState* process_state) {
-  DCHECK(symbol_provider);
-  DCHECK(dia_symbol_provider);
-  DCHECK(process_state);
+    const refinery::Analyzer::ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state());
 
   minidump::Minidump::Stream sys_info_stream =
       minidump.GetStream(SystemInfoStream);
@@ -229,10 +219,10 @@ bool RunAnalyzerApplication::Analyze(
       system_info.Cpu.X86CpuInfo.AMDExtendedCpuFeatures);
 
   refinery::AnalysisRunner runner;
-  if (!AddAnalyzers(symbol_provider, dia_symbol_provider, &runner))
+  if (!AddAnalyzers(&runner))
     return false;
 
-  return runner.Analyze(minidump, process_state) ==
+  return runner.Analyze(minidump, process_analysis) ==
          refinery::Analyzer::ANALYSIS_COMPLETE;
 }
 

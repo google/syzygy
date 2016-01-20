@@ -27,11 +27,11 @@ const char ThreadAnalyzer::kThreadAnalyzerName[] = "ThreadAnalyzer";
 
 Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
 
   scoped_refptr<ProcessState::Layer<Stack>> stack_layer;
-  process_state->FindOrCreateLayer(&stack_layer);
+  process_analysis.process_state()->FindOrCreateLayer(&stack_layer);
 
   minidump::Minidump::Stream thread_list =
       minidump.FindNextStream(nullptr, ThreadListStream);

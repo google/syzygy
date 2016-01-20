@@ -22,6 +22,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/minidump/unittest_util.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -33,10 +34,10 @@ TEST(UnloadedModuleAnalyzerTest, AnalyzeMinidump) {
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
 
   UnloadedModuleAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   // TODO(manzagop): implement testing once UnloadedModuleAnalyzer is
   // implemented.

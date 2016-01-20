@@ -31,26 +31,20 @@ namespace refinery {
 // about the contents of stack frames.
 class StackFrameAnalyzer : public Analyzer {
  public:
-  StackFrameAnalyzer(scoped_refptr<DiaSymbolProvider> dia_symbol_provider,
-                     scoped_refptr<SymbolProvider> symbol_provider);
+  StackFrameAnalyzer();
 
   const char* name() const override { return kStackFrameAnalyzerName; }
 
   AnalysisResult Analyze(const minidump::Minidump& minidump,
-                         ProcessState* process_state) override;
+                         const ProcessAnalysis& process_analysis) override;
 
  private:
   bool AnalyzeFrame(StackFrameRecordPtr frame_record,
-                    ProcessState* process_state);
+                    const ProcessAnalysis& process_analysis);
   bool SetSymbolInformation(Address instruction_pointer,
-                            ProcessState* process_state);
+                            const ProcessAnalysis& process_analysis);
 
   static const char kStackFrameAnalyzerName[];
-
-  // The short term solution for symbols.
-  scoped_refptr<DiaSymbolProvider> dia_symbol_provider_;
-  // The longer term solution for symbols.
-  scoped_refptr<SymbolProvider> symbol_provider_;
 
   // Symbol information for the frame being processed.
   base::win::ScopedComPtr<IDiaSession> dia_session_;

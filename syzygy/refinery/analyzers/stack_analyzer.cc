@@ -49,15 +49,14 @@ bool GetRegisterValue(IDiaStackFrame* frame,
 // static
 const char StackAnalyzer::kStackAnalyzerName[] = "StackAnalyzer";
 
-StackAnalyzer::StackAnalyzer(scoped_refptr<DiaSymbolProvider> symbol_provider)
-    : symbol_provider_(symbol_provider), child_frame_context_(nullptr) {
-  DCHECK(symbol_provider.get() != nullptr);
+StackAnalyzer::StackAnalyzer() : child_frame_context_(nullptr) {
 }
 
 Analyzer::AnalysisResult StackAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
+  DCHECK(process_analysis.dia_symbol_provider() != nullptr);
 
   // Create stack walker and helper.
   HRESULT hr = stack_walker_.CreateInstance(CLSID_DiaStackWalker);
@@ -66,11 +65,12 @@ Analyzer::AnalysisResult StackAnalyzer::Analyze(
                << ".";
     return ANALYSIS_ERROR;
   }
-  stack_walk_helper_ = new StackWalkHelper(symbol_provider_);
+  stack_walk_helper_ =
+      new StackWalkHelper(process_analysis.dia_symbol_provider());
 
   // Get the stack layer - it must already have been populated.
   StackLayerPtr stack_layer;
-  if (!process_state->FindLayer(&stack_layer)) {
+  if (!process_analysis.process_state()->FindLayer(&stack_layer)) {
     LOG(ERROR) << "Missing stack layer.";
     return ANALYSIS_ERROR;
   }
@@ -81,7 +81,7 @@ Analyzer::AnalysisResult StackAnalyzer::Analyze(
     // Attempt to stack walk. Note that the stack walk derailing is not an
     // analysis error.
     Analyzer::AnalysisResult stack_result =
-        StackWalk(stack_record, process_state);
+        StackWalk(stack_record, process_analysis);
     if (stack_result == ANALYSIS_ERROR)
       return ANALYSIS_ERROR;
     if (stack_result == ANALYSIS_ITERATE)
@@ -91,9 +91,10 @@ Analyzer::AnalysisResult StackAnalyzer::Analyze(
   return result;
 }
 
-Analyzer::AnalysisResult StackAnalyzer::StackWalk(StackRecordPtr stack_record,
-                                                  ProcessState* process_state) {
-  stack_walk_helper_->SetState(stack_record, process_state);
+Analyzer::AnalysisResult StackAnalyzer::StackWalk(
+    StackRecordPtr stack_record,
+    const ProcessAnalysis& process_analysis) {
+  stack_walk_helper_->SetState(stack_record, process_analysis.process_state());
   child_frame_context_ = nullptr;
 
   // Create the frame enumerator.
@@ -123,7 +124,7 @@ Analyzer::AnalysisResult StackAnalyzer::StackWalk(StackRecordPtr stack_record,
     if (hr == S_FALSE || retrieved_cnt != 1)
       break;  // No frame.
 
-    if (!InsertStackFrameRecord(stack_frame.get(), process_state))
+    if (!InsertStackFrameRecord(stack_frame.get(), process_analysis))
       return ANALYSIS_ERROR;
 
     // WinDBG seems to use a null return address as a termination criterion.
@@ -144,8 +145,9 @@ Analyzer::AnalysisResult StackAnalyzer::StackWalk(StackRecordPtr stack_record,
 }
 
 // TODO(manzagop): revise when support expands beyond x86.
-bool StackAnalyzer::InsertStackFrameRecord(IDiaStackFrame* stack_frame,
-                                           ProcessState* process_state) {
+bool StackAnalyzer::InsertStackFrameRecord(
+    IDiaStackFrame* stack_frame,
+    const ProcessAnalysis& process_analysis) {
   RegisterInformation* child_context = child_frame_context_;
   child_frame_context_ = nullptr;
 
@@ -192,7 +194,7 @@ bool StackAnalyzer::InsertStackFrameRecord(IDiaStackFrame* stack_frame,
   }
 
   StackFrameLayerPtr frame_layer;
-  process_state->FindOrCreateLayer(&frame_layer);
+  process_analysis.process_state()->FindOrCreateLayer(&frame_layer);
 
   StackFrameRecordPtr frame_record;
   frame_layer->CreateRecord(range, &frame_record);

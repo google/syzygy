@@ -21,6 +21,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/minidump/minidump.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -135,9 +136,13 @@ class TypePropagatorAnalyzerTest : public testing::Test {
     EXPECT_CALL(*mock_provider, FindOrCreateTypeRepository(expected_sig_, _))
         .Times(1)
         .WillOnce(DoAll(SetArgPointee<1>(repo_), Return(true)));
-    TypePropagatorAnalyzer analyzer(mock_provider);
+
+    SimpleProcessAnalysis analysis(&process_state_);
+    analysis.set_symbol_provider(mock_provider);
+
+    TypePropagatorAnalyzer analyzer;
     minidump::Minidump dummy_minidump;
-    return analyzer.Analyze(dummy_minidump, &process_state_) ==
+    return analyzer.Analyze(dummy_minidump, analysis) ==
            Analyzer::ANALYSIS_COMPLETE;
   }
 

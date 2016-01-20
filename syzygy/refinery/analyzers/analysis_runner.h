@@ -39,14 +39,16 @@ class AnalysisRunner {
   //   destruction.
   void AddAnalyzer(scoped_ptr<Analyzer> analyzer);
 
-  // Runs analyzers over @p minidump and updates @p process_state.
+  // Runs analyzers over @p minidump and updates the ProcessState supplied
+  // through @p process_analysis.
   // @param minidump the minidump to analyze.
-  // @param process_state the process state used as output for the analyzers.
+  // @param process_analysis the process analysis passed to the analyzers.
   // @returns an analysis result. ANALYSIS_COMPLETE is returned if all analyzers
   //   return it. Otherwise, ANALYSIS_ERROR is returned in which case @p
   //   process_state may be inconsistent.
-  Analyzer::AnalysisResult Analyze(const minidump::Minidump& minidump,
-                                   ProcessState* process_state);
+  Analyzer::AnalysisResult Analyze(
+      const minidump::Minidump& minidump,
+      const Analyzer::ProcessAnalysis& process_analysis);
 
  private:
   std::vector<Analyzer*> analyzers_;  // Owned.

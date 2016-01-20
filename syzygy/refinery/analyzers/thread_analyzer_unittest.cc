@@ -23,6 +23,7 @@
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/minidump/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -33,10 +34,10 @@ TEST(ThreadAnalyzerTest, Basic) {
   minidump::Minidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
 
   ThreadAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   scoped_refptr<ProcessState::Layer<Stack>> stack_layer;
   ASSERT_TRUE(process_state.FindLayer(&stack_layer));
@@ -67,9 +68,10 @@ TEST_F(ThreadAnalyzerSyntheticTest, BasicTest) {
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
+
   ThreadAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   // Validate analysis.
   StackLayerPtr stack_layer;

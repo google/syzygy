@@ -161,32 +161,35 @@ bool RecordFoundRuns(const LFHEntryDetector::LFHEntryRuns& found_runs,
 // static
 const char HeapAnalyzer::kHeapAnalyzerName[] = "HeapAnalyzer";
 
-HeapAnalyzer::HeapAnalyzer(scoped_refptr<SymbolProvider> symbol_provider)
-    : symbol_provider_(symbol_provider) {
+HeapAnalyzer::HeapAnalyzer() {
 }
 
 Analyzer::AnalysisResult HeapAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
+  DCHECK(process_analysis.symbol_provider() != nullptr);
+
   // TODO(siggi): At present this won't work for XP, figure out how to reject
   //     XP dumps?
   // Start by finding the NTDLL module record and symbols, as that's where we
   // come by the symbols that describe the heap.
   scoped_refptr<TypeRepository> ntdll_repo =
-      GetNtdllTypes(process_state, symbol_provider_.get());
+      GetNtdllTypes(process_analysis.process_state(),
+                    process_analysis.symbol_provider().get());
   if (!ntdll_repo) {
     LOG(ERROR) << "Couldn't get types for NTDLL.";
     return ANALYSIS_ERROR;
   }
 
   LFHEntryDetector detector;
-  if (!detector.Init(ntdll_repo.get(), process_state)) {
+  if (!detector.Init(ntdll_repo.get(), process_analysis.process_state())) {
     LOG(ERROR) << "Failed to initialize LFH detector.";
     return ANALYSIS_ERROR;
   }
 
   BytesLayerPtr bytes_layer;
-  if (!process_state->FindLayer(&bytes_layer)) {
+  if (!process_analysis.process_state()->FindLayer(&bytes_layer)) {
     LOG(ERROR) << "Failed to find bytes layer.";
     return ANALYSIS_ERROR;
   }
@@ -201,7 +204,8 @@ Analyzer::AnalysisResult HeapAnalyzer::Analyze(
     }
 
     if (found_runs.size()) {
-      if (!RecordFoundRuns(found_runs, detector.entry_type(), process_state)) {
+      if (!RecordFoundRuns(found_runs, detector.entry_type(),
+                           process_analysis.process_state())) {
         LOG(ERROR) << "Failed to record found runs.";
         // TODO(siggi): Is this the right thing to do?
         return ANALYSIS_ERROR;

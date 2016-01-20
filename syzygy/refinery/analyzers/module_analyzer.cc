@@ -31,8 +31,8 @@ const char ModuleAnalyzer::kModuleAnalyzerName[] = "ModuleAnalyzer";
 
 Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
 
   // Retrieve the unique module list stream.
   minidump::Minidump::Stream module_list =
@@ -48,7 +48,7 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
   if (!module_list.ReadElement(&num_modules))
     return ANALYSIS_ERROR;
 
-  ModuleLayerAccessor layer_accessor(process_state);
+  ModuleLayerAccessor layer_accessor(process_analysis.process_state());
 
   for (size_t i = 0; i < num_modules; ++i) {
     MINIDUMP_MODULE module = {};

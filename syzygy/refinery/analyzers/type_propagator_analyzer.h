@@ -33,12 +33,11 @@ namespace refinery {
 // previously analyzed typed blocks.
 class TypePropagatorAnalyzer : public Analyzer {
  public:
-  explicit TypePropagatorAnalyzer(
-      scoped_refptr<SymbolProvider> symbol_provider);
+  TypePropagatorAnalyzer();
   const char* name() const override { return kTypePropagatorAnalyzerName; }
 
   AnalysisResult Analyze(const minidump::Minidump& minidump,
-                         ProcessState* process_state) override;
+                         const ProcessAnalysis& process_analysis) override;
 
  private:
   bool AnalyzeTypedData(const TypedData& data, ProcessState* process_state);
@@ -52,8 +51,6 @@ class TypePropagatorAnalyzer : public Analyzer {
   bool AddTypedBlock(const TypedData& typed_data, ProcessState* process_state);
 
   static const char kTypePropagatorAnalyzerName[];
-
-  scoped_refptr<SymbolProvider> symbol_provider_;
 
   DISALLOW_COPY_AND_ASSIGN(TypePropagatorAnalyzer);
 };

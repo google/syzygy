@@ -30,6 +30,7 @@
 #include "syzygy/pe/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
@@ -120,9 +121,6 @@ class StackAndFrameAnalyzersTest : public testing::Test {
     if (!minidump.Open(minidump_path()))
       return false;
 
-    scoped_refptr<DiaSymbolProvider> dia_symbol_provider(
-        new DiaSymbolProvider());
-
     AnalysisRunner runner;
     scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
     runner.AddAnalyzer(analyzer.Pass());
@@ -132,14 +130,17 @@ class StackAndFrameAnalyzersTest : public testing::Test {
     runner.AddAnalyzer(analyzer.Pass());
     analyzer.reset(new refinery::ModuleAnalyzer());
     runner.AddAnalyzer(analyzer.Pass());
-    analyzer.reset(new refinery::StackAnalyzer(dia_symbol_provider));
+    analyzer.reset(new refinery::StackAnalyzer());
     runner.AddAnalyzer(analyzer.Pass());
-    analyzer.reset(new refinery::StackFrameAnalyzer(dia_symbol_provider,
-                                                    symbol_provider_));
+    analyzer.reset(new refinery::StackFrameAnalyzer());
     runner.AddAnalyzer(analyzer.Pass());
 
-    return runner.Analyze(minidump, process_state) ==
-           Analyzer::ANALYSIS_COMPLETE;
+    scoped_refptr<DiaSymbolProvider> dia_symbol_provider(
+        new DiaSymbolProvider());
+    SimpleProcessAnalysis analysis(process_state, dia_symbol_provider,
+                                   symbol_provider_);
+
+    return runner.Analyze(minidump, analysis) == Analyzer::ANALYSIS_COMPLETE;
   }
 
   void ValidateTypedBlock(ProcessState* process_state,

@@ -17,6 +17,8 @@
 
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/process_state/process_state.h"
+#include "syzygy/refinery/symbols/dia_symbol_provider.h"
+#include "syzygy/refinery/symbols/symbol_provider.h"
 
 namespace refinery {
 
@@ -30,27 +32,46 @@ namespace refinery {
 class Analyzer {
  public:
   enum AnalysisResult {
+    // Analyzer will not do any more work if re-invoked.
     ANALYSIS_COMPLETE,
+    // Analyzer may do more work if re-invoked.
     ANALYSIS_ITERATE,
+    // Analyzer encountered an error.
     ANALYSIS_ERROR,
   };
+  class ProcessAnalysis;
 
   virtual ~Analyzer() = 0 {};
-
+  // @returns the analyzer's name.
   virtual const char* name() const = 0;
 
-  // Analyze @p minidump and update @p process_state. Analysis may involve
-  // examining @p process_state, and may be an iterative process.
+  // Analyze @p minidump and update the ProcessState provided through
+  //     @p process_analysis. Analysis may involve examining the ProcessState,
+  //     and may be an iterative process.
   // @param minidump the minidump under analysis.
-  // @param process_state the process_state that contains the results of the
-  //     analysis.
+  // @param process_analysis provides the ProcessState to update, along with
+  //     factories providing symbols etc, necessary to perform the analysis.
   // @returns an analysis result. An analyzer may not be invoked again after
   //     it's returned ANALYSIS_COMPLETE. If an analyzer returns ANALYSIS_ERROR
-  //     @p process_state may be inconsistent.
+  //     the resultant ProcessState may be inconsistent.
   // @note Analysis completes only once all analyzers have returned
   //     ANALYSIS_COMPLETED.
   virtual AnalysisResult Analyze(const minidump::Minidump& minidump,
-                                 ProcessState* process_state) = 0;
+                                 const ProcessAnalysis& process_analysis) = 0;
+};
+
+// A process analysis brokers the state that analyzers may need during
+// analysis. It vends the process state, symbol providers and so on.
+class Analyzer::ProcessAnalysis {
+ public:
+  // The process state to update in this analysis.
+  virtual ProcessState* process_state() const = 0;
+
+  // A DIA symbol provider to use during this analysis.
+  virtual scoped_refptr<DiaSymbolProvider> dia_symbol_provider() const = 0;
+
+  // A symbol provider to use during this analysis.
+  virtual scoped_refptr<SymbolProvider> symbol_provider() const = 0;
 };
 
 }  // namespace refinery

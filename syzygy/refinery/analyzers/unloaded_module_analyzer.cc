@@ -27,9 +27,7 @@ const char UnloadedModuleAnalyzer::kUnloadedModuleAnalyzerName[] =
 
 Analyzer::AnalysisResult UnloadedModuleAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
-
+    const ProcessAnalysis& process_analysis) {
   // TODO(manzagop): implement!
 
   return ANALYSIS_COMPLETE;

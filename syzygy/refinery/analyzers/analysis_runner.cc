@@ -32,10 +32,10 @@ void AnalysisRunner::AddAnalyzer(scoped_ptr<Analyzer> analyzer) {
 
 Analyzer::AnalysisResult AnalysisRunner::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
+    const Analyzer::ProcessAnalysis& process_analysis) {
   for (Analyzer* analyzer : analyzers_) {
     Analyzer::AnalysisResult result =
-        analyzer->Analyze(minidump, process_state);
+        analyzer->Analyze(minidump, process_analysis);
     CHECK(result != Analyzer::ANALYSIS_ITERATE)
         << "Iterative analysis is not supported.";
     if (result != Analyzer::ANALYSIS_COMPLETE) {

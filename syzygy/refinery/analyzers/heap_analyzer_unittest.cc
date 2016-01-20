@@ -18,6 +18,7 @@
 #include "syzygy/common/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
 #include "syzygy/refinery/process_state/process_state.h"
@@ -34,17 +35,17 @@ bool AnalyzeMinidump(const base::FilePath& minidump_path,
   if (!minidump.Open(minidump_path))
     return false;
 
-  scoped_refptr<SymbolProvider> symbol_provider(new SymbolProvider());
-
   AnalysisRunner runner;
   runner.AddAnalyzer(
       scoped_ptr<Analyzer>(new refinery::MemoryAnalyzer()).Pass());
   runner.AddAnalyzer(
       scoped_ptr<Analyzer>(new refinery::ModuleAnalyzer()).Pass());
-  runner.AddAnalyzer(
-      scoped_ptr<Analyzer>(new refinery::HeapAnalyzer(symbol_provider)).Pass());
+  runner.AddAnalyzer(scoped_ptr<Analyzer>(new refinery::HeapAnalyzer()).Pass());
 
-  return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
+  SimpleProcessAnalysis analysis(process_state);
+  analysis.set_symbol_provider(new SymbolProvider());
+
+  return runner.Analyze(minidump, analysis) == Analyzer::ANALYSIS_COMPLETE;
 }
 
 class HeapAnalyzerTest : public testing::Test {

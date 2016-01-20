@@ -18,6 +18,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analyzer.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
 
 namespace refinery {
@@ -31,54 +32,50 @@ static const char kMockAnalyzerName[] = "MockAnalyzer";
 
 class MockAnalyzer : public Analyzer {
  public:
-  const char* name() const { return kMockAnalyzerName; }
+  const char* name() const override { return kMockAnalyzerName; }
 
   MOCK_METHOD2(Analyze,
                AnalysisResult(const minidump::Minidump& minidump,
-                              ProcessState* process_state));
+                              const ProcessAnalysis& process_analysis));
 };
 
 // Creates a mock analyzer that has an expectation it will be called once.
-MockAnalyzer* CreateMockAnalyzer(ProcessState* process_state,
-                                 Analyzer::AnalysisResult result) {
+MockAnalyzer* CreateMockAnalyzer(Analyzer::AnalysisResult result) {
   MockAnalyzer* analyzer = new MockAnalyzer();
-  EXPECT_CALL(*analyzer, Analyze(_, process_state))
-      .Times(1)
-      .WillOnce(Return(result));
+  EXPECT_CALL(*analyzer, Analyze(_, _)).Times(1).WillOnce(Return(result));
   return analyzer;
 }
 
 }  // namespace
 
 TEST(AnalysisRunnerTest, BasicSuccessTest) {
-  minidump::Minidump minidump;
-  ProcessState process_state;
-
   // A runner with 2 analyzers that should run and succeed.
   AnalysisRunner runner;
   for (size_t i = 0; i < 2; ++i) {
-    scoped_ptr<MockAnalyzer> analyzer(
-        CreateMockAnalyzer(&process_state, Analyzer::ANALYSIS_COMPLETE));
+    scoped_ptr<Analyzer> analyzer(
+        CreateMockAnalyzer(Analyzer::ANALYSIS_COMPLETE));
     runner.AddAnalyzer(analyzer.Pass());
   }
 
+  ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
+  minidump::Minidump minidump;
+
   // Analyze.
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            runner.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, runner.Analyze(minidump, analysis));
 }
 
 TEST(AnalysisRunnerTest, BasicErrorTest) {
-  minidump::Minidump minidump;
-  ProcessState process_state;
-
   // A runner with 1 analyzer that should run and return an error.
   AnalysisRunner runner;
-  scoped_ptr<MockAnalyzer> analyzer(
-      CreateMockAnalyzer(&process_state, Analyzer::ANALYSIS_ERROR));
+  scoped_ptr<Analyzer> analyzer(CreateMockAnalyzer(Analyzer::ANALYSIS_ERROR));
   runner.AddAnalyzer(analyzer.Pass());
 
+  ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
+  minidump::Minidump minidump;
   // Analyze.
-  ASSERT_EQ(Analyzer::ANALYSIS_ERROR, runner.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_ERROR, runner.Analyze(minidump, analysis));
 }
 
 }  // namespace refinery

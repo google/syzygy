@@ -34,24 +34,23 @@ class StackWalkHelper;
 // TODO(manzagop): Introduce a system for managing analyzer order prerequisites?
 class StackAnalyzer : public Analyzer {
  public:
-  explicit StackAnalyzer(scoped_refptr<DiaSymbolProvider> symbol_provider);
+  StackAnalyzer();
 
   const char* name() const override { return kStackAnalyzerName; }
 
   AnalysisResult Analyze(const minidump::Minidump& minidump,
-                         ProcessState* process_state) override;
+                         const ProcessAnalysis& process_analysis) override;
 
  private:
   AnalysisResult StackWalk(StackRecordPtr stack_record,
-                           ProcessState* process_state);
+                           const ProcessAnalysis& process_analysis);
 
   // Inserts data about @p stack_frame into @p process_state.
   bool InsertStackFrameRecord(IDiaStackFrame* stack_frame,
-                              ProcessState* process_state);
+                              const ProcessAnalysis& process_analysis);
 
   static const char kStackAnalyzerName[];
 
-  scoped_refptr<DiaSymbolProvider> symbol_provider_;
   base::win::ScopedComPtr<IDiaStackWalker> stack_walker_;
   scoped_refptr<StackWalkHelper> stack_walk_helper_;
 

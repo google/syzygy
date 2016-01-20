@@ -26,15 +26,13 @@ namespace refinery {
 const char TypePropagatorAnalyzer::kTypePropagatorAnalyzerName[] =
     "TypePropagatorAnalyzer";
 
-TypePropagatorAnalyzer::TypePropagatorAnalyzer(
-    scoped_refptr<SymbolProvider> symbol_provider)
-    : symbol_provider_(symbol_provider) {
-  DCHECK(symbol_provider.get() != nullptr);
+TypePropagatorAnalyzer::TypePropagatorAnalyzer() {
 }
 
 Analyzer::AnalysisResult TypePropagatorAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
+    const ProcessAnalysis& process_analysis) {
+  ProcessState* process_state = process_analysis.process_state();
   DCHECK(process_state != nullptr);
 
   // Analyzers that build content for the bytes and typed block layer must have
@@ -56,6 +54,10 @@ Analyzer::AnalysisResult TypePropagatorAnalyzer::Analyze(
 
   std::queue<TypedData> process_queue;
 
+  scoped_refptr<SymbolProvider> symbol_provider =
+      process_analysis.symbol_provider();
+  DCHECK(symbol_provider != nullptr);
+
   // Recover typed data from the typed block layer.
   for (TypedBlockRecordPtr rec : *typed_layer) {
     const TypedBlock& typedblock = rec->data();
@@ -66,8 +68,8 @@ Analyzer::AnalysisResult TypePropagatorAnalyzer::Analyze(
       return ANALYSIS_ERROR;
 
     scoped_refptr<TypeRepository> type_repository;
-    if (!symbol_provider_->FindOrCreateTypeRepository(signature,
-                                                      &type_repository)) {
+    if (!symbol_provider->FindOrCreateTypeRepository(signature,
+                                                     &type_repository)) {
       return ANALYSIS_ERROR;
     }
 

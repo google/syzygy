@@ -23,6 +23,7 @@
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/minidump/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/analyzers/thread_analyzer.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
@@ -35,14 +36,14 @@ TEST(ExceptionAnalyzerTest, AnalyzeMinidump) {
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
 
   ThreadAnalyzer thread_analyzer;
   ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            thread_analyzer.Analyze(minidump, &process_state));
+            thread_analyzer.Analyze(minidump, analysis));
 
   ExceptionAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   // Ensure one thread has exception data.
   StackLayerPtr stack_layer;
@@ -71,9 +72,9 @@ TEST_F(ExceptionAnalyzerSyntheticTest, NoExceptionTest) {
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
   ExceptionAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 }
 
 TEST_F(ExceptionAnalyzerSyntheticTest, BasicTest) {
@@ -106,13 +107,13 @@ TEST_F(ExceptionAnalyzerSyntheticTest, BasicTest) {
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
   ThreadAnalyzer thread_analyzer;
   ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            thread_analyzer.Analyze(minidump, &process_state));
+            thread_analyzer.Analyze(minidump, analysis));
 
   ExceptionAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   // Validate.
   StackRecordPtr stack_record;

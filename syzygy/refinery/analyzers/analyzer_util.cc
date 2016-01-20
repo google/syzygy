@@ -45,4 +45,31 @@ void ParseContext(const CONTEXT& ctx, RegisterInformation* register_info) {
   }
 }
 
+SimpleProcessAnalysis::SimpleProcessAnalysis(ProcessState* process_state)
+    : process_state_(process_state) {
+}
+SimpleProcessAnalysis::SimpleProcessAnalysis(
+    ProcessState* process_state,
+    scoped_refptr<DiaSymbolProvider> dia_symbol_provider,
+    scoped_refptr<SymbolProvider> symbol_provider)
+    : process_state_(process_state),
+      dia_symbol_provider_(dia_symbol_provider),
+      symbol_provider_(symbol_provider) {
+}
+
+ProcessState* SimpleProcessAnalysis::process_state() const {
+  return process_state_;
+}
+
+scoped_refptr<DiaSymbolProvider> SimpleProcessAnalysis::dia_symbol_provider()
+    const {
+  // TODO(siggi): Should there be a non-null assert here?
+  return dia_symbol_provider_;
+}
+
+scoped_refptr<SymbolProvider> SimpleProcessAnalysis::symbol_provider() const {
+  // TODO(siggi): Should there be a non-null assert here?
+  return symbol_provider_;
+}
+
 }  // namespace refinery

@@ -23,6 +23,7 @@
 #include "base/strings/stringprintf.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
 #include "syzygy/refinery/analyzers/heap_analyzer.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
@@ -74,18 +75,20 @@ bool Analyze(const Minidump& minidump, ProcessState* process_state) {
   runner.AddAnalyzer(analyzer.Pass());
   analyzer.reset(new refinery::ModuleAnalyzer());
   runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::HeapAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
+  analyzer.reset(new refinery::StackAnalyzer());
+  runner.AddAnalyzer(analyzer.Pass());
 
   scoped_refptr<refinery::SymbolProvider> symbol_provider(
       new refinery::SymbolProvider());
-  analyzer.reset(new refinery::HeapAnalyzer(symbol_provider));
-  runner.AddAnalyzer(analyzer.Pass());
-
   scoped_refptr<refinery::DiaSymbolProvider> dia_symbol_provider(
       new refinery::DiaSymbolProvider());
-  analyzer.reset(new refinery::StackAnalyzer(dia_symbol_provider));
-  runner.AddAnalyzer(analyzer.Pass());
 
-  return runner.Analyze(minidump, process_state) == Analyzer::ANALYSIS_COMPLETE;
+  refinery::SimpleProcessAnalysis analysis(process_state, dia_symbol_provider,
+                                           symbol_provider);
+
+  return runner.Analyze(minidump, analysis) == Analyzer::ANALYSIS_COMPLETE;
 }
 
 bool Validate(ProcessState* process_state, ValidationReport* report) {

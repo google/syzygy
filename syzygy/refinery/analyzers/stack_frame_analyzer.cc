@@ -58,18 +58,15 @@ bool GetInnerMostScopeForVA(IDiaSession* session,
 // static
 const char StackFrameAnalyzer::kStackFrameAnalyzerName[] = "StackFrameAnalyzer";
 
-StackFrameAnalyzer::StackFrameAnalyzer(
-    scoped_refptr<DiaSymbolProvider> dia_symbol_provider,
-    scoped_refptr<SymbolProvider> symbol_provider)
-    : dia_symbol_provider_(dia_symbol_provider),
-      symbol_provider_(symbol_provider) {
-  DCHECK(dia_symbol_provider.get() != nullptr);
-  DCHECK(symbol_provider.get() != nullptr);
+StackFrameAnalyzer::StackFrameAnalyzer() {
 }
 
 Analyzer::AnalysisResult StackFrameAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
+
+  ProcessState* process_state = process_analysis.process_state();
   DCHECK(process_state != nullptr);
 
   // Ensure the stack frame layer has already been populated.
@@ -84,27 +81,27 @@ Analyzer::AnalysisResult StackFrameAnalyzer::Analyze(
     // TODO(manzagop): figure out the proper return value and handling for
     // AnalyzeFrame. We won't always be able to analyze frame (eg no symbols)
     // and that's acceptable.
-    AnalyzeFrame(frame_record, process_state);
+    AnalyzeFrame(frame_record, process_analysis);
   }
 
   return ANALYSIS_COMPLETE;
 }
 
 bool StackFrameAnalyzer::AnalyzeFrame(StackFrameRecordPtr frame_record,
-                                      ProcessState* process_state) {
+                                      const ProcessAnalysis& process_analysis) {
   DCHECK(frame_record.get() != nullptr);
-  DCHECK(process_state != nullptr);
+  DCHECK(process_analysis.process_state() != nullptr);
 
   const StackFrame& frame_proto = frame_record->data();
   Address instruction_pointer =
       static_cast<Address>(frame_proto.register_info().eip());
 
   // Retrieve symbol information.
-  if (!SetSymbolInformation(instruction_pointer, process_state)) {
+  if (!SetSymbolInformation(instruction_pointer, process_analysis)) {
     LOG(INFO) << "Unable to get symbol information for frame. Skipping.";
     return true;  // Not an error.
   }
-  ModuleLayerAccessor accessor(process_state);
+  ModuleLayerAccessor accessor(process_analysis.process_state());
   ModuleId module_id = accessor.GetModuleId(instruction_pointer);
   if (module_id == kNoModuleId) {
     LOG(INFO) << "No module corresponding to instruction pointer.";
@@ -120,7 +117,7 @@ bool StackFrameAnalyzer::AnalyzeFrame(StackFrameRecordPtr frame_record,
 
   // Walk up the scopes, processing scope's data.
   StackFrameDataAnalyzer data_analyzer(frame_record, typename_index_, module_id,
-                                       process_state);
+                                       process_analysis.process_state());
   while (true) {
     // Process each SymTagData child in the block / function.
     // TODO(manzagop): the data visitor will stop visiting at the first error.
@@ -151,28 +148,32 @@ bool StackFrameAnalyzer::AnalyzeFrame(StackFrameRecordPtr frame_record,
   return true;
 }
 
-bool StackFrameAnalyzer::SetSymbolInformation(Address instruction_pointer,
-                                              ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
+bool StackFrameAnalyzer::SetSymbolInformation(
+    Address instruction_pointer,
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
+  DCHECK(process_analysis.symbol_provider() != nullptr);
+  DCHECK(process_analysis.dia_symbol_provider() != nullptr);
 
   dia_session_.Release();
   typename_index_ = nullptr;
 
   // Get the module's signature.
-  ModuleLayerAccessor accessor(process_state);
+  ModuleLayerAccessor accessor(process_analysis.process_state());
   pe::PEFile::Signature signature;
   if (!accessor.GetModuleSignature(instruction_pointer, &signature))
     return false;
 
   // Get the typename index for the module.
-  if (!symbol_provider_->FindOrCreateTypeNameIndex(signature,
-                                                   &typename_index_)) {
+  if (!process_analysis.symbol_provider()->FindOrCreateTypeNameIndex(
+          signature, &typename_index_)) {
     return false;
   }
 
   // Get dia session for the module and set its address.
   base::win::ScopedComPtr<IDiaSession> session_tmp;
-  if (!dia_symbol_provider_->FindOrCreateDiaSession(signature, &session_tmp))
+  if (!process_analysis.dia_symbol_provider()->FindOrCreateDiaSession(
+          signature, &session_tmp))
     return false;
   HRESULT hr = session_tmp->put_loadAddress(signature.base_address.value());
   if (FAILED(hr)) {

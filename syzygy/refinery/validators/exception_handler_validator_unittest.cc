@@ -21,6 +21,7 @@
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/minidump/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/thread_analyzer.h"
 #include "syzygy/refinery/process_state/process_state.h"
@@ -32,14 +33,13 @@ namespace refinery {
 namespace {
 
 bool RunAnalysis(const minidump::Minidump& dump, ProcessState* process_state) {
+  SimpleProcessAnalysis analysis(process_state);
   MemoryAnalyzer memory_analyzer;
-  if (memory_analyzer.Analyze(dump, process_state) !=
-      Analyzer::ANALYSIS_COMPLETE) {
+  if (memory_analyzer.Analyze(dump, analysis) != Analyzer::ANALYSIS_COMPLETE) {
     return false;
   }
   ThreadAnalyzer thread_analyzer;
-  return thread_analyzer.Analyze(dump, process_state) ==
-         Analyzer::ANALYSIS_COMPLETE;
+  return thread_analyzer.Analyze(dump, analysis) == Analyzer::ANALYSIS_COMPLETE;
 }
 
 testing::MinidumpSpecification::MemorySpecification CreateTibMemorySpec(

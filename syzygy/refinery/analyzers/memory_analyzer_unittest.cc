@@ -23,6 +23,7 @@
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/minidump/unittest_util.h"
 #include "syzygy/refinery/unittest_util.h"
+#include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
@@ -34,10 +35,9 @@ TEST(MemoryAnalyzerTest, AnalyzeMinidump) {
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   ProcessState process_state;
-
+  SimpleProcessAnalysis analysis(&process_state);
   MemoryAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   scoped_refptr<ProcessState::Layer<Bytes>> bytes_layer;
   ASSERT_TRUE(process_state.FindLayer(&bytes_layer));
@@ -68,9 +68,9 @@ TEST_F(MemoryAnalyzerSyntheticTest, BasicTest) {
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
   MemoryAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   // Validate analysis.
   BytesLayerPtr bytes_layer;
@@ -123,9 +123,9 @@ TEST_F(MemoryAnalyzerSyntheticTest, OverlappingRangesAreConsolidated) {
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
+  SimpleProcessAnalysis analysis(&process_state);
   MemoryAnalyzer analyzer;
-  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE,
-            analyzer.Analyze(minidump, &process_state));
+  ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, analyzer.Analyze(minidump, analysis));
 
   // Validate analysis.
   BytesLayerPtr bytes_layer;

@@ -70,8 +70,8 @@ const char MemoryAnalyzer::kMemoryAnalyzerName[] = "MemoryAnalyzer";
 
 Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
     const minidump::Minidump& minidump,
-    ProcessState* process_state) {
-  DCHECK(process_state != nullptr);
+    const ProcessAnalysis& process_analysis) {
+  DCHECK(process_analysis.process_state() != nullptr);
 
   minidump::Minidump::Stream memory_list =
       minidump.FindNextStream(nullptr, MemoryListStream);
@@ -88,7 +88,7 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
     return ANALYSIS_ERROR;
 
   BytesLayerPtr bytes_layer;
-  process_state->FindOrCreateLayer(&bytes_layer);
+  process_analysis.process_state()->FindOrCreateLayer(&bytes_layer);
 
   // It seems minidumps sometimes contain overlapping memory ranges. It's
   // difficult to reason on why this is, and it's difficult to know which byte
