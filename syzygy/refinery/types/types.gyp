@@ -51,9 +51,21 @@
         'test_typenames.cc',
         'test_typenames.h',
       ],
+      'dependencies': [
+        'test_alias_lib',
+      ],
+      # Test data settings should match those of an official Chrome build.
       'msvs_settings': {
+        'VCCLCompilerTool': {
+          'EnableIntrinsicFunctions': 'true',
+          'BufferSecurityCheck': 'false',
+          'FavorSizeOrSpeed': '1',  # 1: favorSpeed
+          'WholeProgramOptimization': 'true',
+        },
         'VCLinkerTool': {
           'EntryPointSymbol': 'EntryPoint',
+          'LinkTimeCodeGeneration': '1',
+          'SetChecksum': 'true',
           # Turn down incremental linking for the test to avoid types
           # languishing from build to build.
           'LinkIncremental': '1',
@@ -70,9 +82,21 @@
         'test_types_one.cc',
         'test_types_two.cc',
       ],
+      'dependencies': [
+        'test_alias_lib',
+      ],
+      # Test data settings should match those of an official Chrome build.
       'msvs_settings': {
+        'VCCLCompilerTool': {
+          'EnableIntrinsicFunctions': 'true',
+          'BufferSecurityCheck': 'false',
+          'FavorSizeOrSpeed': '1',  # 1: favorSpeed
+          'WholeProgramOptimization': 'true',
+        },
         'VCLinkerTool': {
           'EntryPointSymbol': 'EntryPoint',
+          'LinkTimeCodeGeneration': '1',
+          'SetChecksum': 'true',
           # Turn down incremental linking for the test to avoid types
           # languishing from build to build.
           'LinkIncremental': '1',
@@ -86,8 +110,49 @@
         'test_vtables.def',
         'test_vtables.cc',
       ],
+      # Test data settings should match those of an official Chrome build.
       'msvs_settings': {
+        'VCCLCompilerTool': {
+          'EnableIntrinsicFunctions': 'true',
+          'BufferSecurityCheck': 'false',
+          'FavorSizeOrSpeed': '1',  # 1: favorSpeed
+          'WholeProgramOptimization': 'true',
+        },
         'VCLinkerTool': {
+          'LinkTimeCodeGeneration': '1',
+          'SetChecksum': 'true',
+          # Turn down incremental linking for the test to avoid types
+          # languishing from build to build.
+          'LinkIncremental': '1',
+        },
+      },
+    },
+    {
+      'target_name': 'test_alias_lib',
+      'type': 'static_library',
+      'sources': [
+        'alias.cc',
+        'alias.h',
+      ],
+      # Test data settings should match those of an official Chrome build. Note
+      # however that in the the case of the alias library, we disable whole
+      # program optimization.
+      'msvs_settings': {
+        'VCCLCompilerTool': {
+          'EnableIntrinsicFunctions': 'true',
+          'BufferSecurityCheck': 'false',
+          'FavorSizeOrSpeed': '1',  # 1: favorSpeed
+          # Override the inherited setting for WholeProgramOptimization in order
+          # to disable it. This should defeat any attempt to defeat aliasing.
+          # We manually disable it, as the gyp 'WholeProgramOptimization'
+          # setting does not seem to have a disabled value.
+          'AdditionalOptions': [
+            '/GL-'
+          ]
+        },
+        'VCLinkerTool': {
+          'LinkTimeCodeGeneration': '1',
+          'SetChecksum': 'true',
           # Turn down incremental linking for the test to avoid types
           # languishing from build to build.
           'LinkIncremental': '1',

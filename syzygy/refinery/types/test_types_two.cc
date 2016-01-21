@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "syzygy/refinery/types/alias.h"
 #include "syzygy/refinery/types/test_types.h"
 
 namespace testing {

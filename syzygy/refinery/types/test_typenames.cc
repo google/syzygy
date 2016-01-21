@@ -14,20 +14,9 @@
 
 #include "syzygy/refinery/types/test_typenames.h"
 
+#include "syzygy/refinery/types/alias.h"
+
 namespace testing {
-
-namespace {
-
-#if defined(COMPILER_MSVC)
-#pragma optimize("", off)
-#endif
-void Alias(const void* var) {
-}
-#if defined(COMPILER_MSVC)
-#pragma optimize("", on)
-#endif
-
-}  // namespace
 
 struct TestUDT {
   TestUDT() : integer(42), reference(integer) {}

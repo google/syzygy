@@ -33,7 +33,6 @@ namespace testing {
 // associated PDB file.
 void AliasTypesOne();
 void AliasTypesTwo();
-void Alias(const void* data_to_alias);
 
 }  // namespace testing
 

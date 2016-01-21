@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,19 +11,17 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+//
+// Declares code to defeat the optimizing out variables. This is used instead of
+// base::Alias to avoid symbol clutter.
 
-#include "syzygy/refinery/types/test_types.h"
+#ifndef SYZYGY_REFINERY_TYPES_ALIAS_H_
+#define SYZYGY_REFINERY_TYPES_ALIAS_H_
 
-// Used for entrypoint on test_types.dll to minimize symbol clutter.
-extern "C" short __stdcall EntryPoint(void* instance,
-                                      unsigned long reason,
-                                      void* reserved) {
-  testing::AliasTypesOne();
-  testing::AliasTypesTwo();
-  return 1;
-}
+namespace testing {
 
-// This function is exported from the DLL for the sole purpose of producing
-// an import library.
-extern "C" void DummyExport() {
-}
+void Alias(const void* data_to_alias);
+
+}  // namespace testing
+
+#endif  // SYZYGY_REFINERY_TYPES_ALIAS_H_

@@ -15,5 +15,5 @@ the dumps:
 
 DLLs and PDBs
 =============
-These were generated in release mode using syzygy/refinery/build_test_types.bat.
-
+These are generated using syzygy/refinery/build_test_types.bat (in a
+configuration that must match that of official Chrome).

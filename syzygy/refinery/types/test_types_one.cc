@@ -14,6 +14,7 @@
 
 #include <cstddef>
 
+#include "syzygy/refinery/types/alias.h"
 #include "syzygy/refinery/types/test_types.h"
 
 namespace testing {
