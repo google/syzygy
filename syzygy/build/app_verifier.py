@@ -95,8 +95,16 @@ _EXCEPTIONS = {
     # used to check thread restrictions.
     ('Error', 'TLS', 848, '', 'agent::profiler::.*::ProfilerTest::UnloadDll'),
   ],
-
-
+  'refinery_unittests.exe': [
+    # These are due to the syzyasan rtl (used in the instrumented test dll)
+    # which relies on the leaky PathService.
+    ('Error', 'Leak', 2304, '',
+     'refinery::PdbCrawlerVTableTest_TestGetVFTableRVAs_Test'),
+    ('Error', 'Locks', 513, '',
+     'refinery::PdbCrawlerVTableTest_TestGetVFTableRVAs_Test'),
+    ('Error', 'TLS', 848, '',
+     'refinery::PdbCrawlerVTableTest_TestGetVFTableRVAs_Test'),
+  ],
 }
 
 # A list of Application Verifier exceptions applicable to all tests.
