@@ -123,6 +123,7 @@ class DbiStream {
   const DbiDbgHeader& dbg_header() const { return dbg_header_; }
   const DbiHeader& header() const { return header_; }
   const DbiModuleVector& modules() const { return modules_; }
+  const DbiSectionMap& section_map() const { return section_map_; }
   // @}
 
   // Reads the Dbi stream of a PDB.

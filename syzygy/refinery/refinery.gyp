@@ -81,6 +81,7 @@
         'refinery_unittest_utils',
         'testing/testing.gyp:refinery_testing_lib',
         'types/types.gyp:types_lib',
+        'types/types.gyp:types_unittest_utils',
         'validators/validators.gyp:validators_lib',
         '<(src)/base/base.gyp:base',
         '<(src)/base/base.gyp:test_support_base',
@@ -90,6 +91,14 @@
         '<(src)/syzygy/minidump/minidump.gyp:minidump_lib',
         '<(src)/syzygy/minidump/minidump.gyp:minidump_unittest_utils',
       ],
+      'msvs_settings': {
+        'VCLinkerTool': {
+          # Disable support for large address spaces. This is only required for
+          # PdbCrawlerVTableTest.TestGetVFTableRVAs which needs to run an
+          # instrumented dll.
+          'LargeAddressAware': 1,
+        },
+      },
     },
     {
       'target_name': 'refinery_stack_unittest',

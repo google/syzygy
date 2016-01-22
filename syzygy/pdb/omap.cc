@@ -66,6 +66,8 @@ bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
     return false;
 
   DbiHeader dbi_header = {};
+  if (!dbi_stream->Seek(0))
+    return false;
   if (!dbi_stream->Read(&dbi_header, 1))
     return false;
 

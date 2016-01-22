@@ -98,10 +98,19 @@ TEST(OmapTest, ReadOmapsFromPdbFile) {
       testing::kOmappedTestPdbFilePath);
   EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, NULL, NULL));
   EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, NULL, &omap_from));
+  EXPECT_FALSE(omap_from.empty());
   EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, &omap_to, NULL));
+  EXPECT_FALSE(omap_to.empty());
   EXPECT_TRUE(ReadOmapsFromPdbFile(pdb_path, &omap_to, &omap_from));
   EXPECT_FALSE(omap_to.empty());
   EXPECT_FALSE(omap_from.empty());
+
+  // Some additional testing to ensure reusing a PdbFile works.
+  PdbReader pdb_reader;
+  PdbFile pdb_file;
+  ASSERT_TRUE(pdb_reader.Read(pdb_path, &pdb_file));
+  ASSERT_TRUE(ReadOmapsFromPdbFile(pdb_file, &omap_to, &omap_from));
+  ASSERT_TRUE(ReadOmapsFromPdbFile(pdb_file, &omap_to, &omap_from));
 }
 
 }  // namespace pdb

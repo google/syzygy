@@ -14,14 +14,23 @@
 
 #include "syzygy/refinery/types/pdb_crawler.h"
 
+#include <string>
 #include <vector>
 
+#include "base/bind.h"
 #include "base/logging.h"
+#include "base/strings/pattern.h"
 #include "base/strings/string16.h"
+#include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
+#include "syzygy/core/address.h"
+#include "syzygy/pdb/omap.h"
+#include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
+#include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pdb/gen/pdb_type_info_records.h"
 #include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/refinery/types/type.h"
@@ -1311,17 +1320,145 @@ bool PdbCrawler::InitializeForFile(const base::FilePath& path) {
     return false;
   }
 
-  stream_ = pdb_file.GetStream(pdb::kTpiStream);
+  // Get the type stream.
+  tpi_stream_ = pdb_file.GetStream(pdb::kTpiStream);
+
+  // Get the public symbol stream: it has a variable index, found in the Dbi
+  // stream.
+  scoped_refptr<pdb::PdbStream> dbi_stream_raw =
+      pdb_file.GetStream(pdb::kDbiStream);
+  pdb::DbiStream dbi_stream;
+  if (dbi_stream_raw == nullptr || !dbi_stream.Read(dbi_stream_raw.get())) {
+    LOG(ERROR) << "No Dbi stream.";
+    return false;
+  }
+
+  // The dbi stream's header contains the index of the public symbol stream.
+  uint32 sym_stream_idx = dbi_stream.header().symbol_record_stream;
+  if (sym_stream_idx != -1) {
+    sym_stream_ = pdb_file.GetStream(sym_stream_idx);
+    if (sym_stream_ == nullptr) {
+      LOG(ERROR) << "Failed to get symbol record stream.";
+      return false;
+    }
+  } else {
+    // The PDB does not have a public symbol stream. This may happen.
+    LOG(INFO) << "No symbol record stream.";
+    return true;
+  }
+
+  // Get the PE image section information. The DbiDbgHeader contains the index
+  // of a stream that contains this information as an array of
+  // IMAGE_SECTION_HEADER.
+  uint32 img_hdr_stream_idx = dbi_stream.dbg_header().section_header;
+  if (img_hdr_stream_idx == -1) {
+    LOG(ERROR) << "No section header stream.";
+    return false;
+  }
+  scoped_refptr<pdb::PdbStream> img_hdr_stream =
+      pdb_file.GetStream(img_hdr_stream_idx);
+  if (img_hdr_stream == nullptr) {
+    LOG(ERROR) << "Failed to get image header stream.";
+    return false;
+  }
+  if (!img_hdr_stream->Read(&section_headers_)) {
+    LOG(ERROR) << "Failed to read the image header stream.";
+    return false;
+  }
+
+  // The PDB may include OMAP information, used to represent a mapping from
+  // an original PDB address space to a transformed one. The DbiDbgHeader
+  // contains indices for two streams that contain this information as arrays of
+  // OMAP structures. We retrieve only the mapping from the original space to
+  // the transformed space.
+  if (dbi_stream.dbg_header().omap_from_src >= 0) {
+    if (!pdb::ReadOmapsFromPdbFile(pdb_file, nullptr, &omap_from_)) {
+      LOG(ERROR) << "Failed to read the OMAP data.";
+      return false;
+    }
+  }
+
   return true;
 }
 
 bool PdbCrawler::GetTypes(TypeRepository* types) {
   DCHECK(types);
-  DCHECK(stream_);
+  DCHECK(tpi_stream_);
 
   TypeCreator creator(types);
 
-  return creator.CreateTypes(stream_);
+  return creator.CreateTypes(tpi_stream_);
+}
+
+bool PdbCrawler::GetVFTableRVAForSymbol(base::hash_set<Address>* vftable_rvas,
+                                        uint16 symbol_length,
+                                        uint16 symbol_type,
+                                        pdb::PdbStream* symbol_stream) {
+  DCHECK(symbol_stream);  DCHECK(vftable_rvas);
+
+  // Not a vftable: skip to the next record.
+  if (symbol_type != cci::S_PUB32)
+    return true;
+
+  // Read the symbol.
+  cci::PubSym32 symbol = {};
+  size_t to_read = offsetof(cci::PubSym32, name);
+  size_t bytes_read = 0;
+  if (!symbol_stream->ReadBytes(&symbol, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol.";
+    return false;
+  }
+  std::string symbol_name;
+  if (!pdb::ReadString(symbol_stream, &symbol_name)) {
+    LOG(ERROR) << "Unable to read symbol name.";
+    return false;
+  }
+
+  // Determine if the symbol is a vftable based on its name.
+  // Note: pattern derived from LLVM's MicrosoftMangle.cpp (mangleCXXVFTable).
+  if (!base::MatchPattern(symbol_name, "\\?\\?_7*@6B*@"))
+    return true;  // Not a vftable.
+
+  // Determine the vftable's RVA, then add it to the set.
+
+  // Note: Segment indexing seems to be 1-based.
+  DCHECK(symbol.seg > 0);  // 1-based.
+  if (symbol.seg < 1U || symbol.seg > section_headers_.size()) {
+    LOG(ERROR) << "Symbol's segment is invalid.";
+    return false;
+  }
+
+  uint32_t vftable_rva =
+      section_headers_[symbol.seg - 1].VirtualAddress + symbol.off;
+
+  // Apply OMAP transformation if necessary.
+  if (omap_from_.size() > 0) {
+    core::RelativeAddress rva_omap = pdb::TranslateAddressViaOmap(
+        omap_from_, core::RelativeAddress(vftable_rva));
+    vftable_rva = rva_omap.value();
+  }
+
+  vftable_rvas->insert(static_cast<Address>(vftable_rva));
+
+  return true;
+}
+
+bool PdbCrawler::GetVFTableRVAs(base::hash_set<Address>* vftable_rvas) {
+  DCHECK(vftable_rvas);
+  vftable_rvas->clear();
+
+  if (!sym_stream_)
+    return false;  // The PDB does not have public symbols.
+  if (!sym_stream_->Seek(0))
+    return false;
+
+  pdb::VisitSymbolsCallback symbol_cb =
+      base::Bind(&PdbCrawler::GetVFTableRVAForSymbol, base::Unretained(this),
+                 base::Unretained(vftable_rvas));
+
+  return pdb::VisitSymbols(symbol_cb, sym_stream_->length(), false,
+                           sym_stream_.get());
 }
 
 }  // namespace refinery

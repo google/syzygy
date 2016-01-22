@@ -25,6 +25,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/refinery/types/type_repository.h"
+#include "syzygy/refinery/types/unittest_util.h"
 
 
 namespace refinery {
@@ -353,42 +354,24 @@ typedef bool (*GetExpectedVftableVAsPtr)(unsigned buffer_size,
                                          unsigned* count);
 }  // namespace
 
-TEST(DiaCrawlerVTableTest, TestGetVFTableRVAs) {
-  // Crawl the pdb for vftable RVAs.
-  DiaCrawler crawler;
-  ASSERT_TRUE(crawler.InitializeForFile(testing::GetSrcRelativePath(
-      L"syzygy\\refinery\\test_data\\test_vtables.dll.pdb")));
+class DiaCrawlerVTableTest : public testing::PdbCrawlerVTableTestBase {
+ protected:
+  void GetVFTableRVAs(const wchar_t* pdb_path_str,
+                      base::hash_set<Address>* vftable_rvas) override {
+    DCHECK(pdb_path_str);  DCHECK(vftable_rvas);
 
-  base::hash_set<Address> vftable_rvas;
-  ASSERT_TRUE(crawler.GetVFTableRVAs(&vftable_rvas));
-
-  // Get the expectation from the dll.
-  base::FilePath dll_path = testing::GetSrcRelativePath(
-      L"syzygy\\refinery\\test_data\\test_vtables.dll");
-  HMODULE module = ::LoadLibrary(dll_path.value().c_str());
-  ASSERT_TRUE(module != nullptr);
-
-  GetExpectedVftableVAsPtr get_vas = reinterpret_cast<GetExpectedVftableVAsPtr>(
-      ::GetProcAddress(module, "GetExpectedVftableVAs"));
-  ASSERT_TRUE(get_vas != nullptr);
-
-  unsigned buffer_size = 10U;
-  std::vector<uint64_t> vftable_vas;
-  vftable_vas.resize(buffer_size);
-  unsigned count = 0U;
-  ASSERT_TRUE(get_vas(buffer_size, &vftable_vas.at(0), &count));
-
-  // Validate the expectation.
-  ASSERT_LE(count, vftable_rvas.size());
-
-  for (size_t i = 0; i < count; ++i) {
-    Address expected_rva = static_cast<Address>(vftable_vas[i]) -
-                           reinterpret_cast<Address>(module);
-    ASSERT_NE(vftable_rvas.end(), vftable_rvas.find(expected_rva));
+    DiaCrawler crawler;
+    ASSERT_TRUE(
+        crawler.InitializeForFile(testing::GetSrcRelativePath(pdb_path_str)));
+    ASSERT_TRUE(crawler.GetVFTableRVAs(vftable_rvas));
   }
+};
 
-  ASSERT_TRUE(::FreeLibrary(module));
-  module = nullptr;
+TEST_F(DiaCrawlerVTableTest, TestGetVFTableRVAs) {
+  // A pdb without OMAP.
+  ASSERT_NO_FATAL_FAILURE(PerformGetVFTableRVAsTest(
+      L"syzygy\\refinery\\test_data\\test_vtables.dll.pdb",
+      L"syzygy\\refinery\\test_data\\test_vtables.dll"));
 }
 
 }  // namespace refinery

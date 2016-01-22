@@ -21,6 +21,7 @@
 #include "base/debug/alias.h"
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
+#include "base/strings/string16.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "gtest/gtest.h"
@@ -32,6 +33,7 @@
 #include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/type_repository.h"
+#include "syzygy/refinery/types/unittest_util.h"
 
 namespace refinery {
 
@@ -695,5 +697,31 @@ TEST_P(PdbCrawlerTest, TestUnion) {
 INSTANTIATE_TEST_CASE_P(InstantiateFor32and64,
                         PdbCrawlerTest,
                         ::testing::Values(32, 64));
+
+
+class PdbCrawlerVTableTest : public testing::PdbCrawlerVTableTestBase {
+ protected:
+  void GetVFTableRVAs(const wchar_t* pdb_path_str,
+                      base::hash_set<Address>* vftable_rvas) override {
+    DCHECK(pdb_path_str);  DCHECK(vftable_rvas);
+
+    PdbCrawler crawler;
+    ASSERT_TRUE(
+        crawler.InitializeForFile(testing::GetSrcRelativePath(pdb_path_str)));
+    ASSERT_TRUE(crawler.GetVFTableRVAs(vftable_rvas));
+  }
+};
+
+TEST_F(PdbCrawlerVTableTest, TestGetVFTableRVAs) {
+  // A pdb without OMAP.
+  ASSERT_NO_FATAL_FAILURE(PerformGetVFTableRVAsTest(
+      L"syzygy\\refinery\\test_data\\test_vtables.dll.pdb",
+      L"syzygy\\refinery\\test_data\\test_vtables.dll"));
+
+  // A pdb with OMAP.
+  ASSERT_NO_FATAL_FAILURE(PerformGetVFTableRVAsTest(
+      L"syzygy\\refinery\\test_data\\test_vtables_instrumented.dll.pdb",
+      L"syzygy\\refinery\\test_data\\test_vtables_instrumented.dll"));
+}
 
 }  // namespace refinery

@@ -15,9 +15,16 @@
 #ifndef SYZYGY_REFINERY_TYPES_PDB_CRAWLER_H_
 #define SYZYGY_REFINERY_TYPES_PDB_CRAWLER_H_
 
+#include <windows.h>  // NOLINT
+#include <dbghelp.h>
+#include <vector>
+
 #include "base/containers/hash_tables.h"
 #include "base/files/file_path.h"
+#include "base/memory/scoped_ptr.h"
+#include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/refinery/core/address.h"
 
 namespace refinery {
 // Forward declaration.
@@ -45,9 +52,29 @@ class PdbCrawler {
   // @returns true on success, false on failure.
   bool GetTypes(TypeRepository* types);
 
+  // Retrieves the relative virtual addresses of all virtual function tables.
+  // @param vftable_rvas on success contains zero or more addresses.
+  // @returns true on success, false on failure.
+  bool GetVFTableRVAs(base::hash_set<Address>* vftable_rvas);
+
  private:
-  // Pointer to the PDB type info stream.
-  scoped_refptr<pdb::PdbStream> stream_;
+  bool GetVFTableRVAForSymbol(base::hash_set<Address>* vftable_rvas,
+                              uint16 symbol_length,
+                              uint16 symbol_type,
+                              pdb::PdbStream* symbol_stream);
+
+  // Pointers to the PDB type and symbol streams.
+  scoped_refptr<pdb::PdbStream> tpi_stream_;
+  scoped_refptr<pdb::PdbStream> sym_stream_;
+
+  // The PE section headers extracted from the pdb.
+  // Note: we use these as it seems the DbiStream's section map does not contain
+  // information about section offsets (rva_offset is 0).
+  std::vector<IMAGE_SECTION_HEADER> section_headers_;
+
+  // OMAP data to map from original space to transformed space. Empty if there
+  // is no OMAP data.
+  std::vector<OMAP> omap_from_;
 };
 
 }  // namespace refinery

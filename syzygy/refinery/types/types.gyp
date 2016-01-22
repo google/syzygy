@@ -159,5 +159,19 @@
         },
       },
     },
+    {
+      'target_name': 'types_unittest_utils',
+      'type': 'static_library',
+      'dependencies': [
+        '<(src)/base/base.gyp:base',
+        '<(src)/syzygy/common/common.gyp:common_unittest_utils',
+        '<(src)/syzygy/refinery/core/core.gyp:refinery_core_lib',
+        '<(src)/testing/gtest.gyp:gtest',
+      ],
+      'sources': [
+        'unittest_util.cc',
+        'unittest_util.h',
+      ],
+    },
   ],
 }
