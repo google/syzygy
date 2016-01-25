@@ -15,6 +15,7 @@
 #include "syzygy/minidump/minidump.h"
 
 #include <stdint.h>
+#include <set>
 #include <string>
 
 #include "base/files/file_util.h"
@@ -237,5 +238,80 @@ TEST_F(MinidumpTest, ReadString) {
   ASSERT_TRUE(test.ReadString(&recovered));
   ASSERT_EQ(kSomeString, recovered);
 }
+
+TEST_F(MinidumpTest, GetMemoryList) {
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
+
+  auto memory = minidump.GetMemoryList();
+  EXPECT_TRUE(memory.IsValid());
+  EXPECT_NE(0U, memory.header().NumberOfMemoryRanges);
+
+  // TODO(siggi): what to do here?
+  size_t memory_count = 0;
+  size_t memory_size = 0;
+  for (const auto& element : memory) {
+    ++memory_count;
+    memory_size += element.Memory.DataSize;
+  }
+
+  ASSERT_EQ(memory.header().NumberOfMemoryRanges, memory_count);
+  ASSERT_LT(0u, memory_size);
+}
+
+TEST_F(MinidumpTest, GetModuleList) {
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
+
+  auto modules = minidump.GetModuleList();
+  EXPECT_TRUE(modules.IsValid());
+  EXPECT_NE(0U, modules.header().NumberOfModules);
+
+  // TODO(siggi): what to do here?
+  size_t module_count = 0;
+  size_t module_size = 0;
+  for (const auto& element : modules) {
+    ++module_count;
+    module_size += element.SizeOfImage;
+  }
+
+  ASSERT_EQ(modules.header().NumberOfModules, module_count);
+  ASSERT_LT(0u, module_size);
+}
+
+TEST_F(MinidumpTest, GetThreadList) {
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
+
+  auto threads = minidump.GetThreadList();
+  EXPECT_TRUE(threads.IsValid());
+  EXPECT_NE(0U, threads.header().NumberOfThreads);
+
+  std::set<uint32_t> thread_id_set;
+  for (const auto& element : threads) {
+    ASSERT_TRUE(thread_id_set.insert(element.ThreadId).second);
+  }
+
+  ASSERT_LT(0u, thread_id_set.size());
+}
+
+#if 0
+// TODO(siggi): This is apparently itanium-specific :/.
+TEST_F(MinidumpTest, GetThreadExList) {
+  Minidump minidump;
+  ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad64Dump()));
+
+  auto threads = minidump.GetThreadExList();
+  EXPECT_TRUE(threads.IsValid());
+  EXPECT_NE(0U, threads.header().NumberOfThreads);
+
+  std::set<uint32_t> thread_id_set;
+  for (const auto& element : threads) {
+    ASSERT_TRUE(thread_id_set.insert(element.ThreadId).second);
+  }
+
+  ASSERT_LT(0u, thread_id_set.size());
+}
+#endif
 
 }  // namespace minidump

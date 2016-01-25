@@ -19,10 +19,46 @@
 
 namespace minidump {
 
+namespace internal {
+
+size_t DefaultHeaderParser::Parse(const MINIDUMP_MEMORY_LIST& header) {
+  return header.NumberOfMemoryRanges;
+}
+
+size_t DefaultHeaderParser::Parse(const MINIDUMP_MODULE_LIST& header) {
+  return header.NumberOfModules;
+}
+
+size_t DefaultHeaderParser::Parse(const MINIDUMP_THREAD_LIST& header) {
+  return header.NumberOfThreads;
+}
+
+size_t DefaultHeaderParser::Parse(const MINIDUMP_THREAD_EX_LIST& header) {
+  return header.NumberOfThreads;
+}
+
+}  // namespace internal
+
 Minidump::Minidump() {
 }
 
 Minidump::~Minidump() {
+}
+
+Minidump::TypedMemoryList Minidump::GetMemoryList() const {
+  return TypedMemoryList(*this, MemoryListStream);
+}
+
+Minidump::TypedModuleList Minidump::GetModuleList() const {
+  return TypedModuleList(*this, ModuleListStream);
+}
+
+Minidump::TypedThreadList Minidump::GetThreadList() const {
+  return TypedThreadList(*this, ThreadListStream);
+}
+
+Minidump::TypedThreadExList Minidump::GetThreadExList() const {
+  return TypedThreadExList(*this, ThreadExListStream);
 }
 
 bool Minidump::Open(const base::FilePath& path) {
