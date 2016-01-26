@@ -44,7 +44,7 @@ Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
     return ANALYSIS_ERROR;
 
   MINIDUMP_EXCEPTION_STREAM minidump_exception_stream = {};
-  if (!exception_stream.ReadElement(&minidump_exception_stream))
+  if (!exception_stream.ReadAndAdvanceElement(&minidump_exception_stream))
     return ANALYSIS_ERROR;
   const MINIDUMP_EXCEPTION& exception_record =
       minidump_exception_stream.ExceptionRecord;
@@ -70,7 +70,7 @@ Analyzer::AnalysisResult ExceptionAnalyzer::Analyze(
     return ANALYSIS_ERROR;
   // TODO(siggi): This ought to probe for the architecture somehow.
   CONTEXT ctx = {};
-  if (!thread_context.ReadElement(&ctx))
+  if (!thread_context.ReadAndAdvanceElement(&ctx))
     return ANALYSIS_ERROR;
   ParseContext(ctx, exception.mutable_register_info());
 

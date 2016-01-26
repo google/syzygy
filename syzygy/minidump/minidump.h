@@ -132,13 +132,16 @@ class Minidump::Stream {
          size_t stream_id);
 
   bool IsValid() const { return minidump_ != nullptr; }
-  bool ReadBytes(size_t data_len, void* data);
-  bool ReadBytes(size_t data_len, std::string* data);
+
+  // @name Functions that read and advance over the read data.
+  // @{
+  bool ReadAndAdvanceBytes(size_t data_len, void* data);
+  bool ReadAndAdvanceBytes(size_t data_len, std::string* data);
 
   template <class DataType>
-  bool ReadElement(DataType* element);
-
-  bool ReadString(std::wstring* data);
+  bool ReadAndAdvanceElement(DataType* element);
+  bool ReadAndAdvanceString(std::wstring* data);
+  // @}
 
   // Accessors.
   size_t GetRemainingBytes() const { return remaining_length_; }
@@ -168,14 +171,14 @@ class TypedMinidumpStreamIterator {
     // Make sure the stream contains a range that covers whole elements.
     DCHECK(!stream_.IsValid() ||
            (stream.GetRemainingBytes() % sizeof(ElementType) == 0));
-    if (stream_.IsValid() && !stream_.ReadElement(&element_))
+    if (stream_.IsValid() && !stream_.ReadAndAdvanceElement(&element_))
       stream_ = minidump::Minidump::Stream();
   }
   TypedMinidumpStreamIterator(const TypedMinidumpStreamIterator& o)
       : stream_(o.stream), element_(o.element_) {}
 
   void operator++() {
-    if (stream_.IsValid() && !stream_.ReadElement(&element_))
+    if (stream_.IsValid() && !stream_.ReadAndAdvanceElement(&element_))
       stream_ = minidump::Minidump::Stream();
   }
 
@@ -266,7 +269,7 @@ bool TypedMinidumpStream<HeaderType, ElementType, ParseHeaderFunction>::
     return false;
 
   // Read the header.
-  if (!stream.ReadBytes(sizeof(header_storage_), header_storage_))
+  if (!stream.ReadAndAdvanceBytes(sizeof(header_storage_), header_storage_))
     return false;
 
   size_t number_of_elements = ParseHeaderFunction(header());
@@ -278,8 +281,8 @@ bool TypedMinidumpStream<HeaderType, ElementType, ParseHeaderFunction>::
 }
 
 template <typename DataType>
-bool Minidump::Stream::ReadElement(DataType* element) {
-  return ReadBytes(sizeof(DataType), element);
+bool Minidump::Stream::ReadAndAdvanceElement(DataType* element) {
+  return ReadAndAdvanceBytes(sizeof(DataType), element);
 }
 
 }  // namespace minidump

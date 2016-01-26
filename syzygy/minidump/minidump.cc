@@ -138,7 +138,7 @@ Minidump::Stream::Stream(
   DCHECK_NE(static_cast<Minidump*>(nullptr), minidump);
 }
 
-bool Minidump::Stream::ReadBytes(size_t data_len, void* data) {
+bool Minidump::Stream::ReadAndAdvanceBytes(size_t data_len, void* data) {
   DCHECK(minidump_ != nullptr);
 
   if (data_len > remaining_length_)
@@ -153,24 +153,24 @@ bool Minidump::Stream::ReadBytes(size_t data_len, void* data) {
   return true;
 }
 
-bool Minidump::Stream::ReadBytes(size_t data_len, std::string* data) {
+bool Minidump::Stream::ReadAndAdvanceBytes(size_t data_len, std::string* data) {
   DCHECK(minidump_ != nullptr);
   DCHECK(data != nullptr);
 
   data->resize(data_len);
-  bool success = ReadBytes(data_len, &data->at(0));
+  bool success = ReadAndAdvanceBytes(data_len, &data->at(0));
   if (!success)
     data->resize(0);
 
   return success;
 }
 
-bool Minidump::Stream::ReadString(std::wstring* data) {
+bool Minidump::Stream::ReadAndAdvanceString(std::wstring* data) {
   DCHECK(minidump_ != nullptr);
   DCHECK(data != nullptr);
 
   ULONG32 size_bytes = 0U;
-  if (!ReadElement(&size_bytes))
+  if (!ReadAndAdvanceElement(&size_bytes))
     return false;
 
   // Increment to account for (consume) null-terminating character.
@@ -181,7 +181,7 @@ bool Minidump::Stream::ReadString(std::wstring* data) {
 
   std::wstring buffer;
   buffer.resize(num_characters);
-  if (!ReadBytes(size_bytes, &buffer.at(0)))
+  if (!ReadAndAdvanceBytes(size_bytes, &buffer.at(0)))
     return false;
 
   // Drop the extra null-terminating character.

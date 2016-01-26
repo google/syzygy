@@ -39,14 +39,14 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     return ANALYSIS_ERROR;
 
   ULONG32 num_threads = 0;
-  if (!thread_list.ReadElement(&num_threads))
+  if (!thread_list.ReadAndAdvanceElement(&num_threads))
     return ANALYSIS_ERROR;
 
   for (size_t i = 0; i < num_threads; ++i) {
     // Note: if the dump were full memory, we would need to read a
     // MINIDUMP_THREAD based on a MINIDUMP_MEMORY_DESCRIPTOR64.
     MINIDUMP_THREAD thread = {};
-    if (!thread_list.ReadElement(&thread))
+    if (!thread_list.ReadAndAdvanceElement(&thread))
       return ANALYSIS_ERROR;
 
     // Create the stack record.
@@ -80,7 +80,7 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
 
     // TODO(siggi): This ought to probe for the architecture somehow.
     CONTEXT ctx = {};
-    if (!thread_context.ReadElement(&ctx))
+    if (!thread_context.ReadAndAdvanceElement(&ctx))
       return ANALYSIS_ERROR;
     ParseContext(ctx, thread_info->mutable_register_info());
   }

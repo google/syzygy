@@ -84,7 +84,7 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
     return ANALYSIS_ERROR;
 
   ULONG32 num_ranges = 0;
-  if (!memory_list.ReadElement(&num_ranges))
+  if (!memory_list.ReadAndAdvanceElement(&num_ranges))
     return ANALYSIS_ERROR;
 
   BytesLayerPtr bytes_layer;
@@ -99,7 +99,7 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
   MemoryAddressSpace memory_temp;
   for (size_t i = 0; i < num_ranges; ++i) {
     MINIDUMP_MEMORY_DESCRIPTOR descriptor = {};
-    if (!memory_list.ReadElement(&descriptor))
+    if (!memory_list.ReadAndAdvanceElement(&descriptor))
       return ANALYSIS_ERROR;
 
     Address range_addr = descriptor.StartOfMemoryRange;
@@ -108,7 +108,7 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
         minidump.GetStreamFor(descriptor.Memory);
 
     std::string bytes;
-    if (!bytes_stream.ReadBytes(range_size, &bytes))
+    if (!bytes_stream.ReadAndAdvanceBytes(range_size, &bytes))
       return ANALYSIS_ERROR;
 
     AddressRange new_range(range_addr, range_size);

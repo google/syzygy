@@ -178,7 +178,7 @@ bool RunAnalyzerApplication::Analyze(
       minidump.GetStream(SystemInfoStream);
 
   MINIDUMP_SYSTEM_INFO system_info = {};
-  if (!sys_info_stream.ReadElement(&system_info)) {
+  if (!sys_info_stream.ReadAndAdvanceElement(&system_info)) {
     LOG(ERROR) << "Unable to read system info stream.";
     return false;
   }

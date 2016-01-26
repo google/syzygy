@@ -290,12 +290,12 @@ TEST_F(MinidumpTest, LoaderLock) {
       sizeof(CRITICAL_SECTION_DEBUG));
 
   ULONG32 num_memory_descriptors = 0;
-  stream.ReadElement(&num_memory_descriptors);
+  stream.ReadAndAdvanceElement(&num_memory_descriptors);
   for (size_t i = 0;
        i < num_memory_descriptors && !(loader_lock_found && debug_info_found);
        ++i) {
     MINIDUMP_MEMORY_DESCRIPTOR memory_descriptor = {};
-    stream.ReadElement(&memory_descriptor);
+    stream.ReadAndAdvanceElement(&memory_descriptor);
     core::AddressRange<uint32_t, uint32_t> descriptor_range(
         memory_descriptor.StartOfMemoryRange,
         memory_descriptor.Memory.DataSize);
@@ -330,12 +330,12 @@ TEST_F(MinidumpTest, NtdllLoadAddress) {
   ASSERT_TRUE(module_list.IsValid());
 
   ULONG32 num_modules = 0;
-  ASSERT_TRUE(module_list.ReadElement(&num_modules));
+  ASSERT_TRUE(module_list.ReadAndAdvanceElement(&num_modules));
 
   bool ntdll_found = false;
   for (size_t i = 0; i < num_modules; ++i) {
     MINIDUMP_MODULE module = {};
-    ASSERT_TRUE(module_list.ReadElement(&module));
+    ASSERT_TRUE(module_list.ReadAndAdvanceElement(&module));
 
     // Get the module name. The length of the name is included in the stream.
     MINIDUMP_LOCATION_DESCRIPTOR name_location = {static_cast<ULONG32>(-1),
@@ -345,7 +345,7 @@ TEST_F(MinidumpTest, NtdllLoadAddress) {
     ASSERT_TRUE(name_stream.IsValid());
 
     std::wstring module_name;
-    ASSERT_TRUE(name_stream.ReadString(&module_name));
+    ASSERT_TRUE(name_stream.ReadAndAdvanceString(&module_name));
 
     if (module_name.find(L"ntdll.dll") != -1) {
       MODULEINFO ntdll_module_info = {};

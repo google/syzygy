@@ -45,14 +45,14 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
     return ANALYSIS_ERROR;
 
   ULONG32 num_modules = 0;
-  if (!module_list.ReadElement(&num_modules))
+  if (!module_list.ReadAndAdvanceElement(&num_modules))
     return ANALYSIS_ERROR;
 
   ModuleLayerAccessor layer_accessor(process_analysis.process_state());
 
   for (size_t i = 0; i < num_modules; ++i) {
     MINIDUMP_MODULE module = {};
-    if (!module_list.ReadElement(&module))
+    if (!module_list.ReadAndAdvanceElement(&module))
       return ANALYSIS_ERROR;
 
     AddressRange range(module.BaseOfImage, module.SizeOfImage);
@@ -68,7 +68,7 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
         minidump.GetStreamFor(name_location);
     DCHECK(name_stream.IsValid());
     std::wstring module_name;
-    if (!name_stream.ReadString(&module_name))
+    if (!name_stream.ReadAndAdvanceString(&module_name))
       return ANALYSIS_ERROR;
 
     // TODO(manzagop): get version / debug info by also reading VersionInfo,

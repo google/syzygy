@@ -119,22 +119,22 @@ TEST_F(MinidumpTest, StreamTest) {
   // Read the first integer.
   const uint32_t kSentinel = 0xCAFEBABE;
   uint32_t tmp = kSentinel;
-  ASSERT_TRUE(test.ReadElement(&tmp));
+  ASSERT_TRUE(test.ReadAndAdvanceElement(&tmp));
   EXPECT_EQ(0U, tmp);
   EXPECT_EQ(3U, test.GetRemainingBytes());
 
   // Reading another integer should fail, as the stream doesn't cover it.
   tmp = kSentinel;
-  ASSERT_FALSE(test.ReadElement(&tmp));
+  ASSERT_FALSE(test.ReadAndAdvanceElement(&tmp));
   // The failing read must not modify the input.
   EXPECT_EQ(kSentinel, tmp);
 
   // Try the same thing with byte reads.
   uint8_t bytes[10] = {};
-  ASSERT_FALSE(test.ReadBytes(4, &bytes));
+  ASSERT_FALSE(test.ReadAndAdvanceBytes(4, &bytes));
 
   // A three-byte read should succeed.
-  ASSERT_TRUE(test.ReadBytes(3, &bytes));
+  ASSERT_TRUE(test.ReadAndAdvanceBytes(3, &bytes));
   EXPECT_EQ(0U, test.GetRemainingBytes());
 
   // Little-endian byte order assumed.
@@ -143,12 +143,12 @@ TEST_F(MinidumpTest, StreamTest) {
   EXPECT_EQ(0U, bytes[2]);
 
   // No moar data.
-  EXPECT_FALSE(test.ReadBytes(1, &bytes));
+  EXPECT_FALSE(test.ReadAndAdvanceBytes(1, &bytes));
 
   // Reset the stream to test reading via a string.
   test = minidump.GetStreamFor(loc);
   std::string data;
-  ASSERT_TRUE(test.ReadBytes(1, &data));
+  ASSERT_TRUE(test.ReadAndAdvanceBytes(1, &data));
   EXPECT_EQ(6U, test.GetRemainingBytes());
   EXPECT_EQ(1U, data.size());
   EXPECT_EQ(0, data[0]);
@@ -164,7 +164,7 @@ TEST_F(MinidumpTest, FindNextStream) {
   ASSERT_TRUE(sys_info.IsValid());
 
   MINIDUMP_SYSTEM_INFO info = {};
-  EXPECT_TRUE(sys_info.ReadElement(&info));
+  EXPECT_TRUE(sys_info.ReadAndAdvanceElement(&info));
 
   Minidump::Stream invalid =
       minidump.FindNextStream(&sys_info, SystemInfoStream);
@@ -181,11 +181,11 @@ TEST_F(MinidumpTest, ReadThreadInfo) {
   ASSERT_TRUE(thread_list.IsValid());
 
   ULONG32 num_threads = 0;
-  ASSERT_TRUE(thread_list.ReadElement(&num_threads));
+  ASSERT_TRUE(thread_list.ReadAndAdvanceElement(&num_threads));
 
   for (size_t i = 0; i < num_threads; ++i) {
     MINIDUMP_THREAD thread = {};
-    ASSERT_TRUE(thread_list.ReadElement(&thread));
+    ASSERT_TRUE(thread_list.ReadAndAdvanceElement(&thread));
 
     Minidump::Stream thread_memory = minidump.GetStreamFor(thread.Stack.Memory);
     EXPECT_TRUE(thread_memory.IsValid());
@@ -195,11 +195,11 @@ TEST_F(MinidumpTest, ReadThreadInfo) {
     EXPECT_TRUE(thread_context.IsValid());
 
     CONTEXT ctx = {};
-    EXPECT_TRUE(thread_context.ReadElement(&ctx));
+    EXPECT_TRUE(thread_context.ReadAndAdvanceElement(&ctx));
   }
 }
 
-TEST_F(MinidumpTest, ReadString) {
+TEST_F(MinidumpTest, ReadAndAdvanceString) {
   wchar_t kSomeString[] = L"some string";
 
   // Create a minimal file to test reading a string.
@@ -235,7 +235,7 @@ TEST_F(MinidumpTest, ReadString) {
       sizeof(MINIDUMP_HEADER) + sizeof(MINIDUMP_DIRECTORY)};
   Minidump::Stream test = minidump.GetStreamFor(loc);
   std::wstring recovered;
-  ASSERT_TRUE(test.ReadString(&recovered));
+  ASSERT_TRUE(test.ReadAndAdvanceString(&recovered));
   ASSERT_EQ(kSomeString, recovered);
 }
 
