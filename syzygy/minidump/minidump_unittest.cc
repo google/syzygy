@@ -114,14 +114,14 @@ TEST_F(MinidumpTest, StreamTest) {
   MINIDUMP_LOCATION_DESCRIPTOR loc = { 7, sizeof(MINIDUMP_HEADER) };
   Minidump::Stream test = minidump.GetStreamFor(loc);
 
-  EXPECT_EQ(7U, test.GetRemainingBytes());
+  EXPECT_EQ(7U, test.remaining_length());
 
   // Read the first integer.
   const uint32_t kSentinel = 0xCAFEBABE;
   uint32_t tmp = kSentinel;
   ASSERT_TRUE(test.ReadAndAdvanceElement(&tmp));
   EXPECT_EQ(0U, tmp);
-  EXPECT_EQ(3U, test.GetRemainingBytes());
+  EXPECT_EQ(3U, test.remaining_length());
 
   // Reading another integer should fail, as the stream doesn't cover it.
   tmp = kSentinel;
@@ -131,11 +131,20 @@ TEST_F(MinidumpTest, StreamTest) {
 
   // Try the same thing with byte reads.
   uint8_t bytes[10] = {};
+  ASSERT_FALSE(test.ReadBytes(4, &bytes));
+  ASSERT_FALSE(test.AdvanceBytes(4));
+
   ASSERT_FALSE(test.ReadAndAdvanceBytes(4, &bytes));
 
   // A three-byte read should succeed.
+  ASSERT_TRUE(test.ReadBytes(3, &bytes));
+  EXPECT_EQ(3U, test.remaining_length());
+  EXPECT_EQ(1U, bytes[0]);
+  EXPECT_EQ(0U, bytes[1]);
+  EXPECT_EQ(0U, bytes[2]);
+
   ASSERT_TRUE(test.ReadAndAdvanceBytes(3, &bytes));
-  EXPECT_EQ(0U, test.GetRemainingBytes());
+  EXPECT_EQ(0U, test.remaining_length());
 
   // Little-endian byte order assumed.
   EXPECT_EQ(1U, bytes[0]);
@@ -149,9 +158,12 @@ TEST_F(MinidumpTest, StreamTest) {
   test = minidump.GetStreamFor(loc);
   std::string data;
   ASSERT_TRUE(test.ReadAndAdvanceBytes(1, &data));
-  EXPECT_EQ(6U, test.GetRemainingBytes());
+  EXPECT_EQ(6U, test.remaining_length());
   EXPECT_EQ(1U, data.size());
   EXPECT_EQ(0, data[0]);
+
+  ASSERT_TRUE(test.AdvanceBytes(3));
+  EXPECT_EQ(3U, test.remaining_length());
 }
 
 TEST_F(MinidumpTest, FindNextStream) {

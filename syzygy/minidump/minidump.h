@@ -143,8 +143,15 @@ class Minidump::Stream {
   bool ReadAndAdvanceString(std::wstring* data);
   // @}
 
+  // @name Functions that will separately read and advance by a number of bytes.
+  // @{
+  bool ReadBytes(size_t data_len, void* data);
+  bool AdvanceBytes(size_t data_len);
+  // @}
+
   // Accessors.
-  size_t GetRemainingBytes() const { return remaining_length_; }
+  size_t current_offset() const { return current_offset_; }
+  size_t remaining_length() const { return remaining_length_; }
   size_t stream_id() const { return stream_id_; }
   const Minidump* minidump() const { return minidump_; }
 
@@ -161,45 +168,50 @@ class Minidump::Stream {
 template <typename ElementType>
 class TypedMinidumpStreamIterator {
  public:
-  // Creates the invalid iterator, which is at end.
-  TypedMinidumpStreamIterator() {}
-
   // Creates a new iterator on @p stream. This iterator will yield
   // @p stream.GetBytesRemaining() / sizeof(ElementType) elements.
   explicit TypedMinidumpStreamIterator(const minidump::Minidump::Stream& stream)
       : stream_(stream) {
     // Make sure the stream contains a range that covers whole elements.
     DCHECK(!stream_.IsValid() ||
-           (stream.GetRemainingBytes() % sizeof(ElementType) == 0));
-    if (stream_.IsValid() && !stream_.ReadAndAdvanceElement(&element_))
-      stream_ = minidump::Minidump::Stream();
+           (stream.remaining_length() % sizeof(ElementType) == 0));
+    if (stream.remaining_length() != 0) {
+      // It's fatal if we can't pre-read the element that should be there.
+      CHECK(stream_.ReadBytes(sizeof(element_), &element_));
+    }
   }
   TypedMinidumpStreamIterator(const TypedMinidumpStreamIterator& o)
       : stream_(o.stream), element_(o.element_) {}
 
   void operator++() {
-    if (stream_.IsValid() && !stream_.ReadAndAdvanceElement(&element_))
-      stream_ = minidump::Minidump::Stream();
+    // It's invalid to advance the end iterator.
+    DCHECK_NE(0u, stream_.remaining_length());
+
+    // It's fatal if we can't advance over the current element.
+    CHECK(stream_.AdvanceBytes(sizeof(element_)));
+
+    if (stream_.remaining_length()) {
+      // Not yet at end, read the current element. Fatal if this fails.
+      CHECK(stream_.ReadBytes(sizeof(element_), &element_));
+    }
   }
 
   bool operator!=(const TypedMinidumpStreamIterator& o) const {
-    // Two iterators with invalid streams are equal.
-    if (!stream_.IsValid() && !o.stream_.IsValid())
-      return false;
+    // Only iterators on the same minidump can be compared.
+    DCHECK_EQ(stream_.minidump(), o.stream_.minidump());
 
-    if (stream_.IsValid() && o.stream_.IsValid()) {
-      // It's not allowed to compare two valid streams from different
-      // minidumps.
-      DCHECK_EQ(stream_.minidump(), o.stream_.minidump());
-    }
-
-    return stream_.IsValid() != o.stream_.IsValid() ||
-           stream_.GetRemainingBytes() != o.stream_.GetRemainingBytes();
+    return stream_.current_offset() != o.stream_.current_offset();
   }
 
-  const ElementType& operator*() const { return element_; }
+  const ElementType& operator*() const {
+    DCHECK_NE(0u, stream_.remaining_length());
+    return element_;
+  }
 
  private:
+  // Disallow default construction.
+  TypedMinidumpStreamIterator() {}
+
   minidump::Minidump::Stream stream_;
   ElementType element_;
 };
@@ -225,7 +237,12 @@ class TypedMinidumpStream {
   }
 
   Iterator begin() const { return Iterator(element_stream_); }
-  Iterator end() const { return Iterator(); }
+  Iterator end() const {
+    return Iterator(Minidump::Stream(
+        element_stream_.minidump(),
+        element_stream_.current_offset() + element_stream_.remaining_length(),
+        0, element_stream_.stream_id()));
+  }
 
  private:
   // Initializes this instance to a stream of type @p stream_type in
@@ -268,15 +285,17 @@ bool TypedMinidumpStream<HeaderType, ElementType, ParseHeaderFunction>::
   if (minidump.FindNextStream(&stream, stream_type).IsValid())
     return false;
 
-  // Read the header.
+  // Read and advance over the header.
   if (!stream.ReadAndAdvanceBytes(sizeof(header_storage_), header_storage_))
     return false;
 
   size_t number_of_elements = ParseHeaderFunction(header());
-  if (stream.GetRemainingBytes() != number_of_elements * sizeof(ElementType))
+  // Make sure the stream has appropriate byte length.
+  if (stream.remaining_length() != number_of_elements * sizeof(ElementType))
     return false;
 
   element_stream_ = stream;
+
   return true;
 }
 

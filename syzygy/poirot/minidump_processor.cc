@@ -47,7 +47,7 @@ bool MinidumpProcessor::ProcessDump() {
 
   // Read the stream content and initialize the protobuf with it.
   std::string stream_content;
-  if (!stream.ReadAndAdvanceBytes(stream.GetRemainingBytes(), &stream_content)) {
+  if (!stream.ReadAndAdvanceBytes(stream.remaining_length(), &stream_content)) {
     LOG(ERROR) << "Unable to read the minidump bytes.";
     return false;
   }

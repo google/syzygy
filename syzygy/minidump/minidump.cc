@@ -139,18 +139,7 @@ Minidump::Stream::Stream(
 }
 
 bool Minidump::Stream::ReadAndAdvanceBytes(size_t data_len, void* data) {
-  DCHECK(minidump_ != nullptr);
-
-  if (data_len > remaining_length_)
-    return false;
-
-  if (!minidump_->ReadBytes(current_offset_, data_len, data))
-    return false;
-
-  current_offset_ += data_len;
-  remaining_length_ -= data_len;
-
-  return true;
+  return ReadBytes(data_len, data) && AdvanceBytes(data_len);
 }
 
 bool Minidump::Stream::ReadAndAdvanceBytes(size_t data_len, std::string* data) {
@@ -187,6 +176,28 @@ bool Minidump::Stream::ReadAndAdvanceString(std::wstring* data) {
   // Drop the extra null-terminating character.
   buffer.resize(num_characters - 1);
   buffer.swap(*data);
+  return true;
+}
+
+bool Minidump::Stream::ReadBytes(size_t data_len, void* data) {
+  DCHECK(minidump_ != nullptr);
+
+  if (data_len > remaining_length_)
+    return false;
+
+  if (!minidump_->ReadBytes(current_offset_, data_len, data))
+    return false;
+
+  return true;
+}
+
+bool Minidump::Stream::AdvanceBytes(size_t data_len) {
+  if (data_len > remaining_length_)
+    return false;
+
+  current_offset_ += data_len;
+  remaining_length_ -= data_len;
+
   return true;
 }
 
