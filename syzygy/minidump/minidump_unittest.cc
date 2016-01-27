@@ -284,7 +284,7 @@ TEST(BufferMinidumpTest, StreamTest) {
   ASSERT_FALSE(test.ReadBytes(4, &bytes));
 
   // A three-byte read should succeed.
-  ASSERT_TRUE(test.ReadBytes(3, &bytes));
+  ASSERT_TRUE(test.ReadAndAdvanceBytes(3, &bytes));
   EXPECT_EQ(0U, test.remaining_length());
 
   // Little-endian byte order assumed.
@@ -298,7 +298,7 @@ TEST(BufferMinidumpTest, StreamTest) {
   // Reset the stream to test reading via a string.
   test = minidump.GetStreamFor(loc);
   std::string data;
-  ASSERT_TRUE(test.ReadBytes(1, &data));
+  ASSERT_TRUE(test.ReadAndAdvanceBytes(1, &data));
   EXPECT_EQ(6U, test.remaining_length());
   EXPECT_EQ(1U, data.size());
   EXPECT_EQ(0, data[0]);

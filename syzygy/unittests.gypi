@@ -83,6 +83,9 @@
       # Instrumenter tests.
       '<(src)/syzygy/instrument/instrument.gyp:instrument_unittests',
 
+      # Minidump tests.
+      '<(src)/syzygy/minidump/minidump.gyp:minidump_unittests',
+
       # MSF tests.
       '<(src)/syzygy/msf/msf.gyp:msf_unittests',
 
