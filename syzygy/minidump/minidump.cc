@@ -61,12 +61,7 @@ Minidump::TypedThreadExList Minidump::GetThreadExList() const {
   return TypedThreadExList(*this, ThreadExListStream);
 }
 
-bool Minidump::Open(const base::FilePath& path) {
-  file_.reset(base::OpenFile(path, "rb"));
-
-  if (!file_)
-    return false;
-
+bool Minidump::ReadDirectory() {
   // Read the header and validate the signature.
   MINIDUMP_HEADER header = {};
   if (!ReadBytes(0, sizeof(header), &header))
@@ -84,6 +79,14 @@ bool Minidump::Open(const base::FilePath& path) {
   }
 
   return true;
+}
+
+bool FileMinidump::Open(const base::FilePath& path) {
+  file_.reset(base::OpenFile(path, "rb"));
+  if (!file_)
+    return false;
+
+  return ReadDirectory();
 }
 
 Minidump::Stream Minidump::GetStreamFor(
@@ -112,13 +115,40 @@ Minidump::Stream Minidump::FindNextStream(const Stream* prev,
   return Stream();
 }
 
-bool Minidump::ReadBytes(size_t offset, size_t data_size, void* data) const {
+bool FileMinidump::ReadBytes(size_t offset,
+                             size_t data_size,
+                             void* data) const {
   if (fseek(file_.get(), offset, SEEK_SET) != 0)
     return false;
 
   if (fread(data, 1, data_size, file_.get()) != data_size)
     return false;
 
+  return true;
+}
+
+BufferMinidump::BufferMinidump() : buf_(nullptr), buf_len_(0) {
+}
+
+bool BufferMinidump::Initialize(const uint8_t* buf, size_t buf_len) {
+  DCHECK(buf);
+
+  buf_ = buf;
+  buf_len_ = buf_len;
+
+  return ReadDirectory();
+}
+
+bool BufferMinidump::ReadBytes(size_t offset,
+                               size_t data_size,
+                               void* data) const {
+  // Bounds check the request.
+  if (offset >= buf_len_ || offset + data_size > buf_len_ ||
+      offset + data_size < offset) {  // Test for overflow.
+    return false;
+  }
+
+  ::memcpy(data, buf_ + offset, data_size);
   return true;
 }
 

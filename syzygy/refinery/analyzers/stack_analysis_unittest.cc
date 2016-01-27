@@ -117,7 +117,7 @@ class StackAndFrameAnalyzersTest : public testing::Test {
   }
 
   bool AnalyzeMinidump(ProcessState* process_state) {
-    minidump::Minidump minidump;
+    minidump::FileMinidump minidump;
     if (!minidump.Open(minidump_path()))
       return false;
 

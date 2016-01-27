@@ -30,7 +30,7 @@ MinidumpProcessor::MinidumpProcessor(const base::FilePath& input_minidump)
 bool MinidumpProcessor::ProcessDump() {
   DCHECK(!input_minidump_.empty());
   DCHECK(!processed_);
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
 
   if (!minidump.Open(input_minidump_)) {
     LOG(ERROR) << "Unable to open the minidump.";

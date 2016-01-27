@@ -112,7 +112,7 @@ int main(int argc, const char* const* argv) {
   if (!ParseCommandLine(base::CommandLine::ForCurrentProcess(), &dump_path))
     return 1;
 
-  Minidump minidump;
+  minidump::FileMinidump minidump;
   if (!minidump.Open(dump_path)) {
     LOG(ERROR) << "Unable to open dump file.";
     return 1;

@@ -17,6 +17,7 @@
 #include <stdint.h>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
@@ -27,7 +28,7 @@
 
 namespace minidump {
 
-class MinidumpTest : public testing::Test {
+class FileMinidumpTest : public testing::Test {
  public:
   void SetUp() override {
     ASSERT_TRUE(temp_dir_.CreateUniqueTempDir());
@@ -41,133 +42,41 @@ class MinidumpTest : public testing::Test {
   base::ScopedTempDir temp_dir_;
 };
 
-TEST_F(MinidumpTest, OpenSuccedsForValidFile) {
-  Minidump minidump;
+class ScopedMinidumpBuffer {
+ public:
+  template <typename ElementType>
+  void Append(const ElementType& element) {
+    Append(&element, sizeof(element));
+  }
+  void Append(const void* data, size_t data_len) {
+    const uint8_t* buf = reinterpret_cast<const uint8_t*>(data);
+
+    buf_.insert(buf_.end(), buf, buf + data_len);
+  }
+
+  const uint8_t* data() const { return buf_.data(); }
+  size_t len() const { return buf_.size(); }
+
+ private:
+  std::vector<uint8_t> buf_;
+};
+
+TEST_F(FileMinidumpTest, OpenSuccedsForValidFile) {
+  FileMinidump minidump;
 
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
   ASSERT_LE(1U, minidump.directory().size());
 }
 
-TEST_F(MinidumpTest, OpenFailsForInvalidFile) {
-  Minidump minidump;
+TEST_F(FileMinidumpTest, OpenFailsForInvalidFile) {
+  FileMinidump minidump;
 
   // Try opening a non-existing file.
   ASSERT_FALSE(minidump.Open(dump_file()));
-
-  // Create an empty file, opening it should fail.
-  {
-    base::ScopedFILE tmp(base::OpenFile(dump_file(), "wb"));
-  }
-  ASSERT_FALSE(minidump.Open(dump_file()));
-
-  // Create a file with a header, but an invalid signature.
-  {
-    base::ScopedFILE tmp(base::OpenFile(dump_file(), "wb"));
-
-    MINIDUMP_HEADER hdr = {0};
-    ASSERT_EQ(sizeof(hdr), fwrite(&hdr, sizeof(char), sizeof(hdr), tmp.get()));
-  }
-  ASSERT_FALSE(minidump.Open(dump_file()));
-
-  // Create a file with a valid signature, but a zero-length directory.
-  {
-    base::ScopedFILE tmp(base::OpenFile(dump_file(), "wb"));
-
-    MINIDUMP_HEADER hdr = {0};
-    hdr.Signature = MINIDUMP_SIGNATURE;
-    ASSERT_EQ(sizeof(hdr), fwrite(&hdr, sizeof(char), sizeof(hdr), tmp.get()));
-  }
-  ASSERT_FALSE(minidump.Open(dump_file()));
-
-  // Create a file with a valid header, but a missing directory.
-  {
-    base::ScopedFILE tmp(base::OpenFile(dump_file(), "wb"));
-
-    MINIDUMP_HEADER hdr = {0};
-    hdr.Signature = MINIDUMP_SIGNATURE;
-    hdr.NumberOfStreams = 10;
-    hdr.StreamDirectoryRva = sizeof(hdr);
-    ASSERT_EQ(sizeof(hdr), fwrite(&hdr, sizeof(char), sizeof(hdr), tmp.get()));
-  }
-  ASSERT_FALSE(minidump.Open(dump_file()));
 }
 
-TEST_F(MinidumpTest, StreamTest) {
-  // Create a file with some data to test the streams.
-  {
-    base::ScopedFILE tmp(base::OpenFile(dump_file(), "wb"));
-
-    MINIDUMP_HEADER hdr = {0};
-    hdr.Signature = MINIDUMP_SIGNATURE;
-    hdr.NumberOfStreams = 1;
-    hdr.StreamDirectoryRva = sizeof(hdr);
-    ASSERT_EQ(sizeof(hdr), fwrite(&hdr, sizeof(char), sizeof(hdr), tmp.get()));
-
-    for (uint32_t i = 0; i < 100; ++i)
-      ASSERT_EQ(sizeof(i), fwrite(&i, sizeof(char), sizeof(i), tmp.get()));
-  }
-
-  Minidump minidump;
-  ASSERT_TRUE(minidump.Open(dump_file()));
-
-  // Make a short, arbitrary location.
-  MINIDUMP_LOCATION_DESCRIPTOR loc = { 7, sizeof(MINIDUMP_HEADER) };
-  Minidump::Stream test = minidump.GetStreamFor(loc);
-
-  EXPECT_EQ(7U, test.remaining_length());
-
-  // Read the first integer.
-  const uint32_t kSentinel = 0xCAFEBABE;
-  uint32_t tmp = kSentinel;
-  ASSERT_TRUE(test.ReadAndAdvanceElement(&tmp));
-  EXPECT_EQ(0U, tmp);
-  EXPECT_EQ(3U, test.remaining_length());
-
-  // Reading another integer should fail, as the stream doesn't cover it.
-  tmp = kSentinel;
-  ASSERT_FALSE(test.ReadAndAdvanceElement(&tmp));
-  // The failing read must not modify the input.
-  EXPECT_EQ(kSentinel, tmp);
-
-  // Try the same thing with byte reads.
-  uint8_t bytes[10] = {};
-  ASSERT_FALSE(test.ReadBytes(4, &bytes));
-  ASSERT_FALSE(test.AdvanceBytes(4));
-
-  ASSERT_FALSE(test.ReadAndAdvanceBytes(4, &bytes));
-
-  // A three-byte read should succeed.
-  ASSERT_TRUE(test.ReadBytes(3, &bytes));
-  EXPECT_EQ(3U, test.remaining_length());
-  EXPECT_EQ(1U, bytes[0]);
-  EXPECT_EQ(0U, bytes[1]);
-  EXPECT_EQ(0U, bytes[2]);
-
-  ASSERT_TRUE(test.ReadAndAdvanceBytes(3, &bytes));
-  EXPECT_EQ(0U, test.remaining_length());
-
-  // Little-endian byte order assumed.
-  EXPECT_EQ(1U, bytes[0]);
-  EXPECT_EQ(0U, bytes[1]);
-  EXPECT_EQ(0U, bytes[2]);
-
-  // No moar data.
-  EXPECT_FALSE(test.ReadAndAdvanceBytes(1, &bytes));
-
-  // Reset the stream to test reading via a string.
-  test = minidump.GetStreamFor(loc);
-  std::string data;
-  ASSERT_TRUE(test.ReadAndAdvanceBytes(1, &data));
-  EXPECT_EQ(6U, test.remaining_length());
-  EXPECT_EQ(1U, data.size());
-  EXPECT_EQ(0, data[0]);
-
-  ASSERT_TRUE(test.AdvanceBytes(3));
-  EXPECT_EQ(3U, test.remaining_length());
-}
-
-TEST_F(MinidumpTest, FindNextStream) {
-  Minidump minidump;
+TEST_F(FileMinidumpTest, FindNextStream) {
+  FileMinidump minidump;
 
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
@@ -183,8 +92,8 @@ TEST_F(MinidumpTest, FindNextStream) {
   EXPECT_FALSE(invalid.IsValid());
 }
 
-TEST_F(MinidumpTest, ReadThreadInfo) {
-  Minidump minidump;
+TEST_F(FileMinidumpTest, ReadThreadInfo) {
+  FileMinidump minidump;
 
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
@@ -211,48 +120,8 @@ TEST_F(MinidumpTest, ReadThreadInfo) {
   }
 }
 
-TEST_F(MinidumpTest, ReadAndAdvanceString) {
-  wchar_t kSomeString[] = L"some string";
-
-  // Create a minimal file to test reading a string.
-  {
-    base::ScopedFILE tmp(base::OpenFile(dump_file(), "wb"));
-
-    // Valid header.
-    MINIDUMP_HEADER hdr = {0};
-    hdr.Signature = MINIDUMP_SIGNATURE;
-    hdr.NumberOfStreams = 1;
-    hdr.StreamDirectoryRva = sizeof(hdr);
-    ASSERT_EQ(sizeof(hdr), fwrite(&hdr, sizeof(char), sizeof(hdr), tmp.get()));
-
-    // Dummy directory.
-    MINIDUMP_DIRECTORY directory = {0};
-    ASSERT_EQ(sizeof(directory),
-              fwrite(&directory, sizeof(char), sizeof(directory), tmp.get()));
-
-    // A string. Note that although a null terminating character is written, it
-    // is not counted in the size written to the file.
-    ULONG32 size_bytes = sizeof(kSomeString) - sizeof(wchar_t);
-    ASSERT_EQ(sizeof(ULONG32),
-              fwrite(&size_bytes, sizeof(char), sizeof(ULONG32), tmp.get()));
-    ASSERT_EQ(sizeof(kSomeString), fwrite(&kSomeString, sizeof(char),
-                                          sizeof(kSomeString), tmp.get()));
-  }
-
-  Minidump minidump;
-  ASSERT_TRUE(minidump.Open(dump_file()));
-
-  MINIDUMP_LOCATION_DESCRIPTOR loc = {
-      static_cast<ULONG32>(-1),
-      sizeof(MINIDUMP_HEADER) + sizeof(MINIDUMP_DIRECTORY)};
-  Minidump::Stream test = minidump.GetStreamFor(loc);
-  std::wstring recovered;
-  ASSERT_TRUE(test.ReadAndAdvanceString(&recovered));
-  ASSERT_EQ(kSomeString, recovered);
-}
-
-TEST_F(MinidumpTest, GetMemoryList) {
-  Minidump minidump;
+TEST_F(FileMinidumpTest, GetMemoryList) {
+  FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   auto memory = minidump.GetMemoryList();
@@ -271,8 +140,8 @@ TEST_F(MinidumpTest, GetMemoryList) {
   ASSERT_LT(0u, memory_size);
 }
 
-TEST_F(MinidumpTest, GetModuleList) {
-  Minidump minidump;
+TEST_F(FileMinidumpTest, GetModuleList) {
+  FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   auto modules = minidump.GetModuleList();
@@ -291,8 +160,8 @@ TEST_F(MinidumpTest, GetModuleList) {
   ASSERT_LT(0u, module_size);
 }
 
-TEST_F(MinidumpTest, GetThreadList) {
-  Minidump minidump;
+TEST_F(FileMinidumpTest, GetThreadList) {
+  FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   auto threads = minidump.GetThreadList();
@@ -309,8 +178,8 @@ TEST_F(MinidumpTest, GetThreadList) {
 
 #if 0
 // TODO(siggi): This is apparently itanium-specific :/.
-TEST_F(MinidumpTest, GetThreadExList) {
-  Minidump minidump;
+TEST_F(FileMinidumpTest, GetThreadExList) {
+  FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad64Dump()));
 
   auto threads = minidump.GetThreadExList();
@@ -325,5 +194,150 @@ TEST_F(MinidumpTest, GetThreadExList) {
   ASSERT_LT(0u, thread_id_set.size());
 }
 #endif
+
+TEST(BufferMinidumpTest, InitFailsForInvalidFile) {
+  // Opening an empty buffer should fail.
+  {
+    uint8_t data = 0;
+    BufferMinidump minidump;
+    ASSERT_FALSE(minidump.Initialize(&data, 0));
+  }
+
+  // Create a file with a header, but an invalid signature.
+  {
+    MINIDUMP_HEADER hdr = {0};
+
+    ScopedMinidumpBuffer buf;
+    buf.Append(hdr);
+
+    BufferMinidump minidump;
+    ASSERT_FALSE(minidump.Initialize(buf.data(), buf.len()));
+  }
+
+  // Create a file with a valid signature, but a zero-length directory.
+  {
+    MINIDUMP_HEADER hdr = {0};
+    hdr.Signature = MINIDUMP_SIGNATURE;
+
+    ScopedMinidumpBuffer buf;
+    buf.Append(hdr);
+
+    BufferMinidump minidump;
+    ASSERT_FALSE(minidump.Initialize(buf.data(), buf.len()));
+  }
+
+  // Create a file with a valid header, but a missing directory.
+  {
+    MINIDUMP_HEADER hdr = {0};
+    hdr.Signature = MINIDUMP_SIGNATURE;
+    hdr.NumberOfStreams = 10;
+    hdr.StreamDirectoryRva = sizeof(hdr);
+
+    ScopedMinidumpBuffer buf;
+    buf.Append(hdr);
+
+    BufferMinidump minidump;
+    ASSERT_FALSE(minidump.Initialize(buf.data(), buf.len()));
+  }
+}
+
+TEST(BufferMinidumpTest, StreamTest) {
+  // Create a buffer with some data to test the streams.
+  ScopedMinidumpBuffer buf;
+
+  {
+    MINIDUMP_HEADER hdr = {0};
+    hdr.Signature = MINIDUMP_SIGNATURE;
+    hdr.NumberOfStreams = 1;
+    hdr.StreamDirectoryRva = sizeof(hdr);
+
+    buf.Append(hdr);
+
+    for (uint32_t i = 0; i < 100; ++i)
+      buf.Append(i);
+  }
+
+  BufferMinidump minidump;
+  ASSERT_TRUE(minidump.Initialize(buf.data(), buf.len()));
+
+  // Make a short, arbitrary location.
+  MINIDUMP_LOCATION_DESCRIPTOR loc = { 7, sizeof(MINIDUMP_HEADER) };
+  Minidump::Stream test = minidump.GetStreamFor(loc);
+
+  EXPECT_EQ(7U, test.remaining_length());
+
+  // Read the first integer.
+  const uint32_t kSentinel = 0xCAFEBABE;
+  uint32_t tmp = kSentinel;
+  ASSERT_TRUE(test.ReadAndAdvanceElement(&tmp));
+  EXPECT_EQ(0U, tmp);
+  EXPECT_EQ(3U, test.remaining_length());
+
+  // Reading another integer should fail, as the stream doesn't cover it.
+  tmp = kSentinel;
+  ASSERT_FALSE(test.ReadAndAdvanceElement(&tmp));
+  // The failing read must not modify the input.
+  EXPECT_EQ(kSentinel, tmp);
+
+  // Try the same thing with byte reads.
+  uint8_t bytes[10] = {};
+  ASSERT_FALSE(test.ReadBytes(4, &bytes));
+
+  // A three-byte read should succeed.
+  ASSERT_TRUE(test.ReadBytes(3, &bytes));
+  EXPECT_EQ(0U, test.remaining_length());
+
+  // Little-endian byte order assumed.
+  EXPECT_EQ(1U, bytes[0]);
+  EXPECT_EQ(0U, bytes[1]);
+  EXPECT_EQ(0U, bytes[2]);
+
+  // No moar data.
+  EXPECT_FALSE(test.ReadBytes(1, &bytes));
+
+  // Reset the stream to test reading via a string.
+  test = minidump.GetStreamFor(loc);
+  std::string data;
+  ASSERT_TRUE(test.ReadBytes(1, &data));
+  EXPECT_EQ(6U, test.remaining_length());
+  EXPECT_EQ(1U, data.size());
+  EXPECT_EQ(0, data[0]);
+}
+
+TEST(BufferMinidumpTest, ReadAndAdvanceString) {
+  wchar_t kSomeString[] = L"some string";
+
+  // Create a minimal buffer to test reading a string.
+  ScopedMinidumpBuffer buf;
+  {
+    // Valid header.
+    MINIDUMP_HEADER hdr = {0};
+    hdr.Signature = MINIDUMP_SIGNATURE;
+    hdr.NumberOfStreams = 1;
+    hdr.StreamDirectoryRva = sizeof(hdr);
+    buf.Append(hdr);
+
+    // Dummy directory.
+    MINIDUMP_DIRECTORY directory = {0};
+    buf.Append(directory);
+
+    // A string. Note that although a null terminating character is written, it
+    // is not counted in the size written to the file.
+    ULONG32 size_bytes = sizeof(kSomeString) - sizeof(wchar_t);
+    buf.Append(size_bytes);
+    buf.Append(kSomeString, sizeof(kSomeString));
+  }
+
+  BufferMinidump minidump;
+  ASSERT_TRUE(minidump.Initialize(buf.data(), buf.len()));
+
+  MINIDUMP_LOCATION_DESCRIPTOR loc = {
+      static_cast<ULONG32>(-1),
+      sizeof(MINIDUMP_HEADER) + sizeof(MINIDUMP_DIRECTORY)};
+  Minidump::Stream test = minidump.GetStreamFor(loc);
+  std::wstring recovered;
+  ASSERT_TRUE(test.ReadAndAdvanceString(&recovered));
+  ASSERT_EQ(kSomeString, recovered);
+}
 
 }  // namespace minidump

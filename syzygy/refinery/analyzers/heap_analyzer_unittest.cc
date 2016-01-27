@@ -31,7 +31,7 @@ namespace {
 
 bool AnalyzeMinidump(const base::FilePath& minidump_path,
                      ProcessState* process_state) {
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   if (!minidump.Open(minidump_path))
     return false;
 

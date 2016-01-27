@@ -31,7 +31,7 @@
 namespace refinery {
 
 TEST(ThreadAnalyzerTest, Basic) {
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
   ProcessState process_state;
   SimpleProcessAnalysis analysis(&process_state);
@@ -64,7 +64,7 @@ TEST_F(ThreadAnalyzerSyntheticTest, BasicTest) {
   ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze.
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;

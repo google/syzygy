@@ -59,7 +59,7 @@ TEST(AnalysisRunnerTest, BasicSuccessTest) {
 
   ProcessState process_state;
   SimpleProcessAnalysis analysis(&process_state);
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
 
   // Analyze.
   ASSERT_EQ(Analyzer::ANALYSIS_COMPLETE, runner.Analyze(minidump, analysis));
@@ -73,7 +73,7 @@ TEST(AnalysisRunnerTest, BasicErrorTest) {
 
   ProcessState process_state;
   SimpleProcessAnalysis analysis(&process_state);
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   // Analyze.
   ASSERT_EQ(Analyzer::ANALYSIS_ERROR, runner.Analyze(minidump, analysis));
 }

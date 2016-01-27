@@ -31,7 +31,7 @@
 namespace refinery {
 
 TEST(ModuleAnalyzerTest, AnalyzeMinidump) {
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   ProcessState process_state;
@@ -56,7 +56,7 @@ TEST_F(ModuleAnalyzerSyntheticTest, BasicTest) {
   ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze it for modules.
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(dump_file()));
   ProcessState process_state;
   SimpleProcessAnalysis analysis(&process_state);

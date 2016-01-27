@@ -43,8 +43,6 @@ class DefaultHeaderParser {
 }  // namespace internal
 
 // fwd.
-class Minidump;
-
 template <typename HeaderType,
           typename ElementType,
           size_t (*ParseHeaderFunction)(const HeaderType& hdr) =
@@ -72,15 +70,15 @@ class Minidump {
   Minidump();
   ~Minidump();
 
+  // @name Typed stream accessors.
+  // These functions retrieve typed stream accessors to particular well-known
+  // streams in the mindump directory.
+  // @{
   TypedMemoryList GetMemoryList() const;
   TypedModuleList GetModuleList() const;
   TypedThreadList GetThreadList() const;
   TypedThreadExList GetThreadExList() const;
-
-  // Opens the minidump file at @p path and verifies its header structure.
-  // @param path the minidump file to open.
-  // @return true on success, false on failure.
-  bool Open(const base::FilePath& path);
+  // @}
 
   // Returns a stream for @p location.
   // @param location defines the offset and length of the returned stream.
@@ -101,7 +99,7 @@ class Minidump {
     return directory_;
   }
 
- private:
+ protected:
   friend class Stream;
 
   // @name Data accessors.
@@ -111,12 +109,51 @@ class Minidump {
   // @param data where to write the data, must be of size @p data_data size or
   //     larger.
   // @returns true on success, false on failure, including a short read.
-  bool ReadBytes(size_t offset, size_t data_size, void* data) const;
+  virtual bool ReadBytes(size_t offset, size_t data_size, void* data) const = 0;
 
-  base::ScopedFILE file_;
+  bool ReadDirectory();
+
   std::vector<MINIDUMP_DIRECTORY> directory_;
 
+ private:
   DISALLOW_COPY_AND_ASSIGN(Minidump);
+};
+
+// Allows parsing a minidump from a file.
+class FileMinidump : public Minidump {
+ public:
+  // Opens the minidump file at @p path and verifies its header structure.
+  // @param path the minidump file to open.
+  // @return true on success, false on failure.
+  bool Open(const base::FilePath& path);
+
+ protected:
+  bool ReadBytes(size_t offset, size_t data_size, void* data) const override;
+
+ private:
+  base::ScopedFILE file_;
+};
+
+// Allows parsing a minidump from an in-memory buffer.
+class BufferMinidump : public Minidump {
+ public:
+  BufferMinidump();
+
+  // Initializes the minidump to the contents of @p buf[0.. @p buf_len].
+  // Note that @p buf must outlive this instance, as it does not take ownership
+  // of the buffer, nor copy it.
+  // @param buf pointer to the buffer containing the minidump.
+  // @param buf_len the size of the @p buf buffer.
+  // @returns true on success, false on failure.
+  bool Initialize(const uint8_t* buf, size_t buf_len);
+
+ protected:
+  bool ReadBytes(size_t offset, size_t data_size, void* data) const override;
+
+ private:
+  // Not owned.
+  const uint8_t* buf_;
+  size_t buf_len_;
 };
 
 // A forward-only reading class that bounds reads to streams that make it safe

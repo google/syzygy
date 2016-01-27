@@ -274,7 +274,7 @@ TEST_F(MinidumpTest, LoaderLock) {
       CallGenerateMinidump(default_dump_file_path, &result));
   ASSERT_TRUE(result);
 
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(default_dump_file_path));
 
   minidump::Minidump::Stream stream =
@@ -321,7 +321,7 @@ TEST_F(MinidumpTest, NtdllLoadAddress) {
   ASSERT_NO_FATAL_FAILURE(CallGenerateMinidump(dump_file_path, &result));
   ASSERT_TRUE(result);
 
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(dump_file_path));
 
   // Retrieve the unique module list stream.

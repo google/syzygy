@@ -128,7 +128,7 @@ int RunAnalyzerApplication::Run() {
   for (const auto& minidump_path : mindump_paths_) {
     ::fprintf(out(), "Processing \"%ls\"\n", minidump_path.value().c_str());
 
-    minidump::Minidump minidump;
+    minidump::FileMinidump minidump;
     if (!minidump.Open(minidump_path)) {
       LOG(ERROR) << "Unable to open dump file.";
       return 1;

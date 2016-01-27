@@ -66,7 +66,7 @@ TEST(ExceptionHandlerValidatorTest, AnalyzeMinidump) {
   // Process the minidump for memory and thread data.
   ProcessState process_state;
 
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
   ASSERT_TRUE(RunAnalysis(minidump, &process_state));
 
@@ -127,7 +127,7 @@ class ExceptionHandlerValidatorSyntheticTest
   }
 
   void Analyze() {
-    minidump::Minidump minidump;
+    minidump::FileMinidump minidump;
     ASSERT_TRUE(minidump.Open(dump_file()));
     ASSERT_TRUE(RunAnalysis(minidump, &process_state_));
   }

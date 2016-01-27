@@ -141,7 +141,7 @@ class TypePropagatorAnalyzerTest : public testing::Test {
     analysis.set_symbol_provider(mock_provider);
 
     TypePropagatorAnalyzer analyzer;
-    minidump::Minidump dummy_minidump;
+    minidump::FileMinidump dummy_minidump;
     return analyzer.Analyze(dummy_minidump, analysis) ==
            Analyzer::ANALYSIS_COMPLETE;
   }

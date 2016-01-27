@@ -32,7 +32,7 @@
 namespace refinery {
 
 TEST(ExceptionAnalyzerTest, AnalyzeMinidump) {
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   ProcessState process_state;
@@ -68,7 +68,7 @@ TEST_F(ExceptionAnalyzerSyntheticTest, NoExceptionTest) {
   ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Ensure analysis succeeds.
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;
@@ -103,7 +103,7 @@ TEST_F(ExceptionAnalyzerSyntheticTest, BasicTest) {
   ASSERT_NO_FATAL_FAILURE(Serialize(spec));
 
   // Analyze.
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(dump_file()));
 
   ProcessState process_state;

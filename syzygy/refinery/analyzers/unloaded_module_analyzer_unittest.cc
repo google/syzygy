@@ -30,7 +30,7 @@
 namespace refinery {
 
 TEST(UnloadedModuleAnalyzerTest, AnalyzeMinidump) {
-  minidump::Minidump minidump;
+  minidump::FileMinidump minidump;
   ASSERT_TRUE(minidump.Open(testing::TestMinidumps::GetNotepad32Dump()));
 
   ProcessState process_state;
