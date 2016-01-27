@@ -73,20 +73,6 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
     const ProcessAnalysis& process_analysis) {
   DCHECK(process_analysis.process_state() != nullptr);
 
-  minidump::Minidump::Stream memory_list =
-      minidump.FindNextStream(nullptr, MemoryListStream);
-  if (!memory_list.IsValid())
-    return ANALYSIS_ERROR;
-  // Ensure MemoryListStream is unique.
-  minidump::Minidump::Stream offending_list =
-      minidump.FindNextStream(&memory_list, MemoryListStream);
-  if (offending_list.IsValid())
-    return ANALYSIS_ERROR;
-
-  ULONG32 num_ranges = 0;
-  if (!memory_list.ReadAndAdvanceElement(&num_ranges))
-    return ANALYSIS_ERROR;
-
   BytesLayerPtr bytes_layer;
   process_analysis.process_state()->FindOrCreateLayer(&bytes_layer);
 
@@ -97,11 +83,11 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
   // range that supplies a given byte.
   using MemoryAddressSpace = core::AddressSpace<Address, Size, std::string>;
   MemoryAddressSpace memory_temp;
-  for (size_t i = 0; i < num_ranges; ++i) {
-    MINIDUMP_MEMORY_DESCRIPTOR descriptor = {};
-    if (!memory_list.ReadAndAdvanceElement(&descriptor))
+  minidump::Minidump::TypedMemoryList memory_list = minidump.GetMemoryList();
+  if (!memory_list.IsValid())
       return ANALYSIS_ERROR;
 
+  for (const auto& descriptor : memory_list) {
     Address range_addr = descriptor.StartOfMemoryRange;
     Size range_size = descriptor.Memory.DataSize;
     minidump::Minidump::Stream bytes_stream =

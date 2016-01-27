@@ -34,27 +34,13 @@ Analyzer::AnalysisResult ModuleAnalyzer::Analyze(
     const ProcessAnalysis& process_analysis) {
   DCHECK(process_analysis.process_state() != nullptr);
 
-  // Retrieve the unique module list stream.
-  minidump::Minidump::Stream module_list =
-      minidump.FindNextStream(nullptr, ModuleListStream);
-  if (!module_list.IsValid())
-    return ANALYSIS_ERROR;
-  minidump::Minidump::Stream offending_list =
-      minidump.FindNextStream(&module_list, ModuleListStream);
-  if (offending_list.IsValid())
-    return ANALYSIS_ERROR;
-
-  ULONG32 num_modules = 0;
-  if (!module_list.ReadAndAdvanceElement(&num_modules))
-    return ANALYSIS_ERROR;
-
   ModuleLayerAccessor layer_accessor(process_analysis.process_state());
 
-  for (size_t i = 0; i < num_modules; ++i) {
-    MINIDUMP_MODULE module = {};
-    if (!module_list.ReadAndAdvanceElement(&module))
+  minidump::Minidump::TypedModuleList modules = minidump.GetModuleList();
+  if (!modules.IsValid())
       return ANALYSIS_ERROR;
 
+  for (const auto& module : modules) {
     AddressRange range(module.BaseOfImage, module.SizeOfImage);
     if (!range.IsValid())
       return ANALYSIS_ERROR;

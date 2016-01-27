@@ -33,22 +33,11 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
   scoped_refptr<ProcessState::Layer<Stack>> stack_layer;
   process_analysis.process_state()->FindOrCreateLayer(&stack_layer);
 
-  minidump::Minidump::Stream thread_list =
-      minidump.FindNextStream(nullptr, ThreadListStream);
-  if (!thread_list.IsValid())
-    return ANALYSIS_ERROR;
-
-  ULONG32 num_threads = 0;
-  if (!thread_list.ReadAndAdvanceElement(&num_threads))
-    return ANALYSIS_ERROR;
-
-  for (size_t i = 0; i < num_threads; ++i) {
-    // Note: if the dump were full memory, we would need to read a
-    // MINIDUMP_THREAD based on a MINIDUMP_MEMORY_DESCRIPTOR64.
-    MINIDUMP_THREAD thread = {};
-    if (!thread_list.ReadAndAdvanceElement(&thread))
+  minidump::Minidump::TypedThreadList threads = minidump.GetThreadList();
+  if (!threads.IsValid())
       return ANALYSIS_ERROR;
 
+  for (const auto& thread : threads) {
     // Create the stack record.
     scoped_refptr<ProcessState::Record<Stack>> stack_record;
     AddressRange range(thread.Stack.StartOfMemoryRange,
