@@ -110,6 +110,9 @@
         'test_vtables.def',
         'test_vtables.cc',
       ],
+      'dependencies': [
+        'test_alias_lib',
+      ],
       # Test data settings should match those of an official Chrome build.
       'msvs_settings': {
         'VCCLCompilerTool': {
