@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 //
-// Declares some structure and some utility functions used to get some
-// information about an Asan error.
+// Declares structures and utility functions used to get information about an
+// Asan error.
 
 #ifndef SYZYGY_AGENT_ASAN_ERROR_INFO_H_
 #define SYZYGY_AGENT_ASAN_ERROR_INFO_H_
@@ -81,15 +81,19 @@ extern const char kCorruptHeap[];
 
 enum AsanFeatureSet {
   ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS = (1 << 0),
-  DISABLED_ASAN_FEATURE_ENABLE_CTMALLOC = (1 << 1),
+  // This feature flag is currently deprecated and ignored.
+  DEPRECATED_ASAN_FEATURE_ENABLE_CTMALLOC = (1 << 1),
   ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP = (1 << 2),
-  ASAN_FEATURE_ENABLE_KASKO = (1 << 3),
+  // This feature flag is currently deprecated and ignored.
+  DEPRECATED_ASAN_FEATURE_ENABLE_KASKO = (1 << 3),
   ASAN_FEATURE_MAX = (1 << 4),
 };
 
-// Features that have been disabled.
-const size_t kAsanDisabledFeatureMask = static_cast<size_t>(
-    ~DISABLED_ASAN_FEATURE_ENABLE_CTMALLOC);
+// Feature mask to be applied to the randomized feature set. This masks out
+// the deprecated features.
+const size_t kAsanValidFeatureMask = ~static_cast<size_t>(
+    DEPRECATED_ASAN_FEATURE_ENABLE_CTMALLOC |
+    DEPRECATED_ASAN_FEATURE_ENABLE_KASKO);
 
 // Store the information that we want to report about a block.
 // TODO(sebmarchand): Rename this to avoid the confusion with the BlockInfo

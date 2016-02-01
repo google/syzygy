@@ -225,9 +225,6 @@ class AsanRuntime {
   // once the problem gets fixed.
   AsanFeatureSet enabled_features_;
 
-  // Indicates if Kasko is enabled.
-  bool enable_kasko_;
-
  private:
   // Sets up the shadow memory.
   // @returns true on success, false otherwise.

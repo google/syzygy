@@ -161,10 +161,8 @@ void DefaultErrorHandler(AsanErrorInfo* error_info) {
 // in crash context, depending on where and when we capture the context.
 //
 // @param breakpad_functions The Breakpad functions structure to be populated.
-// @param enable_kasko Indicates if the Kasko functions should be used.
 // @returns true if we found breakpad functions, false otherwise.
-bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions,
-                          bool enable_kasko) {
+bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
   DCHECK_NE(reinterpret_cast<BreakpadFunctions*>(NULL), breakpad_functions);
 
   // Clear the structure.
@@ -191,17 +189,15 @@ bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions,
       reinterpret_cast<WinProcExceptionFilter>(
           ::GetProcAddress(exe_hmodule, kCrashHandlerSymbol));
 
-  if (enable_kasko) {
-    // Lookup the optional enhanced crash handler symbol.
-    breakpad_functions->report_crash_with_protobuf_ptr =
-        reinterpret_cast<ReportCrashWithProtobufPtr>(
-            ::GetProcAddress(exe_hmodule, kReportCrashWithProtobufSymbol));
-    // Lookup the optional enhanced crash handler symbol.
-    breakpad_functions->report_crash_with_protobuf_and_memory_ranges_ptr =
-        reinterpret_cast<ReportCrashWithProtobufAndMemoryRangesPtr>(
-            ::GetProcAddress(exe_hmodule,
-                             kReportCrashWithProtobufAndMemoryRangesSymbol));
-  }
+  // Lookup the optional enhanced crash handler symbol.
+  breakpad_functions->report_crash_with_protobuf_ptr =
+      reinterpret_cast<ReportCrashWithProtobufPtr>(
+          ::GetProcAddress(exe_hmodule, kReportCrashWithProtobufSymbol));
+  // Lookup the optional enhanced crash handler symbol.
+  breakpad_functions->report_crash_with_protobuf_and_memory_ranges_ptr =
+      reinterpret_cast<ReportCrashWithProtobufAndMemoryRangesPtr>(
+          ::GetProcAddress(exe_hmodule,
+                            kReportCrashWithProtobufAndMemoryRangesSymbol));
 
   if (breakpad_functions->crash_for_exception_ptr == NULL &&
       breakpad_functions->report_crash_with_protobuf_ptr == NULL &&
@@ -550,8 +546,7 @@ AsanRuntime::AsanRuntime()
       stack_cache_(),
       asan_error_callback_(),
       heap_manager_(),
-      random_key_(::__rdtsc()),
-      enable_kasko_(true) {
+      random_key_(::__rdtsc()) {
   ::common::SetDefaultAsanParameters(&params_);
   starting_ticks_ = ::GetTickCount();
 }
@@ -602,7 +597,7 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // detected. If we're able to resolve a breakpad error reporting function
   // then use that; otherwise, fall back to the default error handler.
   if (!params_.disable_breakpad_reporting &&
-      GetBreakpadFunctions(&breakpad_functions, enable_kasko_)) {
+      GetBreakpadFunctions(&breakpad_functions)) {
     logger_->Write("SyzyASAN: Using Breakpad for error reporting.");
     SetErrorCallBack(base::Bind(&BreakpadErrorHandler, breakpad_functions));
   } else {
@@ -1072,13 +1067,12 @@ AsanFeatureSet AsanRuntime::GenerateRandomFeatureSet() {
       static_cast<AsanFeatureSet>(base::RandGenerator(ASAN_FEATURE_MAX));
   DCHECK_LT(enabled_features, ASAN_FEATURE_MAX);
   enabled_features = static_cast<AsanFeatureSet>(
-      static_cast<size_t>(enabled_features) & kAsanDisabledFeatureMask);
+      static_cast<size_t>(enabled_features) & kAsanValidFeatureMask);
 
   heap_manager_->enable_page_protections_ =
       (enabled_features & ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS) != 0;
   params_.enable_large_block_heap =
       (enabled_features & ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP) != 0;
-  enable_kasko_ = (enabled_features & ASAN_FEATURE_ENABLE_KASKO) != 0;
   return enabled_features;
 }
 

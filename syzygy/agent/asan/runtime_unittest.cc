@@ -43,7 +43,6 @@ class TestAsanRuntime : public AsanRuntime {
  public:
   using AsanRuntime::GenerateRandomFeatureSet;
   using AsanRuntime::PropagateParams;
-  using AsanRuntime::enable_kasko_;
   using AsanRuntime::enabled_features_;
   using AsanRuntime::heap_manager_;
 };
@@ -279,16 +278,13 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
       feature_activation_count[base::bits::Log2Floor(
           ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP)]++;
     }
-    if (asan_runtime_.enable_kasko_) {
-      feature_activation_count[base::bits::Log2Floor(
-          ASAN_FEATURE_ENABLE_KASKO)]++;
-    }
   }
 
-  size_t number_of_disabled_features = 0;
-  for (size_t i = 0; i < sizeof(kAsanDisabledFeatureMask); ++i) {
-    if ((kAsanDisabledFeatureMask & (1 << i)) == 0)
-      number_of_disabled_features++;
+  // Count the deprecated features.
+  size_t number_of_deprecated_features = 0;
+  for (size_t i = 0; i < sizeof(kAsanValidFeatureMask) * 8; ++i) {
+    if ((kAsanValidFeatureMask & (1 << i)) == 0)
+      number_of_deprecated_features++;
   }
 
   // This could theoretically fail, but that would imply an extremely bad
@@ -297,7 +293,7 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
   // 1000 / 33 = 30 standard deviations. For |z| > 30, the p-value is < 0.00001
   // and can be considered as insignificant.
   const size_t kExpectedCount =
-    kIterations / (ASAN_FEATURE_MAX >> number_of_disabled_features);
+    kIterations / (ASAN_FEATURE_MAX >> number_of_deprecated_features);
   const size_t kErrorMargin = kExpectedCount / 10;
   for (const auto& iter : feature_group_frequency) {
     EXPECT_LT(kExpectedCount - kErrorMargin, iter.second);
@@ -312,7 +308,7 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
   const size_t kExpectedFeatureFrequencyErrorMargin =
       kExpectedFeatureFrequency / 10;
   for (size_t i = 0; i < feature_activation_count.size(); ++i) {
-    if ((kAsanDisabledFeatureMask & (1 << i)) != 0) {
+    if ((kAsanValidFeatureMask & (1 << i)) != 0) {
       EXPECT_LT(
           kExpectedFeatureFrequency - kExpectedFeatureFrequencyErrorMargin,
           feature_activation_count[i]);
@@ -340,7 +336,7 @@ TEST_F(AsanRuntimeTest, OnErrorSaveEnabledFeatureList) {
   AsanErrorInfo bad_access_info = {};
   RtlCaptureContext(&bad_access_info.context);
   AsanFeatureSet expected_feature_set = static_cast<AsanFeatureSet>(
-      ASAN_FEATURE_ENABLE_KASKO | ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP);
+      ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP);
   asan_runtime_.enabled_features_ = expected_feature_set;
   asan_runtime_.OnError(&bad_access_info);
   EXPECT_TRUE(callback_called);
