@@ -53,6 +53,8 @@
         'stack_frame_analyzer.h',
         'stack_analyzer_impl.cc',
         'stack_analyzer_impl.h',
+        'teb_analyzer.cc',
+        'teb_analyzer.h',
         'thread_analyzer.cc',
         'thread_analyzer.h',
         'type_propagator_analyzer.cc',
