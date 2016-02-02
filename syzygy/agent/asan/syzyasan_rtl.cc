@@ -15,22 +15,30 @@
 #include <windows.h>
 
 #include "base/at_exit.h"
-#include "base/atomicops.h"
+#include "base/bind.h"
 #include "base/command_line.h"
 #include "base/logging.h"
+#include "base/synchronization/lock.h"
+#include "syzygy/agent/asan/iat_patcher.h"
+#include "syzygy/agent/asan/memory_interceptors.h"
 #include "syzygy/agent/asan/rtl_impl.h"
 #include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/runtime_util.h"
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/common/logging.h"
 
+namespace agent {
+namespace asan {
 namespace {
+
+// This lock guards against IAT patching on multiple threads concurrently.
+base::Lock patch_lock;
 
 // Our AtExit manager required by base.
 base::AtExitManager* at_exit = nullptr;
 
 // The asan runtime manager.
-agent::asan::AsanRuntime* asan_runtime = nullptr;
+AsanRuntime* asan_runtime = nullptr;
 
 void SetUpAtExitManager() {
   DCHECK_EQ(static_cast<base::AtExitManager*>(nullptr), at_exit);
@@ -42,6 +50,72 @@ void TearDownAtExitManager() {
   DCHECK_NE(static_cast<base::AtExitManager*>(nullptr), at_exit);
   delete at_exit;
   at_exit = nullptr;
+}
+
+MemoryAccessorMode SelectMemoryAccessorMode() {
+  static uint64_t kOneGB = 1ull << 30;
+
+  // If there is no runtime then use the noop probes.
+  if (asan_runtime == nullptr)
+    return MEMORY_ACCESSOR_MODE_NOOP;
+
+  // Determine the amount of shadow memory allocated.
+  uint64_t gb = asan_runtime->shadow()->length();
+  gb <<= kShadowRatioLog;
+  gb /= kOneGB;
+
+  switch (gb) {
+    case 2:
+      return MEMORY_ACCESSOR_MODE_2G;
+    case 4:
+      return MEMORY_ACCESSOR_MODE_4G;
+    // 1GB should never happen, and 3GB simply isn't properly supported.
+    default:
+      return MEMORY_ACCESSOR_MODE_NOOP;
+  }
+}
+
+MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
+  // This grabs the loader's lock, which could be a problem. If there are
+  // multiple instrumented DLLs, or a single one executing on multiple threads,
+  // there could be lock inversion here. The possibility seems remote, though.
+  // Maybe locating the module associated with the caller_address can be done
+  // with a VirtualQuery, with a fallback to the loader for an additional pair
+  // of belt-and-suspenders...
+  const DWORD kFlags = GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                       GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT;
+  HMODULE calling_module = nullptr;
+  BOOL success = ::GetModuleHandleEx(
+      kFlags, reinterpret_cast<LPCWSTR>(caller_address), &calling_module);
+  CHECK_EQ(TRUE, success);
+
+  // TODO(chrisha): Implement logic for selecting the noop mode if the system
+  // isn't up to par, if so configured by Finch, if the shadow memory
+  // allocation failed, etc.
+  MemoryAccessorMode mode = SelectMemoryAccessorMode();
+
+  // If a runtime has been successfully allocated but for whatever reason the
+  // noop instrumentation has been selected, then cleanup the runtime
+  // allocation.
+  if (mode == MEMORY_ACCESSOR_MODE_NOOP && asan_runtime != nullptr)
+    TearDownAsanRuntime(&asan_runtime);
+
+  // Build the IAT patch map.
+  IATPatchMap patch_map;
+  for (size_t i = 0; i < kNumMemoryAccessorVariants; ++i) {
+    patch_map.insert(
+        std::make_pair(kMemoryAccessorVariants[i].name,
+                       kMemoryAccessorVariants[i].accessors[mode]));
+  }
+
+  // Grab the patching lock only while patching the caller's IAT. Assuming no
+  // other parties are patching this IAT, this is sufficient to make
+  // double-patching due to multiple threads invoking on instrumentation
+  // concurrently idempotent.
+  base::AutoLock lock(patch_lock);
+  CHECK(PatchIATForModule(calling_module, patch_map));
+
+  return mode;
 }
 
 }  // namespace
@@ -60,11 +134,14 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
       // process where logging to file doesn't help us any. In other cases the
       // log output will still go to console.
       base::CommandLine::Init(0, NULL);
-      common::InitLoggingForDll(L"asan");
+      ::common::InitLoggingForDll(L"asan");
 
-      // This runtime has no ability to disable instrumentation so can't
-      // tolerate an initialization failure.
-      CHECK(SetUpAsanRuntime(&asan_runtime));
+      // Setup the ASAN runtime. If this fails then |asan_runtime| will remain
+      // nullptr, and the stub redirection will enable the noop probes.
+      SetUpAsanRuntime(&asan_runtime);
+
+      // Hookup IAT patching on redirector stub entry.
+      agent::asan::SetRedirectEntryCallback(base::Bind(OnRedirectStubEntry));
       break;
     }
 
@@ -98,3 +175,6 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
 }
 
 }  // extern "C"
+
+}  // namespace asan
+}  // namespace agent

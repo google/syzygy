@@ -121,52 +121,6 @@
       ],
     },
     {
-      'target_name': 'syzyasan_rtl',
-      'type': 'loadable_module',
-      'includes': [
-        '../agent.gypi',
-        'agent_link_settings.gypi',
-      ],
-      'sources': [
-        'gen/system_interceptors.def',
-        'static_shadow.cc',
-        'syzyasan_rtl.cc',
-        'syzyasan_rtl.rc',
-      ],
-      'dependencies': [
-        'syzyasan_rtl_lib',
-        '<(src)/syzygy/agent/common/common.gyp:agent_common_lib',
-        '<(src)/syzygy/common/common.gyp:common_lib',
-        '<(src)/syzygy/core/core.gyp:core_lib',
-        '<(src)/syzygy/version/version.gyp:syzygy_version',
-      ],
-      'msvs_settings': {
-        'VCLinkerTool': {
-          # This module should delay load nothing.
-          'DelayLoadDLLs=': [
-          ],
-        },
-      },
-      'conditions': [
-        ['pgo_phase==1', {
-          'msvs_settings': {
-            'VCLinkerTool': {
-              # 2 corresponds to LTCG:PGINSTRUMENT.
-              'LinkTimeCodeGeneration': '2',
-            },
-          },
-        }],
-        ['pgo_phase==2', {
-          'msvs_settings': {
-            'VCLinkerTool': {
-              # 3 corresponds to LTCG:PGOPTIMIZE.
-              'LinkTimeCodeGeneration': '3',
-            },
-          },
-        }],
-      ],
-    },
-    {
       'target_name': 'syzyasan_rtl_unittest_utils',
       'type': 'static_library',
       'sources': [
@@ -330,7 +284,7 @@
       },
     },
     {
-      'target_name': 'syzyasan_dyn',
+      'target_name': 'syzyasan_rtl',
       'type': 'loadable_module',
       'includes': [
         '../agent.gypi',
@@ -342,8 +296,8 @@
         # (we usually suffix generated files with .gen).
         'dummy_shadow.cc',
         'gen/system_interceptors_dyn.def',
-        'syzyasan_dyn.cc',
-        'syzyasan_dyn.rc',
+        'syzyasan_rtl.cc',
+        'syzyasan_rtl.rc',
       ],
       'dependencies': [
         'syzyasan_rtl_lib',
@@ -359,6 +313,24 @@
           ],
         },
       },
+      'conditions': [
+        ['pgo_phase==1', {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # 2 corresponds to LTCG:PGINSTRUMENT.
+              'LinkTimeCodeGeneration': '2',
+            },
+          },
+        }],
+        ['pgo_phase==2', {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # 3 corresponds to LTCG:PGOPTIMIZE.
+              'LinkTimeCodeGeneration': '3',
+            },
+          },
+        }],
+      ],
     },
   ],
 }

@@ -17,7 +17,7 @@
 // to this dummy shadow memory are run they will behave badly until they have
 // been patched using 'PatchMemoryInterceptorShadowReferences'.
 //
-// Intended for use in syzyasan_dyn.dll.
+// Intended for use in syzyasan_rtl.dll.
 
 #include <cstdint>
 

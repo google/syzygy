@@ -16,7 +16,7 @@
 // runtimes that can't patch the memory interceptor probes and thus need a
 // hardcoded address for the shadow memory array.
 //
-// Intended for use in syzyasan_rtl.dll.
+// Intended for use in syzyasan_rtl_unittests.exe.
 
 #include "syzygy/agent/asan/shadow.h"
 
