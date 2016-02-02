@@ -16,13 +16,17 @@
 
 namespace {
 
-bool GetFieldOffset(refinery::UserDefinedTypePtr record_type,
+bool GetMemberFieldOffset(refinery::UserDefinedTypePtr record_type,
                     base::StringPiece16 field_name,
                     size_t* field_offset) {
   DCHECK(field_offset);
   for (auto f : record_type->fields()) {
-    if (f.name() == field_name) {
-      *field_offset = f.offset();
+    refinery::MemberFieldPtr member;
+    if (!f->CastTo(&member))
+      continue;
+
+    if (member->name() == field_name) {
+      *field_offset = member->offset();
       return true;
     }
   }
@@ -43,7 +47,7 @@ bool ListEntryEnumerator::Initialize(const refinery::TypedData& list_head,
   if (!list_head.GetNamedField(L"Flink", &flink) || !flink.IsPointerType())
     return false;
 
-  if (!GetFieldOffset(record_type, list_entry_name, &list_entry_offset_))
+  if (!GetMemberFieldOffset(record_type, list_entry_name, &list_entry_offset_))
     return false;
   record_type_ = record_type;
   list_entry_name.CopyToString(&list_entry_name_);

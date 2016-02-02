@@ -47,9 +47,11 @@ using refinery::AddressRange;
 using refinery::ArrayTypePtr;
 using refinery::BitSource;
 using refinery::DiaCrawler;
+using refinery::MemberFieldPtr;
 using refinery::TypeRepository;
 using refinery::TypePtr;
 using refinery::TypedData;
+using refinery::UserDefinedType;
 using refinery::UserDefinedTypePtr;
 
 // XORs the bytes in a memory range together and returns the result;
@@ -386,14 +388,23 @@ void HeapEnumerate::DumpTypedData(const TypedData& data, size_t indent) {
     UserDefinedTypePtr udt;
     if (data.type()->CastTo(&udt)) {
       std::fprintf(output_, "@0x%08llX:\n", data.addr());
-      for (auto f : udt->fields()) {
-        Spaces(output_, indent);
 
-        TypePtr field_type = udt->repository()->GetType(f.type_id());
-        TypedData field;
-        data.GetField(f, &field);
-        std::fprintf(output_, "(+0x%02X) %ls:", f.offset(), f.name().c_str());
-        DumpTypedData(field, indent + 1);
+      // Print out members.
+      const UserDefinedType::Fields& fields = udt->fields();
+      for (size_t i = 0; i < fields.size(); ++i) {
+        MemberFieldPtr member;
+        if (!fields[i]->CastTo(&member))
+          continue;
+        Spaces(output_, indent);
+        std::fprintf(output_, "(+0x%02X) %ls:", member->offset(),
+                     member->name().c_str());
+
+        TypedData member_data;
+        if (!data.GetField(i, &member_data)) {
+          std::fprintf(output_, "*failed to get member data*\n");
+          continue;
+        }
+        DumpTypedData(member_data, indent + 1);
       }
     } else {
       std::fprintf(output_, "*UNKNOWN*\n");

@@ -80,7 +80,7 @@ TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
   DCHECK(!is_fwd_decl_);
   DCHECK_GT(fields_.size(), field_no);
 
-  return repository()->GetType(fields_[field_no].type_id());
+  return repository()->GetType(fields_[field_no]->type_id());
 }
 
 TypePtr UserDefinedType::GetFunctionType(size_t function_no) const {
@@ -95,16 +95,15 @@ BasicType::BasicType(const base::string16& name, size_t size)
     : Type(BASIC_TYPE_KIND, name, name, size) {
 }
 
-void UserDefinedType::Finalize(const Fields& fields,
-                               const Functions& functions) {
+void UserDefinedType::Finalize(Fields* fields, Functions* functions) {
   DCHECK(!is_fwd_decl_);
   DCHECK_EQ(0U, fields_.size());
   DCHECK_EQ(0U, functions_.size());
-  for (auto field : fields)
-    fields_.push_back(field);
+  DCHECK(fields);
+  DCHECK(functions);
 
-  for (auto function : functions)
-    functions_.push_back(function);
+  fields_.swap(*fields);
+  functions_.swap(*functions);
 }
 
 void UserDefinedType::SetIsForwardDeclaration() {
@@ -115,21 +114,45 @@ void UserDefinedType::SetIsForwardDeclaration() {
   is_fwd_decl_ = true;
 }
 
-UserDefinedType::Field::Field(const base::string16& name,
-                              ptrdiff_t offset,
-                              Flags flags,
-                              size_t bit_pos,
-                              size_t bit_len,
-                              TypeId type_id)
-    : name_(name),
-      offset_(offset),
+UserDefinedType::Field::Field(FieldKind kind, ptrdiff_t offset, TypeId type_id)
+    : kind_(kind), offset_(offset), type_id_(type_id) {
+  DCHECK_NE(kNoTypeId, type_id);
+}
+
+bool UserDefinedType::Field::operator==(const Field& o) const {
+  return IsEqual(o);
+}
+
+bool UserDefinedType::Field::IsEqual(const Field& o) const {
+  return kind_ == o.kind_ && offset_ == o.offset_ && type_id_ == o.type_id_;
+}
+
+UserDefinedType::Field::~Field() {
+}
+
+UserDefinedType::MemberField::MemberField(const base::string16& name,
+                                          ptrdiff_t offset,
+                                          Type::Flags flags,
+                                          size_t bit_pos,
+                                          size_t bit_len,
+                                          TypeId type_id)
+    : Field(MEMBER_KIND, offset, type_id),
+      name_(name),
       flags_(flags),
       bit_pos_(bit_pos),
-      bit_len_(bit_len),
-      type_id_(type_id) {
+      bit_len_(bit_len) {
   DCHECK_GE(63u, bit_pos);
   DCHECK_GE(63u, bit_len);
-  DCHECK_NE(kNoTypeId, type_id);
+}
+
+bool UserDefinedType::MemberField::IsEqual(const Field& o) const {
+  if (!Field::IsEqual(o))
+    return false;
+
+  const MemberField* o_member = static_cast<const MemberField*>(&o);
+
+  return name_ == o_member->name_ && flags_ == o_member->flags_ &&
+         bit_pos_ == o_member->bit_pos_ && bit_len_ == o_member->bit_len_;
 }
 
 UserDefinedType::Function::Function(const base::string16& name, TypeId type_id)
@@ -139,12 +162,6 @@ UserDefinedType::Function::Function(const base::string16& name, TypeId type_id)
 
 bool UserDefinedType::Function::operator==(const Function& other) const {
   return name_ == other.name_ && type_id_ == other.type_id_;
-}
-
-bool UserDefinedType::Field::operator==(const Field& o) const {
-  return name_ == o.name_ && offset_ == o.offset_ && flags_ == o.flags_ &&
-         bit_pos_ == o.bit_pos_ && bit_len_ == o.bit_len_ &&
-         type_id_ == o.type_id_;
 }
 
 PointerType::PointerType(size_t size, Mode ptr_mode)

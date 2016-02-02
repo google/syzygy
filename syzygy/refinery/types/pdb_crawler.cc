@@ -592,7 +592,7 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
     if (!ReadFieldlist(fieldlist_id, &fieldlist, &functionlist))
       return false;
 
-    udt->Finalize(fieldlist, functionlist);
+    udt->Finalize(&fieldlist, &functionlist);
     return udt;
   }
 }
@@ -760,9 +760,9 @@ bool TypeCreator::ProcessMember(pdb::LeafMember* member,
   if (member_type == nullptr)
     return false;
 
-  fields->push_back(UserDefinedType::Field(member->name(), member->offset(),
-                                           flags, bit_pos, bit_len,
-                                           member_type->type_id()));
+  fields->push_back(new UserDefinedType::MemberField(
+      member->name(), member->offset(), flags, bit_pos, bit_len,
+      member_type->type_id()));
   return true;
 }
 

@@ -122,15 +122,14 @@ bool TypePropagatorAnalyzer::AnalyzeTypedDataUDT(const TypedData& typed_data,
   DCHECK_EQ(Type::USER_DEFINED_TYPE_KIND, typed_data.type()->kind());
   DCHECK(process_state != nullptr);
 
-  UserDefinedTypePtr udt;
-  if (!typed_data.type()->CastTo(&udt))
+  size_t field_count = 0U;
+  if (!typed_data.GetFieldCount(&field_count))
     return false;
 
-  for (const auto& field : udt->fields()) {
+  for (size_t i = 0; i < field_count; ++i) {
     TypedData field_data;
-    if (!typed_data.GetField(field, &field_data))
+    if (!typed_data.GetField(i, &field_data))
       return false;  // No valid reason for this to fail.
-
     if (!AnalyzeTypedData(field_data, process_state))
       return false;
   }

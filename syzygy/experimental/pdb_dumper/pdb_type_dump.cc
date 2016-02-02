@@ -146,22 +146,37 @@ void PdbTypeDumpApp::DumpFlags(bool is_const,
 
 void PdbTypeDumpApp::DumpField(const refinery::UserDefinedType::Field& field,
                                uint8_t indent_level) {
-  DumpIndentedText(out(), indent_level, "Field name: %S\n",
-                   field.name().c_str());
-
-  DumpIndentedText(out(), indent_level + 1, "Offset: %d\n", field.offset());
-  DumpIndentedText(out(), indent_level + 1, "Properties:\n", field);
-  DumpFlags(field.is_const(), field.is_volatile(), indent_level + 2);
-
-  if (field.bit_len() != 0) {
-    DumpIndentedText(out(), indent_level + 1, "Bit position: %d\n",
-                     field.bit_pos());
-    DumpIndentedText(out(), indent_level + 1, "Bit length: %d\n",
-                     field.bit_len());
+  scoped_refptr<const refinery::UserDefinedType::MemberField> member;
+  if (field.CastTo(&member)) {
+    DumpMemberField(*member, indent_level);
+    return;
   }
 
+  DumpIndentedText(out(), indent_level, "Field (kind %d)\n", field.kind());
+  DumpIndentedText(out(), indent_level + 1, "Offset: %d\n", field.offset());
   DumpIndentedText(out(), indent_level + 1, "Field type ID: %d\n",
                    field.type_id());
+}
+
+void PdbTypeDumpApp::DumpMemberField(
+    const refinery::UserDefinedType::MemberField& member,
+    uint8_t indent_level) {
+  DumpIndentedText(out(), indent_level, "Member name: %S\n",
+                   member.name().c_str());
+
+  DumpIndentedText(out(), indent_level + 1, "Offset: %d\n", member.offset());
+  DumpIndentedText(out(), indent_level + 1, "Properties:\n");
+  DumpFlags(member.is_const(), member.is_volatile(), indent_level + 2);
+
+  if (member.bit_len() != 0) {
+    DumpIndentedText(out(), indent_level + 1, "Bit position: %d\n",
+                     member.bit_pos());
+    DumpIndentedText(out(), indent_level + 1, "Bit length: %d\n",
+                     member.bit_len());
+  }
+
+  DumpIndentedText(out(), indent_level + 1, "Member type ID: %d\n",
+                   member.type_id());
 }
 
 void PdbTypeDumpApp::DumpFunction(
@@ -211,7 +226,7 @@ void PdbTypeDumpApp::DumpUserDefinedType(refinery::UserDefinedTypePtr type,
   DumpIndentedText(out(), indent_level, "%d member fields:\n",
                    type->fields().size());
   for (const auto& field : type->fields())
-    DumpField(field, indent_level + 1);
+    DumpField(*field, indent_level + 1);
 
   DumpIndentedText(out(), indent_level, "%d member functions:\n",
                    type->functions().size());

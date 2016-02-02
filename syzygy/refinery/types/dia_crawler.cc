@@ -579,9 +579,9 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
         NOTREACHED() << "Impossible location udt!";
       }
 
-      fields.push_back(UserDefinedType::Field(field_name, field_offset,
-                                              field_flags, bit_pos, bit_length,
-                                              field_type->type_id()));
+      fields.push_back(new UserDefinedType::MemberField(
+          field_name, field_offset, field_flags, bit_pos, bit_length,
+          field_type->type_id()));
     } else if (sym_tag == SymTagFunction) {
       base::win::ScopedComPtr<IDiaSymbol> function_type_sym;
       base::string16 function_name;
@@ -603,7 +603,7 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
 
   DCHECK_EQ(0UL, udt->fields().size());
   DCHECK_EQ(0UL, udt->functions().size());
-  udt->Finalize(fields, functions);
+  udt->Finalize(&fields, &functions);
   return true;
 }
 

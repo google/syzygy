@@ -20,13 +20,15 @@ namespace refinery {
 
 namespace {
 
-bool IsFieldOf(TypePtr type, const UserDefinedType::Field& field) {
+bool IsFieldOf(TypePtr type, FieldPtr field) {
+  DCHECK(type); DCHECK(field);
+
   UserDefinedTypePtr udt;
   if (!type->CastTo(&udt))
     return false;
 
-  for (auto f : udt->fields()) {
-    if (f == field)
+  for (FieldPtr f : udt->fields()) {
+    if (*f == *field)
       return true;
   }
 
@@ -101,29 +103,58 @@ bool TypedData::GetNamedField(const base::StringPiece16& name,
   if (!type_->CastTo(&udt))
     return false;
 
-  for (size_t i = 0; i < udt->fields().size(); ++i) {
-    const UserDefinedType::Field& field = udt->fields()[i];
-    if (name == field.name()) {
-      TypePtr field_type = udt->GetFieldType(i);
-      DCHECK(field_type);
-      *out = TypedData(bit_source_, field_type, addr() + field.offset(),
-                       field.bit_pos(), field.bit_len());
-      return true;
-    }
+  const UserDefinedType::Fields& fields = udt->fields();
+  for (size_t i = 0; i < fields.size(); ++i) {
+    FieldPtr field = fields[i];
+
+    MemberFieldPtr member;
+    if (!field->CastTo(&member))
+      continue;
+
+    if (name == member->name())
+      return GetField(i, out);
   }
 
   return false;
 }
 
-bool TypedData::GetField(const UserDefinedType::Field& field,
-                         TypedData* out) const {
-  DCHECK(out);
+bool TypedData::GetField(size_t field_no, TypedData* out) const {
   DCHECK(type_);
   DCHECK(!IsPrimitiveType());
-  DCHECK(IsFieldOf(type_, field));
+  DCHECK(out);
 
-  TypePtr field_type = type_->repository()->GetType(field.type_id());
-  *out = TypedData(bit_source_, field_type, addr() + field.offset());
+  UserDefinedTypePtr udt;
+  if (!type_->CastTo(&udt))
+    return false;
+
+  if (field_no >= udt->fields().size())
+    return false;
+
+  FieldPtr field = udt->fields()[field_no];
+  TypePtr field_type = udt->GetFieldType(field_no);
+
+  size_t bit_pos = 0U;
+  size_t bit_len = 0U;
+  MemberFieldPtr member;
+  if (field->CastTo(&member)) {
+    bit_pos = member->bit_pos();
+    bit_len = member->bit_len();
+  }
+
+  *out = TypedData(bit_source_, field_type, addr() + field->offset(), bit_pos,
+                   bit_len);
+  return true;
+}
+
+bool TypedData::GetFieldCount(size_t* count) const {
+  DCHECK(type_);
+  DCHECK(!IsPrimitiveType());
+
+  UserDefinedTypePtr udt;
+  if (!type_->CastTo(&udt))
+    return false;
+
+  *count = udt->fields().size();
   return true;
 }
 

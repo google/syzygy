@@ -22,6 +22,15 @@ namespace refinery {
 
 namespace {
 
+enum ConstQualifier {
+  NOT_CONST_QUALIFIED,
+  CONST_QUALIFIED
+};
+enum VolatileQualifier {
+  NOT_VOLATILE_QUALIFIED,
+  VOLATILE_QUALIFIED
+};
+
 class TypesTest : public testing::Test {
  protected:
   void SetUp() override {
@@ -38,6 +47,24 @@ class TypesTest : public testing::Test {
     ptr->Finalize(flags, content_type_id);
     ptr->SetName(name);
     return ptr;
+  }
+
+  void ValidateMemberField(FieldPtr field,
+                           const base::string16& name,
+                           ptrdiff_t offset,
+                           TypeId type_id,
+                           ConstQualifier const_qualifier,
+                           VolatileQualifier volatile_qualifier) {
+    EXPECT_EQ(offset, field->offset());
+    EXPECT_EQ(type_id, field->type_id());
+    MemberFieldPtr member;
+    ASSERT_TRUE(field->CastTo(&member));  // implicitely validates kind.
+
+    EXPECT_EQ(name, member->name());
+    EXPECT_EQ(const_qualifier == CONST_QUALIFIED, member->is_const());
+    EXPECT_EQ(volatile_qualifier == VOLATILE_QUALIFIED, member->is_volatile());
+    EXPECT_EQ(0U, member->bit_pos());
+    EXPECT_EQ(0U, member->bit_len());
   }
 
   scoped_refptr<TypeRepository> repo_;
@@ -73,12 +100,13 @@ TEST_F(TypesTest, UserDefinedType) {
   UserDefinedType::Fields fields;
 
   const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
-  fields.push_back(
-      UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId));
-  fields.push_back(UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, 0, 0,
-                                          kBasicTypeId));
+  fields.push_back(new UserDefinedType::MemberField(L"one", 0, Type::FLAG_CONST,
+                                                    0, 0, kBasicTypeId));
+  fields.push_back(new UserDefinedType::MemberField(
+      L"two", 4, Type::FLAG_VOLATILE, 0, 0, kBasicTypeId));
   const TypeId kShortTypeId = repo_->AddType(new BasicType(L"short", 2));
-  fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
+  fields.push_back(
+      new UserDefinedType::MemberField(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt =
       new UserDefinedType(L"foo", 10, UserDefinedType::UDT_CLASS);
 
@@ -95,7 +123,7 @@ TEST_F(TypesTest, UserDefinedType) {
   functions.push_back(
       UserDefinedType::Function(L"memberFunction", kFunctionId));
 
-  udt->Finalize(fields, functions);
+  udt->Finalize(&fields, &functions);
 
   // Up-cast it.
   TypePtr type(udt);
@@ -115,27 +143,24 @@ TEST_F(TypesTest, UserDefinedType) {
   // Verify the fields set up above.
   ASSERT_EQ(3U, udt->fields().size());
 
-  EXPECT_EQ(0U, udt->fields()[0].offset());
-  EXPECT_TRUE(udt->fields()[0].is_const());
-  EXPECT_FALSE(udt->fields()[0].is_volatile());
-  EXPECT_EQ(kBasicTypeId, udt->fields()[0].type_id());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[0], L"one", 0U,
+                                              kBasicTypeId, CONST_QUALIFIED,
+                                              NOT_VOLATILE_QUALIFIED));
   BasicTypePtr basic_type;
   ASSERT_TRUE(udt->GetFieldType(0)->CastTo(&basic_type));
   EXPECT_EQ(L"int", basic_type->name());
   EXPECT_EQ(4, basic_type->size());
 
-  EXPECT_EQ(4U, udt->fields()[1].offset());
-  EXPECT_FALSE(udt->fields()[1].is_const());
-  EXPECT_TRUE(udt->fields()[1].is_volatile());
-  EXPECT_EQ(kBasicTypeId, udt->fields()[1].type_id());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[1], L"two", 4U,
+                                              kBasicTypeId, NOT_CONST_QUALIFIED,
+                                              VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&basic_type));
   EXPECT_EQ(L"int", basic_type->name());
   EXPECT_EQ(4, basic_type->size());
 
-  EXPECT_EQ(8U, udt->fields()[2].offset());
-  EXPECT_FALSE(udt->fields()[2].is_const());
-  EXPECT_FALSE(udt->fields()[2].is_volatile());
-  EXPECT_EQ(kShortTypeId, udt->fields()[2].type_id());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[2], L"three", 8U,
+                                              kShortTypeId, NOT_CONST_QUALIFIED,
+                                              NOT_VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&basic_type));
   EXPECT_EQ(L"short", basic_type->name());
   EXPECT_EQ(2, basic_type->size());
@@ -152,15 +177,17 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
   const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
-  fields.push_back(
-      UserDefinedType::Field(L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId));
-  fields.push_back(UserDefinedType::Field(L"two", 4, Type::FLAG_VOLATILE, 0, 0,
-                                          kBasicTypeId));
+  fields.push_back(new UserDefinedType::MemberField(L"one", 0, Type::FLAG_CONST,
+                                                    0, 0, kBasicTypeId));
+  fields.push_back(new UserDefinedType::MemberField(
+      L"two", 4, Type::FLAG_VOLATILE, 0, 0, kBasicTypeId));
   const TypeId kShortTypeId = repo_->AddType(new BasicType(L"short", 2));
-  fields.push_back(UserDefinedType::Field(L"three", 8, 0, 0, 0, kShortTypeId));
+  fields.push_back(
+      new UserDefinedType::MemberField(L"three", 8, 0, 0, 0, kShortTypeId));
   UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 10,
                                                UserDefinedType::UDT_STRUCT);
-  udt->Finalize(fields, UserDefinedType::Functions());
+  UserDefinedType::Functions functions;
+  udt->Finalize(&fields, &functions);
 
   repo_->AddType(udt);
 
@@ -182,27 +209,24 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   // Verify the fields set up above.
   ASSERT_EQ(3U, udt->fields().size());
 
-  EXPECT_EQ(0U, udt->fields()[0].offset());
-  EXPECT_TRUE(udt->fields()[0].is_const());
-  EXPECT_FALSE(udt->fields()[0].is_volatile());
-  EXPECT_EQ(kBasicTypeId, udt->fields()[0].type_id());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[0], L"one", 0U,
+                                              kBasicTypeId, CONST_QUALIFIED,
+                                              NOT_VOLATILE_QUALIFIED));
   BasicTypePtr basic_type;
   ASSERT_TRUE(udt->GetFieldType(0)->CastTo(&basic_type));
   EXPECT_EQ(L"int", basic_type->name());
   EXPECT_EQ(4, basic_type->size());
 
-  EXPECT_EQ(4U, udt->fields()[1].offset());
-  EXPECT_FALSE(udt->fields()[1].is_const());
-  EXPECT_TRUE(udt->fields()[1].is_volatile());
-  EXPECT_EQ(kBasicTypeId, udt->fields()[1].type_id());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[1], L"two", 4U,
+                                              kBasicTypeId, NOT_CONST_QUALIFIED,
+                                              VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&basic_type));
   EXPECT_EQ(L"int", basic_type->name());
   EXPECT_EQ(4, basic_type->size());
 
-  EXPECT_EQ(8U, udt->fields()[2].offset());
-  EXPECT_FALSE(udt->fields()[2].is_const());
-  EXPECT_FALSE(udt->fields()[2].is_volatile());
-  EXPECT_EQ(kShortTypeId, udt->fields()[2].type_id());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[2], L"three", 8U,
+                                              kShortTypeId, NOT_CONST_QUALIFIED,
+                                              NOT_VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&basic_type));
   EXPECT_EQ(L"short", basic_type->name());
   EXPECT_EQ(2, basic_type->size());

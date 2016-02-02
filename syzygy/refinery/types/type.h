@@ -134,9 +134,12 @@ using BasicTypePtr = scoped_refptr<BasicType>;
 class UserDefinedType : public Type {
  public:
   class Field;
+  class MemberField;
   class Function;
-  typedef std::vector<Field> Fields;
+
+  typedef std::vector<scoped_refptr<Field>> Fields;
   typedef std::vector<Function> Functions;
+
   static const TypeKind ID = USER_DEFINED_TYPE_KIND;
 
   enum UdtKind { UDT_CLASS, UDT_STRUCT, UDT_UNION };
@@ -173,11 +176,11 @@ class UserDefinedType : public Type {
   // @}
 
   // Finalize the type by providing it with a field list.
-  // @param fields the fields for the type.
-  // @param functions the member functions for the type.
+  // @param fields the fields for the type (consumed).
+  // @param functions the member functions for the type (consumed).
   // @note this can only be called once per type instance. Moreover this and
   //     setting the type as a forward declaration are mutually exclusive.
-  void Finalize(const Fields& fields, const Functions& functions);
+  void Finalize(Fields* fields, Functions* functions);
 
   // Set this as forward declaration without concrete class.
   // @note this can only be called once per type instance. Moreover this and
@@ -196,11 +199,63 @@ class UserDefinedType : public Type {
 using UserDefinedTypePtr = scoped_refptr<UserDefinedType>;
 
 // Represents a field in a user defined type.
-class UserDefinedType::Field {
+// TODO(siggi): How to represent VTables/Interfaces?
+class UserDefinedType::Field : public base::RefCounted<UserDefinedType::Field> {
  public:
-  // TODO(siggi): How to represent VTables/Interfaces?
+  // The set of field kinds.
+  enum FieldKind {
+    MEMBER_KIND,
+    // TODO(manzagop): BCLASS_KIND, VBCLASS_KIND, etc.
+  };
+
+  // @name Accessors.
+  // @{
+  FieldKind kind() const { return kind_; }
+  ptrdiff_t offset() const { return offset_; }
+  TypeId type_id() const { return type_id_; }
+  // @}
+
+  // Safely down-cast this to @p SubType.
+  // @param out the subtype to cast this to.
+  // @returns true on success, false on failure.
+  template <class SubType>
+  bool CastTo(scoped_refptr<SubType>* out);
+  template <class SubType>
+  bool CastTo(scoped_refptr<const SubType>* out) const;
+
+  bool operator==(const Field& o) const;
+  virtual bool IsEqual(const Field& o) const;
+
+ protected:
+  friend class base::RefCounted<UserDefinedType::Field>;
 
   // Creates a new field.
+  // @param kind the kind of the field.
+  // @param offset the byte offset of the field within the UDT.
+  //    Note that many bitfield fields can share the same offset within a UDT,
+  //    as can fields in a union.
+  // @param type_id the type ID of the field.
+  Field(FieldKind kind,
+        ptrdiff_t offset,
+        TypeId type_id);
+  virtual ~Field() = 0;
+
+  const FieldKind kind_;
+  const ptrdiff_t offset_;
+  const TypeId type_id_;
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(Field);
+};
+
+using FieldPtr = scoped_refptr<UserDefinedType::Field>;
+
+// Represents a member in a user defined type.
+class UserDefinedType::MemberField : public UserDefinedType::Field {
+ public:
+  static const FieldKind ID = MEMBER_KIND;
+
+  // Creates a new member field.
   // @param name the name of the field.
   // @param offset the byte offset of the field within the UDT.
   //    Note that many bitfield fields can share the same offset within a UDT,
@@ -211,34 +266,37 @@ class UserDefinedType::Field {
   // @param type_id the type ID of the field.
   // @note bit_pos and bit_len must be in the range 0..63.
   // @note When bit_len is zero it signifies that the field is not a bitfield.
-  Field(const base::string16& name,
-        ptrdiff_t offset,
-        Flags flags,
-        size_t bit_pos,
-        size_t bit_len,
-        TypeId type_id);
+  MemberField(const base::string16& name,
+              ptrdiff_t offset,
+              Type::Flags flags,
+              size_t bit_pos,
+              size_t bit_len,
+              TypeId type_id);
 
   // @name Accessors.
   // @{
   const base::string16& name() const { return name_; }
-  ptrdiff_t offset() const { return offset_; }
-  TypeId type_id() const { return type_id_; }
   size_t bit_pos() const { return bit_pos_; }
   size_t bit_len() const { return bit_len_; }
-  bool is_const() const { return (flags_ & FLAG_CONST) != 0; }
-  bool is_volatile() const { return (flags_ & FLAG_VOLATILE) != 0; }
+  bool is_const() const { return (flags_ & Type::FLAG_CONST) != 0; }
+  bool is_volatile() const { return (flags_ & Type::FLAG_VOLATILE) != 0; }
   // @}
 
-  bool operator==(const Field& o) const;
+  bool IsEqual(const Field& o) const override;
 
  private:
+  friend class base::RefCounted<UserDefinedType::Field>;
+  ~MemberField() {}
+
   const base::string16 name_;
-  const ptrdiff_t offset_;
-  const Flags flags_;
+  const Type::Flags flags_;
   const size_t bit_pos_ : 6;
   const size_t bit_len_ : 6;
-  const TypeId type_id_;
+
+  DISALLOW_COPY_AND_ASSIGN(MemberField);
 };
+
+using MemberFieldPtr = scoped_refptr<UserDefinedType::MemberField>;
 
 // Represents a member function in UDT.
 class UserDefinedType::Function {
@@ -523,6 +581,30 @@ bool Type::CastTo(scoped_refptr<SubType>* out) {
   }
 
   *out = static_cast<SubType*>(this);
+  return true;
+}
+
+template <class SubType>
+bool UserDefinedType::Field::CastTo(scoped_refptr<SubType>* out) {
+  DCHECK(out);
+  if (SubType::ID != kind()) {
+    *out = nullptr;
+    return false;
+  }
+
+  *out = static_cast<SubType*>(this);
+  return true;
+}
+
+template <class SubType>
+bool UserDefinedType::Field::CastTo(scoped_refptr<const SubType>* out) const {
+  DCHECK(out);
+  if (SubType::ID != kind()) {
+    *out = nullptr;
+    return false;
+  }
+
+  *out = static_cast<const SubType*>(this);
   return true;
 }
 

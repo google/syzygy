@@ -473,7 +473,9 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
 // pseudo      :1 True if the method is never instantiated by the compiler
 // noinherit   :1 True if the class cannot be inherited
 // noconstruct :1 True if the class cannot be constructed
-// reserved    :8
+// compgenx    :1 True if compiler generated fcn and does exist.
+// sealed      :1 True if method cannot be overridden.
+// unused      :6
 union LeafMemberAttributeField {
   // This is effectively the same as CV_access_e in cvconst.h, but with a value
   // defined for 0.
@@ -491,7 +493,8 @@ union LeafMemberAttributeField {
     uint16 noinherit   : 1;
     uint16 noconstruct : 1;
     uint16 compgenx    : 1;
-    uint16 reserved    : 7;
+    uint16 sealed      : 1;
+    uint16 unused      : 6;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be

@@ -223,9 +223,10 @@ TEST_F(TypePropagatorAnalyzerTest, AnalyzeMinidumpUDT) {
       L"udt", ptr_type_->size(), UserDefinedType::UDT_STRUCT);
   repo_->AddType(udt_type);
   UserDefinedType::Fields fields;
-  fields.push_back(UserDefinedType::Field(L"pointer", 0, kNoTypeFlags, 0, 0,
-                                          ptr_type_->type_id()));
-  udt_type->Finalize(fields, UserDefinedType::Functions());
+  fields.push_back(new UserDefinedType::MemberField(
+      L"pointer", 0, kNoTypeFlags, 0, 0, ptr_type_->type_id()));
+  UserDefinedType::Functions functions;
+  udt_type->Finalize(&fields, &functions);
 
   // The UDT.
   SimpleUDT udt;

@@ -55,12 +55,18 @@ class TypedData {
   // @returns true on success.
   bool GetNamedField(const base::StringPiece16& name, TypedData* out) const;
 
-  // Retrieves a field of a UDT.
+  // Retrieves typed data for the field of a UDT.
   // @pre !IsPrimitiveType().
-  // @param field the field to retrieve, must be a field of type().
+  // @param field_no the index of the field to retrieve.
   // @param out on success returns a TypedData covering the field.
   // @returns true on success.
-  bool GetField(const UserDefinedType::Field& field, TypedData* out) const;
+  bool GetField(size_t field_no, TypedData* out) const;
+
+  // Retrieves the number of fields.
+  // @pre !IsPrimitiveType().
+  // @param count on success returns the number of fields.
+  // @returns true on success, false otherwise.
+  bool GetFieldCount(size_t* count) const;
 
   // Retrieves the value of the type promoted to a large integer.
   // @pre IsPrimitiveType() == true.

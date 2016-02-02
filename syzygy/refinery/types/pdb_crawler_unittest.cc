@@ -166,19 +166,23 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
   scoped_refptr<TypeRepository> types_;
 };
 
-void ValidateField(const UserDefinedType::Field& field,
-                   size_t offset,
-                   size_t bit_pos,
-                   size_t bit_len,
-                   bool is_const,
-                   bool is_volatile,
-                   const base::string16& name) {
-  EXPECT_EQ(offset, field.offset());
-  EXPECT_EQ(name, field.name());
-  EXPECT_EQ(is_const, field.is_const());
-  EXPECT_EQ(is_volatile, field.is_volatile());
-  EXPECT_EQ(bit_pos, field.bit_pos());
-  EXPECT_EQ(bit_len, field.bit_len());
+void ValidateMemberField(FieldPtr field,
+                         size_t offset,
+                         size_t bit_pos,
+                         size_t bit_len,
+                         bool is_const,
+                         bool is_volatile,
+                         const base::string16& name) {
+  EXPECT_EQ(offset, field->offset());
+  // Note: type_id is not validated.
+  MemberFieldPtr member;
+  ASSERT_TRUE(field->CastTo(&member));  // implicitely validates kind.
+
+  EXPECT_EQ(name, member->name());
+  EXPECT_EQ(is_const, member->is_const());
+  EXPECT_EQ(is_volatile, member->is_volatile());
+  EXPECT_EQ(bit_pos, member->bit_pos());
+  EXPECT_EQ(bit_len, member->bit_len());
 }
 
 void ValidateBasicType(TypePtr type, size_t size, const base::string16& name) {
@@ -257,20 +261,20 @@ TEST_P(PdbCrawlerTest, TestSimpleUDT) {
   size_t offset = 0;
 
   // Test field: int one.
-  ValidateField(fields[0], offset, kBitPosZero, kBitLenZero, !kIsConst,
-                !kIsVolatile, L"one");
+  ValidateMemberField(fields[0], offset, kBitPosZero, kBitLenZero, !kIsConst,
+                      !kIsVolatile, L"one");
   ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
   offset += sizeof(int32_t);
 
   // Test field: const char two.
-  ValidateField(fields[1], offset, kBitPosZero, kBitLenZero, kIsConst,
-                !kIsVolatile, L"two");
+  ValidateMemberField(fields[1], offset, kBitPosZero, kBitLenZero, kIsConst,
+                      !kIsVolatile, L"two");
   ValidateBasicType(udt->GetFieldType(1), sizeof(char), L"char");
   offset += sizeof(int32_t);
 
   // Test field: short const* volatile* three.
-  ValidateField(fields[2], offset, kBitPosZero, kBitLenZero, !kIsConst,
-                !kIsVolatile, L"three");
+  ValidateMemberField(fields[2], offset, kBitPosZero, kBitLenZero, !kIsConst,
+                      !kIsVolatile, L"three");
   ValidatePointerType(udt->GetFieldType(2), PointerType::PTR_MODE_PTR,
                       !kIsConst, kIsVolatile, LookupSizeOf(L"Pointer"),
                       L"int16_t const* volatile*");
@@ -286,17 +290,18 @@ TEST_P(PdbCrawlerTest, TestSimpleUDT) {
   ValidateBasicType(ptr->GetContentType(), sizeof(int16_t), L"int16_t");
 
   // Test field: const volatile unsigned short four.
-  ValidateField(fields[3], offset, kBitPosZero, kBitLenZero, kIsConst,
-                kIsVolatile, L"four");
+  ValidateMemberField(fields[3], offset, kBitPosZero, kBitLenZero, kIsConst,
+                      kIsVolatile, L"four");
   ValidateBasicType(udt->GetFieldType(3), sizeof(int16_t), L"uint16_t");
   offset += sizeof(uint16_t);
 
   // Test field: unsigned short five : 3.
-  ValidateField(fields[4], offset, 0, 3, !kIsConst, !kIsVolatile, L"five");
+  ValidateMemberField(fields[4], offset, 0, 3, !kIsConst, !kIsVolatile,
+                      L"five");
   ValidateBasicType(udt->GetFieldType(4), sizeof(uint16_t), L"uint16_t");
 
   // Test field: unsigned short six : 5.
-  ValidateField(fields[5], offset, 3, 5, !kIsConst, !kIsVolatile, L"six");
+  ValidateMemberField(fields[5], offset, 3, 5, !kIsConst, !kIsVolatile, L"six");
   ValidateBasicType(udt->GetFieldType(5), sizeof(uint16_t), L"uint16_t");
 }
 
@@ -316,7 +321,7 @@ TEST_P(PdbCrawlerTest, TestAllInOneUDT) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(1U, fields.size());
 
-  ValidateField(
+  ValidateMemberField(
       fields[0], LookupOffsetOf(L"TestAllInOneUDT", L"regular_member"),
       kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile, L"regular_member");
   ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
@@ -395,7 +400,10 @@ TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
     ASSERT_TRUE(udt->GetFieldType(i)->CastTo(&pointer));
     ASSERT_TRUE(pointer);
 
-    const base::string16& member_name = udt->fields()[i].name();
+    MemberFieldPtr member;
+    ASSERT_TRUE(udt->fields()[i]->CastTo(&member));
+    const base::string16& member_name = member->name();
+
     // Test that the name starts with "test" and then use the rest for lookup.
     ASSERT_TRUE(
         base::StartsWith(member_name, L"test", base::CompareCase::SENSITIVE));
@@ -481,12 +489,15 @@ TEST_P(PdbCrawlerTest, TestReference) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(2U, fields.size());
 
-  EXPECT_EQ(L"value", fields[0].name());
+  MemberFieldPtr member;
+  ASSERT_TRUE(fields[0]->CastTo(&member));
+  EXPECT_EQ(L"value", member->name());
   ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
 
-  EXPECT_EQ(L"reference", fields[1].name());
-  EXPECT_FALSE(fields[1].is_const());
-  EXPECT_FALSE(fields[1].is_volatile());
+  ASSERT_TRUE(fields[1]->CastTo(&member));
+  EXPECT_EQ(L"reference", member->name());
+  EXPECT_FALSE(member->is_const());
+  EXPECT_FALSE(member->is_volatile());
   ValidatePointerType(udt->GetFieldType(1), PointerType::PTR_MODE_REF, kIsConst,
                       !kIsVolatile, LookupSizeOf(L"Pointer"),
                       L"int32_t const&");
@@ -627,18 +638,21 @@ TEST_P(PdbCrawlerTest, TestBitfields) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(4U, fields.size());
 
-  ValidateField(fields[0], 0, 0, 1, !kIsConst, !kIsVolatile, L"bool_bitfield");
+  ValidateMemberField(fields[0], 0, 0, 1, !kIsConst, !kIsVolatile,
+                      L"bool_bitfield");
   ValidateBasicType(udt->GetFieldType(0), sizeof(bool), L"bool");
 
-  ValidateField(fields[1], 4, 0, 1, !kIsConst, !kIsVolatile, L"int_bitfield");
+  ValidateMemberField(fields[1], 4, 0, 1, !kIsConst, !kIsVolatile,
+                      L"int_bitfield");
   ValidateBasicType(udt->GetFieldType(1), sizeof(int32_t), L"int32_t");
 
   // TODO(mopler): Once we parse enum types, change this.
-  ValidateField(fields[2], 8, 0, 1, !kIsConst, !kIsVolatile, L"enum_bitfield");
+  ValidateMemberField(fields[2], 8, 0, 1, !kIsConst, !kIsVolatile,
+                      L"enum_bitfield");
   ValidateWildcardType(udt->GetFieldType(2), 0, L"LF_ENUM");
 
-  ValidateField(fields[3], 8, 1, 1, kIsConst, !kIsVolatile,
-                L"const_enum_bitfield");
+  ValidateMemberField(fields[3], 8, 1, 1, kIsConst, !kIsVolatile,
+                      L"const_enum_bitfield");
   ValidateWildcardType(udt->GetFieldType(3), 0, L"LF_ENUM");
 }
 
@@ -686,10 +700,12 @@ TEST_P(PdbCrawlerTest, TestUnion) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(2U, fields.size());
 
-  ValidateField(fields[0], 0, 0, 0, !kIsConst, !kIsVolatile, L"signed_int");
+  ValidateMemberField(fields[0], 0, 0, 0, !kIsConst, !kIsVolatile,
+                      L"signed_int");
   ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
 
-  ValidateField(fields[1], 0, 0, 0, !kIsConst, !kIsVolatile, L"unsigned_int");
+  ValidateMemberField(fields[1], 0, 0, 0, !kIsConst, !kIsVolatile,
+                      L"unsigned_int");
   ValidateBasicType(udt->GetFieldType(1), sizeof(uint32_t), L"uint32_t");
 }
 

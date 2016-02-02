@@ -103,34 +103,40 @@ class TypedDataTest : public testing::Test {
     repo_->AddType(int32_type);
 
     UserDefinedType::Fields fields;
+    UserDefinedType::Functions functions;
+
+    // Inner.
     UserDefinedTypePtr inner(new UserDefinedType(
         L"Inner", sizeof(TestUDT::InnerUDT), UserDefinedType::UDT_STRUCT));
-    fields.push_back(UserDefinedType::Field(
+    fields.push_back(new UserDefinedType::MemberField(
         L"inner_one", offsetof(TestUDT::InnerUDT, inner_one), 0, 0, 0,
         uint8_type->type_id()));
-    fields.push_back(UserDefinedType::Field(
+    fields.push_back(new UserDefinedType::MemberField(
         L"inner_two", offsetof(TestUDT::InnerUDT, inner_two), 0, 0, 0,
         uint32_type_->type_id()));
-    inner->Finalize(fields, UserDefinedType::Functions());
+    inner->Finalize(&fields, &functions);
     repo_->AddType(inner);
 
-    fields.clear();
+    DCHECK(fields.empty());
+    DCHECK(functions.empty());
+
+    // Outer.
     UserDefinedTypePtr outer(new UserDefinedType(L"TestUDT", sizeof(TestUDT),
                                                  UserDefinedType::UDT_STRUCT));
     PointerTypePtr ptr_type(
         new PointerType(sizeof(TestUDT*), PointerType::PTR_MODE_PTR));
     repo_->AddType(ptr_type);
 
-    fields.push_back(UserDefinedType::Field(L"one", offsetof(TestUDT, one), 0,
-                                            0, 0, uint16_type->type_id()));
-    fields.push_back(UserDefinedType::Field(L"two", offsetof(TestUDT, two), 0,
-                                            0, 0, inner->type_id()));
-    fields.push_back(UserDefinedType::Field(L"three", offsetof(TestUDT, three),
-                                            0, 0, 0, ptr_type->type_id()));
-    fields.push_back(UserDefinedType::Field(
+    fields.push_back(new UserDefinedType::MemberField(
+        L"one", offsetof(TestUDT, one), 0, 0, 0, uint16_type->type_id()));
+    fields.push_back(new UserDefinedType::MemberField(
+        L"two", offsetof(TestUDT, two), 0, 0, 0, inner->type_id()));
+    fields.push_back(new UserDefinedType::MemberField(
+        L"three", offsetof(TestUDT, three), 0, 0, 0, ptr_type->type_id()));
+    fields.push_back(new UserDefinedType::MemberField(
         L"four", offsetof(TestUDT, three) + sizeof(test_instance.three), 0, 0,
         10, int32_type->type_id()));
-    fields.push_back(UserDefinedType::Field(
+    fields.push_back(new UserDefinedType::MemberField(
         L"five", offsetof(TestUDT, three) + sizeof(test_instance.three), 0, 10,
         10, int32_type->type_id()));
 
@@ -139,10 +145,10 @@ class TypedDataTest : public testing::Test {
                          arraysize(test_instance.six), int32_type->type_id());
     repo_->AddType(array_type);
 
-    fields.push_back(UserDefinedType::Field(L"six", offsetof(TestUDT, six),
-                                            kNoTypeFlags, 0, 0,
-                                            array_type->type_id()));
-    outer->Finalize(fields, UserDefinedType::Functions());
+    fields.push_back(new UserDefinedType::MemberField(
+        L"six", offsetof(TestUDT, six), kNoTypeFlags, 0, 0,
+        array_type->type_id()));
+    outer->Finalize(&fields, &functions);
     repo_->AddType(outer);
 
     ptr_type->Finalize(Type::FLAG_CONST, outer->type_id());
@@ -221,28 +227,33 @@ TEST_F(TypedDataTest, GetField) {
   const UserDefinedType::Fields& data_fields = udt()->fields();
 
   TypedData one;
-  ASSERT_TRUE(data.GetField(data_fields[0], &one));
+  ASSERT_TRUE(data.GetField(0, &one));
   AssertFieldMatchesData(test_instance.one, one);
+  ASSERT_EQ(data_fields[0]->type_id(), one.type()->type_id());
 
   TypedData two;
-  ASSERT_TRUE(data.GetField(data_fields[1], &two));
+  ASSERT_TRUE(data.GetField(1, &two));
   AssertFieldMatchesData(test_instance.two, two);
+  ASSERT_EQ(data_fields[1]->type_id(), two.type()->type_id());
 
   UserDefinedTypePtr inner_udt;
   ASSERT_TRUE(two.type()->CastTo(&inner_udt));
   const UserDefinedType::Fields& inner_fields = inner_udt->fields();
 
   TypedData inner_one;
-  ASSERT_TRUE(two.GetField(inner_fields[0], &inner_one));
+  ASSERT_TRUE(two.GetField(0, &inner_one));
   AssertFieldMatchesData(test_instance.two.inner_one, inner_one);
+  ASSERT_EQ(inner_fields[0]->type_id(), inner_one.type()->type_id());
 
   TypedData inner_two;
-  ASSERT_TRUE(two.GetField(inner_fields[1], &inner_two));
+  ASSERT_TRUE(two.GetField(1, &inner_two));
   AssertFieldMatchesData(test_instance.two.inner_two, inner_two);
+  ASSERT_EQ(inner_fields[1]->type_id(), inner_two.type()->type_id());
 
   TypedData three;
-  ASSERT_TRUE(data.GetField(data_fields[2], &three));
+  ASSERT_TRUE(data.GetField(2, &three));
   AssertFieldMatchesData(test_instance.three, three);
+  ASSERT_EQ(data_fields[2]->type_id(), three.type()->type_id());
 }
 
 TEST_F(TypedDataTest, GetSignedValue) {

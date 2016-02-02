@@ -32,6 +32,9 @@ namespace refinery {
 
 namespace {
 
+const bool kIsConst = true;
+const bool kIsVolatile = true;
+
 class DiaCrawlerTest : public testing::Test {
  protected:
   void SetUp() override {
@@ -50,6 +53,25 @@ class DiaCrawlerTest : public testing::Test {
         return it;
     }
     return nullptr;
+  }
+
+  void ValidateMemberField(FieldPtr field,
+                           const base::string16& name,
+                           ptrdiff_t offset,
+                           bool is_const,
+                           bool is_volatile,
+                           size_t bit_pos,
+                           size_t bit_len) {
+    EXPECT_EQ(offset, field->offset());
+    // Note: type_id is not validated.
+    MemberFieldPtr member;
+    ASSERT_TRUE(field->CastTo(&member));  // implicitely validates kind.
+
+    EXPECT_EQ(name, member->name());
+    EXPECT_EQ(is_const, member->is_const());
+    EXPECT_EQ(is_volatile, member->is_volatile());
+    EXPECT_EQ(bit_pos, member->bit_pos());
+    EXPECT_EQ(bit_len, member->bit_len());
   }
 
   scoped_refptr<TypeRepository> types_;
@@ -86,32 +108,20 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(6U, fields.size());
 
-  EXPECT_EQ(0, fields[0].offset());
-  EXPECT_EQ(L"one", fields[0].name());
-  EXPECT_FALSE(fields[0].is_const());
-  EXPECT_FALSE(fields[0].is_volatile());
-  EXPECT_EQ(0, fields[0].bit_pos());
-  EXPECT_EQ(0, fields[0].bit_len());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[0], L"one", 0U, !kIsConst,
+                                              !kIsVolatile, 0U, 0U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(0)->kind());
   EXPECT_EQ(4, udt->GetFieldType(0)->size());
   EXPECT_EQ(L"int32_t", udt->GetFieldType(0)->name());
 
-  EXPECT_EQ(4, fields[1].offset());
-  EXPECT_EQ(L"two", fields[1].name());
-  EXPECT_TRUE(fields[1].is_const());
-  EXPECT_FALSE(fields[1].is_volatile());
-  EXPECT_EQ(0, fields[1].bit_pos());
-  EXPECT_EQ(0, fields[1].bit_len());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[1], L"two", 4U, kIsConst,
+                                              !kIsVolatile, 0U, 0U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(1)->kind());
   EXPECT_EQ(1, udt->GetFieldType(1)->size());
   EXPECT_EQ(L"char", udt->GetFieldType(1)->name());
 
-  EXPECT_EQ(8, fields[2].offset());
-  EXPECT_EQ(L"three", fields[2].name());
-  EXPECT_FALSE(fields[2].is_const());
-  EXPECT_FALSE(fields[2].is_volatile());
-  EXPECT_EQ(0, fields[2].bit_pos());
-  EXPECT_EQ(0, fields[2].bit_len());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[2], L"three", 8U,
+                                              !kIsConst, !kIsVolatile, 0U, 0U));
   ASSERT_EQ(Type::POINTER_TYPE_KIND, udt->GetFieldType(2)->kind());
   EXPECT_EQ(4, udt->GetFieldType(2)->size());
   PointerTypePtr ptr;
@@ -137,33 +147,21 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   EXPECT_EQ(L"int16_t", ptr->GetContentType()->name());
   EXPECT_EQ(2, ptr->GetContentType()->size());
 
-  EXPECT_EQ(12, fields[3].offset());
-  EXPECT_EQ(L"four", fields[3].name());
-  EXPECT_TRUE(fields[3].is_const());
-  EXPECT_TRUE(fields[3].is_volatile());
-  EXPECT_EQ(0, fields[3].bit_pos());
-  EXPECT_EQ(0, fields[3].bit_len());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[3], L"four", 12U, kIsConst,
+                                              kIsVolatile, 0U, 0U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(3)->kind());
   EXPECT_EQ(2, udt->GetFieldType(3)->size());
   EXPECT_EQ(L"uint16_t", udt->GetFieldType(3)->name());
 
   // Can't do offsetof/sizeof on bit fields.
-  EXPECT_EQ(14, fields[4].offset());
-  EXPECT_EQ(L"five", fields[4].name());
-  EXPECT_FALSE(fields[4].is_const());
-  EXPECT_FALSE(fields[4].is_volatile());
-  EXPECT_EQ(0, fields[4].bit_pos());
-  EXPECT_EQ(3, fields[4].bit_len());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[4], L"five", 14U,
+                                              !kIsConst, !kIsVolatile, 0U, 3U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(4)->kind());
   EXPECT_EQ(2, udt->GetFieldType(4)->size());
   EXPECT_EQ(L"uint16_t", udt->GetFieldType(4)->name());
 
-  EXPECT_EQ(14, fields[5].offset());
-  EXPECT_EQ(L"six", fields[5].name());
-  EXPECT_FALSE(fields[5].is_const());
-  EXPECT_FALSE(fields[5].is_volatile());
-  EXPECT_EQ(3, fields[5].bit_pos());
-  EXPECT_EQ(5, fields[5].bit_len());
+  ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[5], L"six", 14U, !kIsConst,
+                                              !kIsVolatile, 3U, 5U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(5)->kind());
   EXPECT_EQ(2, udt->GetFieldType(5)->size());
   EXPECT_EQ(L"uint16_t", udt->GetFieldType(5)->name());
@@ -183,11 +181,14 @@ TEST_F(DiaCrawlerTest, TestReference) {
   const UserDefinedType::Fields& fields = udt->fields();
   ASSERT_EQ(2U, fields.size());
 
-  EXPECT_EQ(L"value", fields[0].name());
+  MemberFieldPtr member;
+  ASSERT_TRUE(fields[0]->CastTo(&member));
+  EXPECT_EQ(L"value", member->name());
 
-  EXPECT_EQ(L"reference", fields[1].name());
-  EXPECT_FALSE(fields[1].is_const());
-  EXPECT_FALSE(fields[1].is_volatile());
+  ASSERT_TRUE(fields[1]->CastTo(&member));
+  EXPECT_EQ(L"reference", member->name());
+  EXPECT_FALSE(member->is_const());
+  EXPECT_FALSE(member->is_volatile());
   ASSERT_EQ(Type::POINTER_TYPE_KIND, udt->GetFieldType(1)->kind());
   PointerTypePtr ptr;
   ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&ptr));

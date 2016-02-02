@@ -58,6 +58,8 @@ class PdbTypeDumpApp : public application::AppImplBase {
   // Dumps information about @p field with @p indent_level.
   void DumpField(const refinery::UserDefinedType::Field& field,
                  uint8_t indent_level);
+  void DumpMemberField(const refinery::UserDefinedType::MemberField& member,
+                       uint8_t indent_level);
 
   // Dumps information about @p function with @p indent_level.
   void DumpFunction(const refinery::UserDefinedType::Function& function,
