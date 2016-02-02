@@ -51,7 +51,8 @@ class RunAnalyzerApplication : public application::AppImplBase {
 
  private:
   template <typename LayerPtrType>
-  void PrintLayer(refinery::ProcessState* process_state);
+  void PrintLayer(const char* layer_name,
+                  refinery::ProcessState* process_state);
   void PrintProcessState(refinery::ProcessState* process_state);
   void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
@@ -75,12 +76,15 @@ const char kUsageFormatStr[] =
 const char kDefaultAnalyzers[] = "MemoryAnalyzer,ModuleAnalyzer,HeapAnalyzer";
 
 template <typename LayerPtrType>
-void RunAnalyzerApplication::PrintLayer(refinery::ProcessState* process_state) {
+void RunAnalyzerApplication::PrintLayer(const char* layer_name,
+                                        refinery::ProcessState* process_state) {
   DCHECK(process_state);
 
   LayerPtrType layer;
-  if (!process_state->FindLayer(&layer))
+  if (!process_state->FindLayer(&layer)) {
+    LOG(INFO) << "No " << layer_name << " layer";
     return;
+  }
 
   for (const auto& record : *layer) {
     std::string str = record->data().DebugString();
@@ -94,14 +98,12 @@ void RunAnalyzerApplication::PrintProcessState(
     refinery::ProcessState* process_state) {
   DCHECK(process_state);
 
-  // TODO(siggi): Figure out how to format this more humanely.
-  PrintLayer<refinery::BytesLayerPtr>(process_state);
-  PrintLayer<refinery::StackLayerPtr>(process_state);
-  PrintLayer<refinery::StackFrameLayerPtr>(process_state);
-  PrintLayer<refinery::TypedBlockLayerPtr>(process_state);
-  PrintLayer<refinery::ModuleLayerPtr>(process_state);
-  PrintLayer<refinery::HeapMetadataLayerPtr>(process_state);
-  PrintLayer<refinery::HeapAllocationLayerPtr>(process_state);
+#define PRINT_LAYER(layer_name) \
+  PrintLayer<refinery::layer_name##LayerPtr>(#layer_name, process_state);
+
+  PROCESS_STATE_LAYERS(PRINT_LAYER)
+
+#undef PRINT_LAYER
 }
 
 void RunAnalyzerApplication::PrintUsage(const base::FilePath& program,

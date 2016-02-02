@@ -26,28 +26,6 @@
 
 namespace refinery {
 
-using BytesLayerPtr = scoped_refptr<ProcessState::Layer<Bytes>>;
-using BytesRecordPtr = ProcessState::Layer<Bytes>::RecordPtr;
-
-using StackLayerPtr = scoped_refptr<ProcessState::Layer<Stack>>;
-using StackRecordPtr = ProcessState::Layer<Stack>::RecordPtr;
-
-using StackFrameLayerPtr = scoped_refptr<ProcessState::Layer<StackFrame>>;
-using StackFrameRecordPtr = ProcessState::Layer<StackFrame>::RecordPtr;
-
-using TypedBlockLayerPtr = scoped_refptr<ProcessState::Layer<TypedBlock>>;
-using TypedBlockRecordPtr = ProcessState::Layer<TypedBlock>::RecordPtr;
-
-using ModuleLayerPtr = scoped_refptr<ProcessState::Layer<Module>>;
-using ModuleRecordPtr = ProcessState::Layer<Module>::RecordPtr;
-
-using HeapMetadataLayerPtr = scoped_refptr<ProcessState::Layer<HeapMetadata>>;
-using HeapMetadataRecordPtr = ProcessState::Layer<HeapMetadata>::RecordPtr;
-
-using HeapAllocationLayerPtr =
-    scoped_refptr<ProcessState::Layer<HeapAllocation>>;
-using HeapAllocationRecordPtr = ProcessState::Layer<HeapAllocation>::RecordPtr;
-
 // A class for interacting with a ProcessState's module layer.
 class ModuleLayerAccessor {
  public:

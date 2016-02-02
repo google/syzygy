@@ -27,6 +27,32 @@ ProcessState::ProcessState() : has_exception(false), excepting_thread_id(0U) {
 ProcessState::~ProcessState() {
 }
 
+const char* ProcessState::LayerName(LayerEnum layer) {
+  switch (layer) {
+#define LAYER_NAME_CASE(name) \
+  case name##Layer:           \
+    return #name;
+
+    PROCESS_STATE_LAYERS(LAYER_NAME_CASE)
+
+#undef LAYER_NAME_CASE
+    default:
+      return nullptr;
+  }
+}
+
+ProcessState::LayerEnum ProcessState::LayerFromName(
+    const base::StringPiece& layer_name) {
+#define LAYER_FROM_NAME(name) \
+  if (layer_name == #name)    \
+    return name##Layer;
+  PROCESS_STATE_LAYERS(LAYER_FROM_NAME)
+
+#undef LAYER_FROM_NAME
+
+  return UnknownLayer;
+}
+
 bool ProcessState::FindStackRecord(
     size_t thread_id,
     scoped_refptr<Record<Stack>>* record) {

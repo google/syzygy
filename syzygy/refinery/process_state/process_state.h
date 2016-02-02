@@ -30,6 +30,16 @@
 
 namespace refinery {
 
+// Declares the layers a process state knows of.
+#define PROCESS_STATE_LAYERS(DECL) \
+  DECL(Bytes)                      \
+  DECL(Stack)                      \
+  DECL(StackFrame)                 \
+  DECL(TypedBlock)                 \
+  DECL(Module)                     \
+  DECL(HeapMetadata)               \
+  DECL(HeapAllocation)
+
 // A process state is a cross-platform representation of the memory contents
 // and other state of a process, typically obtained obtained from a post-mortem
 // crash minidump. A process state typically contains only a partial state of
@@ -46,8 +56,27 @@ class ProcessState : public BitSource {
   template <typename RecordType> class Layer;
   template <typename RecordType> class Record;
 
+  // Layers can be named with this enum.
+  enum LayerEnum {
+#define DECL_LAYER_ENUM(name) name##Layer,
+    // A sentinel value for errors.
+    UnknownLayer = -1,
+
+    PROCESS_STATE_LAYERS(DECL_LAYER_ENUM)
+
+#undef DECL_LAYER_ENUM
+  };
+
   ProcessState();
   ~ProcessState();
+
+  // Gets the name of @p layer.
+  // @returns the name or nullptr on failure.
+  static const char* LayerName(LayerEnum layer);
+
+  // Gets the enum value for the layer named @p name.
+  // @returns the enum associated with @p name or UnknownLayer if no
+  static LayerEnum LayerFromName(const base::StringPiece& name);
 
   // Finds layer of type @p RecordType if one exists.
   // @param layer on success, the returned layer.
@@ -111,7 +140,7 @@ class ProcessState : public BitSource {
   DISALLOW_COPY_AND_ASSIGN(ProcessState);
 };
 
-// An layer is one view on a process (eg raw bytes, stack, stack frames,
+// A layer is one view on a process (eg raw bytes, stack, stack frames,
 // typed blocks). It's a bag of records that span some part of the process'
 // address space.
 class ProcessState::LayerBase : public base::RefCounted<LayerBase> {
@@ -201,6 +230,15 @@ class ProcessState::Layer : public ProcessState::LayerBase {
   typename LayerTraits<RecordType>::DataType data_;
   std::multimap<Address, RecordPtr> records_;
 };
+
+#define DECL_LAYER_TYPES(layer_name)                                           \
+  using layer_name##LayerPtr = scoped_refptr<ProcessState::Layer<layer_name>>; \
+  using layer_name##RecordPtr = ProcessState::Layer<layer_name>::RecordPtr;
+
+// Declares types named XXLayerPtr and XXRecordPtr for each layer XX.
+PROCESS_STATE_LAYERS(DECL_LAYER_TYPES)
+
+#undef DECL_LAYER_TYPES
 
 template <typename RecordType>
 class Iterator : public std::iterator<
