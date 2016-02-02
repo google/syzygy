@@ -33,6 +33,9 @@
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 #include "syzygy/refinery/analyzers/module_analyzer.h"
 #include "syzygy/refinery/analyzers/stack_analyzer.h"
+#include "syzygy/refinery/analyzers/stack_frame_analyzer.h"
+#include "syzygy/refinery/analyzers/teb_analyzer.h"
+#include "syzygy/refinery/analyzers/thread_analyzer.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/symbols/dia_symbol_provider.h"
 #include "syzygy/refinery/symbols/symbol_provider.h"
@@ -47,6 +50,9 @@ class RunAnalyzerApplication : public application::AppImplBase {
   int Run();
 
  private:
+  template <typename LayerPtrType>
+  void PrintLayer(refinery::ProcessState* process_state);
+  void PrintProcessState(refinery::ProcessState* process_state);
   void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
   bool AddAnalyzers(refinery::AnalysisRunner* runner);
@@ -66,7 +72,37 @@ const char kUsageFormatStr[] =
     "     Configures the set of analyzers to run on each of the dump\n"
     "     files.\n";
 
-const char kDefaultAnalyzers[] = "MemoryAnalyzer,ModuleAnalyser,HeapAnalyzer";
+const char kDefaultAnalyzers[] = "MemoryAnalyzer,ModuleAnalyzer,HeapAnalyzer";
+
+template <typename LayerPtrType>
+void RunAnalyzerApplication::PrintLayer(refinery::ProcessState* process_state) {
+  DCHECK(process_state);
+
+  LayerPtrType layer;
+  if (!process_state->FindLayer(&layer))
+    return;
+
+  for (const auto& record : *layer) {
+    std::string str = record->data().DebugString();
+
+    ::fprintf(out(), "0x%08llX(0x%04X){\n%s}\n", record->range().start(),
+              record->range().size(), str.c_str());
+  }
+}
+
+void RunAnalyzerApplication::PrintProcessState(
+    refinery::ProcessState* process_state) {
+  DCHECK(process_state);
+
+  // TODO(siggi): Figure out how to format this more humanely.
+  PrintLayer<refinery::BytesLayerPtr>(process_state);
+  PrintLayer<refinery::StackLayerPtr>(process_state);
+  PrintLayer<refinery::StackFrameLayerPtr>(process_state);
+  PrintLayer<refinery::TypedBlockLayerPtr>(process_state);
+  PrintLayer<refinery::ModuleLayerPtr>(process_state);
+  PrintLayer<refinery::HeapMetadataLayerPtr>(process_state);
+  PrintLayer<refinery::HeapAllocationLayerPtr>(process_state);
+}
 
 void RunAnalyzerApplication::PrintUsage(const base::FilePath& program,
                                         const base::StringPiece& message) {
@@ -137,7 +173,9 @@ int RunAnalyzerApplication::Run() {
     refinery::ProcessState process_state;
     refinery::SimpleProcessAnalysis analysis(
         &process_state, dia_symbol_provider, symbol_provider);
-    if (!Analyze(minidump, analysis)) {
+    if (Analyze(minidump, analysis)) {
+      PrintProcessState(&process_state);
+    } else {
       LOG(ERROR) << "Failure processing minidump " << minidump_path.value();
     }
   }
@@ -161,7 +199,17 @@ bool RunAnalyzerApplication::AddAnalyzers(refinery::AnalysisRunner* runner) {
     } else if (analyzer_name == "StackAnalyzer") {
       analyzer.reset(new refinery::StackAnalyzer());
       runner->AddAnalyzer(analyzer.Pass());
+    } else if (analyzer_name == "StackFrameAnalyzer") {
+      analyzer.reset(new refinery::StackFrameAnalyzer());
+      runner->AddAnalyzer(analyzer.Pass());
+    } else if (analyzer_name == "TebAnalyzer") {
+      analyzer.reset(new refinery::TebAnalyzer());
+      runner->AddAnalyzer(analyzer.Pass());
+    } else if (analyzer_name == "ThreadAnalyzer") {
+      analyzer.reset(new refinery::ThreadAnalyzer());
+      runner->AddAnalyzer(analyzer.Pass());
     } else {
+      LOG(ERROR) << "No such analyzer " << analyzer_name;
       return false;
     }
   }
@@ -175,7 +223,7 @@ bool RunAnalyzerApplication::Analyze(
   DCHECK(process_analysis.process_state());
 
   minidump::Minidump::Stream sys_info_stream =
-      minidump.GetStream(SystemInfoStream);
+      minidump.FindNextStream(nullptr, SystemInfoStream);
 
   MINIDUMP_SYSTEM_INFO system_info = {};
   if (!sys_info_stream.ReadAndAdvanceElement(&system_info)) {
