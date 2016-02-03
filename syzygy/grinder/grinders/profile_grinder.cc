@@ -21,6 +21,7 @@
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/scoped_bstr.h"
 #include "syzygy/common/com_utils.h"
+#include "syzygy/pe/dia_util.h"
 #include "syzygy/pe/find.h"
 
 namespace grinder {
@@ -169,12 +170,8 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
 
   if (it == module_sessions_.end()) {
     ScopedComPtr<IDiaDataSource> source;
-    HRESULT hr = source.CreateInstance(CLSID_DiaSource);
-    if (FAILED(hr)) {
-      LOG(ERROR) << "Failed to create DiaSource: "
-                 << common::LogHr(hr) << ".";
+    if (!pe::CreateDiaSource(source.Receive()))
       return false;
-    }
 
     base::FilePath module_path;
     if (!pe::FindModuleBySignature(*module, &module_path) ||
@@ -190,7 +187,8 @@ bool ProfileGrinder::GetSessionForModule(const ModuleInformation* module,
     // The downside is that if the module at this path does not match the
     // original module, we may load the wrong symbol information for the
     // module.
-    hr = source->loadDataForExe(module_path.value().c_str(), NULL, NULL);
+    HRESULT hr = source->loadDataForExe(module_path.value().c_str(),
+                                        NULL, NULL);
     if (SUCCEEDED(hr)) {
         hr = source->openSession(new_session.Receive());
         if (FAILED(hr))

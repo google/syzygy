@@ -45,6 +45,29 @@ enum SearchResult {
   kSearchErrored,
 };
 
+namespace internal {
+
+// Creates a Dia object and request an interface on it. Logs any errors.
+//
+// @param created_source pointer that will receive the created object.
+// @param class_id the class interface ID for the object that we want to create.
+// @param interface_identifier the interface ID for the object that we want to
+//     create.
+// @returns true on success, false otherwise.
+bool CreateDiaObject(void** created_object, const CLSID& class_id,
+                     const IID& interface_identifier);
+
+}  // namespace internal
+
+// Creates a Dia object and request an interface on it. Logs any errors.
+//
+// @tparam T the interface type.
+// @param created_source pointer that will receive the created object.
+// @param class_id the class interface ID for the object that we want to create.
+// @returns true on success, false otherwise.
+template <typename T>
+bool CreateDiaObject(T** created_object, const CLSID& class_id);
+
 // Creates a DiaDataSource object. Logs any errors.
 //
 // @param created_source pointer that will receive the created object.
@@ -74,7 +97,7 @@ SearchResult FindDiaTable(const IID& iid,
 
 // Find the table that can be cast to the given Dia interface. Logs any errors.
 //
-// @tparam T an IDia* intercace.
+// @tparam T an IDia* interface.
 // @param session the DIA session whose tables are to be queried.
 // @param out_table a pointer to the object to receive the table. If the table
 //     is not found this will be NULL on return.

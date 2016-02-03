@@ -32,32 +32,42 @@ const wchar_t kFixupDiaDebugStreamName[] = L"FIXUP";
 const wchar_t kOmapToDiaDebugStreamName[] = L"OMAPTO";
 const wchar_t kOmapFromDiaDebugStreamName[] = L"OMAPFROM";
 
-bool CreateDiaSource(IDiaDataSource** created_source) {
-  DCHECK(created_source != NULL);
+namespace internal {
 
-  *created_source = NULL;
+bool CreateDiaObject(void** created_object, const CLSID& class_id,
+                     const IID& interface_identifier) {
+  DCHECK_NE(static_cast<void**>(nullptr), created_object);
 
-  ScopedComPtr<IDiaDataSource> dia_source;
-  HRESULT hr1 = dia_source.CreateInstance(CLSID_DiaSource);
-  if (SUCCEEDED(hr1)) {
-    *created_source = dia_source.Detach();
-    return true;
-  }
+  *created_object = nullptr;
 
-  HRESULT hr2 = NoRegCoCreate(kDiaDllName,
-                              CLSID_DiaSource,
-                              IID_IDiaDataSource,
+  base::win::ScopedComPtr<IUnknown> dia_source;
+
+  HRESULT hr1 = NoRegCoCreate(kDiaDllName,
+                              class_id,
+                              interface_identifier,
                               reinterpret_cast<void**>(&dia_source));
-  if (SUCCEEDED(hr2)) {
-    *created_source = dia_source.Detach();
+  if (SUCCEEDED(hr1)) {
+    *created_object = dia_source.Detach();
     return true;
   }
 
-  LOG(ERROR) << "Failed to create DiaDataSource.";
-  LOG(ERROR) << "  CreateInstance failed with: " << common::LogHr(hr1);
-  LOG(ERROR) << "  NoRegCoCreate failed with: " << common::LogHr(hr2);
+  HRESULT hr2 = dia_source.CreateInstance(CLSID_DiaSource);
+  if (SUCCEEDED(hr2)) {
+    *created_object = dia_source.Detach();
+    return true;
+  }
+
+  LOG(ERROR) << "Failed to create Dia object.";
+  LOG(ERROR) << "  NoRegCoCreate failed with: " << common::LogHr(hr1);
+  LOG(ERROR) << "  CreateInstance failed with: " << common::LogHr(hr2);
 
   return false;
+}
+
+}  // namespace internal
+
+bool CreateDiaSource(IDiaDataSource** created_source) {
+  return CreateDiaObject(created_source, CLSID_DiaSource);
 }
 
 bool CreateDiaSession(const base::FilePath& file,

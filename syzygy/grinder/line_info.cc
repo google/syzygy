@@ -23,6 +23,7 @@
 #include "base/win/scoped_comptr.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/core/address_range.h"
+#include "syzygy/pe/dia_util.h"
 
 namespace grinder {
 
@@ -133,11 +134,8 @@ struct SourceLineAddressComparator {
 
 bool LineInfo::Init(const base::FilePath& pdb_path) {
   ScopedComPtr<IDiaDataSource> source;
-  HRESULT hr = source.CreateInstance(CLSID_DiaSource);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Failed to create DiaSource: " << common::LogHr(hr) << ".";
+  if (!pe::CreateDiaSource(source.Receive()))
     return false;
-  }
 
   ScopedComPtr<IDiaSession> session;
   if (!GetDiaSessionForPdb(pdb_path, source.get(), session.Receive()))
@@ -149,7 +147,7 @@ bool LineInfo::Init(const base::FilePath& pdb_path) {
 
   // Get the line number enumeration.
   ScopedComPtr<IDiaEnumLineNumbers> line_number_enum;
-  hr = session->findLinesByRVA(0, 0xFFFFFF, line_number_enum.Receive());
+  HRESULT hr = session->findLinesByRVA(0, 0xFFFFFF, line_number_enum.Receive());
   if (FAILED(hr)) {
     LOG(ERROR) << "Failure in findLinesByRVA: " << common::LogHr(hr) << ".";
     return false;

@@ -26,6 +26,13 @@
 namespace pe {
 
 template <typename T>
+bool CreateDiaObject(T** created_object, const CLSID& class_id) {
+  return internal::CreateDiaObject(reinterpret_cast<void**>(created_object),
+                                   class_id,
+                                   __uuidof(T));
+}
+
+template <typename T>
 SearchResult FindDiaTable(IDiaSession* dia_session, T** out_table) {
   return FindDiaTable(base::win::ScopedComPtr<T>::iid(),
                       dia_session,

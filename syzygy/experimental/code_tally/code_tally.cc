@@ -123,12 +123,10 @@ bool CodeTally::TallyLines(const base::FilePath& pdb_file) {
     return false;
 
   base::win::ScopedComPtr<IDiaDataSource> data_source;
-  HRESULT hr = data_source.CreateInstance(CLSID_DiaSource);
-  if (FAILED(hr)) {
-    LOG(ERROR) << "Unable to create DIA source: " << common::LogHr(hr);
+  if (!pe::CreateDiaSource(data_source.Receive()))
     return false;
-  }
-  hr = data_source->loadDataFromPdb(found_pdb.value().c_str());
+
+  HRESULT hr = data_source->loadDataFromPdb(found_pdb.value().c_str());
   if (FAILED(hr)) {
     LOG(ERROR) << "Unable to load PDB: " << common::LogHr(hr);
     return false;

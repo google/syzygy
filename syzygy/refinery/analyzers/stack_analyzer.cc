@@ -59,12 +59,10 @@ Analyzer::AnalysisResult StackAnalyzer::Analyze(
   DCHECK(process_analysis.dia_symbol_provider() != nullptr);
 
   // Create stack walker and helper.
-  HRESULT hr = stack_walker_.CreateInstance(CLSID_DiaStackWalker);
-  if (hr != S_OK) {
-    LOG(ERROR) << "Failed to create DiaStackWalker: " << common::LogHr(hr)
-               << ".";
-    return ANALYSIS_ERROR;
-  }
+  if (!pe::CreateDiaObject(stack_walker_.Receive(),
+                           CLSID_DiaStackWalker)) {
+      return ANALYSIS_ERROR;
+    }
   stack_walk_helper_ =
       new StackWalkHelper(process_analysis.dia_symbol_provider());
 
