@@ -185,6 +185,9 @@ bool StackAnalyzer::InsertStackFrameRecord(
     return false;
   }
 
+  if (frame_full_size.ValueOrDie() == 0U)
+    return true;  // Skip empty frame.
+
   // Create the stack frame record.
   AddressRange range(static_cast<Address>(frame_top),
                      static_cast<Size>(frame_full_size.ValueOrDie()));
@@ -213,7 +216,8 @@ bool StackAnalyzer::InsertStackFrameRecord(
   if (GetRegisterValue(stack_frame, CV_ALLREG_VFRAME, &allreg_vframe)) {
     // Register doesn't seem to always be available. Not considered an error.
     context->set_allreg_vframe(allreg_vframe);
-    child_context->set_parent_allreg_vframe(allreg_vframe);
+    if (child_context)
+      child_context->set_parent_allreg_vframe(allreg_vframe);
   }
 
   frame_proto->set_frame_size_bytes(frame_size);

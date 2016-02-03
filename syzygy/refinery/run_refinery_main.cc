@@ -57,7 +57,7 @@ bool ParseCommandLine(const base::CommandLine* cmd,
   *dump_path = cmd->GetSwitchValuePath("dump");
   if (dump_path->empty()) {
     LOG(ERROR) << "Missing dump file.";
-    LOG(ERROR) << base::StringPrintf(kUsage, cmd->GetProgram());
+    LOG(ERROR) << base::StringPrintf(kUsage, cmd->GetProgram().value().c_str());
     return false;
   }
 
