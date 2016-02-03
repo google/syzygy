@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.13.0
+
+[a12e59096e] SyzyASan - Enable dynamic 2G/4G interceptors by default.
+[c6eaf97768] SyzyASan - Enable Kasko by default.
+
 Version 0.8.12.1
 
 [76a00d3bec] Fix missing kasko_upload dependency.
