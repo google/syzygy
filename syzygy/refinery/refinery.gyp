@@ -102,7 +102,7 @@
       },
     },
     {
-      'target_name': 'refinery_stack_unittest',
+      'target_name': 'refinery_stack_unittests',
       'type': 'executable',
       'sources': [
         'analyzers/stack_analysis_unittest.cc',

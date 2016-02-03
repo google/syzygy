@@ -126,7 +126,7 @@ _BLACK_LIST = [
   # AppVerifier triggers memory hoggage in this test due to parsing complex
   # symbols (numerous allocations) and a page heap being used. This leads to an
   # OOM, and subsequent system misunderstanding and barfing of hex stack trace.
-  'refinery_stack_unittest.exe',
+  'refinery_stack_unittests.exe',
 ]
 
 
