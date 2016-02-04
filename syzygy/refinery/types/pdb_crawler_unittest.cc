@@ -781,8 +781,8 @@ TEST_F(PdbCrawlerVTableTest, TestGetVFTableRVAs) {
 
   // A pdb with OMAP.
   ASSERT_NO_FATAL_FAILURE(PerformGetVFTableRVAsTest(
-      L"syzygy\\refinery\\test_data\\test_vtables_instrumented.dll.pdb",
-      L"syzygy\\refinery\\test_data\\test_vtables_instrumented.dll"));
+      L"syzygy\\refinery\\test_data\\test_vtables_omap.dll.pdb",
+      L"syzygy\\refinery\\test_data\\test_vtables_omap.dll"));
 }
 
 }  // namespace refinery
