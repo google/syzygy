@@ -17,6 +17,7 @@
 
 #include "base/macros.h"
 #include "syzygy/refinery/analyzers/analyzer.h"
+#include "syzygy/refinery/process_state/process_state.h"
 
 namespace refinery {
 
@@ -29,6 +30,9 @@ class MemoryAnalyzer : public Analyzer {
 
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_analysis) override;
+
+  ANALYZER_NO_INPUT_LAYERS()
+  ANALYZER_OUTPUT_LAYERS(ProcessState::BytesLayer)
 
  private:
   static const char kMemoryAnalyzerName[];

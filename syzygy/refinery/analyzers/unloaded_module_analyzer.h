@@ -30,6 +30,9 @@ class UnloadedModuleAnalyzer : public Analyzer {
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_state) override;
 
+  ANALYZER_NO_INPUT_LAYERS()
+  ANALYZER_NO_OUTPUT_LAYERS()
+
  private:
   static const char kUnloadedModuleAnalyzerName[];
   DISALLOW_COPY_AND_ASSIGN(UnloadedModuleAnalyzer);

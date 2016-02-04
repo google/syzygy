@@ -24,12 +24,15 @@ namespace refinery {
 // The TEB analyzer types the TEBs assoicated to the threads in the dump.
 class TebAnalyzer : public Analyzer {
  public:
-  const char* name() const override { return kTebAnalyzerName; }
-
   TebAnalyzer();
+
+  const char* name() const override { return kTebAnalyzerName; }
 
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_analysis) override;
+
+  ANALYZER_INPUT_LAYERS(ProcessState::ModuleLayer)
+  ANALYZER_OUTPUT_LAYERS(ProcessState::TypedBlockLayer)
 
  private:
   static const char kTebAnalyzerName[];

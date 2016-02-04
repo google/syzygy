@@ -39,6 +39,9 @@ class TypePropagatorAnalyzer : public Analyzer {
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_analysis) override;
 
+  ANALYZER_INPUT_LAYERS(ProcessState::BytesLayer, ProcessState::TypedBlockLayer)
+  ANALYZER_OUTPUT_LAYERS(ProcessState::TypedBlockLayer)
+
  private:
   bool AnalyzeTypedData(const TypedData& data, ProcessState* process_state);
   bool AnalyzeTypedDataUDT(const TypedData& typed_data,

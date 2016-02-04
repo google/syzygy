@@ -17,6 +17,7 @@
 
 #include "base/macros.h"
 #include "syzygy/refinery/analyzers/analyzer.h"
+#include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/symbols/symbol_provider.h"
 
 namespace refinery {
@@ -31,6 +32,10 @@ class HeapAnalyzer : public Analyzer {
 
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_state) override;
+
+  ANALYZER_INPUT_LAYERS(ProcessState::BytesLayer, ProcessState::ModuleLayer)
+  ANALYZER_OUTPUT_LAYERS(ProcessState::HeapMetadataLayer,
+                         ProcessState::HeapAllocationLayer);
 
  private:
   static const char kHeapAnalyzerName[];

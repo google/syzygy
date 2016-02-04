@@ -38,6 +38,11 @@ class StackFrameAnalyzer : public Analyzer {
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_analysis) override;
 
+  ANALYZER_INPUT_LAYERS(ProcessState::BytesLayer,
+                        ProcessState::ModuleLayer,
+                        ProcessState::StackFrameLayer)
+  ANALYZER_OUTPUT_LAYERS(ProcessState::TypedBlockLayer)
+
  private:
   bool AnalyzeFrame(StackFrameRecordPtr frame_record,
                     const ProcessAnalysis& process_analysis);

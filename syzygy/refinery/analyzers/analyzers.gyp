@@ -35,6 +35,8 @@
         'analysis_runner.cc',
         'analysis_runner.h',
         'analyzer.h',
+        'analyzer_list.cc',
+        'analyzer_list.h',
         'analyzer_util.cc',
         'analyzer_util.h',
         'exception_analyzer.cc',

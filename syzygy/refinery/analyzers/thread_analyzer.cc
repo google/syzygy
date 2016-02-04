@@ -30,7 +30,7 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
     const ProcessAnalysis& process_analysis) {
   DCHECK(process_analysis.process_state() != nullptr);
 
-  scoped_refptr<ProcessState::Layer<Stack>> stack_layer;
+  StackLayerPtr stack_layer;
   process_analysis.process_state()->FindOrCreateLayer(&stack_layer);
 
   minidump::Minidump::TypedThreadList threads = minidump.GetThreadList();
@@ -39,7 +39,7 @@ Analyzer::AnalysisResult ThreadAnalyzer::Analyze(
 
   for (const auto& thread : threads) {
     // Create the stack record.
-    scoped_refptr<ProcessState::Record<Stack>> stack_record;
+    StackRecordPtr stack_record;
     AddressRange range(thread.Stack.StartOfMemoryRange,
                        thread.Stack.Memory.DataSize);
     if (!range.IsValid())

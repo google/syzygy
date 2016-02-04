@@ -41,6 +41,11 @@ class StackAnalyzer : public Analyzer {
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_analysis) override;
 
+  ANALYZER_INPUT_LAYERS(ProcessState::BytesLayer,
+                        ProcessState::ModuleLayer,
+                        ProcessState::StackLayer)
+  ANALYZER_OUTPUT_LAYERS(ProcessState::StackFrameLayer)
+
  private:
   AnalysisResult StackWalk(StackRecordPtr stack_record,
                            const ProcessAnalysis& process_analysis);

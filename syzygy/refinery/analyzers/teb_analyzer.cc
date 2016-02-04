@@ -72,8 +72,6 @@ Analyzer::AnalysisResult TebAnalyzer::Analyze(
     const ProcessAnalysis& process_analysis) {
   DCHECK(process_analysis.process_state() != nullptr);
 
-  // TODO(siggi): At present this won't work for XP, figure out how to reject
-  //     XP dumps?
   // Start by finding the NTDLL module record and symbols, as that's where we
   // come by the symbols that describe the heap.
   ModuleId module_id = kNoModuleId;

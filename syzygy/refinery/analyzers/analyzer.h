@@ -74,6 +74,39 @@ class Analyzer::ProcessAnalysis {
   virtual scoped_refptr<SymbolProvider> symbol_provider() const = 0;
 };
 
+// @name Utility macros to allow declaring analyzer input and output layer
+//     dependencies.
+// @{
+#define ANALYZER_INPUT_LAYERS(...)                          \
+  static const ProcessState::LayerEnum* InputLayers() {     \
+    static const ProcessState::LayerEnum kInputLayers[] = { \
+        __VA_ARGS__, ProcessState::UnknownLayer};           \
+    return kInputLayers;                                    \
+  }
+
+#define ANALYZER_NO_INPUT_LAYERS()                      \
+  static const ProcessState::LayerEnum* InputLayers() { \
+    static const ProcessState::LayerEnum kSentinel =    \
+        ProcessState::UnknownLayer;                     \
+    return &kSentinel;                                  \
+  }
+
+#define ANALYZER_OUTPUT_LAYERS(...)                          \
+  static const ProcessState::LayerEnum* OutputLayers() {     \
+    static const ProcessState::LayerEnum kOutputLayers[] = { \
+        __VA_ARGS__, ProcessState::UnknownLayer};            \
+    return kOutputLayers;                                    \
+  }
+
+#define ANALYZER_NO_OUTPUT_LAYERS()                      \
+  static const ProcessState::LayerEnum* OutputLayers() { \
+    static const ProcessState::LayerEnum kSentinel =     \
+        ProcessState::UnknownLayer;                      \
+    return &kSentinel;                                   \
+  }
+
+// @}
+
 }  // namespace refinery
 
 #endif  // SYZYGY_REFINERY_ANALYZERS_ANALYZER_H_
