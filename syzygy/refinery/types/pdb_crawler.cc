@@ -76,6 +76,12 @@ class TypeCreator {
                        size_t* bit_pos,
                        size_t* bit_len);
 
+  // Processes a base class field and inserts it into given field list.
+  // @param bclass pointer to the (non-virtual) base class field record.
+  // @param fields pointer to the field list.
+  // @returns true on success, false on failure.
+  bool ProcessBClass(pdb::LeafBClass* bclass, UserDefinedType::Fields* fields);
+
   // Processes a member field and inserts it into given field list.
   // @param member pointer to the member type record.
   // @param fields pointer to the field list.
@@ -381,8 +387,10 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
       }
       case cci::LF_BCLASS: {
         pdb::LeafBClass type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(local_stream.get()) ||
+            !ProcessBClass(&type_info, fields)) {
           return false;
+        }
         break;
       }
       case cci::LF_VBCLASS:
@@ -744,6 +752,23 @@ TypeCreator::TypeCreator(TypeRepository* repository)
 TypeCreator::~TypeCreator() {
 }
 
+bool TypeCreator::ProcessBClass(pdb::LeafBClass* bclass,
+                                UserDefinedType::Fields* fields) {
+  DCHECK(bclass);
+  DCHECK(fields);
+
+  // Ensure the base class' type is created.
+  TypeId bclass_id = bclass->body().index;
+  TypePtr bclass_type = FindOrCreateInheritableType(bclass_id);
+  if (bclass_type == nullptr)
+    return false;
+
+  fields->push_back(new UserDefinedType::BaseClassField(
+      bclass->offset(), bclass_type->type_id(), repository_));
+
+  return true;
+}
+
 bool TypeCreator::ProcessMember(pdb::LeafMember* member,
                                 UserDefinedType::Fields* fields) {
   DCHECK(member);
@@ -762,7 +787,7 @@ bool TypeCreator::ProcessMember(pdb::LeafMember* member,
 
   fields->push_back(new UserDefinedType::MemberField(
       member->name(), member->offset(), flags, bit_pos, bit_len,
-      member_type->type_id()));
+      member_type->type_id(), repository_));
   return true;
 }
 

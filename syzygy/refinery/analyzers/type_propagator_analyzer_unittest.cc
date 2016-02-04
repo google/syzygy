@@ -224,7 +224,7 @@ TEST_F(TypePropagatorAnalyzerTest, AnalyzeMinidumpUDT) {
   repo_->AddType(udt_type);
   UserDefinedType::Fields fields;
   fields.push_back(new UserDefinedType::MemberField(
-      L"pointer", 0, kNoTypeFlags, 0, 0, ptr_type_->type_id()));
+      L"pointer", 0, kNoTypeFlags, 0, 0, ptr_type_->type_id(), repo_.get()));
   UserDefinedType::Functions functions;
   udt_type->Finalize(&fields, &functions);
 

@@ -100,13 +100,13 @@ TEST_F(TypesTest, UserDefinedType) {
   UserDefinedType::Fields fields;
 
   const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
-  fields.push_back(new UserDefinedType::MemberField(L"one", 0, Type::FLAG_CONST,
-                                                    0, 0, kBasicTypeId));
   fields.push_back(new UserDefinedType::MemberField(
-      L"two", 4, Type::FLAG_VOLATILE, 0, 0, kBasicTypeId));
+      L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId, repo_.get()));
+  fields.push_back(new UserDefinedType::MemberField(
+      L"two", 4, Type::FLAG_VOLATILE, 0, 0, kBasicTypeId, repo_.get()));
   const TypeId kShortTypeId = repo_->AddType(new BasicType(L"short", 2));
-  fields.push_back(
-      new UserDefinedType::MemberField(L"three", 8, 0, 0, 0, kShortTypeId));
+  fields.push_back(new UserDefinedType::MemberField(L"three", 8, 0, 0, 0,
+                                                    kShortTypeId, repo_.get()));
   UserDefinedTypePtr udt =
       new UserDefinedType(L"foo", 10, UserDefinedType::UDT_CLASS);
 
@@ -177,13 +177,13 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   // Build a UDT instance.
   UserDefinedType::Fields fields;
   const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
-  fields.push_back(new UserDefinedType::MemberField(L"one", 0, Type::FLAG_CONST,
-                                                    0, 0, kBasicTypeId));
   fields.push_back(new UserDefinedType::MemberField(
-      L"two", 4, Type::FLAG_VOLATILE, 0, 0, kBasicTypeId));
+      L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId, repo_.get()));
+  fields.push_back(new UserDefinedType::MemberField(
+      L"two", 4, Type::FLAG_VOLATILE, 0, 0, kBasicTypeId, repo_.get()));
   const TypeId kShortTypeId = repo_->AddType(new BasicType(L"short", 2));
-  fields.push_back(
-      new UserDefinedType::MemberField(L"three", 8, 0, 0, 0, kShortTypeId));
+  fields.push_back(new UserDefinedType::MemberField(L"three", 8, 0, 0, 0,
+                                                    kShortTypeId, repo_.get()));
   UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 10,
                                                UserDefinedType::UDT_STRUCT);
   UserDefinedType::Functions functions;
@@ -230,6 +230,32 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&basic_type));
   EXPECT_EQ(L"short", basic_type->name());
   EXPECT_EQ(2, basic_type->size());
+}
+
+TEST_F(TypesTest, UserDefinedTypeGetFieldsOfKind) {
+  // Create a basic type.
+  const TypeId kBasicTypeId = repo_->AddType(new BasicType(L"int", 4));
+
+  // Create a UDT with a field.
+  UserDefinedType::Fields fields;
+  fields.push_back(new UserDefinedType::MemberField(
+      L"one", 0, Type::FLAG_CONST, 0, 0, kBasicTypeId, repo_.get()));
+  UserDefinedType::Functions functions;
+  UserDefinedTypePtr udt = new UserDefinedType(L"foo", L"decorated_foo", 4,
+                                               UserDefinedType::UDT_STRUCT);
+  udt->Finalize(&fields, &functions);
+  repo_->AddType(udt);
+
+  // Retrieve fields.
+  UserDefinedType::Members members;
+  udt->GetFieldsOfKind(&members);
+  ASSERT_EQ(1, members.size());
+  ValidateMemberField(members[0], L"one", 0U, kBasicTypeId, CONST_QUALIFIED,
+                      NOT_VOLATILE_QUALIFIED);
+
+  UserDefinedType::BaseClasses base_classes;
+  udt->GetFieldsOfKind(&base_classes);
+  ASSERT_EQ(0, base_classes.size());
 }
 
 TEST_F(TypesTest, UserDefineTypeForwardDeclaration) {

@@ -110,10 +110,10 @@ class TypedDataTest : public testing::Test {
         L"Inner", sizeof(TestUDT::InnerUDT), UserDefinedType::UDT_STRUCT));
     fields.push_back(new UserDefinedType::MemberField(
         L"inner_one", offsetof(TestUDT::InnerUDT, inner_one), 0, 0, 0,
-        uint8_type->type_id()));
+        uint8_type->type_id(), repo_.get()));
     fields.push_back(new UserDefinedType::MemberField(
         L"inner_two", offsetof(TestUDT::InnerUDT, inner_two), 0, 0, 0,
-        uint32_type_->type_id()));
+        uint32_type_->type_id(), repo_.get()));
     inner->Finalize(&fields, &functions);
     repo_->AddType(inner);
 
@@ -128,17 +128,20 @@ class TypedDataTest : public testing::Test {
     repo_->AddType(ptr_type);
 
     fields.push_back(new UserDefinedType::MemberField(
-        L"one", offsetof(TestUDT, one), 0, 0, 0, uint16_type->type_id()));
+        L"one", offsetof(TestUDT, one), 0, 0, 0, uint16_type->type_id(),
+        repo_.get()));
+    fields.push_back(
+        new UserDefinedType::MemberField(L"two", offsetof(TestUDT, two), 0, 0,
+                                         0, inner->type_id(), repo_.get()));
     fields.push_back(new UserDefinedType::MemberField(
-        L"two", offsetof(TestUDT, two), 0, 0, 0, inner->type_id()));
-    fields.push_back(new UserDefinedType::MemberField(
-        L"three", offsetof(TestUDT, three), 0, 0, 0, ptr_type->type_id()));
+        L"three", offsetof(TestUDT, three), 0, 0, 0, ptr_type->type_id(),
+        repo_.get()));
     fields.push_back(new UserDefinedType::MemberField(
         L"four", offsetof(TestUDT, three) + sizeof(test_instance.three), 0, 0,
-        10, int32_type->type_id()));
+        10, int32_type->type_id(), repo_.get()));
     fields.push_back(new UserDefinedType::MemberField(
         L"five", offsetof(TestUDT, three) + sizeof(test_instance.three), 0, 10,
-        10, int32_type->type_id()));
+        10, int32_type->type_id(), repo_.get()));
 
     ArrayTypePtr array_type = new ArrayType(sizeof(test_instance.six));
     array_type->Finalize(kNoTypeFlags, uint32_type_->type_id(),
@@ -147,7 +150,7 @@ class TypedDataTest : public testing::Test {
 
     fields.push_back(new UserDefinedType::MemberField(
         L"six", offsetof(TestUDT, six), kNoTypeFlags, 0, 0,
-        array_type->type_id()));
+        array_type->type_id(), repo_.get()));
     outer->Finalize(&fields, &functions);
     repo_->AddType(outer);
 

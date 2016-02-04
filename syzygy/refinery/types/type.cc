@@ -114,9 +114,18 @@ void UserDefinedType::SetIsForwardDeclaration() {
   is_fwd_decl_ = true;
 }
 
-UserDefinedType::Field::Field(FieldKind kind, ptrdiff_t offset, TypeId type_id)
-    : kind_(kind), offset_(offset), type_id_(type_id) {
+UserDefinedType::Field::Field(FieldKind kind,
+                              ptrdiff_t offset,
+                              TypeId type_id,
+                              TypeRepository* repository)
+    : kind_(kind), offset_(offset), type_id_(type_id), repository_(repository) {
   DCHECK_NE(kNoTypeId, type_id);
+  DCHECK(repository);
+}
+
+TypePtr UserDefinedType::Field::GetType() const {
+  DCHECK(repository_);
+  return repository_->GetType(type_id_);
 }
 
 bool UserDefinedType::Field::operator==(const Field& o) const {
@@ -130,13 +139,24 @@ bool UserDefinedType::Field::IsEqual(const Field& o) const {
 UserDefinedType::Field::~Field() {
 }
 
+UserDefinedType::BaseClassField::BaseClassField(ptrdiff_t offset,
+                                                TypeId type_id,
+                                                TypeRepository* repository)
+    : Field(BASE_CLASS_KIND, offset, type_id, repository) {
+}
+
+bool UserDefinedType::BaseClassField::IsEqual(const Field& o) const {
+  return Field::IsEqual(o);
+}
+
 UserDefinedType::MemberField::MemberField(const base::string16& name,
                                           ptrdiff_t offset,
                                           Type::Flags flags,
                                           size_t bit_pos,
                                           size_t bit_len,
-                                          TypeId type_id)
-    : Field(MEMBER_KIND, offset, type_id),
+                                          TypeId type_id,
+                                          TypeRepository* repository)
+    : Field(MEMBER_KIND, offset, type_id, repository),
       name_(name),
       flags_(flags),
       bit_pos_(bit_pos),

@@ -581,7 +581,7 @@ bool TypeCreator::FinalizeUDT(IDiaSymbol* symbol, UserDefinedTypePtr udt) {
 
       fields.push_back(new UserDefinedType::MemberField(
           field_name, field_offset, field_flags, bit_pos, bit_length,
-          field_type->type_id()));
+          field_type->type_id(), repository_));
     } else if (sym_tag == SymTagFunction) {
       base::win::ScopedComPtr<IDiaSymbol> function_type_sym;
       base::string16 function_name;

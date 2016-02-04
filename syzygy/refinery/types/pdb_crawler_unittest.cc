@@ -318,13 +318,14 @@ TEST_P(PdbCrawlerTest, TestAllInOneUDT) {
   ASSERT_TRUE(type->CastTo(&udt));
   ASSERT_TRUE(udt);
 
-  const UserDefinedType::Fields& fields = udt->fields();
-  ASSERT_EQ(1U, fields.size());
+  UserDefinedType::Members members;
+  udt->GetFieldsOfKind(&members);
+  ASSERT_EQ(1U, members.size());
 
   ValidateMemberField(
-      fields[0], LookupOffsetOf(L"TestAllInOneUDT", L"regular_member"),
+      members[0], LookupOffsetOf(L"TestAllInOneUDT", L"regular_member"),
       kBitPosZero, kBitLenZero, !kIsConst, !kIsVolatile, L"regular_member");
-  ValidateBasicType(udt->GetFieldType(0), sizeof(int32_t), L"int32_t");
+  ValidateBasicType(members[0]->GetType(), sizeof(int32_t), L"int32_t");
 }
 
 TEST_P(PdbCrawlerTest, TestCollidingUDTs) {
@@ -410,6 +411,50 @@ TEST_P(PdbCrawlerTest, TestMemberPointerSizes) {
     EXPECT_EQ(
         LookupSizeOf(member_name.substr(strlen("test"), base::string16::npos)),
         pointer->size());
+  }
+}
+
+TEST_P(PdbCrawlerTest, TestBaseClasses) {
+  // ::A has no base classes.
+  {
+    TypePtr type = FindOneTypeBySuffix(L"::A");
+    ASSERT_TRUE(type);
+    UserDefinedTypePtr udt;
+    ASSERT_TRUE(type->CastTo(&udt));
+    ASSERT_TRUE(udt);
+    UserDefinedType::BaseClasses base_classes;
+    udt->GetFieldsOfKind(&base_classes);
+    EXPECT_EQ(0, base_classes.size());
+  }
+
+  // ::Single has one base class.
+  {
+    TypePtr type = FindOneTypeBySuffix(L"::Single");
+    ASSERT_TRUE(type);
+    UserDefinedTypePtr udt;
+    ASSERT_TRUE(type->CastTo(&udt));
+    ASSERT_TRUE(udt);
+    UserDefinedType::BaseClasses base_classes;
+    udt->GetFieldsOfKind(&base_classes);
+    ASSERT_EQ(1, base_classes.size());
+
+    // Validate the details of the base class.
+    EXPECT_EQ(UserDefinedType::Field::BASE_CLASS_KIND, base_classes[0]->kind());
+    TypePtr base_type = FindOneTypeBySuffix(L"::A");
+    EXPECT_EQ(base_type->type_id(), base_classes[0]->type_id());
+    EXPECT_EQ(0, base_classes[0]->offset());
+  }
+
+  // ::Multi has two base classes.
+  {
+    TypePtr type = FindOneTypeBySuffix(L"::Multi");
+    ASSERT_TRUE(type);
+    UserDefinedTypePtr udt;
+    ASSERT_TRUE(type->CastTo(&udt));
+    ASSERT_TRUE(udt);
+    UserDefinedType::BaseClasses base_classes;
+    udt->GetFieldsOfKind(&base_classes);
+    EXPECT_EQ(2, base_classes.size());
   }
 }
 
