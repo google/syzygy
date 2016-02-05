@@ -15,6 +15,7 @@
 #ifndef SYZYGY_REFINERY_ANALYZERS_ANALYZER_LIST_H_
 #define SYZYGY_REFINERY_ANALYZERS_ANALYZER_LIST_H_
 
+#include <string>
 #include <vector>
 
 #include "base/strings/string_piece.h"
@@ -23,34 +24,44 @@
 
 namespace refinery {
 
-// The list of analyzers known to the AnalyzerList. Add new analyzers here.
-#define ANALYZER_LIST(DECL) \
-  DECL(Exception)           \
-  DECL(Heap)                \
-  DECL(Memory)              \
-  DECL(Module)              \
-  DECL(Stack)               \
-  DECL(StackFrame)          \
-  DECL(Teb)                 \
-  DECL(Thread)              \
-  DECL(TypePropagator)      \
-  DECL(UnloadedModule)
-
+// An analyzer list knows of a set of analyzers and their layer dependencies.
 class AnalyzerList {
  public:
   using Layers = std::vector<ProcessState::LayerEnum>;
+  using AnalyzerNames = std::vector<std::string>;
+
+  // Retrieves the names of the analyzers known to this analyzer list.
+  virtual void GetAnalyzerNames(AnalyzerNames* analyzer_names) const = 0;
 
   // Creates the analyzer named @p name.
   // @returns the created analyzer, or nullptr if @p name is invalid.
-  static Analyzer* CreateAnalyzer(const base::StringPiece& name);
+  virtual Analyzer* CreateAnalyzer(const base::StringPiece& name) const = 0;
 
   // Retrieve the input/output layers for a named analyzer.
   // @param name the name of the analyzer of interest.
   // @param layers on success contains the input/output layers.
   // @returns true on success, false if @p name is invalid.
   // @{
-  static bool GetInputLayers(const base::StringPiece& name, Layers* layers);
-  static bool GetOutputLayers(const base::StringPiece& name, Layers* layers);
+  virtual bool GetInputLayers(const base::StringPiece& name,
+                              Layers* layers) const = 0;
+  virtual bool GetOutputLayers(const base::StringPiece& name,
+                               Layers* layers) const = 0;
+  // @}
+};
+
+// This implementation of AnalyzerList knows of all analyzers linked into this
+// binary.
+class StaticAnalyzerList : public AnalyzerList {
+ public:
+  // @name AnalyzerList implementation.
+  // @{
+  void GetAnalyzerNames(AnalyzerNames* analyzer_names) const override;
+  Analyzer* CreateAnalyzer(const base::StringPiece& name) const override;
+
+  bool GetInputLayers(const base::StringPiece& name,
+                      Layers* layers) const override;
+  bool GetOutputLayers(const base::StringPiece& name,
+                       Layers* layers) const override;
   // @}
 };
 

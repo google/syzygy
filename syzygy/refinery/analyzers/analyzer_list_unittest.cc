@@ -21,54 +21,64 @@
 namespace refinery {
 
 namespace {
-static const char* kAnalyzerNames[] = {
-#define DECLARE_ANALYZER_NAME(name) #name "Analyzer",
-    ANALYZER_LIST(DECLARE_ANALYZER_NAME)
-#undef DECLARA_ANALYZER_NAME
-};
-
-static_assert(arraysize(kAnalyzerNames) > 0, "No analyzer names!");
 
 static const char kInvalidAnalyzerName[] = "FooBarAnalyzer";
+
+class StaticAnalyzerListTest : public testing::Test {
+ public:
+  void SetUp() override {
+    list_.GetAnalyzerNames(&analyzer_names_);
+    EXPECT_NE(0u, analyzer_names_.size());
+  }
+
+  const AnalyzerList::AnalyzerNames& analyzer_names() const {
+    return analyzer_names_;
+  }
+  const StaticAnalyzerList& list() const { return list_; }
+
+ private:
+  AnalyzerList::AnalyzerNames analyzer_names_;
+  StaticAnalyzerList list_;
+};
+
 }  // namespace
 
-TEST(AnalyzerListTest, CreateAnalyzersSucceedsForValidAnalyzerNames) {
-  for (const char* name : kAnalyzerNames) {
-    scoped_ptr<Analyzer> analyzer(AnalyzerList::CreateAnalyzer(name));
+TEST_F(StaticAnalyzerListTest, CreateAnalyzersSucceedsForValidAnalyzerNames) {
+  for (const auto& name : analyzer_names()) {
+    scoped_ptr<Analyzer> analyzer(list().CreateAnalyzer(name));
 
     ASSERT_TRUE(analyzer.get());
-    ASSERT_STREQ(name, analyzer->name());
+    ASSERT_EQ(name, analyzer->name());
   }
 }
 
-TEST(AnalyzerListTest, CreateAnalyzersFailsForInvalidAnalyzerName) {
-  scoped_ptr<Analyzer> analyzer(
-      AnalyzerList::CreateAnalyzer(kInvalidAnalyzerName));
+TEST_F(StaticAnalyzerListTest, CreateAnalyzersFailsForInvalidAnalyzerName) {
+  scoped_ptr<Analyzer> analyzer(list().CreateAnalyzer(kInvalidAnalyzerName));
   ASSERT_FALSE(analyzer.get());
 }
 
-TEST(AnalyzerListTest, GetInputLayersSucceedsForValidAnalyzerNames) {
-  for (const char* name : kAnalyzerNames) {
+TEST_F(StaticAnalyzerListTest, GetInputLayersSucceedsForValidAnalyzerNames) {
+  for (const auto& name : analyzer_names()) {
     AnalyzerList::Layers layers;
-    ASSERT_TRUE(AnalyzerList::GetInputLayers(name, &layers));
+    ASSERT_TRUE(list().GetInputLayers(name, &layers));
   }
 }
 
-TEST(AnalyzerListTest, GetInputLayersFailsForInvalidAnalyzerName) {
+TEST_F(StaticAnalyzerListTest, GetInputLayersFailsForInvalidAnalyzerName) {
   AnalyzerList::Layers layers;
-  ASSERT_FALSE(AnalyzerList::GetInputLayers(kInvalidAnalyzerName, &layers));
+  ASSERT_FALSE(list().GetInputLayers(kInvalidAnalyzerName, &layers));
 }
 
-TEST(AnalyzerListTest, GetOutputLayersSucceedsForValidAnalyzerNames) {
-  for (const char* name : kAnalyzerNames) {
+TEST_F(StaticAnalyzerListTest, GetOutputLayersSucceedsForValidAnalyzerNames) {
+  for (const auto& name : analyzer_names()) {
     AnalyzerList::Layers layers;
-    ASSERT_TRUE(AnalyzerList::GetOutputLayers(name, &layers));
+    ASSERT_TRUE(list().GetOutputLayers(name, &layers));
   }
 }
 
-TEST(AnalyzerListTest, GetOutputLayersFailsForInvalidAnalyzerName) {
+TEST_F(StaticAnalyzerListTest, GetOutputLayersFailsForInvalidAnalyzerName) {
   AnalyzerList::Layers layers;
-  ASSERT_FALSE(AnalyzerList::GetOutputLayers(kInvalidAnalyzerName, &layers));
+  ASSERT_FALSE(list().GetOutputLayers(kInvalidAnalyzerName, &layers));
 }
 
 }  // namespace refinery

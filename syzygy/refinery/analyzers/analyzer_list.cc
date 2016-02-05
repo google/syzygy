@@ -27,29 +27,42 @@
 
 namespace refinery {
 
+// The list of analyzers known to the AnalyzerList. Add new analyzers here.
+#define ANALYZER_LIST(DECL) \
+  DECL(Exception)           \
+  DECL(Heap)                \
+  DECL(Memory)              \
+  DECL(Module)              \
+  DECL(Stack)               \
+  DECL(StackFrame)          \
+  DECL(Teb)                 \
+  DECL(Thread)              \
+  DECL(TypePropagator)      \
+  DECL(UnloadedModule)
+
 namespace {
 typedef const ProcessState::LayerEnum* (*GetLayersFunction)();
 
-struct DepsStruct {
+struct AnalyzerDescription {
   const char* name;
   GetLayersFunction input_layers;
   GetLayersFunction output_layers;
 };
 
-const DepsStruct kLayerDeps[] = {
-#define DECLARE_ANALYZER_DEPS(analyzer_name)                          \
+const AnalyzerDescription kKnownAnalyzers[] = {
+#define DECLARE_KNOWN_ANALYZER(analyzer_name)                         \
   {                                                                   \
     #analyzer_name "Analyzer", &analyzer_name##Analyzer::InputLayers, \
         &analyzer_name##Analyzer::OutputLayers,                       \
   }                                                                   \
   ,
 
-    ANALYZER_LIST(DECLARE_ANALYZER_DEPS)
+    ANALYZER_LIST(DECLARE_KNOWN_ANALYZER)
 
-#undef DECLARE_ANALYZER_DEPS
+#undef DECLARE_KNOWN_ANALYZER
 };
 
-bool CopyLayers(GetLayersFunction fn, AnalyzerList::Layers* layers) {
+bool CopyLayers(GetLayersFunction fn, StaticAnalyzerList::Layers* layers) {
   DCHECK(fn);
   DCHECK(layers);
 
@@ -65,7 +78,16 @@ bool CopyLayers(GetLayersFunction fn, AnalyzerList::Layers* layers) {
 
 }  // namespace
 
-Analyzer* AnalyzerList::CreateAnalyzer(const base::StringPiece& name) {
+void StaticAnalyzerList::GetAnalyzerNames(AnalyzerNames* names) const {
+  DCHECK(names);
+
+  names->clear();
+  for (const auto& dep : kKnownAnalyzers)
+    names->push_back(dep.name);
+}
+
+Analyzer* StaticAnalyzerList::CreateAnalyzer(
+    const base::StringPiece& name) const {
 #define CREATE_ANALYZER(analyzer_name)   \
   if (name == #analyzer_name "Analyzer") \
     return new analyzer_name##Analyzer();
@@ -77,12 +99,12 @@ Analyzer* AnalyzerList::CreateAnalyzer(const base::StringPiece& name) {
   return nullptr;
 }
 
-bool AnalyzerList::GetInputLayers(const base::StringPiece& name,
-                                  Layers* layers) {
+bool StaticAnalyzerList::GetInputLayers(const base::StringPiece& name,
+                                        Layers* layers) const {
   DCHECK(layers);
   layers->clear();
 
-  for (const auto& dep : kLayerDeps) {
+  for (const auto& dep : kKnownAnalyzers) {
     if (name == dep.name)
       return CopyLayers(dep.input_layers, layers);
   }
@@ -90,12 +112,12 @@ bool AnalyzerList::GetInputLayers(const base::StringPiece& name,
   return false;
 }
 
-bool AnalyzerList::GetOutputLayers(const base::StringPiece& name,
-                                   Layers* layers) {
+bool StaticAnalyzerList::GetOutputLayers(const base::StringPiece& name,
+                                         Layers* layers) const {
   DCHECK(layers);
   layers->clear();
 
-  for (const auto& dep : kLayerDeps) {
+  for (const auto& dep : kKnownAnalyzers) {
     if (name == dep.name)
       return CopyLayers(dep.output_layers, layers);
   }
