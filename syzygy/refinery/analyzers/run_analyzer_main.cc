@@ -28,14 +28,8 @@
 #include "syzygy/application/application.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
+#include "syzygy/refinery/analyzers/analyzer_list.h"
 #include "syzygy/refinery/analyzers/analyzer_util.h"
-#include "syzygy/refinery/analyzers/heap_analyzer.h"
-#include "syzygy/refinery/analyzers/memory_analyzer.h"
-#include "syzygy/refinery/analyzers/module_analyzer.h"
-#include "syzygy/refinery/analyzers/stack_analyzer.h"
-#include "syzygy/refinery/analyzers/stack_frame_analyzer.h"
-#include "syzygy/refinery/analyzers/teb_analyzer.h"
-#include "syzygy/refinery/analyzers/thread_analyzer.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/symbols/dia_symbol_provider.h"
 #include "syzygy/refinery/symbols/symbol_provider.h"
@@ -186,29 +180,11 @@ int RunAnalyzerApplication::Run() {
 }
 
 bool RunAnalyzerApplication::AddAnalyzers(refinery::AnalysisRunner* runner) {
-  scoped_ptr<refinery::Analyzer> analyzer;
-  // TODO(siggi): Figure a better way to do this.
+  // TODO(siggi): Improve on this by taking dependencies into account.
+  refinery::StaticAnalyzerList list;
   for (const auto& analyzer_name : analyzer_names_) {
-    if (analyzer_name == "MemoryAnalyzer") {
-      analyzer.reset(new refinery::MemoryAnalyzer());
-      runner->AddAnalyzer(analyzer.Pass());
-    } else if (analyzer_name == "ModuleAnalyzer") {
-      analyzer.reset(new refinery::ModuleAnalyzer());
-      runner->AddAnalyzer(analyzer.Pass());
-    } else if (analyzer_name == "HeapAnalyzer") {
-      analyzer.reset(new refinery::HeapAnalyzer());
-      runner->AddAnalyzer(analyzer.Pass());
-    } else if (analyzer_name == "StackAnalyzer") {
-      analyzer.reset(new refinery::StackAnalyzer());
-      runner->AddAnalyzer(analyzer.Pass());
-    } else if (analyzer_name == "StackFrameAnalyzer") {
-      analyzer.reset(new refinery::StackFrameAnalyzer());
-      runner->AddAnalyzer(analyzer.Pass());
-    } else if (analyzer_name == "TebAnalyzer") {
-      analyzer.reset(new refinery::TebAnalyzer());
-      runner->AddAnalyzer(analyzer.Pass());
-    } else if (analyzer_name == "ThreadAnalyzer") {
-      analyzer.reset(new refinery::ThreadAnalyzer());
+    scoped_ptr<refinery::Analyzer> analyzer(list.CreateAnalyzer(analyzer_name));
+    if (analyzer) {
       runner->AddAnalyzer(analyzer.Pass());
     } else {
       LOG(ERROR) << "No such analyzer " << analyzer_name;
