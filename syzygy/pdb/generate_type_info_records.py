@@ -13,7 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This scripts generate wrappers around record types from CVInfo.h. The
+# This script generates wrappers around record types from CVInfo.h. The
 # description of the records is loaded from given json file. Example of a valid
 # .json file:
 #
@@ -105,19 +105,16 @@ _HEADER_H = """\
 #define SYZYGY_PDB_GEN_PDB_TYPE_INFO_RECORDS_H_
 
 #include "base/strings/string16.h"
+#include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_stream_record.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
 namespace pdb {{
 
-// Forward declaration.
-class PdbStream;
-
 """
 
 _HEADER_CC = """\
 #include "syzygy/pdb/gen/pdb_type_info_records.h"
-#include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {{
 

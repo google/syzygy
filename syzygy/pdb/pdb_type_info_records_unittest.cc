@@ -623,6 +623,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncOff) {
+  const uint16 kPad = 0x0000;
   const uint32_t kType = 0x20AC;
   const uint32_t kOffset = 0x0FF531;
 
@@ -632,16 +633,18 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncOff) {
   EXPECT_FALSE(type_record.Initialize(stream_.get()));
 
   // Fill the stream.
+  WriteData(kPad);
   WriteData(kType);
   WriteData(kOffset);
 
   ASSERT_TRUE(type_record.Initialize(stream_.get()));
 
-  EXPECT_EQ(kType, type_record.type());
-  EXPECT_EQ(kOffset, type_record.offset());
+  EXPECT_EQ(kType, type_record.body().type);
+  EXPECT_EQ(kOffset, type_record.body().offset);
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncTab) {
+  const uint16 kPad = 0x0000;
   const uint32_t kType = 0x2015;
 
   LeafVFuncTab type_record;
@@ -650,11 +653,12 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncTab) {
   EXPECT_FALSE(type_record.Initialize(stream_.get()));
 
   // Fill the stream.
+  WriteData(kPad);
   WriteData(kType);
 
   ASSERT_TRUE(type_record.Initialize(stream_.get()));
 
-  EXPECT_EQ(kType, type_record.index());
+  EXPECT_EQ(kType, type_record.body().type);
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVTShape) {

@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -551,8 +551,6 @@ class LeafVFuncOff {
   // @name Accessors.
   // @{
   const Microsoft_Cci_Pdb::LeafVFuncOff& body() const { return body_; }
-  uint32_t type() const { return type_; }
-  uint32_t offset() const { return offset_; }
   // @}
 
   // Initializes the class from the given pdb stream.
@@ -563,10 +561,6 @@ class LeafVFuncOff {
  private:
   // The struct from CVInfo.h which represents this record.
   Microsoft_Cci_Pdb::LeafVFuncOff body_;
-
-  // Additional fields parsed from the pdb stream.
-  uint32_t type_;
-  uint32_t offset_;
 };
 
 class LeafVFuncTab {
@@ -576,7 +570,6 @@ class LeafVFuncTab {
   // @name Accessors.
   // @{
   const Microsoft_Cci_Pdb::LeafVFuncTab& body() const { return body_; }
-  uint32_t index() const { return index_; }
   // @}
 
   // Initializes the class from the given pdb stream.
@@ -587,9 +580,6 @@ class LeafVFuncTab {
  private:
   // The struct from CVInfo.h which represents this record.
   Microsoft_Cci_Pdb::LeafVFuncTab body_;
-
-  // Additional fields parsed from the pdb stream.
-  uint32_t index_;
 };
 
 class LeafVTShape {

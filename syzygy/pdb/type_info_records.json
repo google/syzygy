@@ -288,28 +288,10 @@
       ]
     },
     {
-      "name": "LeafVFuncOff",
-      "first_extra_field": "pad0",
-      "extra_fields": [
-        {
-          "name": "type",
-          "type_name": "uint32_t"
-        },
-        {
-          "name": "offset",
-          "type_name": "uint32_t"
-        }
-      ]
+      "name": "LeafVFuncOff"
     },
     {
-      "name": "LeafVFuncTab",
-      "first_extra_field": "pad0",
-      "extra_fields": [
-        {
-          "name": "index",
-          "type_name": "uint32_t"
-        }
-      ]
+      "name": "LeafVFuncTab"
     },
     {
       "name": "LeafVTShape",
