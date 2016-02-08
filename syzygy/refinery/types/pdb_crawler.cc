@@ -104,6 +104,31 @@ class TypeCreator {
   bool ProcessMethod(pdb::LeafMethod* method,
                      UserDefinedType::Functions* functions);
 
+  // Helper function for processesing a virtual function field and inserting it
+  // into given field list.
+  // @param id the type identifier of the virtual function field.
+  // @param offset the offset of the field within the containing class.
+  // @param fields pointer to the field list.
+  // @returns true on success, false on failure.
+  bool ProcessVFunc(TypeId id,
+                    ptrdiff_t offset,
+                    UserDefinedType::Fields* fields);
+
+  // Processes a virtual function at offset field and inserts it into given
+  // field list.
+  // @param vfunc pointer to the virtual function at offset field record.
+  // @param fields pointer to the field list.
+  // @returns true on success, false on failure.
+  bool ProcessVFuncOff(pdb::LeafVFuncOff* vfunc,
+                       UserDefinedType::Fields* fields);
+
+  // Processes a virtual function field and inserts it into given field list.
+  // @param vfunc pointer to the virtual function field record.
+  // @param fields pointer to the field list.
+  // @returns true on success, false on failure.
+  bool ProcessVFuncTab(pdb::LeafVFuncTab* vfunc,
+                       UserDefinedType::Fields* fields);
+
   // Parses field list from the data stream and populates the UDT with fields
   // and member functions.
   // @param fields pointer to the field list.
@@ -434,7 +459,8 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
       }
       case cci::LF_VFUNCTAB: {
         pdb::LeafVFuncTab type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(local_stream.get()) ||
+            !ProcessVFuncTab(&type_info, fields))
           return false;
         break;
       }
@@ -454,7 +480,8 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
       }
       case cci::LF_VFUNCOFF: {
         pdb::LeafVFuncOff type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(local_stream.get()) ||
+          !ProcessVFuncOff(&type_info, fields))
           return false;
         break;
       }
@@ -839,6 +866,47 @@ bool TypeCreator::ProcessMethod(pdb::LeafMethod* method,
     count--;
   }
   return true;
+}
+
+bool TypeCreator::ProcessVFunc(
+    TypeId id, ptrdiff_t offset, UserDefinedType::Fields* fields) {
+  DCHECK(fields);
+
+  // Virtual function pointer fields have as type a pointer type to a virtual
+  // table shape.
+  TypePtr type = FindOrCreateSpecificType(id, cci::LF_POINTER);
+  if (type == nullptr)
+    return false;
+
+  // Validate the pointer type's content type is a vtable shape.
+  PointerTypePtr ptr_type;
+  if (!type->CastTo(&ptr_type))
+    return false;
+  DCHECK(ptr_type);
+  TypePtr content_type = ptr_type->GetContentType();
+  DCHECK(content_type);
+  // TODO(manzagop): update once virtual tables have their own type.
+  if (content_type->kind() != Type::WILDCARD_TYPE_KIND)
+    return false;
+
+  fields->push_back(
+      new UserDefinedType::VfptrField(offset, type->type_id(), repository_));
+
+  return true;
+}
+
+bool TypeCreator::ProcessVFuncOff(pdb::LeafVFuncOff* vfunc,
+                                  UserDefinedType::Fields* fields) {
+  DCHECK(vfunc);
+  DCHECK(fields);
+  return ProcessVFunc(vfunc->body().type, vfunc->body().offset, fields);
+}
+
+bool TypeCreator::ProcessVFuncTab(pdb::LeafVFuncTab* vfunc,
+                                  UserDefinedType::Fields* fields) {
+  DCHECK(vfunc);
+  DCHECK(fields);
+  return ProcessVFunc(vfunc->body().type, 0, fields);
 }
 
 base::string16 TypeCreator::BasicTypeName(uint16_t type) {

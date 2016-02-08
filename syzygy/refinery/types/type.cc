@@ -145,10 +145,6 @@ UserDefinedType::BaseClassField::BaseClassField(ptrdiff_t offset,
     : Field(BASE_CLASS_KIND, offset, type_id, repository) {
 }
 
-bool UserDefinedType::BaseClassField::IsEqual(const Field& o) const {
-  return Field::IsEqual(o);
-}
-
 UserDefinedType::MemberField::MemberField(const base::string16& name,
                                           ptrdiff_t offset,
                                           Type::Flags flags,
@@ -173,6 +169,12 @@ bool UserDefinedType::MemberField::IsEqual(const Field& o) const {
 
   return name_ == o_member->name_ && flags_ == o_member->flags_ &&
          bit_pos_ == o_member->bit_pos_ && bit_len_ == o_member->bit_len_;
+}
+
+UserDefinedType::VfptrField::VfptrField(ptrdiff_t offset,
+                                        TypeId type_id,
+                                        TypeRepository* repository)
+    : Field(VFPTR_KIND, offset, type_id, repository) {
 }
 
 UserDefinedType::Function::Function(const base::string16& name, TypeId type_id)

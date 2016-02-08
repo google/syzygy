@@ -284,6 +284,44 @@ TEST_F(TypesTest, UserDefineTypeForwardDeclaration) {
   EXPECT_EQ(0, udt->functions().size());
 }
 
+TEST(BaseClassFieldTest, BasicTest) {
+  scoped_refptr<TypeRepository> repository(new TypeRepository());
+
+  const TypeId id = 2;
+  const ptrdiff_t offset = 3;
+
+  BaseClassFieldPtr bclass_field =
+      new UserDefinedType::BaseClassField(offset, id, repository.get());
+  EXPECT_EQ(UserDefinedType::Field::BASE_CLASS_KIND, bclass_field->kind());
+  EXPECT_EQ(id, bclass_field->type_id());
+  EXPECT_EQ(offset, bclass_field->offset());
+
+  // Validate IsEqual.
+  EXPECT_TRUE(bclass_field->IsEqual(*bclass_field));
+  BaseClassFieldPtr other_bclass_field =
+      new UserDefinedType::BaseClassField(offset + 1, id + 1, repository.get());
+  EXPECT_FALSE(bclass_field->IsEqual(*other_bclass_field));
+}
+
+TEST(VfptrFieldTest, BasicTest) {
+  scoped_refptr<TypeRepository> repository(new TypeRepository());
+
+  const TypeId id = 2;
+  const ptrdiff_t offset = 3;
+
+  VfptrFieldPtr vfptr_field =
+      new UserDefinedType::VfptrField(offset, id, repository.get());
+  EXPECT_EQ(UserDefinedType::Field::VFPTR_KIND, vfptr_field->kind());
+  EXPECT_EQ(id, vfptr_field->type_id());
+  EXPECT_EQ(offset, vfptr_field->offset());
+
+  // Validate IsEqual.
+  EXPECT_TRUE(vfptr_field->IsEqual(*vfptr_field));
+  VfptrFieldPtr other_vfptr_field =
+      new UserDefinedType::VfptrField(offset + 1, id + 1, repository.get());
+  EXPECT_FALSE(vfptr_field->IsEqual(*other_vfptr_field));
+}
+
 TEST_F(TypesTest, PointerType) {
   // Build a Pointer instance.
   const TypeId kPtrTypeId = repo_->AddType(new BasicType(L"void", 0));

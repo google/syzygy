@@ -136,11 +136,13 @@ class UserDefinedType : public Type {
   class Field;
   class BaseClassField;
   class MemberField;
+  class VfptrField;
   class Function;
 
   typedef std::vector<scoped_refptr<const Field>> Fields;
   typedef std::vector<scoped_refptr<const BaseClassField>> BaseClasses;
   typedef std::vector<scoped_refptr<const MemberField>> Members;
+  typedef std::vector<scoped_refptr<const VfptrField>> Vfptrs;
 
   typedef std::vector<Function> Functions;
 
@@ -208,14 +210,14 @@ class UserDefinedType : public Type {
 using UserDefinedTypePtr = scoped_refptr<UserDefinedType>;
 
 // Represents a field in a user defined type.
-// TODO(siggi): How to represent VTables/Interfaces?
+// TODO(manzagop): add virtual base classes?
 class UserDefinedType::Field : public base::RefCounted<UserDefinedType::Field> {
  public:
   // The set of field kinds.
   enum FieldKind {
     BASE_CLASS_KIND,
     MEMBER_KIND,
-    // TODO(manzagop): VBCLASS_KIND, etc.
+    VFPTR_KIND,
   };
 
   // @name Accessors.
@@ -273,9 +275,8 @@ class UserDefinedType::BaseClassField : public UserDefinedType::Field{
   // Creates a new base class field.
   // @param offset the byte offset of the field within the UDT.
   // @param type_id the type ID of the field.
+  // @param repository the associated type repository.
   BaseClassField(ptrdiff_t offset, TypeId type_id, TypeRepository* repository);
-
-  bool IsEqual(const Field& o) const override;
 
  private:
   friend class base::RefCounted<UserDefinedType::Field>;
@@ -335,6 +336,26 @@ class UserDefinedType::MemberField : public UserDefinedType::Field {
 };
 
 using MemberFieldPtr = scoped_refptr<const UserDefinedType::MemberField>;
+
+// Represents a virtual function pointer field in a user defined type.
+class UserDefinedType::VfptrField : public UserDefinedType::Field{
+ public:
+  static const FieldKind ID = VFPTR_KIND;
+
+  // Creates a new virtual function pointer field.
+  // @param offset the byte offset of the field within the UDT.
+  // @param type_id the type ID of the field.
+  // @param repository the associated type repository.
+  VfptrField(ptrdiff_t offset, TypeId type_id, TypeRepository* repository);
+
+ private:
+  friend class base::RefCounted<UserDefinedType::Field>;
+  ~VfptrField() {}
+
+  DISALLOW_COPY_AND_ASSIGN(VfptrField);
+};
+
+using VfptrFieldPtr = scoped_refptr<const UserDefinedType::VfptrField>;
 
 // Represents a member function in UDT.
 class UserDefinedType::Function {

@@ -39,6 +39,28 @@ namespace refinery {
 
 namespace {
 
+std::vector<TypePtr> GetTypesBySuffix(TypeRepository* types,
+                                      const base::string16& suffix) {
+  DCHECK(types);
+  std::vector<TypePtr> found_types;
+
+  for (auto it : *types) {
+    if (base::EndsWith(it->name(), suffix, base::CompareCase::SENSITIVE)) {
+      found_types.push_back(it);
+    }
+  }
+
+  return found_types;
+}
+
+TypePtr GetOneTypeBySuffix(TypeRepository* types,
+                           const base::string16& suffix) {
+  DCHECK(types);
+  std::vector<TypePtr> results = GetTypesBySuffix(types, suffix);
+  EXPECT_EQ(1U, results.size());
+  return results[0];
+}
+
 // We use parameterized tests to test against both the 32-bit and 64-bit images.
 class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
  protected:
@@ -144,20 +166,11 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
   }
 
   std::vector<TypePtr> FindTypesBySuffix(const base::string16& suffix) {
-    std::vector<TypePtr> found_types;
-    for (auto it = types_->begin(); it != types_->end(); ++it) {
-      if (base::EndsWith((*it)->name(), suffix, base::CompareCase::SENSITIVE)) {
-        found_types.push_back(*it);
-      }
-    }
-    return found_types;
+    return GetTypesBySuffix(types_.get(), suffix);
   }
 
   TypePtr FindOneTypeBySuffix(const base::string16& suffix) {
-    std::vector<TypePtr> results = FindTypesBySuffix(suffix);
-
-    EXPECT_EQ(1U, results.size());
-    return results[0];
+    return GetOneTypeBySuffix(types_.get(), suffix);
   }
 
   PdbCrawler crawler_;
@@ -456,6 +469,59 @@ TEST_P(PdbCrawlerTest, TestBaseClasses) {
     udt->GetFieldsOfKind(&base_classes);
     EXPECT_EQ(2, base_classes.size());
   }
+}
+
+TEST(PdbCrawlerVfptrFieldTest, BasicTest) {
+  // Crawl for types.
+  PdbCrawler crawler;
+  ASSERT_TRUE(crawler.InitializeForFile(testing::GetSrcRelativePath(
+    L"syzygy\\refinery\\test_data\\test_vtables.dll.pdb")));
+  scoped_refptr<TypeRepository> types = new TypeRepository();
+  ASSERT_TRUE(crawler.GetTypes(types.get()));
+  ASSERT_LE(1U, types->size());
+
+  // NoVirtualMethodUDT.
+  {
+    TypePtr type = GetOneTypeBySuffix(types.get(), L"::NoVirtualMethodUDT");
+    ASSERT_TRUE(type);
+    UserDefinedTypePtr udt;
+    ASSERT_TRUE(type->CastTo(&udt));
+    ASSERT_TRUE(udt);
+    UserDefinedType::Vfptrs vfptrs;
+    udt->GetFieldsOfKind(&vfptrs);
+    EXPECT_EQ(0, vfptrs.size());
+  }
+
+  // VirtualMethodUDT.
+  {
+    TypePtr type = GetOneTypeBySuffix(types.get(), L"::VirtualMethodUDT");
+    ASSERT_TRUE(type);
+    UserDefinedTypePtr udt;
+    ASSERT_TRUE(type->CastTo(&udt));
+    ASSERT_TRUE(udt);
+    UserDefinedType::Vfptrs vfptrs;
+    udt->GetFieldsOfKind(&vfptrs);
+    EXPECT_EQ(1, vfptrs.size());
+
+    // Validate the kind / offset of the vfptr.
+    EXPECT_EQ(UserDefinedType::Field::VFPTR_KIND, vfptrs[0]->kind());
+    EXPECT_EQ(0, vfptrs[0]->offset());
+  }
+
+  // ChildUDT: we expect no vfptr (it's in the base class).
+  {
+    TypePtr type = GetOneTypeBySuffix(types.get(), L"::ChildUDT");
+    ASSERT_TRUE(type);
+    UserDefinedTypePtr udt;
+    ASSERT_TRUE(type->CastTo(&udt));
+    ASSERT_TRUE(udt);
+    UserDefinedType::Vfptrs vfptrs;
+    udt->GetFieldsOfKind(&vfptrs);
+    EXPECT_EQ(0, vfptrs.size());
+  }
+
+  // TODO(manzagop): figure out how to generate and test for vfptr at non-0
+  // offset.
 }
 
 TEST_P(PdbCrawlerTest, TestMFunction) {
