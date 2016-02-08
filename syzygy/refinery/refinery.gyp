@@ -44,7 +44,7 @@
       'target_name': 'refinery_unittests',
       'type': 'executable',
       'sources': [
-        'analyzers/analyzer_list_unittest.cc',
+        'analyzers/analyzer_factory_unittest.cc',
         'analyzers/analysis_runner_unittest.cc',
         'analyzers/exception_analyzer_unittest.cc',
         'analyzers/heap_analyzer_unittest.cc',

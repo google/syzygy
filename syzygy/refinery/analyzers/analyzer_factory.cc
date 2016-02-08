@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/refinery/analyzers/analyzer_list.h"
+#include "syzygy/refinery/analyzers/analyzer_factory.h"
 
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
 #include "syzygy/refinery/analyzers/heap_analyzer.h"
@@ -27,7 +27,7 @@
 
 namespace refinery {
 
-// The list of analyzers known to the AnalyzerList. Add new analyzers here.
+// The list of analyzers known to the AnalyzerFactory. Add new analyzers here.
 #define ANALYZER_LIST(DECL) \
   DECL(Exception)           \
   DECL(Heap)                \
@@ -62,7 +62,7 @@ const AnalyzerDescription kKnownAnalyzers[] = {
 #undef DECLARE_KNOWN_ANALYZER
 };
 
-bool CopyLayers(GetLayersFunction fn, StaticAnalyzerList::Layers* layers) {
+bool CopyLayers(GetLayersFunction fn, AnalyzerFactory::Layers* layers) {
   DCHECK(fn);
   DCHECK(layers);
 
@@ -76,9 +76,25 @@ bool CopyLayers(GetLayersFunction fn, StaticAnalyzerList::Layers* layers) {
   return true;
 }
 
+bool HasLayer(AnalyzerFactory::Layer layer, GetLayersFunction fn) {
+  DCHECK_NE(ProcessState::UnknownLayer, layer);
+  DCHECK(fn);
+
+  const ProcessState::LayerEnum* l = fn();
+  if (l == nullptr)
+    return false;
+
+  for (; *l != ProcessState::UnknownLayer; ++l) {
+    if (*l == layer)
+      return true;
+  }
+
+  return false;
+}
+
 }  // namespace
 
-void StaticAnalyzerList::GetAnalyzerNames(AnalyzerNames* names) const {
+void StaticAnalyzerFactory::GetAnalyzerNames(AnalyzerNames* names) const {
   DCHECK(names);
 
   names->clear();
@@ -86,7 +102,7 @@ void StaticAnalyzerList::GetAnalyzerNames(AnalyzerNames* names) const {
     names->push_back(dep.name);
 }
 
-Analyzer* StaticAnalyzerList::CreateAnalyzer(
+Analyzer* StaticAnalyzerFactory::CreateAnalyzer(
     const base::StringPiece& name) const {
 #define CREATE_ANALYZER(analyzer_name)   \
   if (name == #analyzer_name "Analyzer") \
@@ -99,8 +115,8 @@ Analyzer* StaticAnalyzerList::CreateAnalyzer(
   return nullptr;
 }
 
-bool StaticAnalyzerList::GetInputLayers(const base::StringPiece& name,
-                                        Layers* layers) const {
+bool StaticAnalyzerFactory::GetInputLayers(const base::StringPiece& name,
+                                           Layers* layers) const {
   DCHECK(layers);
   layers->clear();
 
@@ -112,8 +128,8 @@ bool StaticAnalyzerList::GetInputLayers(const base::StringPiece& name,
   return false;
 }
 
-bool StaticAnalyzerList::GetOutputLayers(const base::StringPiece& name,
-                                         Layers* layers) const {
+bool StaticAnalyzerFactory::GetOutputLayers(const base::StringPiece& name,
+                                            Layers* layers) const {
   DCHECK(layers);
   layers->clear();
 
@@ -123,6 +139,32 @@ bool StaticAnalyzerList::GetOutputLayers(const base::StringPiece& name,
   }
 
   return false;
+}
+
+void StaticAnalyzerFactory::GetAnalyzersOutputting(
+    Layer layer,
+    AnalyzerNames* analyzer_names) const {
+  DCHECK_NE(ProcessState::UnknownLayer, layer);
+  DCHECK(analyzer_names);
+  analyzer_names->clear();
+
+  for (const auto& dep : kKnownAnalyzers) {
+    if (HasLayer(layer, dep.output_layers))
+      analyzer_names->push_back(dep.name);
+  }
+}
+
+void StaticAnalyzerFactory::GetAnalyzersInputting(
+    Layer layer,
+    AnalyzerNames* analyzer_names) const {
+  DCHECK_NE(ProcessState::UnknownLayer, layer);
+  DCHECK(analyzer_names);
+  analyzer_names->clear();
+
+  for (const auto& dep : kKnownAnalyzers) {
+    if (HasLayer(layer, dep.input_layers))
+      analyzer_names->push_back(dep.name);
+  }
 }
 
 }  // namespace refinery

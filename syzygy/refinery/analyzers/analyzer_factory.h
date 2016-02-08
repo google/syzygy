@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SYZYGY_REFINERY_ANALYZERS_ANALYZER_LIST_H_
-#define SYZYGY_REFINERY_ANALYZERS_ANALYZER_LIST_H_
+#ifndef SYZYGY_REFINERY_ANALYZERS_ANALYZER_FACTORY_H_
+#define SYZYGY_REFINERY_ANALYZERS_ANALYZER_FACTORY_H_
 
 #include <string>
 #include <vector>
@@ -24,10 +24,12 @@
 
 namespace refinery {
 
-// An analyzer list knows of a set of analyzers and their layer dependencies.
-class AnalyzerList {
+// An analyzer factory knows of a set of analyzers and their layer
+// dependencies.
+class AnalyzerFactory {
  public:
-  using Layers = std::vector<ProcessState::LayerEnum>;
+  using Layer = ProcessState::LayerEnum;
+  using Layers = std::vector<Layer>;
   using AnalyzerNames = std::vector<std::string>;
 
   // Retrieves the names of the analyzers known to this analyzer list.
@@ -47,13 +49,23 @@ class AnalyzerList {
   virtual bool GetOutputLayers(const base::StringPiece& name,
                                Layers* layers) const = 0;
   // @}
+
+  // Retrieve the analyzers inputting or outputting a for a given layer.
+  // @param layer the layer of interest.
+  // @param analyzer_names the analyzers inputting or outputting @p layer.
+  // @{
+  virtual void GetAnalyzersOutputting(Layer layer,
+                                      AnalyzerNames* analyzer_names) const = 0;
+  virtual void GetAnalyzersInputting(Layer layer,
+                                     AnalyzerNames* analyzer_names) const = 0;
+  // @}
 };
 
-// This implementation of AnalyzerList knows of all analyzers linked into this
-// binary.
-class StaticAnalyzerList : public AnalyzerList {
+// This implementation of AnalyzerFactory knows of all analyzers linked into
+// this binary.
+class StaticAnalyzerFactory : public AnalyzerFactory {
  public:
-  // @name AnalyzerList implementation.
+  // @name AnalyzerFactory implementation.
   // @{
   void GetAnalyzerNames(AnalyzerNames* analyzer_names) const override;
   Analyzer* CreateAnalyzer(const base::StringPiece& name) const override;
@@ -62,9 +74,14 @@ class StaticAnalyzerList : public AnalyzerList {
                       Layers* layers) const override;
   bool GetOutputLayers(const base::StringPiece& name,
                        Layers* layers) const override;
+  virtual void GetAnalyzersOutputting(
+      Layer layer,
+      AnalyzerNames* analyzer_names) const override;
+  virtual void GetAnalyzersInputting(Layer layer, AnalyzerNames* analyzer_names)
+      const override;
   // @}
 };
 
 }  // namespace refinery
 
-#endif  // SYZYGY_REFINERY_ANALYZERS_ANALYZER_LIST_H_
+#endif  // SYZYGY_REFINERY_ANALYZERS_ANALYZER_FACTORY_H_

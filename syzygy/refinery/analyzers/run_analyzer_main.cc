@@ -28,7 +28,7 @@
 #include "syzygy/application/application.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
-#include "syzygy/refinery/analyzers/analyzer_list.h"
+#include "syzygy/refinery/analyzers/analyzer_factory.h"
 #include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state.h"
 #include "syzygy/refinery/symbols/dia_symbol_provider.h"
@@ -181,9 +181,10 @@ int RunAnalyzerApplication::Run() {
 
 bool RunAnalyzerApplication::AddAnalyzers(refinery::AnalysisRunner* runner) {
   // TODO(siggi): Improve on this by taking dependencies into account.
-  refinery::StaticAnalyzerList list;
+  refinery::StaticAnalyzerFactory factory;
   for (const auto& analyzer_name : analyzer_names_) {
-    scoped_ptr<refinery::Analyzer> analyzer(list.CreateAnalyzer(analyzer_name));
+    scoped_ptr<refinery::Analyzer> analyzer(
+        factory.CreateAnalyzer(analyzer_name));
     if (analyzer) {
       runner->AddAnalyzer(analyzer.Pass());
     } else {
