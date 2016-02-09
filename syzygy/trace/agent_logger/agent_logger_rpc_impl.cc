@@ -217,6 +217,11 @@ boolean LoggerService_SaveMinidumpWithProtobufAndMemoryRanges(
   return true;
 }
 
+// RPC endpoint.
+unsigned long LoggerService_GetProcessId(/* [in] */ handle_t binding) {
+  return ::GetCurrentProcessId();
+}
+
 // RPC entrypoint for AgentLogger::Stop().
 boolean LoggerService_Stop(/* [in] */ handle_t binding) {
   if (binding == NULL) {

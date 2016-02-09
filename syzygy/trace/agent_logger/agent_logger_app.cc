@@ -82,7 +82,9 @@ const wchar_t kLoggerStopEventRoot[] = L"syzygy-logger-stopped";
 wchar_t saved_instance_id[LoggerApp::kMaxInstanceIdLength + 1] = { 0 };
 
 // Send a stop request via RPC to the logger instance given by @p instance_id.
-bool SendStopRequest(const base::StringPiece16& instance_id) {
+// If the process is remote and |handle| is specified, returns a handle to it.
+bool SendStopRequest(const base::StringPiece16& instance_id,
+                     base::win::ScopedHandle* handle) {
   std::wstring protocol(kLoggerRpcProtocol);
   std::wstring endpoint(GetInstanceString(kLoggerRpcEndpointRoot, instance_id));
 
@@ -94,6 +96,15 @@ bool SendStopRequest(const base::StringPiece16& instance_id) {
     LOG(ERROR) << "Failed to connect to logging service.";
     return false;
   }
+
+  // Get the process ID, and a handle to that process.
+  auto result = ::common::rpc::InvokeRpc(LoggerClient_GetProcessId, binding);
+  if (!result.succeeded() || result.result == 0) {
+    LOG(ERROR) << "Failed to get logging service process id.";
+    return false;
+  }
+  if (handle != nullptr && result.result != ::GetCurrentProcessId())
+    handle->Set(::OpenProcess(SYNCHRONIZE, FALSE, result.result));
 
   if (!::common::rpc::InvokeRpc(LoggerClient_Stop, binding).succeeded()) {
     LOG(ERROR) << "Failed to stop logging service.";
@@ -108,7 +119,7 @@ bool SendStopRequest(const base::StringPiece16& instance_id) {
 // Handler function to be called on exit signals (Ctrl-C, TERM, etc...).
 BOOL WINAPI OnConsoleCtrl(DWORD ctrl_type) {
   if (ctrl_type != CTRL_LOGOFF_EVENT) {
-    SendStopRequest(saved_instance_id);
+    SendStopRequest(saved_instance_id, nullptr);
     return TRUE;
   }
   return FALSE;
@@ -508,14 +519,22 @@ bool LoggerApp::Stop() {
   }
 
   // Send the stop request.
-  if (!SendStopRequest(instance_id_))
+  base::win::ScopedHandle process;
+  if (!SendStopRequest(instance_id_, &process))
     return false;
 
-  // We wait on both the RPC event and the process, as if the process fails for
-  // any reason, it'll exit and its handle will become signaled.
+  // Wait for the RPC event that indicates an orderly shutdown.
   if (::WaitForSingleObject(stop_event.Get(), INFINITE) != WAIT_OBJECT_0) {
     LOG(ERROR) << "Timed out waiting for '" << logger_name << "' to stop.";
     return false;
+  }
+
+  // Wait on the process itself terminating.
+  if (process.IsValid()) {
+    if (::WaitForSingleObject(process.Get(), INFINITE) != WAIT_OBJECT_0) {
+      LOG(ERROR) << "Timed out waiting for logger process to terminate.";
+      return false;
+    }
   }
 
   LOG(INFO) << "The logger instance has stopped.";

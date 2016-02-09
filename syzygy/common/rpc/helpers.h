@@ -47,8 +47,25 @@ bool CreateRpcBinding(const base::StringPiece16& protocol,
 // @returns The client PID on success, or 0.
 base::ProcessId GetClientProcessID(handle_t binding);
 
-// Structure returned by RPC calls
-struct RpcStatus {
+// Generic RPC call return structure. The ReturnType must be able to be
+// initialized with a zero.
+template<typename ReturnType>
+struct RpcResult {
+  RpcResult() : exception_occurred(FALSE), result(0) {}
+
+  boolean exception_occurred;
+  ReturnType result;
+
+  bool succeeded() const {
+    return exception_occurred == FALSE;
+  }
+};
+
+// Specialization of RpcResult used by most RPC calls.
+template<>
+struct RpcResult<boolean> {
+  RpcResult() : exception_occurred(FALSE), result(FALSE) {}
+
   boolean exception_occurred;
   boolean result;
 
@@ -56,144 +73,17 @@ struct RpcStatus {
     return exception_occurred == FALSE && result == TRUE;
   }
 };
+using RpcStatus = RpcResult<boolean>;
 
-// Helper to invoke an RPC function taking one parameter.
-template<typename Func, typename T1>
-RpcStatus InvokeRpc(const Func& func, const T1& p1) {
-  RpcStatus status = { FALSE, FALSE };
+// Helper to invoke an RPC function. Handles any number of paramters and auto
+// infers the return type based on the function signature.
+template<typename Func, typename ...Params>
+RpcResult<decltype(std::declval<Func>()(std::declval<Params>()...))>
+InvokeRpc(const Func& func, Params... params) {
+  using ReturnType = decltype(std::declval<Func>()(std::declval<Params>()...));
+  RpcResult<ReturnType> status;
   RpcTryExcept {
-    status.result = func(p1);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-// Helper to invoke an RPC function taking two parameters.
-template<typename Func, typename T1, typename T2>
-RpcStatus InvokeRpc(const Func& func, const T1& p1, const T2& p2) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-// Helper to invoke an RPC function taking three parameters.
-template<typename Func, typename T1, typename T2, typename T3>
-RpcStatus InvokeRpc(const Func& func,
-                    const T1& p1, const T2& p2, const T3& p3) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2, p3);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-// Helper to invoke an RPC function taking four parameters.
-template<typename Func, typename T1, typename T2, typename T3, typename T4>
-RpcStatus InvokeRpc(const Func& func,
-                    const T1& p1, const T2& p2, const T3& p3, const T4& p4) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2, p3, p4);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-// Helper to invoke an RPC function taking five parameters.
-template<typename Func,
-         typename T1, typename T2, typename T3, typename T4, typename T5>
-RpcStatus InvokeRpc(const Func& func,
-                    const T1& p1, const T2& p2, const T3& p3, const T4& p4,
-                    const T5& p5) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2, p3, p4, p5);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-// Helper to invoke an RPC function taking six parameters.
-template <typename Func,
-          typename T1,
-          typename T2,
-          typename T3,
-          typename T4,
-          typename T5,
-          typename T6>
-RpcStatus InvokeRpc(const Func& func,
-                    const T1& p1,
-                    const T2& p2,
-                    const T3& p3,
-                    const T4& p4,
-                    const T5& p5,
-                    const T6& p6) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2, p3, p4, p5, p6);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-// Helper to invoke an RPC function taking seven parameters.
-template <typename Func,
-          typename T1,
-          typename T2,
-          typename T3,
-          typename T4,
-          typename T5,
-          typename T6,
-          typename T7>
-RpcStatus InvokeRpc(const Func& func,
-                    const T1& p1,
-                    const T2& p2,
-                    const T3& p3,
-                    const T4& p4,
-                    const T5& p5,
-                    const T6& p6,
-                    const T7& p7) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2, p3, p4, p5, p6, p7);
-  } RpcExcept(1) {
-    status.exception_occurred = TRUE;
-  } RpcEndExcept;
-  return status;
-}
-
-// Helper to invoke an RPC function taking eight parameters.
-template <typename Func,
-          typename T1,
-          typename T2,
-          typename T3,
-          typename T4,
-          typename T5,
-          typename T6,
-          typename T7,
-          typename T8>
-RpcStatus InvokeRpc(const Func& func,
-                    const T1& p1,
-                    const T2& p2,
-                    const T3& p3,
-                    const T4& p4,
-                    const T5& p5,
-                    const T6& p6,
-                    const T7& p7,
-                    const T8& p8) {
-  RpcStatus status = { FALSE, FALSE };
-  RpcTryExcept {
-    status.result = func(p1, p2, p3, p4, p5, p6, p7, p8);
+    status.result = func(params...);
   } RpcExcept(1) {
     status.exception_occurred = TRUE;
   } RpcEndExcept;

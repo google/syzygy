@@ -106,6 +106,10 @@ interface Logger {
     version(1.0)
 ]
 interface LoggerControl {
+  // Retrieves the process ID of the process that owns the specified logging
+  // service.
+  unsigned long GetProcessId([in] handle_t binding);
+
   // Request a shutdown of the logging service.
   boolean Stop([in] handle_t binding);
 }
