@@ -34,6 +34,13 @@ namespace {
 // This lock guards against IAT patching on multiple threads concurrently.
 base::Lock patch_lock;
 
+// The maximum number of patch attemps to tolerate.
+const size_t kPatchAttempsMax = 10;
+// Counts the number of patch attempts that have occurred. Under patch_lock.
+size_t patch_attempts = 0;
+// Set to true when patching has been successfully accomplished.
+bool patch_complete = false;
+
 // Our AtExit manager required by base.
 base::AtExitManager* at_exit = nullptr;
 
@@ -109,11 +116,23 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
   }
 
   // Grab the patching lock only while patching the caller's IAT. Assuming no
-  // other parties are patching this IAT, this is sufficient to make
+  // other parties are patching this IAT, this is sufficient to prevent
   // double-patching due to multiple threads invoking on instrumentation
   // concurrently idempotent.
   base::AutoLock lock(patch_lock);
-  CHECK(PatchIATForModule(calling_module, patch_map));
+  if (!patch_complete) {
+    ++patch_attempts;
+    auto result = PatchIATForModule(calling_module, patch_map);
+    // If somebody is racing with us to patch our IAT we want to know about it.
+    CHECK_EQ(0u, result & PATCH_FAILED_RACY_WRITE);
+
+    // Increment the counter on failure and potentially try again.
+    if (result != PATCH_SUCCEEDED) {
+      CHECK_LE(patch_attempts, kPatchAttempsMax);
+    } else {
+      patch_complete = true;
+    }
+  }
 
   return mode;
 }

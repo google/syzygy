@@ -20,6 +20,7 @@
 
 #include <windows.h>
 #include <map>
+#include "base/callback.h"
 #include "base/macros.h"
 
 namespace agent {
@@ -32,6 +33,11 @@ namespace asan {
 // guarantee that the underlying pages are not unloaded during patching.
 class ScopedPageProtections {
  public:
+  // Optional callback for testing. Notifies of pages whose protections have
+  // just been removed.
+  using OnUnprotectCallback = base::Callback<void(void* /* page */,
+                                                  DWORD /* old_prot */)>;
+
   ScopedPageProtections() {}
   ~ScopedPageProtections();
 
@@ -48,6 +54,11 @@ class ScopedPageProtections {
   // @returns true on success, false otherwise.
   bool RestorePageProtections();
 
+  // Allows settings a callback as a testing seam.
+  void set_on_unprotect(OnUnprotectCallback on_unprotect) {
+    on_unprotect_ = on_unprotect;
+  }
+
  private:
   // Helper function for EnsureContainingPagesWritable.
   // @pre page Points to the beginning of a page.
@@ -58,6 +69,9 @@ class ScopedPageProtections {
 
   // Stores the pages unprotected with their original settings.
   UnprotectedPages unprotected_pages_;
+
+  // Optional callback.
+  OnUnprotectCallback on_unprotect_;
 
   DISALLOW_COPY_AND_ASSIGN(ScopedPageProtections);
 };

@@ -107,6 +107,10 @@ bool ScopedPageProtections::EnsurePageWritable(void* page) {
       unprotected_pages_.insert(std::make_pair(page, old_prot)).second;
   DCHECK(inserted);
 
+  // Callback as a testing seam.
+  if (!on_unprotect_.is_null())
+    on_unprotect_.Run(page, old_prot);
+
   return true;
 }
 

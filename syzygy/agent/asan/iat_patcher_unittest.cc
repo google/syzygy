@@ -16,9 +16,12 @@
 
 #include <vector>
 
+#include "base/bind.h"
 #include "base/files/file_path.h"
 #include "base/win/pe_image.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/agent/asan/constants.h"
 #include "syzygy/core/unittest_util.h"
 
 namespace agent {
@@ -26,11 +29,11 @@ namespace asan {
 
 namespace {
 
-class IATPatcherTest : public testing::Test {
+class LenientIATPatcherTest : public testing::Test {
  public:
   using ImportTable = std::vector<FunctionPointer>;
 
-  IATPatcherTest() : test_dll_(nullptr) {
+  LenientIATPatcherTest() : test_dll_(nullptr) {
   }
 
   void SetUp() override {
@@ -68,6 +71,14 @@ class IATPatcherTest : public testing::Test {
     return memory_info.Protect;
   }
 
+  void ReprotectPage(void* page, DWORD old_prot) {
+    DWORD prot = 0;
+    ASSERT_TRUE(::VirtualProtect(
+        page, agent::asan::GetPageSize(), old_prot, &prot));
+  }
+
+  MOCK_METHOD2(OnUnprotect, void(void*, DWORD));
+
  protected:
   static bool OnImport(const base::win::PEImage &image, LPCSTR module,
                        DWORD ordinal, LPCSTR name, DWORD hint,
@@ -80,6 +91,7 @@ class IATPatcherTest : public testing::Test {
 
   HMODULE test_dll_;
 };
+using IATPatcherTest = testing::StrictMock<LenientIATPatcherTest>;
 
 static void PatchDestination() {
 }
@@ -109,7 +121,7 @@ TEST_F(IATPatcherTest, PatchIATForModule) {
   patches["function3"] = PatchDestination;
 
   // Patch'er up!
-  ASSERT_TRUE(PatchIATForModule(test_dll_, patches));
+  ASSERT_EQ(PATCH_SUCCEEDED, PatchIATForModule(test_dll_, patches));
 
   // Make sure the IAT page protections have been reset.
   ASSERT_EQ(prot_before, GetIATPageProtection(test_dll_));
@@ -124,6 +136,31 @@ TEST_F(IATPatcherTest, PatchIATForModule) {
   }
 
   ASSERT_EQ(2, patched);
+}
+
+TEST_F(IATPatcherTest, FailsWithAccessViolation) {
+  // Construct a patch map to patch the named export_dll imports to a dummy
+  // function.
+  IATPatchMap patches;
+  patches["function1"] = PatchDestination;
+  patches["function3"] = PatchDestination;
+
+  // Create a callback to the mock.
+  ScopedPageProtections::OnUnprotectCallback on_unprotect =
+      base::Bind(&IATPatcherTest::OnUnprotect, base::Unretained(this));
+
+  // Expect a single call to the function to unprotect the IAT. In that call
+  // reprotect the page.
+  EXPECT_CALL(*this, OnUnprotect(testing::_, testing::_)).WillOnce(
+      testing::Invoke(this, &IATPatcherTest::ReprotectPage));
+
+  // Expect the patching to fail with an access violation, and expect the IAT
+  // to remain unchanged.
+  ImportTable iat_before = GetIAT(test_dll_);
+  auto result = PatchIATForModule(test_dll_, patches, on_unprotect);
+  ASSERT_NE(0u, PATCH_FAILED_ACCESS_VIOLATION & result);
+  ImportTable iat_after = GetIAT(test_dll_);
+  EXPECT_EQ(iat_before, iat_after);
 }
 
 }  // namespace asan

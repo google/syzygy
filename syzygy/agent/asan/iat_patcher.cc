@@ -28,8 +28,10 @@ namespace asan {
 
 namespace {
 
-bool UpdateImportThunk(volatile PIMAGE_THUNK_DATA iat,
-                       FunctionPointer function) {
+using OnUnprotectCallback = ScopedPageProtections::OnUnprotectCallback;
+
+PatchResult UpdateImportThunk(volatile PIMAGE_THUNK_DATA iat,
+                              FunctionPointer function) {
   // Writing to an IAT is inherently racy, as there may be other parties also
   // writing the same page at the same time. This gets ugly where multiple
   // parties mess with page protections, as VirtualProtect causes surprising
@@ -44,47 +46,59 @@ bool UpdateImportThunk(volatile PIMAGE_THUNK_DATA iat,
         ::InterlockedCompareExchange(&iat->u1.Function, new_fn, old_fn);
     // Check whether we collided on the assignment.
     if (prev_fn != old_fn)
-      return false;
+      return PATCH_FAILED_RACY_WRITE;
   } __except(EXCEPTION_EXECUTE_HANDLER) {
-    // We took an exception, that goes down as failure.
-    return false;
+    // We took an exception, that goes down as failure. This can occur if we
+    // are racing with another thread in our process to patch the IAT entries
+    // in the same physical page.
+    return PATCH_FAILED_ACCESS_VIOLATION;
   }
 
   // All shiny!
-  return true;
+  return PATCH_SUCCEEDED;
 }
 
 class IATPatchWorker {
  public:
   explicit IATPatchWorker(const IATPatchMap& patch);
 
-  bool PatchImage(base::win::PEImage* image);
+  PatchResult PatchImage(base::win::PEImage* image);
+
+  void set_on_unprotect(OnUnprotectCallback on_unprotect) {
+    scoped_page_protections_.set_on_unprotect(on_unprotect);
+  }
 
  private:
   static bool VisitImport(const base::win::PEImage &image, LPCSTR module,
                           DWORD ordinal, LPCSTR name, DWORD hint,
                           PIMAGE_THUNK_DATA iat, PVOID cookie);
-  bool OnImport(const char* name, PIMAGE_THUNK_DATA iat);
+  PatchResult OnImport(const char* name, PIMAGE_THUNK_DATA iat);
 
   ScopedPageProtections scoped_page_protections_;
   const IATPatchMap& patch_;
+  PatchResult result_;
 
   DISALLOW_COPY_AND_ASSIGN(IATPatchWorker);
 };
 
-IATPatchWorker::IATPatchWorker(const IATPatchMap& patch) : patch_(patch) {
+IATPatchWorker::IATPatchWorker(const IATPatchMap& patch)
+    : patch_(patch), result_(PATCH_SUCCEEDED) {
 }
 
-bool IATPatchWorker::PatchImage(base::win::PEImage* image) {
+PatchResult IATPatchWorker::PatchImage(base::win::PEImage* image) {
   DCHECK_NE(static_cast<base::win::PEImage*>(nullptr), image);
 
+  // This is actually '0', so ORing error conditions to it is just fine.
+  result_ = PATCH_SUCCEEDED;
+
   // The IAT patching takes place during enumeration.
-  bool ret = image->EnumAllImports(&VisitImport, this);
+  image->EnumAllImports(&VisitImport, this);
 
   // Clean up whatever we soiled, success or failure be damned.
-  scoped_page_protections_.RestorePageProtections();
+  if (!scoped_page_protections_.RestorePageProtections())
+    result_ |= PATCH_FAILED_REPROTECT_FAILED;
 
-  return ret;
+  return result_;
 }
 
 bool IATPatchWorker::VisitImport(
@@ -94,19 +108,25 @@ bool IATPatchWorker::VisitImport(
     return true;
 
   IATPatchWorker* worker = reinterpret_cast<IATPatchWorker*>(cookie);
-  return worker->OnImport(name, iat);
+  PatchResult result = worker->OnImport(name, iat);
+  if (result == PATCH_SUCCEEDED)
+    return true;
+
+  // Remember the reason for failure.
+  worker->result_ |= result;
+  return false;
 }
 
-bool IATPatchWorker::OnImport(const char* name, PIMAGE_THUNK_DATA iat) {
+PatchResult IATPatchWorker::OnImport(const char* name, PIMAGE_THUNK_DATA iat) {
   auto it = patch_.find(name);
   // See whether this is a function we care about.
   if (it == patch_.end())
-    return true;
+    return PATCH_SUCCEEDED;
 
   // Make the containing page writable.
   if (!scoped_page_protections_.EnsureContainingPagesWritable(
           iat, sizeof(IMAGE_THUNK_DATA))) {
-    return false;
+    return PATCH_FAILED_UNPROTECT_FAILED;
   }
 
   return UpdateImportThunk(iat, it->second);
@@ -114,14 +134,19 @@ bool IATPatchWorker::OnImport(const char* name, PIMAGE_THUNK_DATA iat) {
 
 }  // namespace
 
-bool PatchIATForModule(HMODULE module, const IATPatchMap& patch_map) {
-  base::win::PEImage image(module);
+PatchResult PatchIATForModule(HMODULE module, const IATPatchMap& patch_map) {
+  OnUnprotectCallback dummy_on_unprotect;
+  return PatchIATForModule(module, patch_map, dummy_on_unprotect);
+}
 
+PatchResult PatchIATForModule(HMODULE module, const IATPatchMap& patch_map,
+    OnUnprotectCallback on_unprotect) {
+  base::win::PEImage image(module);
   if (!image.VerifyMagic())
-    return false;
+    return PATCH_FAILED_INVALID_IMAGE;
 
   IATPatchWorker worker(patch_map);
-
+  worker.set_on_unprotect(on_unprotect);
   return worker.PatchImage(&image);
 }
 
