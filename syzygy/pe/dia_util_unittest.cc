@@ -53,7 +53,7 @@ struct FilePathLess {
 class DiaUtilTest : public testing::PELibUnitTest {
 };
 
-bool PathAreEquivalents(const base::FilePath::StringType& path1_val,
+bool PathsAreEquivalent(const base::FilePath::StringType& path1_val,
                         const base::FilePath::StringType& path2_val) {
   base::FilePath path1(path1_val);
   base::FilePath path2(path2_val);
@@ -62,13 +62,13 @@ bool PathAreEquivalents(const base::FilePath::StringType& path1_val,
 }
 
 MATCHER_P(IsSameFile, value, "") {
-  return PathAreEquivalents(arg, value);
+  return PathsAreEquivalent(arg, value);
 }
 
 bool StringVectorContainsPath(const StringVector& string_vector,
                               const base::FilePath::StringType& path) {
   for (const auto& iter : string_vector) {
-    if (PathAreEquivalents(iter, path))
+    if (PathsAreEquivalent(iter, path))
       return true;
   }
   return false;
@@ -345,11 +345,19 @@ TEST_F(DiaUtilVisitorTest, LineVisitorTest) {
   // We expect to have at least one file.
   ASSERT_LE(1U, line_map.size());
 
+  // Expect test_dll.cc to be in the line map, and to contain at least one line
+  // worth of information. Search for equivalent paths because under some
+  // mysterious poorly understood conditions the drive letter in the PDB may or
+  // may not be capitalized.
   base::FilePath test_dll_cc =
       testing::GetSrcRelativePath(L"syzygy\\pe\\test_dll.cc");
-  ASSERT_TRUE(line_map.find(test_dll_cc.value()) != line_map.end());
-
-  ASSERT_LT(1U, line_map[test_dll_cc.value()].size());
+  LineMap::const_iterator it = line_map.begin();
+  for (; it != line_map.end(); ++it) {
+    if (PathsAreEquivalent(it->first, test_dll_cc.value()))
+      break;
+  }
+  ASSERT_TRUE(it != line_map.end());
+  ASSERT_LT(1U, it->second.size());
 }
 
 }  // namespace pe
