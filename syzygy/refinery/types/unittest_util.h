@@ -25,7 +25,7 @@ class PdbCrawlerVTableTestBase : public testing::Test {
  protected:
   virtual void GetVFTableRVAs(
       const wchar_t* pdb_path_str,
-      base::hash_set<refinery::Address>* vftable_rvas) = 0;
+      base::hash_set<refinery::RelativeAddress>* vftable_rvas) = 0;
   void PerformGetVFTableRVAsTest(const wchar_t* pdb_path_str,
                                  const wchar_t* dll_path_str);
 };

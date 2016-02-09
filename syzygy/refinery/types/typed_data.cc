@@ -92,6 +92,11 @@ bool TypedData::IsArrayType() const {
   return type_->kind() == Type::ARRAY_TYPE_KIND;
 }
 
+bool TypedData::IsUserDefinedType() const {
+  DCHECK(type_);
+  return type_->kind() == Type::USER_DEFINED_TYPE_KIND;
+}
+
 bool TypedData::GetNamedField(const base::StringPiece16& name,
                               TypedData* out) const {
   DCHECK(out);
@@ -120,18 +125,12 @@ bool TypedData::GetNamedField(const base::StringPiece16& name,
 
 bool TypedData::GetField(size_t field_no, TypedData* out) const {
   DCHECK(type_);
-  DCHECK(!IsPrimitiveType());
+  DCHECK(IsUserDefinedType());
   DCHECK(out);
 
-  UserDefinedTypePtr udt;
-  if (!type_->CastTo(&udt))
+  FieldPtr field;
+  if (!GetField(field_no, &field))
     return false;
-
-  if (field_no >= udt->fields().size())
-    return false;
-
-  FieldPtr field = udt->fields()[field_no];
-  TypePtr field_type = udt->GetFieldType(field_no);
 
   size_t bit_pos = 0U;
   size_t bit_len = 0U;
@@ -141,14 +140,29 @@ bool TypedData::GetField(size_t field_no, TypedData* out) const {
     bit_len = member->bit_len();
   }
 
-  *out = TypedData(bit_source_, field_type, addr() + field->offset(), bit_pos,
-                   bit_len);
+  *out = TypedData(bit_source_, field->GetType(), addr() + field->offset(),
+                   bit_pos, bit_len);
+  return true;
+}
+
+bool TypedData::GetField(size_t field_no, FieldPtr* out) const {
+  DCHECK(type_);
+  DCHECK(IsUserDefinedType());
+  DCHECK(out);
+
+  UserDefinedTypePtr udt;
+  if (!type_->CastTo(&udt))
+    return false;
+  if (field_no >= udt->fields().size())
+    return false;
+
+  *out = udt->fields()[field_no];
   return true;
 }
 
 bool TypedData::GetFieldCount(size_t* count) const {
   DCHECK(type_);
-  DCHECK(!IsPrimitiveType());
+  DCHECK(IsUserDefinedType());
 
   UserDefinedTypePtr udt;
   if (!type_->CastTo(&udt))

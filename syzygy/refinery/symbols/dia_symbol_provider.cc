@@ -41,8 +41,9 @@ bool DiaSymbolProvider::FindOrCreateDiaSession(
   return GetOrLoad(signature, &tmp_source, session);
 }
 
-bool DiaSymbolProvider::GetVFTableRVAs(const pe::PEFile::Signature& signature,
-                                       base::hash_set<Address>* vftable_rvas) {
+bool DiaSymbolProvider::GetVFTableRVAs(
+    const pe::PEFile::Signature& signature,
+    base::hash_set<RelativeAddress>* vftable_rvas) {
   DCHECK(vftable_rvas);
 
   base::win::ScopedComPtr<IDiaDataSource> source;

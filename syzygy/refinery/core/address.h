@@ -25,6 +25,7 @@ namespace refinery {
 // conversions. In particular, we've hit an issue where an int* being
 // reinterpret_cast'ed to an Address triggered sign extension in the pointer.
 typedef uint64_t Address;
+typedef uint64_t RelativeAddress;
 typedef uint32_t Size;
 
 // AddressRange represents a range of memory with an address and a size.

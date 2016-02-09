@@ -25,6 +25,7 @@
         '<(src)/syzygy/'
             'refinery/process_state/process_state.gyp:process_state_lib',
         '<(src)/syzygy/refinery/symbols/symbols.gyp:symbols_lib',
+        '<(src)/syzygy/refinery/types/types.gyp:types_lib',
       ],
       'sources': [
         'validator.h',

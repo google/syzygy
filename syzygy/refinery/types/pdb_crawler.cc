@@ -1483,10 +1483,11 @@ bool PdbCrawler::GetTypes(TypeRepository* types) {
   return creator.CreateTypes(tpi_stream_);
 }
 
-bool PdbCrawler::GetVFTableRVAForSymbol(base::hash_set<Address>* vftable_rvas,
-                                        uint16 symbol_length,
-                                        uint16 symbol_type,
-                                        pdb::PdbStream* symbol_stream) {
+bool PdbCrawler::GetVFTableRVAForSymbol(
+    base::hash_set<RelativeAddress>* vftable_rvas,
+    uint16 symbol_length,
+    uint16 symbol_type,
+    pdb::PdbStream* symbol_stream) {
   DCHECK(symbol_stream);  DCHECK(vftable_rvas);
 
   // Not a vftable: skip to the next record.
@@ -1532,12 +1533,12 @@ bool PdbCrawler::GetVFTableRVAForSymbol(base::hash_set<Address>* vftable_rvas,
     vftable_rva = rva_omap.value();
   }
 
-  vftable_rvas->insert(static_cast<Address>(vftable_rva));
+  vftable_rvas->insert(static_cast<RelativeAddress>(vftable_rva));
 
   return true;
 }
 
-bool PdbCrawler::GetVFTableRVAs(base::hash_set<Address>* vftable_rvas) {
+bool PdbCrawler::GetVFTableRVAs(base::hash_set<RelativeAddress>* vftable_rvas) {
   DCHECK(vftable_rvas);
   vftable_rvas->clear();
 

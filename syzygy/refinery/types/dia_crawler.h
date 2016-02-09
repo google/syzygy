@@ -55,9 +55,9 @@ class DiaCrawler {
   bool GetTypes(TypeRepository* types);
 
   // Retrieves the relative virtual addresses of all virtual function tables.
-  // @param vftable_rvas on success contains zero or more addresses.
+  // @param vftable_rvas on success contains zero or more relative addresses.
   // @returns true on success, false on failure.
-  bool GetVFTableRVAs(base::hash_set<Address>* vftable_rvas);
+  bool GetVFTableRVAs(base::hash_set<RelativeAddress>* vftable_rvas);
 
  private:
   base::win::ScopedComPtr<IDiaDataSource> source_;

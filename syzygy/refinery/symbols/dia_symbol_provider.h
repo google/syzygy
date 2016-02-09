@@ -53,10 +53,10 @@ class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
   // Retrieves the relative virtual addresses of all virtual function tables in
   // the module identified by @p signature.
   // @param signature the signature of the module.
-  // @param vftable_rvas on success contains zero or more addresses.
+  // @param vftable_rvas on success contains zero or more relative addresses.
   // @returns true on success, false on failure.
   virtual bool GetVFTableRVAs(const pe::PEFile::Signature& signature,
-                              base::hash_set<Address>* vftable_rvas);
+                              base::hash_set<RelativeAddress>* vftable_rvas);
 
  private:
   // TODO(manzagop): this function is duplicated in SymbolProvider. It should

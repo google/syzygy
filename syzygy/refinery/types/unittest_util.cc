@@ -62,8 +62,8 @@ void PdbCrawlerVTableTestBase::PerformGetVFTableRVAsTest(
 
   for (size_t i = 0; i < count; ++i) {
     refinery::Address expected_rva =
-        static_cast<refinery::Address>(vftable_vas[i]) -
-        reinterpret_cast<refinery::Address>(module.get());
+        static_cast<refinery::RelativeAddress>(vftable_vas[i]) -
+        reinterpret_cast<refinery::RelativeAddress>(module.get());
     EXPECT_NE(vftable_rvas.end(), vftable_rvas.find(expected_rva));
   }
 }

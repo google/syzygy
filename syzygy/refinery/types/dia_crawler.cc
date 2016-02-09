@@ -864,7 +864,7 @@ bool DiaCrawler::GetTypes(TypeRepository* types) {
   return creator.CreateTypes(global_.get());
 }
 
-bool DiaCrawler::GetVFTableRVAs(base::hash_set<Address>* vftable_rvas) {
+bool DiaCrawler::GetVFTableRVAs(base::hash_set<RelativeAddress>* vftable_rvas) {
   DCHECK(vftable_rvas); DCHECK(global_);
   vftable_rvas->clear();
 
@@ -909,7 +909,7 @@ bool DiaCrawler::GetVFTableRVAs(base::hash_set<Address>* vftable_rvas) {
         return false;
       }
 
-      vftable_rvas->insert(static_cast<Address>(rva));
+      vftable_rvas->insert(static_cast<RelativeAddress>(rva));
     }
 
     symbol.Release();

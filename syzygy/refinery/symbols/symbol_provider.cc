@@ -59,6 +59,23 @@ bool SymbolProvider::FindOrCreateTypeNameIndex(
   return typename_index->get() != nullptr;
 }
 
+bool SymbolProvider::GetVFTableRVAs(
+    const pe::PEFile::Signature& signature,
+    base::hash_set<RelativeAddress>* vftable_rvas) {
+  DCHECK(vftable_rvas);
+  vftable_rvas->clear();
+
+  base::FilePath pdb_path;
+  if (!GetPdbPath(signature, &pdb_path))
+    return false;
+
+  PdbCrawler crawler;
+  if (!crawler.InitializeForFile(pdb_path))
+    return false;
+
+  return crawler.GetVFTableRVAs(vftable_rvas);
+}
+
 void SymbolProvider::GetCacheKey(const pe::PEFile::Signature& signature,
                                  base::string16* cache_key) {
   DCHECK(cache_key);

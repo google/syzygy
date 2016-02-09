@@ -216,6 +216,33 @@ bool PdbDiaDumpApp::DumpSymbol(uint8 indent_level, IDiaSymbol* symbol) {
     }
   }
 
+  if (sym_tag == SymTagUDT || sym_tag == SymTagBaseClass) {
+    // Dump some vtable shape information.
+    base::win::ScopedComPtr<IDiaSymbol> vtable_shape;
+    HRESULT hr = symbol->get_virtualTableShape(vtable_shape.Receive());
+    CHECK(SUCCEEDED(hr));  // Expected to always succeed.
+    if (hr == S_OK) {
+      DumpIndentedText(out(), indent_level + 1, "vtable shape:\n");
+
+      uint32_t vtable_shape_id = 0U;
+      CHECK(pe::GetSymIndexId(vtable_shape.get(), &vtable_shape_id));
+      DumpIndentedText(out(), indent_level + 2, "id: %d\n", vtable_shape_id);
+
+      DWORD vtable_count = 0U;
+      hr = vtable_shape->get_count(&vtable_count);
+      CHECK(SUCCEEDED(hr));
+      if (hr == S_OK) {
+        DumpIndentedText(out(), indent_level + 2, "vtable count: %d\n",
+                         vtable_count);
+      } else {
+        CHECK(hr == S_FALSE);
+        DumpIndentedText(out(), indent_level + 2, "vtable count: none\n");
+      }
+    } else {
+      DumpIndentedText(out(), indent_level + 1, "No vtable shape.\n");
+    }
+  }
+
   // Output the children.
   bool success = true;
   pe::ChildVisitor child_visitor(symbol, SymTagNull);

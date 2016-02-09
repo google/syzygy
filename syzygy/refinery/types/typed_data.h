@@ -45,8 +45,11 @@ class TypedData {
   // Returns true if type() a pointer.
   bool IsPointerType() const;
 
-  // Returns true if type() a pointer.
+  // Returns true if type() an array.
   bool IsArrayType() const;
+
+  // Returns true if type() a user defined type.
+  bool IsUserDefinedType() const;
 
   // Retrieves a named field of the UDT.
   // @pre IsPrimitiveType() == false.
@@ -56,14 +59,21 @@ class TypedData {
   bool GetNamedField(const base::StringPiece16& name, TypedData* out) const;
 
   // Retrieves typed data for the field of a UDT.
-  // @pre !IsPrimitiveType().
+  // @pre IsUserDefinedType().
   // @param field_no the index of the field to retrieve.
   // @param out on success returns a TypedData covering the field.
   // @returns true on success.
   bool GetField(size_t field_no, TypedData* out) const;
 
+  // Retrieves field information for the field of a UDT.
+  // @pre IsUserDefinedType().
+  // @param field_no the index of the field to retrieve.
+  // @param out on success returns a FieldPtr containing the field.
+  // @returns true on success.
+  bool GetField(size_t field_no, FieldPtr* out) const;
+
   // Retrieves the number of fields.
-  // @pre !IsPrimitiveType().
+  // @pre IsUserDefinedType().
   // @param count on success returns the number of fields.
   // @returns true on success, false otherwise.
   bool GetFieldCount(size_t* count) const;

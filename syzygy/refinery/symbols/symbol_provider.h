@@ -57,6 +57,14 @@ class SymbolProvider : public base::RefCounted<SymbolProvider> {
   bool FindOrCreateTypeNameIndex(const pe::PEFile::Signature& signature,
                                  scoped_refptr<TypeNameIndex>* typename_index);
 
+  // Retrieves the relative virtual addresses of all virtual function tables in
+  // the module identified by @p signature.
+  // @param signature the signature of the module.
+  // @param vftable_rvas on success contains zero or more relative addresses.
+  // @returns true on success, false on failure.
+  virtual bool GetVFTableRVAs(const pe::PEFile::Signature& signature,
+                              base::hash_set<RelativeAddress>* vftable_rvas);
+
  private:
   static void GetCacheKey(const pe::PEFile::Signature& signature,
                           base::string16* cache_key);

@@ -19,7 +19,8 @@
 #include "base/containers/hash_tables.h"
 #include "base/memory/ref_counted.h"
 #include "syzygy/refinery/core/address.h"
-#include "syzygy/refinery/symbols/dia_symbol_provider.h"
+#include "syzygy/refinery/symbols/symbol_provider.h"
+#include "syzygy/refinery/types/typed_data.h"
 #include "syzygy/refinery/validators/validator.h"
 
 namespace refinery {
@@ -29,7 +30,8 @@ namespace refinery {
 // TODO(manzagop): tighter checking of a vftable ptr's possible values.
 class VftablePtrValidator : public Validator {
  public:
-  VftablePtrValidator() {}
+  // TODO(manzagop): Is this a validator? Take in a symbol provider?
+  explicit VftablePtrValidator(scoped_refptr<SymbolProvider> symbol_provider);
 
   ValidationResult Validate(ProcessState* process_state,
                             ValidationReport* report) override;
@@ -41,10 +43,16 @@ class VftablePtrValidator : public Validator {
   // @returns true on success, false on failure.
   static bool GetVFTableVAs(
       ProcessState* process_state,
-      scoped_refptr<DiaSymbolProvider> dia_symbol_provider,
+      SymbolProvider* symbol_provider,
       base::hash_set<Address>* vftable_vas);
 
  private:
+  bool ValidateTypedData(const TypedData& typed_data,
+                         const base::hash_set<RelativeAddress>& vftable_vas,
+                         ValidationReport* report);
+
+  scoped_refptr<SymbolProvider> symbol_provider_;
+
   DISALLOW_COPY_AND_ASSIGN(VftablePtrValidator);
 };
 

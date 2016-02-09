@@ -60,23 +60,28 @@ class TypedDataTest : public testing::Test {
                                   const TypedData& data) {
     ASSERT_TRUE(data.IsPrimitiveType());
     ASSERT_TRUE(data.IsPointerType());
+    ASSERT_FALSE(data.IsUserDefinedType());
   }
   void AssertFieldMatchesDataType(const TestUDT::InnerUDT& ignore,
                                   const TypedData& data) {
     ASSERT_FALSE(data.IsPrimitiveType());
     ASSERT_FALSE(data.IsPointerType());
+    ASSERT_TRUE(data.IsUserDefinedType());
   }
   void AssertFieldMatchesDataType(uint8_t ignore, const TypedData& data) {
     ASSERT_TRUE(data.IsPrimitiveType());
     ASSERT_FALSE(data.IsPointerType());
+    ASSERT_FALSE(data.IsUserDefinedType());
   }
   void AssertFieldMatchesDataType(uint16_t ignore, const TypedData& data) {
     ASSERT_TRUE(data.IsPrimitiveType());
     ASSERT_FALSE(data.IsPointerType());
+    ASSERT_FALSE(data.IsUserDefinedType());
   }
   void AssertFieldMatchesDataType(uint32_t ignore, const TypedData& data) {
     ASSERT_TRUE(data.IsPrimitiveType());
     ASSERT_FALSE(data.IsPointerType());
+    ASSERT_FALSE(data.IsUserDefinedType());
   }
 
   template <typename FieldType>

@@ -358,7 +358,7 @@ typedef bool (*GetExpectedVftableVAsPtr)(unsigned buffer_size,
 class DiaCrawlerVTableTest : public testing::PdbCrawlerVTableTestBase {
  protected:
   void GetVFTableRVAs(const wchar_t* pdb_path_str,
-                      base::hash_set<Address>* vftable_rvas) override {
+                      base::hash_set<RelativeAddress>* vftable_rvas) override {
     DCHECK(pdb_path_str);  DCHECK(vftable_rvas);
 
     DiaCrawler crawler;
