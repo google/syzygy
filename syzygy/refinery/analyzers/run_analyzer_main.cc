@@ -16,6 +16,8 @@
 #include <windows.h>  // NOLINT
 #include <dbghelp.h>
 
+#include <set>
+#include <unordered_map>
 #include <vector>
 
 #include "base/at_exit.h"
@@ -24,6 +26,7 @@
 #include "base/files/file_path.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_split.h"
+#include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/application/application.h"
 #include "syzygy/minidump/minidump.h"
@@ -44,20 +47,50 @@ class RunAnalyzerApplication : public application::AppImplBase {
   int Run();
 
  private:
+  bool AddLayerPrerequisiteAnalyzers(const refinery::AnalyzerFactory& factory);
+  bool OrderAnalyzers(const refinery::AnalyzerFactory& factory);
+
   template <typename LayerPtrType>
   void PrintLayer(const char* layer_name,
                   refinery::ProcessState* process_state);
   void PrintProcessState(refinery::ProcessState* process_state);
   void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
-  bool AddAnalyzers(refinery::AnalysisRunner* runner);
+  bool AddAnalyzers(const refinery::AnalyzerFactory& factory,
+                    refinery::AnalysisRunner* runner);
   bool Analyze(const minidump::Minidump& minidump,
+               const refinery::AnalyzerFactory& factory,
                const refinery::Analyzer::ProcessAnalysis& process_analysis);
 
   std::vector<base::FilePath> mindump_paths_;
   std::vector<std::string> analyzer_names_;
+  bool resolve_dependencies_;
 
   DISALLOW_COPY_AND_ASSIGN(RunAnalyzerApplication);
+};
+
+using AnalyzerName = std::string;
+using AnalyzerNames = std::vector<std::string>;
+using AnalyzerSet = std::set<AnalyzerName>;
+using AnalyzerGraph = std::unordered_map<AnalyzerName, AnalyzerSet>;
+
+// A worker class that knows how to order analyzers topologically by their
+// layer dependencies.
+class AnalyzerOrderer {
+ public:
+  explicit AnalyzerOrderer(const refinery::AnalyzerFactory& factory);
+
+  bool CreateGraph(const AnalyzerNames& names);
+  AnalyzerNames Order();
+
+ private:
+  void Visit(const AnalyzerName& name);
+
+  const refinery::AnalyzerFactory& factory_;
+  AnalyzerGraph graph_;
+  AnalyzerSet visited_;
+  AnalyzerSet used_;
+  AnalyzerNames ordering_;
 };
 
 const char kUsageFormatStr[] =
@@ -65,9 +98,69 @@ const char kUsageFormatStr[] =
     "\n"
     "  --analyzers=<comma-seperated list of analyzer names>\n"
     "     Configures the set of analyzers to run on each of the dump\n"
-    "     files.\n";
+    "     files.\n"
+    "  --no-dependencies\n"
+    "     If provided, the layer dependencies of the requested analyzers\n"
+    "     won't be used to supplement the analyzer list.\n";
 
-const char kDefaultAnalyzers[] = "MemoryAnalyzer,ModuleAnalyzer,HeapAnalyzer";
+const char kDefaultAnalyzers[] = "HeapAnalyzer,StackFrameAnalyzer,TebAnalyzer";
+
+bool RunAnalyzerApplication::AddLayerPrerequisiteAnalyzers(
+    const refinery::AnalyzerFactory& factory) {
+  // Build the transitive closure of all the analyzers we need.
+  std::set<std::string> all_names;
+  for (const auto& name : analyzer_names_)
+    all_names.insert(name);
+
+  // The analyzers we've yet to process, initialized to the entire list.
+  std::vector<std::string> to_process(analyzer_names_);
+  while (!to_process.empty()) {
+    // Pop one analyzer name off the list to process.
+    std::string analyzer_name = to_process.back();
+    to_process.pop_back();
+
+    // Get the input layers this analyzer depends on.
+    refinery::AnalyzerFactory::Layers input_layers;
+    if (!factory.GetInputLayers(analyzer_name, &input_layers))
+      return false;
+
+    // Now retrieve all the analyzers that produce these layers, and see about
+    // adding them to the mix.
+    for (const auto& input_layer : input_layers) {
+      refinery::AnalyzerFactory::AnalyzerNames outputting_names;
+      factory.GetAnalyzersOutputting(input_layer, &outputting_names);
+
+      for (const auto& outputting_name : outputting_names) {
+        bool inserted = all_names.insert(outputting_name).second;
+        if (inserted) {
+          // This analyzer was not already in all names, add it to the queue
+          // of names to process.
+          to_process.push_back(outputting_name);
+        }
+      }
+    }
+  }
+
+  analyzer_names_.clear();
+  for (const auto& name : all_names)
+    analyzer_names_.push_back(name);
+
+  return true;
+}
+
+bool RunAnalyzerApplication::OrderAnalyzers(
+    const refinery::AnalyzerFactory& factory) {
+  // Topologically order the analyzers.
+  // Start by building the graph of analyzer dependencies.
+  AnalyzerOrderer orderer(factory);
+
+  if (!orderer.CreateGraph(analyzer_names_))
+    return false;
+
+  analyzer_names_ = orderer.Order();
+
+  return true;
+}
 
 template <typename LayerPtrType>
 void RunAnalyzerApplication::PrintLayer(const char* layer_name,
@@ -111,7 +204,7 @@ void RunAnalyzerApplication::PrintUsage(const base::FilePath& program,
 }
 
 RunAnalyzerApplication::RunAnalyzerApplication()
-    : AppImplBase("RunAnalyzerApplication") {
+    : AppImplBase("RunAnalyzerApplication"), resolve_dependencies_(true) {
 }
 
 bool RunAnalyzerApplication::ParseCommandLine(
@@ -120,6 +213,9 @@ bool RunAnalyzerApplication::ParseCommandLine(
     PrintUsage(cmd_line->GetProgram(), "");
     return false;
   }
+
+  if (cmd_line->HasSwitch("no-dependencies"))
+    resolve_dependencies_ = false;
 
   std::string analyzers = cmd_line->GetSwitchValueASCII("analyzers");
   if (analyzers.empty())
@@ -152,6 +248,21 @@ bool RunAnalyzerApplication::ParseCommandLine(
 }
 
 int RunAnalyzerApplication::Run() {
+  refinery::StaticAnalyzerFactory analyzer_factory;
+  if (resolve_dependencies_ &&
+      !AddLayerPrerequisiteAnalyzers(analyzer_factory)) {
+    LOG(ERROR) << "Unable to add dependent analyzers.";
+    return 1;
+  }
+
+  if (!OrderAnalyzers(analyzer_factory)) {
+    LOG(ERROR) << "Unable to order analyzers.";
+    return 1;
+  } else {
+    LOG(INFO) << "Using analyzer list: " << base::JoinString(analyzer_names_,
+                                                             ", ");
+  }
+
   scoped_refptr<refinery::SymbolProvider> symbol_provider(
       new refinery::SymbolProvider());
   scoped_refptr<refinery::DiaSymbolProvider> dia_symbol_provider(
@@ -169,7 +280,7 @@ int RunAnalyzerApplication::Run() {
     refinery::ProcessState process_state;
     refinery::SimpleProcessAnalysis analysis(
         &process_state, dia_symbol_provider, symbol_provider);
-    if (Analyze(minidump, analysis)) {
+    if (Analyze(minidump, analyzer_factory, analysis)) {
       PrintProcessState(&process_state);
     } else {
       LOG(ERROR) << "Failure processing minidump " << minidump_path.value();
@@ -179,9 +290,10 @@ int RunAnalyzerApplication::Run() {
   return 0;
 }
 
-bool RunAnalyzerApplication::AddAnalyzers(refinery::AnalysisRunner* runner) {
+bool RunAnalyzerApplication::AddAnalyzers(
+    const refinery::AnalyzerFactory& factory,
+    refinery::AnalysisRunner* runner) {
   // TODO(siggi): Improve on this by taking dependencies into account.
-  refinery::StaticAnalyzerFactory factory;
   for (const auto& analyzer_name : analyzer_names_) {
     scoped_ptr<refinery::Analyzer> analyzer(
         factory.CreateAnalyzer(analyzer_name));
@@ -198,6 +310,7 @@ bool RunAnalyzerApplication::AddAnalyzers(refinery::AnalysisRunner* runner) {
 
 bool RunAnalyzerApplication::Analyze(
     const minidump::Minidump& minidump,
+    const refinery::AnalyzerFactory& factory,
     const refinery::Analyzer::ProcessAnalysis& process_analysis) {
   DCHECK(process_analysis.process_state());
 
@@ -246,11 +359,79 @@ bool RunAnalyzerApplication::Analyze(
       system_info.Cpu.X86CpuInfo.AMDExtendedCpuFeatures);
 
   refinery::AnalysisRunner runner;
-  if (!AddAnalyzers(&runner))
+  if (!AddAnalyzers(factory, &runner))
     return false;
 
   return runner.Analyze(minidump, process_analysis) ==
          refinery::Analyzer::ANALYSIS_COMPLETE;
+}
+
+AnalyzerOrderer::AnalyzerOrderer(const refinery::AnalyzerFactory& factory)
+    : factory_(factory) {
+}
+
+bool AnalyzerOrderer::CreateGraph(const AnalyzerNames& analyzer_names) {
+  AnalyzerSet all_analyzers;
+  for (const AnalyzerName& name : analyzer_names)
+    all_analyzers.insert(name);
+
+  // For each requested analyser, find the layers it inputs. From each of those
+  // layers, find the analyzers that output those layers - intersected with
+  // the analyzers we care about.
+  for (const AnalyzerName& analyzer_name : all_analyzers) {
+    refinery::AnalyzerFactory::Layers input_layers;
+    if (!factory_.GetInputLayers(analyzer_name, &input_layers))
+      return false;
+
+    AnalyzerSet& dependencies = graph_[analyzer_name];
+    for (auto input_layer : input_layers) {
+      refinery::AnalyzerFactory::AnalyzerNames outputting_names;
+      factory_.GetAnalyzersOutputting(input_layer, &outputting_names);
+      for (const AnalyzerName& outputting_name : outputting_names) {
+        if (all_analyzers.find(outputting_name) != all_analyzers.end()) {
+          // Note that the graph may be circular, and it's in particular
+          // acceptable for analyzers to consume and produce the same layer.
+          // This is the case for e.g. type propagation, which propagates
+          // the types of pointers.
+          dependencies.insert(outputting_name);
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+AnalyzerNames AnalyzerOrderer::Order() {
+  DCHECK(visited_.empty());
+  DCHECK(used_.empty());
+  DCHECK(ordering_.empty());
+
+  for (const auto& node : graph_)
+    Visit(node.first);
+
+  DCHECK(visited_.empty());
+  DCHECK_EQ(graph_.size(), used_.size());
+  DCHECK_EQ(graph_.size(), ordering_.size());
+
+  return ordering_;
+}
+
+void AnalyzerOrderer::Visit(const AnalyzerName& name) {
+  DCHECK(graph_.find(name) != graph_.end());
+
+  if (visited_.find(name) != visited_.end())
+    return;
+
+  visited_.insert(name);
+  for (const AnalyzerName& dep : graph_[name])
+    Visit(dep);
+
+  visited_.erase(name);
+  if (used_.find(name) == used_.end()) {
+    used_.insert(name);
+    ordering_.push_back(name);
+  }
 }
 
 }  // namespace
