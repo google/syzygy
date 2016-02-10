@@ -32,7 +32,7 @@ class ExceptionAnalyzer : public Analyzer {
   AnalysisResult Analyze(const minidump::Minidump& minidump,
                          const ProcessAnalysis& process_analysis) override;
 
-  ANALYZER_NO_INPUT_LAYERS()
+  ANALYZER_INPUT_LAYERS(ProcessState::StackLayer)
   ANALYZER_OUTPUT_LAYERS(ProcessState::StackLayer)
 
  private:
