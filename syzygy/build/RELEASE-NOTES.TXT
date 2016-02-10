@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.13.1
+
+[8f7d7913d1] SyzyASan - Tolerate patching races with retries.
+
 Version 0.8.13.0
 
 [a12e59096e] SyzyASan - Enable dynamic 2G/4G interceptors by default.
