@@ -172,7 +172,7 @@ class StackAndFrameAnalyzersTest : public testing::Test {
 
     TypePtr recovered_type = type_repository->GetType(typedblock.type_id());
     ASSERT_NE(nullptr, recovered_type);
-    ASSERT_EQ(expected_type_name, recovered_type->name());
+    ASSERT_EQ(expected_type_name, recovered_type->GetName());
 
     ASSERT_EQ(expected_variable_name, typedblock.data_name());
   }

@@ -199,9 +199,9 @@ void PdbTypeDumpApp::DumpArgument(refinery::FunctionType::ArgumentType argument,
 void PdbTypeDumpApp::DumpNames(refinery::TypePtr type, uint8_t indent_level) {
   DCHECK(type != nullptr);
 
-  DumpIndentedText(out(), indent_level, "Name: %S\n", type->name().c_str());
+  DumpIndentedText(out(), indent_level, "Name: %S\n", type->GetName().c_str());
   DumpIndentedText(out(), indent_level, "Decorated name: %S\n",
-                   type->decorated_name().c_str());
+                   type->GetDecoratedName().c_str());
 }
 
 void PdbTypeDumpApp::DumpBasicType(refinery::TypePtr type,

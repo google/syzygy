@@ -51,7 +51,7 @@ void AddViolation(const TypedData& typed_data, ValidationReport* report) {
 
   std::string description = base::StringPrintf(
       "Type %ls at address %08X has an incorrect vfptr.",
-      typed_data.type()->name().c_str(), typed_data.GetRange().start());
+      typed_data.type()->GetName().c_str(), typed_data.GetRange().start());
   violation->set_description(description);
 }
 

@@ -37,6 +37,28 @@ base::string16 GetCVMod(bool is_const, bool is_volatile) {
   return suffix;
 }
 
+void AppendPointerNameSuffix(bool is_const,
+                             bool is_volatile,
+                             bool is_ref,
+                             base::string16* name) {
+  DCHECK(name);
+
+  name->append(GetCVMod(is_const, is_volatile));
+  if (is_ref)
+    name->append(L"&");
+  else
+    name->append(L"*");
+}
+
+void AppendArrayNameSuffix(bool is_const,
+                           bool is_volatile,
+                           size_t count,
+                           base::string16* name) {
+  DCHECK(name);
+  name->append(GetCVMod(is_const, is_volatile));
+  base::StringAppendF(name, L"[%d]", count);
+}
+
 }  // namespace
 
 bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name) {
@@ -145,58 +167,155 @@ bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name) {
   return true;
 }
 
-TypeNamer::TypeNamer(bool set_decorated_name)
-    : set_decorated_name_(set_decorated_name) {
+bool TypeNamer::GetName(ConstTypePtr type, base::string16* type_name) {
+  return GetName(type, false, type_name);
 }
 
-TypeNamer::~TypeNamer() {
+bool TypeNamer::GetDecoratedName(ConstTypePtr type,
+                                 base::string16* type_name) {
+  return GetName(type, true, type_name);
 }
 
-bool TypeNamer::EnsureTypeName(TypePtr type) const {
-  if (!type->name().empty())
-    return true;
+bool TypeNamer::GetName(ConstTypePtr type,
+                        bool decorated,
+                        base::string16* type_name) {
+  DCHECK(type);  DCHECK(type_name);
+  type_name->clear();
 
   switch (type->kind()) {
     case Type::POINTER_TYPE_KIND: {
-      PointerTypePtr ptr;
-      if (!type->CastTo(&ptr))
-        return false;
-      if (!AssignPointerName(ptr))
-        return false;
-      break;
+      ConstPointerTypePtr ptr;
+      CHECK(type->CastTo(&ptr));
+      return GetPointerName(ptr, decorated, type_name);
     }
     case Type::ARRAY_TYPE_KIND: {
-      ArrayTypePtr array;
-      if (!type->CastTo(&array))
-        return false;
-      if (!AssignArrayName(array))
-        return false;
-      break;
+      ConstArrayTypePtr array;
+      CHECK(type->CastTo(&array));
+      return GetArrayName(array, decorated, type_name);
     }
     case Type::FUNCTION_TYPE_KIND: {
-      FunctionTypePtr function;
-      if (!type->CastTo(&function))
-        return false;
-      if (!AssignFunctionName(function))
-        return false;
-      break;
+      ConstFunctionTypePtr function;
+      CHECK(type->CastTo(&function));
+      return GetFunctionName(function, decorated, type_name);
     }
     case Type::USER_DEFINED_TYPE_KIND:
-    case Type::BASIC_TYPE_KIND: {
+    case Type::BASIC_TYPE_KIND:
+    case Type::GLOBAL_TYPE_KIND:
+    case Type::WILDCARD_TYPE_KIND: {
       // These types should have their name set up.
-      break;
+      if (decorated)
+        *type_name = type->GetDecoratedName();
+      else
+        *type_name = type->GetName();
+      return true;
     }
+    default:
+      DCHECK(false);
+      return false;
   }
+}
 
-  DCHECK_NE(L"", type->name());
-  if (set_decorated_name_ && type->kind() != Type::BASIC_TYPE_KIND) {
-    DCHECK_NE(L"", type->decorated_name());
-  }
+bool TypeNamer::GetPointerName(ConstPointerTypePtr ptr,
+                               bool decorated,
+                               base::string16* type_name) {
+  DCHECK(ptr);  DCHECK(type_name);
+  type_name->clear();
+
+  // Get the content type's name.
+  ConstTypePtr content_type = ptr->GetContentType();
+  if (!content_type)
+    return false;
+  if (!GetName(content_type, decorated, type_name))
+    return false;
+
+  // Append the suffix.
+  bool is_ref = (ptr->ptr_mode() != PointerType::PTR_MODE_PTR);
+  AppendPointerNameSuffix(ptr->is_const(), ptr->is_volatile(), is_ref,
+                          type_name);
 
   return true;
 }
 
-bool TypeNamer::GetTypeName(IDiaSymbol* type, base::string16* type_name) {
+bool TypeNamer::GetArrayName(ConstArrayTypePtr array,
+                             bool decorated,
+                             base::string16* type_name) {
+  DCHECK(array);  DCHECK(type_name);
+  type_name->clear();
+
+  // Get the element type's name.
+  ConstTypePtr element_type = array->GetElementType();
+  if (!element_type)
+    return false;
+  if (!GetName(element_type, decorated, type_name))
+    return false;
+
+  // Append the suffix.
+  AppendArrayNameSuffix(array->is_const(), array->is_volatile(),
+                        array->num_elements(), type_name);
+  return true;
+}
+
+bool TypeNamer::GetFunctionName(ConstFunctionTypePtr function,
+                                bool decorated,
+                                base::string16* type_name) {
+  DCHECK(function);  DCHECK(type_name);
+  type_name->clear();
+
+  // Start with the return type.
+  ConstTypePtr return_type = function->GetReturnType();
+  if (!return_type)
+    return false;
+  if (!GetName(return_type, decorated, type_name))
+    return false;
+
+  // Append CV qualifiers.
+  base::string16 suffix = GetCVMod(function->return_type().is_const(),
+                                   function->return_type().is_volatile());
+  suffix.append(L" (");
+  type_name->append(suffix);
+
+  // Continue with containing class.
+  if (function->IsMemberFunction()) {
+    ConstTypePtr class_type = function->GetContainingClassType();
+    if (!class_type)
+      return false;
+    base::string16 class_name;
+    if (!GetName(class_type, decorated, &class_name))
+      return false;
+    type_name->append(class_name + L"::)(");
+  }
+
+  // Get the argument types names.
+  std::vector<base::string16> arg_names;
+  for (size_t i = 0; i < function->argument_types().size(); ++i) {
+    ConstTypePtr arg_type = function->GetArgumentType(i);
+    if (!arg_type)
+      return false;
+
+    // Append the names, if the argument type is T_NOTYPE then this is a
+    // C-style variadic function like printf and we append "..." instead.
+    if (arg_type->type_id() == cci::T_NOTYPE) {
+      arg_names.push_back(L"...");
+    } else {
+      arg_names.push_back(L"");
+
+      if (!GetName(arg_type, decorated, &arg_names[i]))
+        return false;
+
+      const FunctionType::ArgumentType& arg = function->argument_types()[i];
+      base::string16 CV_mods = GetCVMod(arg.is_const(), arg.is_volatile());
+
+      arg_names[i].append(CV_mods);
+    }
+  }
+
+  type_name->append(base::JoinString(arg_names, L", "));
+  type_name->append(L")");
+
+  return true;
+}
+
+bool DiaTypeNamer::GetTypeName(IDiaSymbol* type, base::string16* type_name) {
   DCHECK(type); DCHECK(type_name);
 
   enum SymTagEnum sym_tag_type = SymTagNull;
@@ -224,147 +343,7 @@ bool TypeNamer::GetTypeName(IDiaSymbol* type, base::string16* type_name) {
   }
 }
 
-bool TypeNamer::AssignPointerName(PointerTypePtr ptr) const {
-  base::string16 name;
-  base::string16 decorated_name;
-
-  // Get the content type's name.
-  TypePtr content_type = ptr->GetContentType();
-  if (!content_type)
-    return false;
-  if (!EnsureTypeName(content_type))
-    return false;
-  name = content_type->name();
-  if (set_decorated_name_)
-    decorated_name = content_type->decorated_name();
-
-  // Determine the suffix.
-  bool is_ref = (ptr->ptr_mode() != PointerType::PTR_MODE_PTR);
-  base::string16 suffix;
-  GetPointerNameSuffix(ptr->is_const(), ptr->is_volatile(), is_ref, &suffix);
-
-  // Set the name.
-  name.append(suffix);
-  ptr->SetName(name);
-  if (set_decorated_name_) {
-    decorated_name.append(suffix);
-    ptr->SetDecoratedName(decorated_name);
-  }
-
-  return true;
-}
-
-bool TypeNamer::AssignArrayName(ArrayTypePtr array) const {
-  base::string16 name;
-  base::string16 decorated_name;
-
-  TypePtr element_type = array->GetElementType();
-  if (!element_type)
-    return false;
-  if (!EnsureTypeName(element_type))
-    return false;
-  name = element_type->name();
-  if (set_decorated_name_)
-    decorated_name = element_type->decorated_name();
-
-  base::string16 suffix;
-  GetArrayNameSuffix(array->is_const(), array->is_volatile(),
-                     array->num_elements(), &suffix);
-
-  name.append(suffix);
-  array->SetName(name);
-  if (set_decorated_name_) {
-    decorated_name.append(suffix);
-    array->SetDecoratedName(decorated_name);
-  }
-
-  return true;
-}
-
-bool TypeNamer::AssignFunctionName(FunctionTypePtr function) const {
-  // Start with the return type.
-  TypePtr return_type = function->GetReturnType();
-  base::string16 name;
-  base::string16 decorated_name;
-  if (!return_type)
-    return false;
-  if (!EnsureTypeName(return_type))
-    return false;
-  name = return_type->name();
-  if (set_decorated_name_)
-    decorated_name = return_type->decorated_name();
-
-  base::string16 suffix = GetCVMod(function->return_type().is_const(),
-                                   function->return_type().is_volatile());
-  suffix.append(L" (");
-
-  name.append(suffix);
-  if (set_decorated_name_)
-    decorated_name.append(suffix);
-
-  // Continue with containing class.
-  if (function->IsMemberFunction()) {
-    TypePtr class_type = function->GetContainingClassType();
-    if (!class_type)
-      return false;
-    if (!EnsureTypeName(class_type))
-      return false;
-    name.append(class_type->name() + L"::)(");
-    if (set_decorated_name_)
-      decorated_name.append(class_type->decorated_name() + L"::)(");
-  }
-
-  // Get the argument types names.
-  std::vector<base::string16> arg_names;
-  std::vector<base::string16> arg_decorated_names;
-  for (size_t i = 0; i < function->argument_types().size(); ++i) {
-    TypePtr arg_type = function->GetArgumentType(i);
-    if (!arg_type)
-      return false;
-    if (!EnsureTypeName(arg_type))
-      return false;
-
-    // Append the names, if the argument type is T_NOTYPE then this is a
-    // C-style variadic function like printf and we append "..." instead.
-    if (arg_type->type_id() == cci::T_NOTYPE) {
-      arg_names.push_back(L"...");
-      if (set_decorated_name_)
-        arg_decorated_names.push_back(L"...");
-    } else {
-      const FunctionType::ArgumentType& arg = function->argument_types()[i];
-      base::string16 CV_mods = GetCVMod(arg.is_const(), arg.is_volatile());
-      arg_names.push_back(arg_type->name() + CV_mods);
-      if (set_decorated_name_)
-        arg_decorated_names.push_back(arg_type->decorated_name() + CV_mods);
-    }
-  }
-
-  name.append(base::JoinString(arg_names, L", "));
-  name.append(L")");
-  function->SetName(name);
-  if (set_decorated_name_) {
-    decorated_name.append(base::JoinString(arg_decorated_names, L", "));
-    decorated_name.append(L")");
-    function->SetDecoratedName(decorated_name);
-  }
-
-  return true;
-}
-
-void TypeNamer::GetPointerNameSuffix(bool is_const,
-                                     bool is_volatile,
-                                     bool is_ref,
-                                     base::string16* suffix) {
-  DCHECK(suffix);
-
-  *suffix = GetCVMod(is_const, is_volatile);
-  if (is_ref)
-    suffix->append(L"&");
-  else
-    suffix->append(L"*");
-}
-
-bool TypeNamer::GetPointerName(IDiaSymbol* type, base::string16* type_name) {
+bool DiaTypeNamer::GetPointerName(IDiaSymbol* type, base::string16* type_name) {
   DCHECK(type); DCHECK(type_name);
   DCHECK(pe::IsSymTag(type, SymTagPointerType));
 
@@ -377,7 +356,7 @@ bool TypeNamer::GetPointerName(IDiaSymbol* type, base::string16* type_name) {
   if (!GetTypeName(content_type.get(), &name))
     return false;
 
-  // Determine the suffix.
+  // Append the suffix.
   bool is_const = false;
   bool is_volatile = false;
   if (!pe::GetSymQualifiers(content_type.get(), &is_const, &is_volatile))
@@ -386,18 +365,13 @@ bool TypeNamer::GetPointerName(IDiaSymbol* type, base::string16* type_name) {
   HRESULT hr = type->get_reference(&is_ref);
   if (hr != S_OK)
     return false;
-
-  base::string16 suffix;
-  GetPointerNameSuffix(is_const, is_volatile, is_ref == TRUE, &suffix);
-
-  // Set the name.
-  name.append(suffix);
+  AppendPointerNameSuffix(is_const, is_volatile, is_ref == TRUE, &name);
 
   type_name->swap(name);
   return true;
 }
 
-bool TypeNamer::GetArrayName(IDiaSymbol* type, base::string16* type_name) {
+bool DiaTypeNamer::GetArrayName(IDiaSymbol* type, base::string16* type_name) {
   DCHECK(type); DCHECK(type_name);
   DCHECK(pe::IsSymTag(type, SymTagArrayType));
 
@@ -417,18 +391,17 @@ bool TypeNamer::GetArrayName(IDiaSymbol* type, base::string16* type_name) {
   size_t element_count = 0;
   if (!pe::GetSymCount(type, &element_count))
     return false;
-  base::string16 suffix;
-  GetArrayNameSuffix(is_const, is_volatile, element_count, &suffix);
+  AppendArrayNameSuffix(is_const, is_volatile, element_count, &name);
 
   // Set the name.
-  name.append(suffix);
   type_name->swap(name);
 
   return true;
 }
 
 // TODO(manzagop): function type name should include function's CV qualifiers?
-bool TypeNamer::GetFunctionName(IDiaSymbol* type, base::string16* type_name) {
+bool DiaTypeNamer::GetFunctionName(IDiaSymbol* type,
+                                   base::string16* type_name) {
   DCHECK(type); DCHECK(type_name);
   DCHECK(pe::IsSymTag(type, SymTagFunctionType));
 
@@ -502,15 +475,6 @@ bool TypeNamer::GetFunctionName(IDiaSymbol* type, base::string16* type_name) {
 
   type_name->swap(name);
   return true;
-}
-
-void TypeNamer::GetArrayNameSuffix(bool is_const,
-                                   bool is_volatile,
-                                   size_t count,
-                                   base::string16* suffix) {
-  DCHECK(suffix);
-  *suffix = GetCVMod(is_const, is_volatile);
-  base::StringAppendF(suffix, L"[%d]", count);
 }
 
 }  // namespace refinery

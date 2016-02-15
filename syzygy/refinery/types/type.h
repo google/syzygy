@@ -32,6 +32,7 @@ typedef size_t TypeId;
 
 // A sentinel value for uninitialized types.
 const TypeId kNoTypeId = static_cast<TypeId>(-1);
+const wchar_t kUnknownTypeName[] = L"<unknown>";
 
 // A base class for all Type subclasses. Types are owned by a type repository,
 // which can vend out type instances by ID on demand.
@@ -59,34 +60,26 @@ class Type : public base::RefCounted<Type> {
   // @{
   TypeRepository* repository() const { return repository_; }
   TypeId type_id() const { return type_id_; }
-  const base::string16& name() const { return name_; }
-  const base::string16& decorated_name() const { return decorated_name_; }
   size_t size() const { return size_; }
   TypeKind kind() const { return kind_; }
   // @}
+
+  // @returns the type's name or decorated name, or kUnknownTypeName.
+  virtual base::string16 GetName() const;
+  virtual base::string16 GetDecoratedName() const;
 
   // Safely down-cast this to @p SubType.
   // @param out the subtype to cast this to.
   // @returns true on success, false on failure.
   template <class SubType>
   bool CastTo(scoped_refptr<SubType>* out);
-
-  // Set the name of the type.
-  void SetName(const base::string16& name);
-
-  // Set the decorated name of the type.
-  void SetDecoratedName(const base::string16& decorated_name);
+  template <class SubType>
+  bool CastTo(scoped_refptr<const SubType>* out) const;
 
  protected:
   friend class base::RefCounted<Type>;
 
-  // This constructor will eventually be removed.
-  Type(TypeKind kind, const base::string16& name, size_t size);
-  // This is the way to go.
-  Type(TypeKind kind,
-       const base::string16& name,
-       const base::string16& decorated_name,
-       size_t size);
+  Type(TypeKind kind, size_t size);
   virtual ~Type() = 0;
 
  private:
@@ -101,21 +94,42 @@ class Type : public base::RefCounted<Type> {
   const TypeKind kind_;
   // Size of type.
   const size_t size_;
-  // Name of type.
-  base::string16 name_;
-  // Decorated name of type.
-  base::string16 decorated_name_;
 
   DISALLOW_COPY_AND_ASSIGN(Type);
 };
 
 using TypePtr = scoped_refptr<Type>;
+using ConstTypePtr = scoped_refptr<const Type>;
 
 // Constant for no type flags.
 const Type::Flags kNoTypeFlags = 0x0000;
 
+// Represents named types (basic types and user defined types).
+// TODO(manzagop): make it explicit whether the type has a decorated name (see
+// pdb's decorated_name_present).
+class NamedType : public Type {
+ public:
+  base::string16 GetName() const override { return name_; }
+  base::string16 GetDecoratedName() const override { return decorated_name_; }
+
+ protected:
+  NamedType(TypeKind kind,
+            size_t size,
+            const base::string16& name,
+            const base::string16& decorated_name);
+  virtual ~NamedType() = 0;
+
+ private:
+  // Name of type.
+  base::string16 name_;
+  // Decorated name of type.
+  base::string16 decorated_name_;
+
+  DISALLOW_COPY_AND_ASSIGN(NamedType);
+};
+
 // Represents a basic type, such as e.g. an int, char, void, etc.
-class BasicType : public Type {
+class BasicType : public NamedType {
  public:
   static const TypeKind ID = BASIC_TYPE_KIND;
 
@@ -128,10 +142,11 @@ class BasicType : public Type {
 };
 
 using BasicTypePtr = scoped_refptr<BasicType>;
+using ConstBasicTypePtr = scoped_refptr<const BasicType>;
 
 // Represents a user defined type such as a struct, union or a class. Also
 // represents forward references to such types.
-class UserDefinedType : public Type {
+class UserDefinedType : public NamedType {
  public:
   class Field;
   class BaseClassField;
@@ -208,6 +223,7 @@ class UserDefinedType : public Type {
 };
 
 using UserDefinedTypePtr = scoped_refptr<UserDefinedType>;
+using ConstUserDefinedTypePtr = scoped_refptr<const UserDefinedType>;
 
 // Represents a field in a user defined type.
 // TODO(manzagop): add virtual base classes?
@@ -419,6 +435,7 @@ class PointerType : public Type {
 };
 
 using PointerTypePtr = scoped_refptr<PointerType>;
+using ConstPointerTypePtr = scoped_refptr<const PointerType>;
 
 // Represents an array of some other type.
 class ArrayType : public Type {
@@ -465,6 +482,7 @@ class ArrayType : public Type {
 };
 
 using ArrayTypePtr = scoped_refptr<ArrayType>;
+using ConstArrayTypePtr = scoped_refptr<const ArrayType>;
 
 // Represents a function type.
 class FunctionType : public Type {
@@ -555,8 +573,11 @@ class FunctionType : public Type {
 };
 
 using FunctionTypePtr = scoped_refptr<FunctionType>;
+using ConstFunctionTypePtr = scoped_refptr<const FunctionType>;
 
-class GlobalType : public Type {
+// TODO(manzagop): determine whether global types have decorated names and if so
+//   store them, instead of duplicating the undecorated name.
+class GlobalType : public NamedType {
  public:
   static const TypeKind ID = GLOBAL_TYPE_KIND;
 
@@ -584,6 +605,7 @@ class GlobalType : public Type {
 };
 
 using GlobalTypePtr = scoped_refptr<GlobalType>;
+using ConstGlobalTypePtr = scoped_refptr<const GlobalType>;
 
 // Enum representing different calling conventions, the values are the same as
 // the ones used in the PDB stream.
@@ -616,7 +638,7 @@ enum FunctionType::CallConvention {
 
 // Represents an otherwise unsupported type.
 // TODO(siggi): This is a stub, which needs to go away ASAP.
-class WildcardType : public Type {
+class WildcardType : public NamedType {
  public:
   static const TypeKind ID = WILDCARD_TYPE_KIND;
 
@@ -630,6 +652,7 @@ class WildcardType : public Type {
 };
 
 using WildcardTypePtr = scoped_refptr<WildcardType>;
+using ConstWildcardTypePtr = scoped_refptr<const WildcardType>;
 
 template <class SubType>
 bool Type::CastTo(scoped_refptr<SubType>* out) {
@@ -640,6 +663,18 @@ bool Type::CastTo(scoped_refptr<SubType>* out) {
   }
 
   *out = static_cast<SubType*>(this);
+  return true;
+}
+
+template <class SubType>
+bool Type::CastTo(scoped_refptr<const SubType>* out) const {
+  DCHECK(out);
+  if (SubType::ID != kind()) {
+    *out = nullptr;
+    return false;
+  }
+
+  *out = static_cast<const SubType*>(this);
   return true;
 }
 

@@ -25,44 +25,37 @@ namespace refinery {
 
 bool GetSymBaseTypeName(IDiaSymbol* symbol, base::string16* type_name);
 
-// Handles naming for types whose name depends on other types' names.
+// Computes type names for types whose name depends on other types.
 // @note array names do not depend on the index type.
 class TypeNamer {
  public:
-  // @param set_decorated_name whether the namer should handle decorated names.
-  // @note Decorated name handling should be disabled when accessing type
-  //    information through DIA as it does not expose decorated names.
-  explicit TypeNamer(bool set_decorated_name);
-  ~TypeNamer();
+  static bool GetName(ConstTypePtr type, base::string16* type_name);
+  static bool GetDecoratedName(ConstTypePtr type, base::string16* type_name);
 
-  // Assign names for types whose name depends on the name of other types.
-  // @returns true on success, false on failure.
-  bool EnsureTypeName(TypePtr type) const;
+ private:
+  static bool GetName(ConstTypePtr type,
+                      bool decorated,
+                      base::string16* type_name);
 
+  static bool GetPointerName(ConstPointerTypePtr ptr,
+                             bool decorated,
+                             base::string16* type_name);
+  static bool GetArrayName(ConstArrayTypePtr array,
+                           bool decorated,
+                           base::string16* type_name);
+  static bool GetFunctionName(ConstFunctionTypePtr function,
+                              bool decorated,
+                              base::string16* type_name);
+};
+
+class DiaTypeNamer {
+ public:
   static bool GetTypeName(IDiaSymbol* type, base::string16* type_name);
 
  private:
-  bool AssignPointerName(PointerTypePtr ptr) const;
-  bool AssignArrayName(ArrayTypePtr array) const;
-  bool AssignFunctionName(FunctionTypePtr function) const;
-
   static bool GetPointerName(IDiaSymbol* type, base::string16* type_name);
   static bool GetArrayName(IDiaSymbol* type, base::string16* type_name);
   static bool GetFunctionName(IDiaSymbol* type, base::string16* type_name);
-
-  static void GetPointerNameSuffix(bool is_const,
-                                   bool is_volatile,
-                                   bool is_ref,
-                                   base::string16* suffix);
-
-  static void GetArrayNameSuffix(bool is_const,
-                                 bool is_volatile,
-                                 size_t count,
-                                 base::string16* suffix);
-
-  bool set_decorated_name_;
-
-  DISALLOW_COPY_AND_ASSIGN(TypeNamer);
 };
 
 }  // namespace refinery

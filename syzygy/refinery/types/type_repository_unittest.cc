@@ -111,8 +111,8 @@ TEST(TypeRepositoryTest, Iteration) {
 
     ASSERT_TRUE(type);
     EXPECT_EQ(Type::BASIC_TYPE_KIND, type->kind());
-    EXPECT_TRUE(type->name() == L"one" || type->name() == L"two" ||
-                type->name() == L"three");
+    EXPECT_TRUE(type->GetName() == L"one" || type->GetName() == L"two" ||
+                type->GetName() == L"three");
   }
 
   EXPECT_EQ(3U, iterated);

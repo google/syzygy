@@ -130,7 +130,6 @@ class VftablePtrValidatorSyntheticTest : public testing::Test {
     PointerTypePtr vfptr_type =
         new PointerType(sizeof(uintptr_t), PointerType::PTR_MODE_PTR);
     vfptr_type->Finalize(kNoTypeFlags, vtshape_type->type_id());
-    vfptr_type->SetName(L"vtshape*");
     repo->AddType(vfptr_type);
 
     // Create a UDT. It (artificially) only has a vftptr.

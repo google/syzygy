@@ -34,7 +34,6 @@
 #include "syzygy/pdb/gen/pdb_type_info_records.h"
 #include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/refinery/types/type.h"
-#include "syzygy/refinery/types/type_namer.h"
 #include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
@@ -261,8 +260,6 @@ class TypeCreator {
 
   // Vector of records to process.
   std::vector<TypeId> records_to_process_;
-
-  TypeNamer type_namer_;
 };
 
 TypePtr TypeCreator::CreatePointerType(TypeId type_id) {
@@ -772,7 +769,7 @@ TypePtr TypeCreator::ReadBitfield(TypeId type_id,
 }
 
 TypeCreator::TypeCreator(TypeRepository* repository)
-    : repository_(repository), type_namer_(true) {
+    : repository_(repository) {
   DCHECK(repository);
 }
 
@@ -1235,7 +1232,7 @@ TypePtr TypeCreator::FindOrCreateBitfieldType(TypeId type_id,
   if (type == cci::LF_MODIFIER) {
     TypePtr type = ReadModifier(type_id, flags);
     // TODO(mopler): Once we load enums change the name test to type test.
-    if (type->kind() == Type::BASIC_TYPE_KIND || type->name() == L"LF_ENUM")
+    if (type->kind() == Type::BASIC_TYPE_KIND || type->GetName() == L"LF_ENUM")
       return type;
 
     return nullptr;
@@ -1384,12 +1381,6 @@ bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
   // Process every important type.
   for (TypeId type_id : records_to_process_) {
     if (FindOrCreateTypeImpl(type_id) == nullptr)
-      return false;
-  }
-
-  // And assign type names.
-  for (auto type : *repository_) {
-    if (!type_namer_.EnsureTypeName(type))
       return false;
   }
 

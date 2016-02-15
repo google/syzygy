@@ -85,7 +85,7 @@ Analyzer::AnalysisResult TebAnalyzer::Analyze(
 
   UserDefinedTypePtr teb_type;
   for (const auto& type : *ntdll_repo) {
-    if (type->name() == L"_TEB" && type->CastTo(&teb_type))
+    if (type->GetName() == L"_TEB" && type->CastTo(&teb_type))
       break;
   }
 
@@ -104,7 +104,7 @@ Analyzer::AnalysisResult TebAnalyzer::Analyze(
     TypedData teb(process_analysis.process_state(), teb_type,
                   Address(thread.Teb));
 
-    if (!AddTypedBlockRecord(teb.GetRange(), teb_type->name(), module_id,
+    if (!AddTypedBlockRecord(teb.GetRange(), teb_type->GetName(), module_id,
                              teb_type->type_id(),
                              process_analysis.process_state())) {
       LOG(ERROR) << "Failed to add TEB record for thread " << thread.ThreadId;

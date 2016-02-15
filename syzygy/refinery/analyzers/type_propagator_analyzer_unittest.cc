@@ -108,8 +108,7 @@ class TypePropagatorAnalyzerTest : public testing::Test {
                       kSize,
                       kChecksum,
                       kTimestamp),
-        repo_(new TypeRepository(expected_sig_)),
-        type_namer_(true) {
+        repo_(new TypeRepository(expected_sig_)) {
     // Create a basic type and a pointer type to it.
     basic_type_ = new BasicType(L"int32_t", sizeof(int32_t));
     repo_->AddType(basic_type_);
@@ -117,7 +116,6 @@ class TypePropagatorAnalyzerTest : public testing::Test {
     ptr_type_ = new PointerType(sizeof(int32_t*), PointerType::PTR_MODE_PTR);
     repo_->AddType(ptr_type_);
     ptr_type_->Finalize(kNoTypeFlags, basic_type_->type_id());
-    CHECK(type_namer_.EnsureTypeName(ptr_type_));
 
     // Populate the bytes layer with the contents of variable_ptr_. This is
     // needed to be able to dereference it.
@@ -165,7 +163,6 @@ class TypePropagatorAnalyzerTest : public testing::Test {
 
   pe::PEFile::Signature expected_sig_;
   scoped_refptr<TypeRepository> repo_;
-  TypeNamer type_namer_;
 
   ModuleId module_id_;
   ProcessState process_state_;
@@ -192,8 +189,6 @@ TEST_F(TypePropagatorAnalyzerTest, AnalyzeMinidumpArray) {
   repo_->AddType(array_type);
   array_type->Finalize(kNoTypeFlags, basic_type_->type_id(), 3,
                        ptr_type_->type_id());
-  array_type->SetName(L"ArrayName");
-  array_type->SetDecoratedName(L"decorated@@ArrayName");
 
   // The array.
   int32_t* array[3];

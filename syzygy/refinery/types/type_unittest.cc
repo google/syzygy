@@ -38,14 +38,12 @@ class TypesTest : public testing::Test {
     repo_ = new TypeRepository();
   }
 
-  TypePtr CreatePointerType(const wchar_t* name,
-                            size_t size,
+  TypePtr CreatePointerType(size_t size,
                             PointerType::Mode ptr_mode,
                             Type::Flags flags,
                             TypeId content_type_id) {
     PointerTypePtr ptr = new PointerType(size, ptr_mode);
     ptr->Finalize(flags, content_type_id);
-    ptr->SetName(name);
     return ptr;
   }
 
@@ -79,8 +77,8 @@ TEST_F(TypesTest, BasicType) {
   ASSERT_TRUE(type.get());
   // Verify the kind and fields.
   EXPECT_EQ(Type::BASIC_TYPE_KIND, type->kind());
-  EXPECT_EQ(L"foo", type->name());
-  EXPECT_EQ(L"foo", type->decorated_name());
+  EXPECT_EQ(L"foo", type->GetName());
+  EXPECT_EQ(L"foo", type->GetDecoratedName());
   EXPECT_EQ(10U, type->size());
 
   // Down-cast it.
@@ -116,7 +114,6 @@ TEST_F(TypesTest, UserDefinedType) {
   FunctionTypePtr function = new FunctionType(FunctionType::CALL_NEAR_C);
   function->Finalize(FunctionType::ArgumentType(kNoTypeFlags, kShortTypeId),
                      FunctionType::Arguments(), kClassId);
-  function->SetName(L"short (foo::)()");
   const TypeId kFunctionId = repo_->AddType(function);
 
   UserDefinedType::Functions functions;
@@ -130,8 +127,8 @@ TEST_F(TypesTest, UserDefinedType) {
   udt = nullptr;
 
   ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
-  EXPECT_EQ(L"foo", type->name());
-  EXPECT_EQ(L"foo", type->decorated_name());
+  EXPECT_EQ(L"foo", type->GetName());
+  EXPECT_EQ(L"foo", type->GetDecoratedName());
   EXPECT_EQ(10, type->size());
 
   ASSERT_TRUE(type->CastTo(&udt));
@@ -148,28 +145,28 @@ TEST_F(TypesTest, UserDefinedType) {
                                               NOT_VOLATILE_QUALIFIED));
   BasicTypePtr basic_type;
   ASSERT_TRUE(udt->GetFieldType(0)->CastTo(&basic_type));
-  EXPECT_EQ(L"int", basic_type->name());
+  EXPECT_EQ(L"int", basic_type->GetName());
   EXPECT_EQ(4, basic_type->size());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[1], L"two", 4U,
                                               kBasicTypeId, NOT_CONST_QUALIFIED,
                                               VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&basic_type));
-  EXPECT_EQ(L"int", basic_type->name());
+  EXPECT_EQ(L"int", basic_type->GetName());
   EXPECT_EQ(4, basic_type->size());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[2], L"three", 8U,
                                               kShortTypeId, NOT_CONST_QUALIFIED,
                                               NOT_VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&basic_type));
-  EXPECT_EQ(L"short", basic_type->name());
+  EXPECT_EQ(L"short", basic_type->GetName());
   EXPECT_EQ(2, basic_type->size());
 
   EXPECT_EQ(1, udt->functions().size());
   EXPECT_EQ(L"memberFunction", udt->functions()[0].name());
   EXPECT_EQ(kFunctionId, udt->functions()[0].type_id());
   ASSERT_TRUE(udt->GetFunctionType(0)->CastTo(&function));
-  EXPECT_EQ(L"short (foo::)()", function->name());
+  EXPECT_EQ(L"short (foo::)()", function->GetName());
   EXPECT_EQ(function->containing_class_id(), udt->type_id());
 }
 
@@ -196,8 +193,8 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
   udt = nullptr;
 
   ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
-  EXPECT_EQ(L"foo", type->name());
-  EXPECT_EQ(L"decorated_foo", type->decorated_name());
+  EXPECT_EQ(L"foo", type->GetName());
+  EXPECT_EQ(L"decorated_foo", type->GetDecoratedName());
   EXPECT_EQ(10, type->size());
 
   ASSERT_TRUE(type->CastTo(&udt));
@@ -214,21 +211,21 @@ TEST_F(TypesTest, UserDefineTypeWithDecoratedName) {
                                               NOT_VOLATILE_QUALIFIED));
   BasicTypePtr basic_type;
   ASSERT_TRUE(udt->GetFieldType(0)->CastTo(&basic_type));
-  EXPECT_EQ(L"int", basic_type->name());
+  EXPECT_EQ(L"int", basic_type->GetName());
   EXPECT_EQ(4, basic_type->size());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[1], L"two", 4U,
                                               kBasicTypeId, NOT_CONST_QUALIFIED,
                                               VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&basic_type));
-  EXPECT_EQ(L"int", basic_type->name());
+  EXPECT_EQ(L"int", basic_type->GetName());
   EXPECT_EQ(4, basic_type->size());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(udt->fields()[2], L"three", 8U,
                                               kShortTypeId, NOT_CONST_QUALIFIED,
                                               NOT_VOLATILE_QUALIFIED));
   ASSERT_TRUE(udt->GetFieldType(2)->CastTo(&basic_type));
-  EXPECT_EQ(L"short", basic_type->name());
+  EXPECT_EQ(L"short", basic_type->GetName());
   EXPECT_EQ(2, basic_type->size());
 }
 
@@ -271,8 +268,8 @@ TEST_F(TypesTest, UserDefineTypeForwardDeclaration) {
   udt = nullptr;
 
   ASSERT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
-  EXPECT_EQ(L"fwd", type->name());
-  EXPECT_EQ(L"decorated_fwd", type->decorated_name());
+  EXPECT_EQ(L"fwd", type->GetName());
+  EXPECT_EQ(L"decorated_fwd", type->GetDecoratedName());
   EXPECT_EQ(0, type->size());
 
   ASSERT_TRUE(type->CastTo(&udt));
@@ -325,13 +322,13 @@ TEST(VfptrFieldTest, BasicTest) {
 TEST_F(TypesTest, PointerType) {
   // Build a Pointer instance.
   const TypeId kPtrTypeId = repo_->AddType(new BasicType(L"void", 0));
-  TypePtr type = CreatePointerType(L"void*", 4, PointerType::PTR_MODE_PTR,
+  TypePtr type = CreatePointerType(4, PointerType::PTR_MODE_PTR,
                                    Type::FLAG_VOLATILE, kPtrTypeId);
   repo_->AddType(type);
 
   // Test the basic properties.
   ASSERT_TRUE(type);
-  EXPECT_EQ(L"void*", type->name());
+  EXPECT_EQ(L"void volatile*", type->GetName());
   EXPECT_EQ(4U, type->size());
 
   EXPECT_EQ(Type::POINTER_TYPE_KIND, type->kind());
@@ -346,7 +343,7 @@ TEST_F(TypesTest, PointerType) {
   ASSERT_EQ(kPtrTypeId, pointer->content_type_id());
 
   ASSERT_TRUE(pointer->GetContentType());
-  EXPECT_EQ(L"void", pointer->GetContentType()->name());
+  EXPECT_EQ(L"void", pointer->GetContentType()->GetName());
   EXPECT_EQ(0U, pointer->GetContentType()->size());
 }
 
@@ -354,8 +351,6 @@ TEST_F(TypesTest, PointerTypeWithDecoratedName) {
   // Build a Pointer instance.
   const TypeId kPtrTypeId = repo_->AddType(new BasicType(L"void", 0));
   PointerTypePtr ptr_type = new PointerType(4, PointerType::PTR_MODE_PTR);
-  ptr_type->SetName(L"void*");
-  ptr_type->SetDecoratedName(L"decorated_void*");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kPtrTypeId);
 
   TypePtr type = ptr_type;
@@ -363,8 +358,8 @@ TEST_F(TypesTest, PointerTypeWithDecoratedName) {
 
   // Test the basic properties.
   ASSERT_TRUE(type);
-  EXPECT_EQ(L"void*", type->name());
-  EXPECT_EQ(L"decorated_void*", type->decorated_name());
+  EXPECT_EQ(L"void volatile*", type->GetName());
+  EXPECT_EQ(L"void volatile*", type->GetDecoratedName());
   EXPECT_EQ(4U, type->size());
 
   EXPECT_EQ(Type::POINTER_TYPE_KIND, type->kind());
@@ -379,8 +374,8 @@ TEST_F(TypesTest, PointerTypeWithDecoratedName) {
   ASSERT_EQ(kPtrTypeId, pointer->content_type_id());
 
   ASSERT_TRUE(pointer->GetContentType());
-  EXPECT_EQ(L"void", pointer->GetContentType()->name());
-  EXPECT_EQ(L"void", pointer->GetContentType()->decorated_name());
+  EXPECT_EQ(L"void", pointer->GetContentType()->GetName());
+  EXPECT_EQ(L"void", pointer->GetContentType()->GetDecoratedName());
   EXPECT_EQ(0U, pointer->GetContentType()->size());
 }
 
@@ -388,17 +383,12 @@ TEST_F(TypesTest, ArrayType) {
   TypePtr int_type = new BasicType(L"int32_t", 0);
   const TypeId kIntTypeId = repo_->AddType(int_type);
   PointerTypePtr ptr_type = new PointerType(4, PointerType::PTR_MODE_PTR);
-  ptr_type->SetName(L"aName");
-  ptr_type->SetDecoratedName(L"aDecoratedName");
   ptr_type->Finalize(Type::FLAG_VOLATILE, kIntTypeId);
   const TypeId kPtrTypeId = repo_->AddType(ptr_type);
 
   ArrayTypePtr array = new ArrayType(10 * ptr_type->size());
   repo_->AddType(array);
   array->Finalize(Type::FLAG_CONST, kIntTypeId, 10, kPtrTypeId);
-  ASSERT_EQ(L"", array->name());
-  array->SetName(L"ArrayName");
-  array->SetDecoratedName(L"decorated@@ArrayName");
 
   ASSERT_EQ(kIntTypeId, array->index_type_id());
   ASSERT_EQ(10, array->num_elements());
@@ -406,8 +396,8 @@ TEST_F(TypesTest, ArrayType) {
   ASSERT_EQ(int_type, array->GetIndexType());
   ASSERT_EQ(ptr_type, array->GetElementType());
   ASSERT_EQ(ptr_type, array->GetElementType());
-  ASSERT_EQ(L"ArrayName", array->name());
-  ASSERT_EQ(L"decorated@@ArrayName", array->decorated_name());
+  ASSERT_EQ(L"int32_t volatile* const[10]", array->GetName());
+  ASSERT_EQ(L"int32_t volatile* const[10]", array->GetDecoratedName());
   ASSERT_FALSE(array->is_volatile());
 }
 
@@ -428,8 +418,6 @@ TEST_F(TypesTest, FunctionType) {
 
   FunctionTypePtr function = new FunctionType(FunctionType::CALL_NEAR_C);
   function->Finalize(ret_value, args, kClassType);
-  function->SetName(L"FunctionName");
-  function->SetDecoratedName(L"decorated@@FunctionName");
 
   repo_->AddType(function);
 
@@ -438,8 +426,11 @@ TEST_F(TypesTest, FunctionType) {
   function = nullptr;
 
   ASSERT_EQ(Type::FUNCTION_TYPE_KIND, type->kind());
-  EXPECT_EQ(L"FunctionName", type->name());
-  EXPECT_EQ(L"decorated@@FunctionName", type->decorated_name());
+  EXPECT_EQ(L"bool const (foo::)(uint32_t const, uint32_t volatile, short)",
+            type->GetName());
+  EXPECT_EQ(
+      L"bool const (decorated_foo::)(uint32_t const, uint32_t volatile, short)",
+      type->GetDecoratedName());
   EXPECT_EQ(0, type->size());
 
   ASSERT_TRUE(type->CastTo(&function));
@@ -454,36 +445,36 @@ TEST_F(TypesTest, FunctionType) {
 
   UserDefinedTypePtr udt;
   EXPECT_TRUE(function->GetContainingClassType()->CastTo(&udt));
-  EXPECT_EQ(L"foo", udt->name());
-  EXPECT_EQ(L"decorated_foo", udt->decorated_name());
+  EXPECT_EQ(L"foo", udt->GetName());
+  EXPECT_EQ(L"decorated_foo", udt->GetDecoratedName());
 
   EXPECT_TRUE(function->argument_types()[0].is_const());
   EXPECT_FALSE(function->argument_types()[0].is_volatile());
   EXPECT_EQ(kBasicTypeId, function->argument_types()[0].type_id());
   BasicTypePtr basic_type;
   ASSERT_TRUE(function->GetArgumentType(0)->CastTo(&basic_type));
-  EXPECT_EQ(L"uint32_t", basic_type->name());
+  EXPECT_EQ(L"uint32_t", basic_type->GetName());
   EXPECT_EQ(4, basic_type->size());
 
   EXPECT_FALSE(function->argument_types()[1].is_const());
   EXPECT_TRUE(function->argument_types()[1].is_volatile());
   EXPECT_EQ(kBasicTypeId, function->argument_types()[1].type_id());
   ASSERT_TRUE(function->GetArgumentType(1)->CastTo(&basic_type));
-  EXPECT_EQ(L"uint32_t", basic_type->name());
+  EXPECT_EQ(L"uint32_t", basic_type->GetName());
   EXPECT_EQ(4, basic_type->size());
 
   EXPECT_FALSE(function->argument_types()[2].is_const());
   EXPECT_FALSE(function->argument_types()[2].is_volatile());
   EXPECT_EQ(kShortTypeId, function->argument_types()[2].type_id());
   ASSERT_TRUE(function->GetArgumentType(2)->CastTo(&basic_type));
-  EXPECT_EQ(L"short", basic_type->name());
+  EXPECT_EQ(L"short", basic_type->GetName());
   EXPECT_EQ(2, basic_type->size());
 
   EXPECT_TRUE(function->return_type().is_const());
   EXPECT_FALSE(function->return_type().is_volatile());
   EXPECT_EQ(kBoolTypeId, function->return_type().type_id());
   ASSERT_TRUE(function->GetReturnType()->CastTo(&basic_type));
-  EXPECT_EQ(L"bool", basic_type->name());
+  EXPECT_EQ(L"bool", basic_type->GetName());
   EXPECT_EQ(1, basic_type->size());
 }
 
@@ -492,7 +483,7 @@ TEST_F(TypesTest, GlobalType) {
   uint64_t kRVA = 0xCAFEBABE;
   TypePtr type = new GlobalType(L"foo", kRVA, kBasicTypeId, 4);
   EXPECT_EQ(Type::GLOBAL_TYPE_KIND, type->kind());
-  EXPECT_EQ(L"foo", type->name());
+  EXPECT_EQ(L"foo", type->GetName());
   EXPECT_EQ(4, type->size());
 
   ASSERT_NE(0U, repo_->AddType(type));
@@ -506,7 +497,7 @@ TEST_F(TypesTest, GlobalType) {
 
   TypePtr data_type = global->GetDataType();
   ASSERT_NE(nullptr, data_type);
-  EXPECT_EQ(L"int", data_type->name());
+  EXPECT_EQ(L"int", data_type->GetName());
 }
 
 TEST_F(TypesTest, WildcardType) {
@@ -516,8 +507,8 @@ TEST_F(TypesTest, WildcardType) {
 
   // Test the basic properties.
   ASSERT_TRUE(type);
-  EXPECT_EQ(L"Wildcard", type->name());
-  EXPECT_EQ(L"Wildcard", type->decorated_name());
+  EXPECT_EQ(L"Wildcard", type->GetName());
+  EXPECT_EQ(L"Wildcard", type->GetDecoratedName());
   EXPECT_EQ(4U, type->size());
 
   // Downcast and test its fields.

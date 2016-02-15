@@ -53,7 +53,7 @@ bool GetTypeName(IDiaSymbol* data, base::string16* type_name) {
   if (!pe::GetSymType(data, &type))
     return false;
 
-  return TypeNamer::GetTypeName(type.get(), type_name);
+  return DiaTypeNamer::GetTypeName(type.get(), type_name);
 }
 
 bool IsLocType(IDiaSymbol* data, LocationType type) {

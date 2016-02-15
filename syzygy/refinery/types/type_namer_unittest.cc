@@ -59,7 +59,7 @@ class TypeNamerTest : public testing::Test {
   //     contain the function's name).
   TypePtr FindRepositoryTypeByName(const base::string16& name) {
     for (auto it : *repository_) {
-      if (it->name() == name)
+      if (it->GetName() == name)
         return it;
     }
     return nullptr;
@@ -88,7 +88,7 @@ class TypeNamerTest : public testing::Test {
     ULONG received = 0;
     hr = matching_types->Next(1, symbol.Receive(), &received);
     while (hr == S_OK) {
-      if (TypeNamer::GetTypeName(symbol.get(), &symbol_name)) {
+      if (DiaTypeNamer::GetTypeName(symbol.get(), &symbol_name)) {
         if (symbol_name == name) {
           *type = symbol;
           return true;
@@ -147,7 +147,7 @@ TEST_F(TypeNamerTest, UDTNameTest) {
 
   base::win::ScopedComPtr<IDiaSymbol> dia_type;
   ASSERT_TRUE(
-      FindNamedDiaChild(global_.get(), SymTagUDT, type->name(), &dia_type));
+      FindNamedDiaChild(global_.get(), SymTagUDT, type->GetName(), &dia_type));
 }
 
 TEST_F(TypeNamerTest, EnumNameTest) {
@@ -168,7 +168,7 @@ TEST_F(TypeNamerTest, BasicTypeNameTest) {
   ASSERT_TRUE(GetUDTAttributeType(L"testing::TestUDT", L"integer", &dia_type));
 
   base::string16 dia_type_name;
-  ASSERT_TRUE(TypeNamer::GetTypeName(dia_type.get(), &dia_type_name));
+  ASSERT_TRUE(DiaTypeNamer::GetTypeName(dia_type.get(), &dia_type_name));
   ASSERT_EQ(L"int32_t", dia_type_name);
 }
 
@@ -181,8 +181,8 @@ TEST_F(TypeNamerTest, PointerNameTest) {
   base::win::ScopedComPtr<IDiaSymbol> dia_type;
   ASSERT_TRUE(GetUDTAttributeType(L"testing::TestUDT", L"pointer", &dia_type));
   base::string16 dia_type_name;
-  ASSERT_TRUE(TypeNamer::GetTypeName(dia_type.get(), &dia_type_name));
-  ASSERT_EQ(type->name(), dia_type_name);
+  ASSERT_TRUE(DiaTypeNamer::GetTypeName(dia_type.get(), &dia_type_name));
+  ASSERT_EQ(type->GetName(), dia_type_name);
 
   dia_type.Release();
 
@@ -193,8 +193,8 @@ TEST_F(TypeNamerTest, PointerNameTest) {
 
   ASSERT_TRUE(
       GetUDTAttributeType(L"testing::TestUDT", L"reference", &dia_type));
-  ASSERT_TRUE(TypeNamer::GetTypeName(dia_type.get(), &dia_type_name));
-  ASSERT_EQ(type->name(), dia_type_name);
+  ASSERT_TRUE(DiaTypeNamer::GetTypeName(dia_type.get(), &dia_type_name));
+  ASSERT_EQ(type->GetName(), dia_type_name);
 }
 
 void TypeNamerTest::PerformArrayNameTest(const base::string16& array_typename) {
@@ -203,7 +203,7 @@ void TypeNamerTest::PerformArrayNameTest(const base::string16& array_typename) {
   ASSERT_EQ(Type::ARRAY_TYPE_KIND, type->kind());
 
   base::win::ScopedComPtr<IDiaSymbol> dia_type;
-  ASSERT_TRUE(FindNamedDiaChild(global_.get(), SymTagArrayType, type->name(),
+  ASSERT_TRUE(FindNamedDiaChild(global_.get(), SymTagArrayType, type->GetName(),
                                 &dia_type));
 }
 
@@ -219,8 +219,8 @@ void TypeNamerTest::PerformFunctionNameTest(
   ASSERT_EQ(Type::FUNCTION_TYPE_KIND, type->kind());
 
   base::win::ScopedComPtr<IDiaSymbol> dia_type;
-  ASSERT_TRUE(FindNamedDiaChild(global_.get(), SymTagFunctionType, type->name(),
-                                &dia_type));
+  ASSERT_TRUE(FindNamedDiaChild(global_.get(), SymTagFunctionType,
+                                type->GetName(), &dia_type));
 }
 
 TEST_F(TypeNamerTest, FunctionNameTest) {

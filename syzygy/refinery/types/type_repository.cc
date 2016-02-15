@@ -85,7 +85,7 @@ TypeRepository::Iterator TypeRepository::end() const {
 TypeNameIndex::TypeNameIndex(scoped_refptr<TypeRepository> repository) {
   DCHECK(repository);
   for (auto type : *repository)
-    name_index_.insert(std::make_pair(type->name(), type));
+    name_index_.insert(std::make_pair(type->GetName(), type));
 }
 
 TypeNameIndex::~TypeNameIndex() {

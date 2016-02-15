@@ -156,10 +156,6 @@ class TypeCreator {
   bool CreateTypesOfKind(enum SymTagEnum kind, IDiaSymbol* global);
   bool CreateGlobalDataTypes(IDiaSymbol* global);
 
-  // Assigns names to all pointer, array and function types that have been
-  // created.
-  bool AssignTypeNames();
-
   // Finds or creates the type corresponding to @p symbol.
   // The type will be registered by a unique name in @p existing_types_.
   TypePtr FindOrCreateType(IDiaSymbol* symbol);
@@ -197,12 +193,10 @@ class TypeCreator {
   // enumerating the same type multiple times.
   CreatedTypeMap created_types_;
   TypeRepository* repository_;
-
-  TypeNamer type_namer_;
 };
 
 TypeCreator::TypeCreator(TypeRepository* repository)
-    : repository_(repository), type_namer_(false) {
+    : repository_(repository) {
   DCHECK(repository);
 }
 
@@ -391,15 +385,6 @@ bool TypeCreator::CreateTypes(IDiaSymbol* global) {
       !CreateTypesOfKind(SymTagFunctionType, global) ||
       !CreateGlobalDataTypes(global)) {
     return false;
-  }
-
-  return AssignTypeNames();
-}
-
-bool TypeCreator::AssignTypeNames() {
-  for (auto type : *repository_) {
-    if (!type_namer_.EnsureTypeName(type))
-      return false;
   }
 
   return true;

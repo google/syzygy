@@ -49,7 +49,7 @@ class DiaCrawlerTest : public testing::Test {
 
   TypePtr FindTypeEndingWith(const base::string16& str) {
     for (auto it : *types_) {
-      if (base::EndsWith(it->name(), str, base::CompareCase::SENSITIVE))
+      if (base::EndsWith(it->GetName(), str, base::CompareCase::SENSITIVE))
         return it;
     }
     return nullptr;
@@ -93,7 +93,7 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   ASSERT_TRUE(type);
 
   EXPECT_EQ(16, type->size());
-  EXPECT_TRUE(base::EndsWith(type->name(), L"::TestSimpleUDT",
+  EXPECT_TRUE(base::EndsWith(type->GetName(), L"::TestSimpleUDT",
                              base::CompareCase::SENSITIVE));
 
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
@@ -112,13 +112,13 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
                                               !kIsVolatile, 0U, 0U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(0)->kind());
   EXPECT_EQ(4, udt->GetFieldType(0)->size());
-  EXPECT_EQ(L"int32_t", udt->GetFieldType(0)->name());
+  EXPECT_EQ(L"int32_t", udt->GetFieldType(0)->GetName());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[1], L"two", 4U, kIsConst,
                                               !kIsVolatile, 0U, 0U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(1)->kind());
   EXPECT_EQ(1, udt->GetFieldType(1)->size());
-  EXPECT_EQ(L"char", udt->GetFieldType(1)->name());
+  EXPECT_EQ(L"char", udt->GetFieldType(1)->GetName());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[2], L"three", 8U,
                                               !kIsConst, !kIsVolatile, 0U, 0U));
@@ -133,7 +133,7 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   ASSERT_TRUE(ptr->GetContentType());
   ASSERT_EQ(PointerType::PTR_MODE_PTR, ptr->ptr_mode());
   EXPECT_EQ(Type::POINTER_TYPE_KIND, ptr->GetContentType()->kind());
-  EXPECT_EQ(L"int16_t const* volatile*", ptr->name());
+  EXPECT_EQ(L"int16_t const* volatile*", ptr->GetName());
 
   ASSERT_TRUE(ptr->GetContentType()->CastTo(&ptr));
   ASSERT_TRUE(ptr);
@@ -142,36 +142,36 @@ TEST_F(DiaCrawlerTest, TestSimpleUDT) {
   EXPECT_FALSE(ptr->is_volatile());
   ASSERT_EQ(PointerType::PTR_MODE_PTR, ptr->ptr_mode());
   ASSERT_TRUE(ptr->GetContentType());
-  EXPECT_EQ(L"int16_t const*", ptr->name());
+  EXPECT_EQ(L"int16_t const*", ptr->GetName());
   EXPECT_EQ(Type::BASIC_TYPE_KIND, ptr->GetContentType()->kind());
-  EXPECT_EQ(L"int16_t", ptr->GetContentType()->name());
+  EXPECT_EQ(L"int16_t", ptr->GetContentType()->GetName());
   EXPECT_EQ(2, ptr->GetContentType()->size());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[3], L"four", 12U, kIsConst,
                                               kIsVolatile, 0U, 0U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(3)->kind());
   EXPECT_EQ(2, udt->GetFieldType(3)->size());
-  EXPECT_EQ(L"uint16_t", udt->GetFieldType(3)->name());
+  EXPECT_EQ(L"uint16_t", udt->GetFieldType(3)->GetName());
 
   // Can't do offsetof/sizeof on bit fields.
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[4], L"five", 14U,
                                               !kIsConst, !kIsVolatile, 0U, 3U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(4)->kind());
   EXPECT_EQ(2, udt->GetFieldType(4)->size());
-  EXPECT_EQ(L"uint16_t", udt->GetFieldType(4)->name());
+  EXPECT_EQ(L"uint16_t", udt->GetFieldType(4)->GetName());
 
   ASSERT_NO_FATAL_FAILURE(ValidateMemberField(fields[5], L"six", 14U, !kIsConst,
                                               !kIsVolatile, 3U, 5U));
   EXPECT_EQ(Type::BASIC_TYPE_KIND, udt->GetFieldType(5)->kind());
   EXPECT_EQ(2, udt->GetFieldType(5)->size());
-  EXPECT_EQ(L"uint16_t", udt->GetFieldType(5)->name());
+  EXPECT_EQ(L"uint16_t", udt->GetFieldType(5)->GetName());
 }
 
 TEST_F(DiaCrawlerTest, TestReference) {
   TypePtr type = FindTypeEndingWith(L"::TestReference");
   ASSERT_TRUE(type);
-  EXPECT_TRUE(
-      EndsWith(type->name(), L"::TestReference", base::CompareCase::SENSITIVE));
+  EXPECT_TRUE(EndsWith(type->GetName(), L"::TestReference",
+                       base::CompareCase::SENSITIVE));
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
   UserDefinedTypePtr udt;
@@ -197,7 +197,7 @@ TEST_F(DiaCrawlerTest, TestReference) {
   EXPECT_TRUE(ptr->is_const());
   EXPECT_FALSE(ptr->is_volatile());
   ASSERT_EQ(PointerType::PTR_MODE_REF, ptr->ptr_mode());
-  EXPECT_EQ(L"int32_t const&", ptr->name());
+  EXPECT_EQ(L"int32_t const&", ptr->GetName());
 }
 
 TEST_F(DiaCrawlerTest, TestArray) {
@@ -215,16 +215,16 @@ TEST_F(DiaCrawlerTest, TestArray) {
   ASSERT_TRUE(int_array);
 
   EXPECT_EQ(30, int_array->num_elements());
-  EXPECT_EQ(L"int32_t const[30]", int_array->name());
+  EXPECT_EQ(L"int32_t const[30]", int_array->GetName());
   EXPECT_EQ(sizeof(int) * 30, int_array->size());
   EXPECT_TRUE(int_array->is_const());
   EXPECT_FALSE(int_array->is_volatile());
 
   TypePtr index_type = int_array->GetIndexType();
-  EXPECT_EQ(L"uint32_t", index_type->name());
+  EXPECT_EQ(L"uint32_t", index_type->GetName());
 
   TypePtr element_type = int_array->GetElementType();
-  EXPECT_EQ(L"int32_t", element_type->name());
+  EXPECT_EQ(L"int32_t", element_type->GetName());
 
   PointerTypePtr array_ptr;
   ASSERT_TRUE(udt->GetFieldType(1)->CastTo(&array_ptr));
@@ -233,16 +233,16 @@ TEST_F(DiaCrawlerTest, TestArray) {
   ASSERT_TRUE(array_ptr->GetContentType()->CastTo(&ptr_array));
 
   EXPECT_EQ(32, ptr_array->num_elements());
-  EXPECT_EQ(L"testing::TestRecursiveUDT* volatile[32]", ptr_array->name());
+  EXPECT_EQ(L"testing::TestRecursiveUDT* volatile[32]", ptr_array->GetName());
   EXPECT_EQ(sizeof(void*) * 32, ptr_array->size());
   EXPECT_FALSE(ptr_array->is_const());
   EXPECT_TRUE(ptr_array->is_volatile());
 
   index_type = ptr_array->GetIndexType();
-  EXPECT_EQ(L"uint32_t", index_type->name());
+  EXPECT_EQ(L"uint32_t", index_type->GetName());
 
   element_type = ptr_array->GetElementType();
-  EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
+  EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->GetName());
 }
 
 TEST_F(DiaCrawlerTest, TestFunctionType) {
@@ -262,11 +262,11 @@ TEST_F(DiaCrawlerTest, TestFunctionType) {
   EXPECT_TRUE(function->IsMemberFunction());
   EXPECT_TRUE(function->return_type().is_const());
   EXPECT_FALSE(function->return_type().is_volatile());
-  EXPECT_EQ(function->GetReturnType()->name(), L"char");
+  EXPECT_EQ(function->GetReturnType()->GetName(), L"char");
 
   EXPECT_FALSE(args[0].is_const());
   EXPECT_FALSE(args[0].is_volatile());
-  EXPECT_EQ(function->GetArgumentType(0)->name(), L"int32_t");
+  EXPECT_EQ(function->GetArgumentType(0)->GetName(), L"int32_t");
 
   // Find the containing class.
   type = FindTypeEndingWith(L"::TestAllInOneUDT");
@@ -275,7 +275,8 @@ TEST_F(DiaCrawlerTest, TestFunctionType) {
   // Check that the function points to its containing class.
   EXPECT_EQ(function->containing_class_id(), type->type_id());
 
-  EXPECT_EQ(function->name(), L"char const (" + type->name() + L"::)(int32_t)");
+  EXPECT_EQ(function->GetName(),
+            L"char const (" + type->GetName() + L"::)(int32_t)");
 }
 
 TEST_F(DiaCrawlerTest, TestFunctions) {
@@ -296,26 +297,26 @@ TEST_F(DiaCrawlerTest, TestFunctions) {
   EXPECT_EQ(L"TestFunctions", functions[0].name());
   EXPECT_TRUE(udt->GetFunctionType(0)->CastTo(&function));
   EXPECT_EQ(0U, function->argument_types().size());
-  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+  EXPECT_EQ(function->GetReturnType()->GetName(), L"void");
   EXPECT_EQ(udt->type_id(), function->containing_class_id());
 
   EXPECT_EQ(L"NonOverloadedFunction", functions[1].name());
   EXPECT_TRUE(udt->GetFunctionType(1)->CastTo(&function));
   EXPECT_EQ(0U, function->argument_types().size());
-  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+  EXPECT_EQ(function->GetReturnType()->GetName(), L"void");
   EXPECT_EQ(udt->type_id(), function->containing_class_id());
 
   EXPECT_EQ(L"OverloadedFunction", functions[2].name());
   EXPECT_TRUE(udt->GetFunctionType(2)->CastTo(&function));
   EXPECT_EQ(1U, function->argument_types().size());
-  EXPECT_EQ(function->GetArgumentType(0)->name(), L"int32_t");
-  EXPECT_EQ(function->GetReturnType()->name(), L"void");
+  EXPECT_EQ(function->GetArgumentType(0)->GetName(), L"int32_t");
+  EXPECT_EQ(function->GetReturnType()->GetName(), L"void");
   EXPECT_EQ(udt->type_id(), function->containing_class_id());
 
   EXPECT_EQ(L"OverloadedFunction", functions[3].name());
   EXPECT_TRUE(udt->GetFunctionType(3)->CastTo(&function));
   EXPECT_EQ(0U, function->argument_types().size());
-  EXPECT_EQ(function->GetReturnType()->name(), L"int32_t");
+  EXPECT_EQ(function->GetReturnType()->GetName(), L"int32_t");
   EXPECT_EQ(udt->type_id(), function->containing_class_id());
 }
 

@@ -45,7 +45,7 @@ std::vector<TypePtr> GetTypesBySuffix(TypeRepository* types,
   std::vector<TypePtr> found_types;
 
   for (auto it : *types) {
-    if (base::EndsWith(it->name(), suffix, base::CompareCase::SENSITIVE)) {
+    if (base::EndsWith(it->GetName(), suffix, base::CompareCase::SENSITIVE)) {
       found_types.push_back(it);
     }
   }
@@ -201,7 +201,7 @@ void ValidateMemberField(FieldPtr field,
 void ValidateBasicType(TypePtr type, size_t size, const base::string16& name) {
   EXPECT_EQ(Type::BASIC_TYPE_KIND, type->kind());
   EXPECT_EQ(size, type->size());
-  EXPECT_EQ(name, type->name());
+  EXPECT_EQ(name, type->GetName());
 }
 
 void ValidateWildcardType(TypePtr type,
@@ -209,7 +209,7 @@ void ValidateWildcardType(TypePtr type,
                           const base::string16& name) {
   EXPECT_EQ(Type::WILDCARD_TYPE_KIND, type->kind());
   EXPECT_EQ(size, type->size());
-  EXPECT_EQ(name, type->name());
+  EXPECT_EQ(name, type->GetName());
 }
 
 void ValidatePointerType(TypePtr type,
@@ -225,7 +225,7 @@ void ValidatePointerType(TypePtr type,
   EXPECT_EQ(is_volatile, ptr->is_volatile());
   EXPECT_EQ(ptrmode, ptr->ptr_mode());
   EXPECT_EQ(size, type->size());
-  EXPECT_EQ(name, type->name());
+  EXPECT_EQ(name, type->GetName());
 }
 
 void ValidateArrayType(TypePtr type,
@@ -241,7 +241,7 @@ void ValidateArrayType(TypePtr type,
   EXPECT_EQ(is_volatile, array_type->is_volatile());
   EXPECT_EQ(size, type->size());
   EXPECT_EQ(num_elements, array_type->num_elements());
-  EXPECT_EQ(name, type->name());
+  EXPECT_EQ(name, type->GetName());
 }
 
 // Constants for better readability.
@@ -257,8 +257,8 @@ TEST_P(PdbCrawlerTest, TestSimpleUDT) {
   ASSERT_TRUE(type);
 
   EXPECT_EQ(LookupSizeOf(L"TestSimpleUDT"), type->size());
-  EXPECT_TRUE(
-      EndsWith(type->name(), L"::TestSimpleUDT", base::CompareCase::SENSITIVE));
+  EXPECT_TRUE(EndsWith(type->GetName(), L"::TestSimpleUDT",
+                       base::CompareCase::SENSITIVE));
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
   UserDefinedTypePtr udt;
@@ -323,7 +323,7 @@ TEST_P(PdbCrawlerTest, TestAllInOneUDT) {
   ASSERT_TRUE(type);
 
   EXPECT_EQ(LookupSizeOf(L"TestAllInOneUDT"), type->size());
-  EXPECT_TRUE(EndsWith(type->name(), L"::TestAllInOneUDT",
+  EXPECT_TRUE(EndsWith(type->GetName(), L"::TestAllInOneUDT",
                        base::CompareCase::SENSITIVE));
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
@@ -352,8 +352,8 @@ TEST_P(PdbCrawlerTest, TestCollidingUDTs) {
   ASSERT_TRUE(type1);
   ASSERT_TRUE(type2);
 
-  EXPECT_EQ(type1->name(), type2->name());
-  EXPECT_NE(type1->decorated_name(), type2->decorated_name());
+  EXPECT_EQ(type1->GetName(), type2->GetName());
+  EXPECT_NE(type1->GetDecoratedName(), type2->GetDecoratedName());
 
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type1->kind());
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type2->kind());
@@ -554,9 +554,10 @@ TEST_P(PdbCrawlerTest, TestMFunction) {
   // Check that the function points to its containing class.
   EXPECT_EQ(function->containing_class_id(), type->type_id());
 
-  EXPECT_EQ(function->name(), L"char const (" + type->name() + L"::)(int32_t)");
-  EXPECT_EQ(function->decorated_name(),
-            L"char const (" + type->decorated_name() + L"::)(int32_t)");
+  EXPECT_EQ(function->GetName(),
+            L"char const (" + type->GetName() + L"::)(int32_t)");
+  EXPECT_EQ(function->GetDecoratedName(),
+            L"char const (" + type->GetDecoratedName() + L"::)(int32_t)");
 }
 
 TEST_P(PdbCrawlerTest, TestProcedure) {
@@ -589,8 +590,8 @@ TEST_P(PdbCrawlerTest, TestReference) {
   TypePtr type = FindOneTypeBySuffix(L"::TestReference");
   ASSERT_TRUE(type);
 
-  EXPECT_TRUE(
-      EndsWith(type->name(), L"::TestReference", base::CompareCase::SENSITIVE));
+  EXPECT_TRUE(EndsWith(type->GetName(), L"::TestReference",
+                       base::CompareCase::SENSITIVE));
   EXPECT_EQ(Type::USER_DEFINED_TYPE_KIND, type->kind());
 
   UserDefinedTypePtr udt;
@@ -659,7 +660,7 @@ TEST_P(PdbCrawlerTest, TestArray) {
   ValidatePointerType(element_type, PointerType::PTR_MODE_PTR, !kIsConst,
                       !kIsVolatile, LookupSizeOf(L"Pointer"),
                       L"testing::TestRecursiveUDT*");
-  EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->name());
+  EXPECT_EQ(L"testing::TestRecursiveUDT*", element_type->GetName());
 }
 
 TEST_P(PdbCrawlerTest, TestFunctions) {
@@ -718,12 +719,12 @@ TEST_P(PdbCrawlerTest, TestComplicatedTypeGraph) {
 
   // Correct name of the function
   EXPECT_EQ(L"void (testing::ComplicatedTypeB::)(testing::ComplicatedTypeA)",
-            class_b->GetFunctionType(0)->name());
+            class_b->GetFunctionType(0)->GetName());
 
   // And also correct name of the pointer. This wasn't possible to populate with
   // only one traversal through the type stream.
   EXPECT_EQ(L"void (testing::ComplicatedTypeB::)(testing::ComplicatedTypeA)*",
-            class_a->GetFieldType(0)->name());
+            class_a->GetFieldType(0)->GetName());
 }
 
 TEST_P(PdbCrawlerTest, TestNullptrType) {

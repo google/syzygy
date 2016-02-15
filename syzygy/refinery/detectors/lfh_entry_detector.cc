@@ -30,7 +30,7 @@ bool LFHEntryDetector::Init(TypeRepository* repo, BitSource* bit_source) {
   DCHECK(bit_source_ == nullptr);
 
   for (auto type : *repo) {
-    if (type->name() == L"_HEAP_ENTRY") {
+    if (type->GetName() == L"_HEAP_ENTRY") {
       if (!type->CastTo(&entry_type_))
         return false;
       break;

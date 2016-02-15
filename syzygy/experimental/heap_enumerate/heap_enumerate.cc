@@ -19,6 +19,7 @@
 #include "syzygy/experimental/heap_enumerate/heap_enumerate.h"
 
 #include <algorithm>
+#include <string>
 #include <vector>
 
 #include "base/environment.h"
@@ -209,7 +210,7 @@ bool HeapEnumerate::HeapEnumerator::Initialize(HANDLE heap,
       std::make_pair(L"_HEAP_USERDATA_HEADER", &heap_userdata_header_type_));
 
   for (auto type : *repo) {
-    auto it = wanted_udts.find(type->name());
+    auto it = wanted_udts.find(type->GetName());
     if (it != wanted_udts.end()) {
       // All these types should be unique, and if they're not, we pick the
       // first one.
@@ -231,7 +232,7 @@ bool HeapEnumerate::HeapEnumerator::Initialize(HANDLE heap,
 
     LOG(ERROR) << "Available ntdll UDTs:";
     for (auto type : *repo)
-      LOG(ERROR) << "  " << type->name();
+      LOG(ERROR) << "  " << type->GetName();
 
     return false;
   }
@@ -343,7 +344,7 @@ void HeapEnumerate::PrintAllocsInRange(const refinery::AddressRange& range) {
 }
 
 void HeapEnumerate::DumpTypedData(const TypedData& data, size_t indent) {
-  std::fprintf(output_, "%ls", data.type()->name().c_str());
+  std::fprintf(output_, "%ls", data.type()->GetName().c_str());
   if (data.IsPointerType()) {
     Address addr = 0;
     data.GetPointerValue(&addr);

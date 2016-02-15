@@ -15,27 +15,34 @@
 
 #include "base/md5.h"
 #include "base/strings/string_piece.h"
+#include "syzygy/refinery/types/type_namer.h"
 #include "syzygy/refinery/types/type_repository.h"
 
 namespace refinery {
 
-Type::Type(TypeKind kind, const base::string16& name, size_t size)
-    : Type(kind, name, name, size) {
-}
-
 Type::Type(TypeKind kind,
-           const base::string16& name,
-           const base::string16& decorated_name,
            size_t size)
     : repository_(nullptr),
       type_id_(kNoTypeId),
       kind_(kind),
-      name_(name),
-      decorated_name_(decorated_name),
       size_(size) {
 }
 
 Type::~Type() {
+}
+
+base::string16 Type::GetName() const {
+  base::string16 name;
+  if (TypeNamer::GetName(this, &name))
+    return name;
+  return kUnknownTypeName;
+}
+
+base::string16 Type::GetDecoratedName() const {
+  base::string16 name;
+  if (TypeNamer::GetDecoratedName(this, &name))
+    return name;
+  return kUnknownTypeName;
 }
 
 void Type::SetRepository(TypeRepository* repository, TypeId type_id) {
@@ -48,14 +55,18 @@ void Type::SetRepository(TypeRepository* repository, TypeId type_id) {
   type_id_ = type_id;
 }
 
-void Type::SetName(const base::string16& name) {
-  DCHECK_EQ(L"", name_);
-  name_ = name;
+NamedType::NamedType(TypeKind kind,
+                     size_t size,
+                     const base::string16& name,
+                     const base::string16& decorated_name)
+    : Type(kind, size), name_(name), decorated_name_(decorated_name) {
 }
 
-void Type::SetDecoratedName(const base::string16& decorated_name) {
-  DCHECK_EQ(L"", decorated_name_);
-  decorated_name_ = decorated_name;
+NamedType::~NamedType() {
+}
+
+BasicType::BasicType(const base::string16& name, size_t size)
+    : NamedType(BASIC_TYPE_KIND, size, name, name) {
 }
 
 UserDefinedType::UserDefinedType(const base::string16& name,
@@ -63,7 +74,7 @@ UserDefinedType::UserDefinedType(const base::string16& name,
                                  UdtKind udt_kind)
     : is_fwd_decl_(false),
       udt_kind_(udt_kind),
-      Type(USER_DEFINED_TYPE_KIND, name, size) {
+      NamedType(USER_DEFINED_TYPE_KIND, size, name, name) {
 }
 
 UserDefinedType::UserDefinedType(const base::string16& name,
@@ -72,7 +83,7 @@ UserDefinedType::UserDefinedType(const base::string16& name,
                                  UdtKind udt_kind)
     : is_fwd_decl_(false),
       udt_kind_(udt_kind),
-      Type(USER_DEFINED_TYPE_KIND, name, decorated_name, size) {
+      NamedType(USER_DEFINED_TYPE_KIND, size, name, decorated_name) {
 }
 
 TypePtr UserDefinedType::GetFieldType(size_t field_no) const {
@@ -89,10 +100,6 @@ TypePtr UserDefinedType::GetFunctionType(size_t function_no) const {
   DCHECK_GT(functions_.size(), function_no);
 
   return repository()->GetType(functions_[function_no].type_id());
-}
-
-BasicType::BasicType(const base::string16& name, size_t size)
-    : Type(BASIC_TYPE_KIND, name, name, size) {
 }
 
 void UserDefinedType::Finalize(Fields* fields, Functions* functions) {
@@ -187,7 +194,7 @@ bool UserDefinedType::Function::operator==(const Function& other) const {
 }
 
 PointerType::PointerType(size_t size, Mode ptr_mode)
-    : Type(POINTER_TYPE_KIND, L"", size),
+    : Type(POINTER_TYPE_KIND, size),
       flags_(kNoTypeFlags),
       content_type_id_(kNoTypeId),
       ptr_mode_(ptr_mode) {
@@ -209,7 +216,7 @@ void PointerType::Finalize(Flags flags, TypeId content_type_id) {
 }
 
 ArrayType::ArrayType(size_t size)
-    : Type(ARRAY_TYPE_KIND, L"", L"", size),
+    : Type(ARRAY_TYPE_KIND, size),
       index_type_id_(kNoTypeId),
       num_elements_(0),
       element_type_id_(kNoTypeId) {
@@ -242,7 +249,7 @@ void ArrayType::Finalize(Flags flags,
 }
 
 FunctionType::FunctionType(CallConvention call_convention)
-    : Type(FUNCTION_TYPE_KIND, L"", 0),
+    : Type(FUNCTION_TYPE_KIND, 0),
       call_convention_(call_convention),
       containing_class_id_(kNoTypeId),
       return_type_(kNoTypeFlags, kNoTypeId) {
@@ -291,7 +298,7 @@ GlobalType::GlobalType(const base::string16& name,
                        uint64_t rva,
                        TypeId data_type_id,
                        size_t size)
-    : Type(GLOBAL_TYPE_KIND, name, size),
+    : NamedType(GLOBAL_TYPE_KIND, size, name, name),
       rva_(rva),
       data_type_id_(data_type_id) {
 }
@@ -302,13 +309,13 @@ TypePtr GlobalType::GetDataType() const {
 }
 
 WildcardType::WildcardType(const base::string16& name, size_t size)
-    : Type(WILDCARD_TYPE_KIND, name, size) {
+    : NamedType(WILDCARD_TYPE_KIND, size, name, name) {
 }
 
 WildcardType::WildcardType(const base::string16& name,
                            const base::string16& decorated_name,
                            size_t size)
-    : Type(WILDCARD_TYPE_KIND, name, size) {
+    : NamedType(WILDCARD_TYPE_KIND, size, name, decorated_name) {
 }
 
 }  // namespace refinery
