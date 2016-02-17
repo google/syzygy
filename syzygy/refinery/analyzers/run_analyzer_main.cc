@@ -39,6 +39,12 @@
 
 namespace {
 
+using AnalyzerName = std::string;
+using AnalyzerNames = std::vector<std::string>;
+using AnalyzerSet = std::set<AnalyzerName>;
+using AnalyzerGraph = std::unordered_map<AnalyzerName, AnalyzerSet>;
+using LayerNames = std::vector<std::string>;
+
 class RunAnalyzerApplication : public application::AppImplBase {
  public:
   RunAnalyzerApplication();
@@ -63,16 +69,12 @@ class RunAnalyzerApplication : public application::AppImplBase {
                const refinery::Analyzer::ProcessAnalysis& process_analysis);
 
   std::vector<base::FilePath> mindump_paths_;
-  std::vector<std::string> analyzer_names_;
+  std::string analyzer_names_;
   bool resolve_dependencies_;
+  std::string output_layers_;
 
   DISALLOW_COPY_AND_ASSIGN(RunAnalyzerApplication);
 };
-
-using AnalyzerName = std::string;
-using AnalyzerNames = std::vector<std::string>;
-using AnalyzerSet = std::set<AnalyzerName>;
-using AnalyzerGraph = std::unordered_map<AnalyzerName, AnalyzerSet>;
 
 // A worker class that knows how to order analyzers topologically by their
 // layer dependencies.
@@ -80,8 +82,8 @@ class AnalyzerOrderer {
  public:
   explicit AnalyzerOrderer(const refinery::AnalyzerFactory& factory);
 
-  bool CreateGraph(const AnalyzerNames& names);
-  AnalyzerNames Order();
+  bool CreateGraph(const std::string& names);
+  std::string Order();
 
  private:
   void Visit(const AnalyzerName& name);
@@ -93,27 +95,50 @@ class AnalyzerOrderer {
   AnalyzerNames ordering_;
 };
 
+std::vector<std::string> SplitStringList(const std::string& name_list) {
+  return base::SplitString(name_list, ",", base::TRIM_WHITESPACE,
+                           base::SPLIT_WANT_NONEMPTY);
+}
+
+std::string JoinAnalyzerSet(const AnalyzerSet& analyzer_set) {
+  std::string ret;
+  for (const auto& analyzer_name : analyzer_set) {
+    if (!ret.empty())
+      ret.append(",");
+
+    ret.append(analyzer_name);
+  }
+  return ret;
+}
+
 const char kUsageFormatStr[] =
     "Usage: %ls [options] <dump files or patterns>\n"
     "\n"
     "  --analyzers=<comma-seperated list of analyzer names>\n"
     "     Configures the set of analyzers to run on each of the dump\n"
     "     files.\n"
+    "     Default value: %s\n"
+    "  --output-layers=<comma-seperated list of layer names>\n"
+    "     The list of layers to output. If no list of analyzer is provided,\n"
+    "     this option will configure all analyzers that output the requested\n"
+    "     layer or layers.\n"
+    "     Default value: %s\n"
     "  --no-dependencies\n"
     "     If provided, the layer dependencies of the requested analyzers\n"
     "     won't be used to supplement the analyzer list.\n";
 
 const char kDefaultAnalyzers[] = "HeapAnalyzer,StackFrameAnalyzer,TebAnalyzer";
+const char kDefaultOutputLayers[] = "TypedDataLayer";
 
 bool RunAnalyzerApplication::AddLayerPrerequisiteAnalyzers(
     const refinery::AnalyzerFactory& factory) {
   // Build the transitive closure of all the analyzers we need.
-  std::set<std::string> all_names;
-  for (const auto& name : analyzer_names_)
-    all_names.insert(name);
-
   // The analyzers we've yet to process, initialized to the entire list.
-  std::vector<std::string> to_process(analyzer_names_);
+  AnalyzerNames to_process = SplitStringList(analyzer_names_);
+  AnalyzerSet selected_analyzers;
+  for (const auto& name : to_process)
+    selected_analyzers.insert(name);
+
   while (!to_process.empty()) {
     // Pop one analyzer name off the list to process.
     std::string analyzer_name = to_process.back();
@@ -131,7 +156,7 @@ bool RunAnalyzerApplication::AddLayerPrerequisiteAnalyzers(
       factory.GetAnalyzersOutputting(input_layer, &outputting_names);
 
       for (const auto& outputting_name : outputting_names) {
-        bool inserted = all_names.insert(outputting_name).second;
+        bool inserted = selected_analyzers.insert(outputting_name).second;
         if (inserted) {
           // This analyzer was not already in all names, add it to the queue
           // of names to process.
@@ -141,9 +166,7 @@ bool RunAnalyzerApplication::AddLayerPrerequisiteAnalyzers(
     }
   }
 
-  analyzer_names_.clear();
-  for (const auto& name : all_names)
-    analyzer_names_.push_back(name);
+  analyzer_names_ = JoinAnalyzerSet(selected_analyzers);
 
   return true;
 }
@@ -185,8 +208,12 @@ void RunAnalyzerApplication::PrintProcessState(
     refinery::ProcessState* process_state) {
   DCHECK(process_state);
 
-#define PRINT_LAYER(layer_name) \
-  PrintLayer<refinery::layer_name##LayerPtr>(#layer_name, process_state);
+  LayerNames layer_names = SplitStringList(output_layers_);
+
+#define PRINT_LAYER(layer_name)                            \
+  if (std::find(layer_names.begin(), layer_names.end(),    \
+                #layer_name "Layer") != layer_names.end()) \
+    PrintLayer<refinery::layer_name##LayerPtr>(#layer_name, process_state);
 
   PROCESS_STATE_LAYERS(PRINT_LAYER)
 
@@ -200,7 +227,8 @@ void RunAnalyzerApplication::PrintUsage(const base::FilePath& program,
     ::fprintf(out(), "\n\n");
   }
 
-  ::fprintf(out(), kUsageFormatStr, program.BaseName().value().c_str());
+  ::fprintf(out(), kUsageFormatStr, program.BaseName().value().c_str(),
+            kDefaultAnalyzers, kDefaultOutputLayers);
 }
 
 RunAnalyzerApplication::RunAnalyzerApplication()
@@ -217,16 +245,26 @@ bool RunAnalyzerApplication::ParseCommandLine(
   if (cmd_line->HasSwitch("no-dependencies"))
     resolve_dependencies_ = false;
 
-  std::string analyzers = cmd_line->GetSwitchValueASCII("analyzers");
-  if (analyzers.empty())
-    analyzers = kDefaultAnalyzers;
+  static const char kAnalyzers[] = "analyzers";
+  if (cmd_line->HasSwitch(kAnalyzers)) {
+    analyzer_names_ = cmd_line->GetSwitchValueASCII(kAnalyzers);
 
-  analyzer_names_ = base::SplitString(analyzers, ",", base::TRIM_WHITESPACE,
-                                      base::SPLIT_WANT_NONEMPTY);
-  if (analyzer_names_.empty()) {
-    PrintUsage(cmd_line->GetProgram(),
-               "Must provide a non-empty analyzer list.");
-    return false;
+    if (analyzer_names_.empty()) {
+      PrintUsage(cmd_line->GetProgram(),
+                 "Must provide a non-empty analyzer list with this flag.");
+      return false;
+    }
+  }
+
+  static const char kOutputLayers[] = "output-layers";
+  if (cmd_line->HasSwitch(kOutputLayers)) {
+    output_layers_ = cmd_line->GetSwitchValueASCII(kOutputLayers);
+
+    if (output_layers_.empty()) {
+      PrintUsage(cmd_line->GetProgram(),
+                 "Must provide a non-empty output layer list with this flag.");
+      return false;
+    }
   }
 
   for (const auto& arg : cmd_line->GetArgs()) {
@@ -248,7 +286,33 @@ bool RunAnalyzerApplication::ParseCommandLine(
 }
 
 int RunAnalyzerApplication::Run() {
+  // If no analyzers are specified, but output layers are, we pick analyzers
+  // from the requested layers.
   refinery::StaticAnalyzerFactory analyzer_factory;
+  if (!output_layers_.empty() && analyzer_names_.empty()) {
+    AnalyzerSet selected_analyzers;
+    for (const auto& layer_name : SplitStringList(output_layers_)) {
+      refinery::ProcessState::LayerEnum layer =
+          refinery::ProcessState::LayerFromName(layer_name);
+      if (layer == refinery::ProcessState::UnknownLayer) {
+        LOG(ERROR) << "Unknown layer: " << layer_name;
+        return 1;
+      }
+
+      AnalyzerNames analyzer_names;
+      analyzer_factory.GetAnalyzersOutputting(layer, &analyzer_names);
+      for (const auto& analyzer_name : analyzer_names)
+        selected_analyzers.insert(analyzer_name);
+    }
+
+    analyzer_names_ = JoinAnalyzerSet(selected_analyzers);
+  }
+
+  if (output_layers_.empty())
+    output_layers_ = kDefaultOutputLayers;
+  if (analyzer_names_.empty())
+    analyzer_names_ = kDefaultAnalyzers;
+
   if (resolve_dependencies_ &&
       !AddLayerPrerequisiteAnalyzers(analyzer_factory)) {
     LOG(ERROR) << "Unable to add dependent analyzers.";
@@ -259,8 +323,8 @@ int RunAnalyzerApplication::Run() {
     LOG(ERROR) << "Unable to order analyzers.";
     return 1;
   } else {
-    LOG(INFO) << "Using analyzer list: " << base::JoinString(analyzer_names_,
-                                                             ", ");
+    LOG(INFO) << "Using analyzer list: " << analyzer_names_;
+    LOG(INFO) << "Outputting layers: " << output_layers_;
   }
 
   scoped_refptr<refinery::SymbolProvider> symbol_provider(
@@ -293,8 +357,8 @@ int RunAnalyzerApplication::Run() {
 bool RunAnalyzerApplication::AddAnalyzers(
     const refinery::AnalyzerFactory& factory,
     refinery::AnalysisRunner* runner) {
-  // TODO(siggi): Improve on this by taking dependencies into account.
-  for (const auto& analyzer_name : analyzer_names_) {
+  AnalyzerNames analyzers = SplitStringList(analyzer_names_);
+  for (const auto& analyzer_name : analyzers) {
     scoped_ptr<refinery::Analyzer> analyzer(
         factory.CreateAnalyzer(analyzer_name));
     if (analyzer) {
@@ -370,9 +434,10 @@ AnalyzerOrderer::AnalyzerOrderer(const refinery::AnalyzerFactory& factory)
     : factory_(factory) {
 }
 
-bool AnalyzerOrderer::CreateGraph(const AnalyzerNames& analyzer_names) {
+bool AnalyzerOrderer::CreateGraph(const std::string& analyzer_names) {
+  AnalyzerNames analyzers = SplitStringList(analyzer_names);
   AnalyzerSet all_analyzers;
-  for (const AnalyzerName& name : analyzer_names)
+  for (const AnalyzerName& name : analyzers)
     all_analyzers.insert(name);
 
   // For each requested analyser, find the layers it inputs. From each of those
@@ -402,7 +467,7 @@ bool AnalyzerOrderer::CreateGraph(const AnalyzerNames& analyzer_names) {
   return true;
 }
 
-AnalyzerNames AnalyzerOrderer::Order() {
+std::string AnalyzerOrderer::Order() {
   DCHECK(visited_.empty());
   DCHECK(used_.empty());
   DCHECK(ordering_.empty());
@@ -414,7 +479,7 @@ AnalyzerNames AnalyzerOrderer::Order() {
   DCHECK_EQ(graph_.size(), used_.size());
   DCHECK_EQ(graph_.size(), ordering_.size());
 
-  return ordering_;
+  return base::JoinString(ordering_, ",");
 }
 
 void AnalyzerOrderer::Visit(const AnalyzerName& name) {

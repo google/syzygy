@@ -43,8 +43,8 @@ const char* ProcessState::LayerName(LayerEnum layer) {
 
 ProcessState::LayerEnum ProcessState::LayerFromName(
     const base::StringPiece& layer_name) {
-#define LAYER_FROM_NAME(name) \
-  if (layer_name == #name)    \
+#define LAYER_FROM_NAME(name)      \
+  if (layer_name == #name "Layer") \
     return name##Layer;
   PROCESS_STATE_LAYERS(LAYER_FROM_NAME)
 
