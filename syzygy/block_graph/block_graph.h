@@ -325,6 +325,7 @@ class BlockGraph {
   SectionMap& sections_mutable() { return sections_; }
   const BlockMap& blocks() const { return blocks_; }
   BlockMap& blocks_mutable() { return blocks_; }
+  BlockId next_block_id() const { return next_block_id_; }
 
   // @{
   // Retrieve the section with the given id.
