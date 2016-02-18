@@ -598,6 +598,9 @@ class BasicBlock {
   TagSet& tags() { return tags_; }
   const TagSet& tags() const { return tags_; }
 
+  // @return the subgraph associated with this object
+  BasicBlockSubGraph* subgraph() const { return subgraph_; }
+
  protected:
   // Initialize a basic block.
   // @param subgraph The subgraph that owns this basic block.
