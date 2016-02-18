@@ -1394,6 +1394,12 @@ void AssemblerBase<ReferenceType>::nop8(size_t prefix_count) {
 }
 
 template <class ReferenceType>
+void AssemblerBase<ReferenceType>::data(const uint8 b) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(b);
+}
+
+template <class ReferenceType>
 void AssemblerBase<ReferenceType>::Output(const InstructionBuffer& instr) {
   serializer_->AppendInstruction(location_,
                                  instr.buf(),

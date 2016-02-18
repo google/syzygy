@@ -252,6 +252,10 @@ class AssemblerBase {
   }
   // @}
 
+  // Insert a single data byte, not an instruction.
+  // @param b The value of the byte to insert.
+  void data(uint8 b);
+
  private:
   friend class Label;
   class InstructionBuffer;
