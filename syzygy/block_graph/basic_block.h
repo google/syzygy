@@ -278,6 +278,7 @@ class Instruction {
   uint16 opcode() const { return representation_.opcode; }
   Size size() const { return representation_.size; }
   const uint8* data() const { return data_; }
+  uint8* GetMutableData() { return data_; }
   /// @}
 
   // @name Deprecated accessors.
