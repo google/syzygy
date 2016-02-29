@@ -67,6 +67,10 @@ const uint8 kVxorps[] = { 0xC5, 0xFC, 0x57, 0xC0 };
 
 // Instructions for which distorm indicates a size of 0 for the destination
 // operand size.
+const uint8 kFxsave[] = { 0x0F, 0xAE, 0x00 };
+const uint8 kFxrstor[] = { 0x0F, 0xAE, 0x08 };
+
+// FPU instructions for which distorm had some decoding issues in the past.
 // fnstcw m16
 const uint8 kFnstcw[] = { 0xD9, 0x7D, 0xEA };
 // fldcw m16
@@ -300,6 +304,55 @@ TEST(DisassemblerUtilTest, DistormDecomposeFldcw) {
                           &result_count));
   EXPECT_EQ(1U, result_count);
   EXPECT_EQ(16U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeFxsave) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS, RawDecomposeCode(kFxsave, sizeof(kFxsave), results,
+                                             kMaxResults, &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(0U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, DistormDecomposeFxsave) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            DecomposeCode(kFxsave,
+                          sizeof(kFxsave),
+                          results,
+                          kMaxResults,
+                          &result_count));
+  EXPECT_EQ(1, result_count);
+  EXPECT_EQ(64, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeFxrstor) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            RawDecomposeCode(kFxrstor, sizeof(kFxrstor), results, kMaxResults,
+                             &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(0U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, DistormDecomposeFxrstor) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            DecomposeCode(kFxrstor,
+                          sizeof(kFxrstor),
+                          results,
+                          kMaxResults,
+                          &result_count));
+  EXPECT_EQ(1, result_count);
+  EXPECT_EQ(64, results[0].ops[0].size);
 }
 
 // If one of these test starts failing then Distorm now properly handles the

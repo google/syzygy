@@ -130,7 +130,7 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
   _DecodeResult ret =
       distorm_decompose(ci, result, max_instructions, used_instructions_count);
 
-  // Distorm @229 has a bug where it has problems decoding some AVX
+  // Distorm @ac277fb has a bug where it has problems decoding some AVX
   // instructions. The encoding is described in detail here:
   //   http://en.wikipedia.org/wiki/VEX_prefix
   // An issue has been filed here:
@@ -143,6 +143,23 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
       return ret;
     }
   }
+
+  for (unsigned int i = 0; i < *used_instructions_count; ++i) {
+    switch (result[i].opcode) {
+      // Distorm @ac277fb has a bug where the access size for I_FXRSTOR and
+      // I_FXSAVE destination operand is 0 instead of 64. I've filed
+      // https://github.com/gdabah/distorm/issues/96 to have this fixed.
+      // In the meantime this is a workaround to have the correct operand size.
+      case I_FXRSTOR:
+      case I_FXSAVE:
+        DCHECK_EQ(0U, result[i].ops[0].size);
+        result[i].ops[0].size = 64;
+        break;
+      default:
+        break;
+    }
+  }
+
   return ret;
 }
 
