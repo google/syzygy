@@ -28,7 +28,9 @@ namespace events {
 // HeapBackdrop.
 class HeapDestroyEvent : public EventInterface {
  public:
-  HeapDestroyEvent(HANDLE trace_heap, BOOL trace_succeeded);
+  HeapDestroyEvent(uint32_t stack_trace_id,
+                   HANDLE trace_heap,
+                   BOOL trace_succeeded);
 
   // @name EventInterface implementation.
   // @{
@@ -46,11 +48,15 @@ class HeapDestroyEvent : public EventInterface {
 
   // @name Accessors.
   // @{
+  uint32_t stack_trace_id() const { return stack_trace_id_; }
   HANDLE trace_heap() const { return trace_heap_; }
   BOOL trace_succeeded() const { return trace_succeeded_; }
   // @}
 
  private:
+  // The stack trace ID that will be used during playback.
+  uint32_t stack_trace_id_;
+
   // Argument to HeapDestory.
   HANDLE trace_heap_;
 

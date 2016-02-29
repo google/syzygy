@@ -34,47 +34,48 @@ scoped_ptr<EventInterface> CreateTestEvent();
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapAllocEvent>() {
   return scoped_ptr<EventInterface>(
-      new events::HeapAllocEvent(reinterpret_cast<HANDLE>(0x1000), 0x1, 47,
+      new events::HeapAllocEvent(0, reinterpret_cast<HANDLE>(0x1000), 0x1, 47,
                                  reinterpret_cast<LPVOID>(0x2000)));
 }
 
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapCreateEvent>() {
   return scoped_ptr<EventInterface>(new events::HeapCreateEvent(
-      0, 100, 200, reinterpret_cast<HANDLE>(0x1000)));
+      0, 0, 100, 200, reinterpret_cast<HANDLE>(0x1000)));
 }
 
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapDestroyEvent>() {
   return scoped_ptr<EventInterface>(
-      new events::HeapDestroyEvent(reinterpret_cast<HANDLE>(0x1000), true));
+      new events::HeapDestroyEvent(0, reinterpret_cast<HANDLE>(0x1000), true));
 }
 
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapFreeEvent>() {
   return scoped_ptr<EventInterface>(
-      new events::HeapFreeEvent(reinterpret_cast<HANDLE>(0x1000), 0,
+      new events::HeapFreeEvent(0, reinterpret_cast<HANDLE>(0x1000), 0,
                                 reinterpret_cast<LPVOID>(0x2000), true));
 }
 
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapReAllocEvent>() {
   return scoped_ptr<EventInterface>(new events::HeapReAllocEvent(
-      reinterpret_cast<HANDLE>(0x1000), 0, reinterpret_cast<LPVOID>(0x2000),
+      0, reinterpret_cast<HANDLE>(0x1000), 0, reinterpret_cast<LPVOID>(0x2000),
       123, reinterpret_cast<LPVOID>(0x3000)));
 }
 
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapSetInformationEvent>() {
   return scoped_ptr<EventInterface>(new events::HeapSetInformationEvent(
-      reinterpret_cast<HANDLE>(0x1000), static_cast<HEAP_INFORMATION_CLASS>(0),
-      reinterpret_cast<PVOID>(0x2000), 100, false));
+      0, reinterpret_cast<HANDLE>(0x1000),
+      static_cast<HEAP_INFORMATION_CLASS>(0), reinterpret_cast<PVOID>(0x2000),
+      100, false));
 }
 
 template <>
 scoped_ptr<EventInterface> CreateTestEvent<events::HeapSizeEvent>() {
   return scoped_ptr<EventInterface>(
-      new events::HeapSizeEvent(reinterpret_cast<HANDLE>(0x1000), 0,
+      new events::HeapSizeEvent(0, reinterpret_cast<HANDLE>(0x1000), 0,
                                 reinterpret_cast<LPCVOID>(0x2000), 233));
 }
 

@@ -28,7 +28,8 @@ namespace events {
 // HeapBackdrop.
 class HeapCreateEvent : public EventInterface {
  public:
-  HeapCreateEvent(DWORD options,
+  HeapCreateEvent(uint32_t stack_trace_id,
+                  DWORD options,
                   SIZE_T initial_size,
                   SIZE_T maximum_size,
                   HANDLE trace_heap);
@@ -49,6 +50,7 @@ class HeapCreateEvent : public EventInterface {
 
   // @name Accessors.
   // @{
+  uint32_t stack_trace_id() const { return stack_trace_id_; }
   DWORD options() const { return options_; }
   SIZE_T initial_size() const { return initial_size_; }
   SIZE_T maximum_size() const { return maximum_size_; }
@@ -56,6 +58,9 @@ class HeapCreateEvent : public EventInterface {
   // @}
 
  private:
+  // The stack trace ID that will be used during playback.
+  uint32_t stack_trace_id_;
+
   // Arguments to HeapCreate.
   DWORD options_;
   SIZE_T initial_size_;

@@ -15,16 +15,18 @@
 #include "syzygy/bard/events/heap_free_event.h"
 
 #include "syzygy/bard/backdrops/heap_backdrop.h"
-#include "syzygy/trace/common/clock.h"
+#include "syzygy/bard/events/play_util.h"
 
 namespace bard {
 namespace events {
 
-HeapFreeEvent::HeapFreeEvent(HANDLE trace_heap,
+HeapFreeEvent::HeapFreeEvent(uint32_t stack_trace_id,
+                             HANDLE trace_heap,
                              DWORD flags,
                              LPVOID trace_alloc,
                              BOOL trace_succeeded)
-    : trace_heap_(trace_heap),
+    : stack_trace_id_(stack_trace_id),
+      trace_heap_(trace_heap),
       flags_(flags),
       trace_alloc_(trace_alloc),
       trace_succeeded_(trace_succeeded) {
@@ -37,7 +39,8 @@ bool HeapFreeEvent::Save(const EventInterface* const event,
   const HeapFreeEvent* derived_event =
       reinterpret_cast<const HeapFreeEvent*>(event);
 
-  return out_archive->Save(
+  return out_archive->Save(derived_event->stack_trace_id_) &&
+         out_archive->Save(
              reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
          out_archive->Save(derived_event->flags_) &&
          out_archive->Save(
@@ -47,19 +50,17 @@ bool HeapFreeEvent::Save(const EventInterface* const event,
 
 scoped_ptr<HeapFreeEvent> HeapFreeEvent::Load(
     core::InArchive* in_archive) {
-  uintptr_t trace_heap;
-  DWORD flags;
-  uintptr_t trace_alloc;
-  BOOL trace_succeeded;
-  if (in_archive->Load(&trace_heap) &&
-      in_archive->Load(&flags) &&
-      in_archive->Load(&trace_alloc) &&
+  uint32_t stack_trace_id = 0;
+  uintptr_t trace_heap = 0;
+  DWORD flags = 0;
+  uintptr_t trace_alloc = 0;
+  BOOL trace_succeeded = 0;
+  if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
+      in_archive->Load(&flags) && in_archive->Load(&trace_alloc) &&
       in_archive->Load(&trace_succeeded)) {
-    return scoped_ptr<HeapFreeEvent>(
-        new HeapFreeEvent(reinterpret_cast<HANDLE>(trace_heap),
-                          flags,
-                          reinterpret_cast<LPVOID>(trace_alloc),
-                          trace_succeeded));
+    return scoped_ptr<HeapFreeEvent>(new HeapFreeEvent(
+        stack_trace_id, reinterpret_cast<HANDLE>(trace_heap), flags,
+        reinterpret_cast<LPVOID>(trace_alloc), trace_succeeded));
   }
   return nullptr;
 }
@@ -78,9 +79,10 @@ bool HeapFreeEvent::Play(void* backdrop) {
     return false;
   }
 
-  uint64_t t0 = ::trace::common::GetTsc();
-  BOOL live_succeeded = heap_backdrop->HeapFree(live_heap, flags_, live_alloc);
-  uint64_t t1 = ::trace::common::GetTsc();
+  uint64_t timing = 0;
+  BOOL live_succeeded =
+      InvokeOnBackdrop(stack_trace_id_, &timing, heap_backdrop,
+                       &HeapBackdrop::HeapFree, live_heap, flags_, live_alloc);
 
   if (live_succeeded != trace_succeeded_) {
     LOG(ERROR) << "HeapFree " << (live_succeeded ? "succeeded" : "failed")
@@ -94,7 +96,7 @@ bool HeapFreeEvent::Play(void* backdrop) {
     return false;
   }
 
-  heap_backdrop->UpdateStats(type(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), timing);
 
   return true;
 }
@@ -106,8 +108,8 @@ bool HeapFreeEvent::Equals(const EventInterface* rhs) const {
     return false;
 
   const auto e = reinterpret_cast<const HeapFreeEvent*>(rhs);
-  if (trace_heap_ != e->trace_heap_ || flags_ != e->flags_ ||
-      trace_alloc_ != e->trace_alloc_ ||
+  if (stack_trace_id_ != e->stack_trace_id_ || trace_heap_ != e->trace_heap_ ||
+      flags_ != e->flags_ || trace_alloc_ != e->trace_alloc_ ||
       trace_succeeded_ != e->trace_succeeded_) {
     return false;
   }

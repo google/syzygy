@@ -28,7 +28,8 @@ namespace events {
 // HeapBackdrop.
 class HeapFreeEvent : public EventInterface {
  public:
-  HeapFreeEvent(HANDLE trace_heap,
+  HeapFreeEvent(uint32_t stack_trace_id,
+                HANDLE trace_heap,
                 DWORD flags,
                 LPVOID trace_alloc,
                 BOOL trace_succeeded);
@@ -49,6 +50,7 @@ class HeapFreeEvent : public EventInterface {
 
   // @name Accessors.
   // @{
+  uint32_t stack_trace_id() const { return stack_trace_id_; }
   HANDLE trace_heap() const { return trace_heap_; }
   DWORD flags() const { return flags_; }
   LPVOID trace_alloc() const { return trace_alloc_; }
@@ -56,6 +58,9 @@ class HeapFreeEvent : public EventInterface {
   // @}
 
  private:
+  // The stack trace ID that will be used during playback.
+  uint32_t stack_trace_id_;
+
   // Arguments to HeapFree.
   HANDLE trace_heap_;
   DWORD flags_;

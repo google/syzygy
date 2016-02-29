@@ -28,7 +28,8 @@ namespace events {
 // a HeapBackdrop.
 class HeapSetInformationEvent : public EventInterface {
  public:
-  HeapSetInformationEvent(HANDLE trace_heap,
+  HeapSetInformationEvent(uint32_t stack_trace_id,
+                          HANDLE trace_heap,
                           HEAP_INFORMATION_CLASS info_class,
                           PVOID info,
                           SIZE_T info_length,
@@ -51,6 +52,7 @@ class HeapSetInformationEvent : public EventInterface {
 
   // @name Accessors.
   // @{
+  uint32_t stack_trace_id() const { return stack_trace_id_; }
   HANDLE trace_heap() const { return trace_heap_; }
   HEAP_INFORMATION_CLASS info_class() const { return info_class_; }
   PVOID info() const { return info_; }
@@ -59,6 +61,9 @@ class HeapSetInformationEvent : public EventInterface {
   // @}
 
  private:
+  // The stack trace ID that will be used during playback.
+  uint32_t stack_trace_id_;
+
   // Arguments to HeapSetInformation.
   HANDLE trace_heap_;
   HEAP_INFORMATION_CLASS info_class_;

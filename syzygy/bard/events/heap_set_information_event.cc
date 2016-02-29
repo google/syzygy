@@ -21,12 +21,14 @@ namespace bard {
 namespace events {
 
 HeapSetInformationEvent::HeapSetInformationEvent(
+    uint32_t stack_trace_id,
     HANDLE trace_heap,
     HEAP_INFORMATION_CLASS info_class,
     PVOID info,
     SIZE_T info_length,
     BOOL trace_succeeded)
-    : trace_heap_(trace_heap),
+    : stack_trace_id_(stack_trace_id),
+      trace_heap_(trace_heap),
       info_class_(info_class),
       info_(info),
       info_length_(info_length),
@@ -41,12 +43,11 @@ bool HeapSetInformationEvent::Save(const EventInterface* const event,
   const HeapSetInformationEvent* derived_event =
       reinterpret_cast<const HeapSetInformationEvent*>(event);
 
-  return out_archive->Save(
+  return out_archive->Save(derived_event->stack_trace_id_) &&
+         out_archive->Save(
              reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
-         out_archive->Save(
-             static_cast<uint32_t>(derived_event->info_class_)) &&
-         out_archive->Save(
-             reinterpret_cast<uintptr_t>(derived_event->info_)) &&
+         out_archive->Save(static_cast<uint32_t>(derived_event->info_class_)) &&
+         out_archive->Save(reinterpret_cast<uintptr_t>(derived_event->info_)) &&
          out_archive->Save(derived_event->info_length_) &&
          out_archive->Save(derived_event->trace_succeeded_);
 }
@@ -55,23 +56,19 @@ scoped_ptr<HeapSetInformationEvent> HeapSetInformationEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
-  uintptr_t trace_heap;
-  uint32_t info_class;
-  uintptr_t info;
-  SIZE_T info_length;
-  BOOL trace_succeeded;
-  if (in_archive->Load(&trace_heap) &&
-      in_archive->Load(&info_class) &&
-      in_archive->Load(&info) &&
-      in_archive->Load(&info_length) &&
-      in_archive->Load(&trace_succeeded)) {
-    return scoped_ptr<HeapSetInformationEvent>(
-        new HeapSetInformationEvent(
-            reinterpret_cast<HANDLE>(trace_heap),
-            static_cast<HEAP_INFORMATION_CLASS>(info_class),
-            reinterpret_cast<PVOID>(info),
-            info_length,
-            trace_succeeded));
+  uint32_t stack_trace_id = 0;
+  uintptr_t trace_heap = 0;
+  uint32_t info_class = 0;
+  uintptr_t info = 0;
+  SIZE_T info_length = 0;
+  BOOL trace_succeeded = 0;
+  if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
+      in_archive->Load(&info_class) && in_archive->Load(&info) &&
+      in_archive->Load(&info_length) && in_archive->Load(&trace_succeeded)) {
+    return scoped_ptr<HeapSetInformationEvent>(new HeapSetInformationEvent(
+        stack_trace_id, reinterpret_cast<HANDLE>(trace_heap),
+        static_cast<HEAP_INFORMATION_CLASS>(info_class),
+        reinterpret_cast<PVOID>(info), info_length, trace_succeeded));
   }
   return nullptr;
 }
@@ -112,8 +109,9 @@ bool HeapSetInformationEvent::Equals(const EventInterface* rhs) const {
     return false;
 
   const auto e = reinterpret_cast<const HeapSetInformationEvent*>(rhs);
-  if (trace_heap_ != e->trace_heap_ || info_class_ != e->info_class_ ||
-      info_ != e->info_ || info_length_ != e->info_length_ ||
+  if (stack_trace_id_ != e->stack_trace_id_ || trace_heap_ != e->trace_heap_ ||
+      info_class_ != e->info_class_ || info_ != e->info_ ||
+      info_length_ != e->info_length_ ||
       trace_succeeded_ != e->trace_succeeded_) {
     return false;
   }

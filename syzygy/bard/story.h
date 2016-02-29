@@ -39,6 +39,7 @@
 #define SYZYGY_BARD_STORY_H_
 
 #include "base/memory/scoped_vector.h"
+#include "base/threading/simple_thread.h"
 #include "syzygy/bard/event.h"
 #include "syzygy/core/serialization.h"
 
@@ -51,6 +52,9 @@ class Story {
   // need additional functionality on this class but for now a vector does the
   // job.
   using PlotLine = ScopedVector<EventInterface>;
+
+  // PlotLine playback thread runner.
+  class PlotLineRunner;
 
   Story() {}
 
@@ -73,10 +77,40 @@ class Story {
   // Accessor for unittesting.
   const ScopedVector<PlotLine>& plot_lines() const { return plot_lines_; }
 
+  // Plays this story against the provided backdrop. Spins up a thread per
+  // plot line and plays the events back as fast as possible on each thread.
+  bool Play(void* backdrop);
+
  private:
   ScopedVector<PlotLine> plot_lines_;
 
   DISALLOW_COPY_AND_ASSIGN(Story);
+};
+
+// Thread main body for playing back all events on a PlotLine.
+class Story::PlotLineRunner : public base::SimpleThread {
+ public:
+  PlotLineRunner(void* backdrop, PlotLine* plot_line);
+  ~PlotLineRunner() override {}
+
+  // @returns true if the playback failed.
+  bool Failed() const { return failed_event_ != nullptr; }
+
+  // @returns the event that failed during playback, if an event failed.
+  EventInterface* failed_event() const { return failed_event_; }
+
+ private:
+  // Implementation of base::SimpleThread.
+  void Run() override;
+
+  void* backdrop_;
+  PlotLine* plot_line_;
+
+  // If an error occurs, this is left pointing at the event that failed.
+  // Useful for debugging.
+  EventInterface* failed_event_;
+
+  DISALLOW_COPY_AND_ASSIGN(PlotLineRunner);
 };
 
 }  // namespace bard

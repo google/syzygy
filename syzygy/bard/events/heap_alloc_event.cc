@@ -15,16 +15,18 @@
 #include "syzygy/bard/events/heap_alloc_event.h"
 
 #include "syzygy/bard/backdrops/heap_backdrop.h"
-#include "syzygy/trace/common/clock.h"
+#include "syzygy/bard/events/play_util.h"
 
 namespace bard {
 namespace events {
 
-HeapAllocEvent::HeapAllocEvent(HANDLE trace_heap,
+HeapAllocEvent::HeapAllocEvent(uint32_t stack_trace_id,
+                               HANDLE trace_heap,
                                DWORD flags,
                                SIZE_T bytes,
                                LPVOID trace_alloc)
-    : trace_heap_(trace_heap),
+    : stack_trace_id_(stack_trace_id),
+      trace_heap_(trace_heap),
       flags_(flags),
       bytes_(bytes),
       trace_alloc_(trace_alloc) {
@@ -38,31 +40,30 @@ bool HeapAllocEvent::Save(const EventInterface* const event,
   const HeapAllocEvent* derived_event =
       reinterpret_cast<const HeapAllocEvent*>(event);
 
-  return out_archive->Save(
+  return out_archive->Save(derived_event->stack_trace_id_) &&
+         out_archive->Save(
              reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
          out_archive->Save(derived_event->flags_) &&
          out_archive->Save(derived_event->bytes_) &&
          out_archive->Save(
-            reinterpret_cast<uintptr_t>(derived_event->trace_alloc_));
+             reinterpret_cast<uintptr_t>(derived_event->trace_alloc_));
 }
 
 scoped_ptr<HeapAllocEvent> HeapAllocEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
-  uintptr_t trace_heap;
-  DWORD flags;
-  SIZE_T bytes;
-  uintptr_t trace_alloc;
-  if (in_archive->Load(&trace_heap) &&
-      in_archive->Load(&flags) &&
-      in_archive->Load(&bytes) &&
+  uint32_t stack_trace_id = 0;
+  uintptr_t trace_heap = 0;
+  DWORD flags = 0;
+  SIZE_T bytes = 0;
+  uintptr_t trace_alloc = 0;
+  if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
+      in_archive->Load(&flags) && in_archive->Load(&bytes) &&
       in_archive->Load(&trace_alloc)) {
-    return scoped_ptr<HeapAllocEvent>(
-        new HeapAllocEvent(reinterpret_cast<HANDLE>(trace_heap),
-                           flags,
-                           bytes,
-                           reinterpret_cast<LPVOID>(trace_alloc)));
+    return scoped_ptr<HeapAllocEvent>(new HeapAllocEvent(
+        stack_trace_id, reinterpret_cast<HANDLE>(trace_heap), flags, bytes,
+        reinterpret_cast<LPVOID>(trace_alloc)));
   }
   return nullptr;
 }
@@ -78,9 +79,10 @@ bool HeapAllocEvent::Play(void* backdrop) {
   if (!heap_backdrop->heap_map().GetLiveFromTrace(trace_heap_, &live_heap))
     return false;
 
-  uint64_t t0 = ::trace::common::GetTsc();
-  LPVOID live_alloc = heap_backdrop->HeapAlloc(live_heap, flags_, bytes_);
-  uint64_t t1 = ::trace::common::GetTsc();
+  uint64_t timing = 0;
+  LPVOID live_alloc =
+      InvokeOnBackdrop(stack_trace_id_, &timing, heap_backdrop,
+                       &HeapBackdrop::HeapAlloc, live_heap, flags_, bytes_);
 
   if (!live_alloc && trace_alloc_) {
     LOG(ERROR) << "HeapAlloc failed to allocate memory.";
@@ -97,7 +99,7 @@ bool HeapAllocEvent::Play(void* backdrop) {
     }
   }
 
-  heap_backdrop->UpdateStats(type(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), timing);
 
   return true;
 }
@@ -109,8 +111,9 @@ bool HeapAllocEvent::Equals(const EventInterface* rhs) const {
     return false;
 
   const auto e = reinterpret_cast<const HeapAllocEvent*>(rhs);
-  if (trace_heap_ != e->trace_heap_ || flags_ != e->flags_ ||
-      bytes_ != e->bytes_ || trace_alloc_ != e->trace_alloc_) {
+  if (stack_trace_id_ != e->stack_trace_id_ || trace_heap_ != e->trace_heap_ ||
+      flags_ != e->flags_ || bytes_ != e->bytes_ ||
+      trace_alloc_ != e->trace_alloc_) {
     return false;
   }
 

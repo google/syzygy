@@ -37,7 +37,11 @@ const SIZE_T kMaximumSize = 1000;
 class HeapCreateEventTest : public testing::Test {
  public:
   HeapCreateEventTest()
-      : heap_create_event_(kOptions, kInitialSize, kMaximumSize, kTraceHeap) {}
+      : heap_create_event_(0,
+                           kOptions,
+                           kInitialSize,
+                           kMaximumSize,
+                           kTraceHeap) {}
 
   MOCK_METHOD3(FakeCall, HANDLE(DWORD, SIZE_T, SIZE_T));
 
@@ -76,9 +80,10 @@ TEST_F(HeapCreateEventTest, TestFailCall) {
 }
 
 TEST_F(HeapCreateEventTest, Equals) {
-  HeapCreateEvent e1(kOptions, kInitialSize, kMaximumSize, kTraceHeap);
-  HeapCreateEvent e2(kOptions, kInitialSize, kMaximumSize, kTraceHeap);
-  HeapCreateEvent e3(kOptions, kInitialSize + 1, kMaximumSize + 1, kTraceHeap);
+  HeapCreateEvent e1(0, kOptions, kInitialSize, kMaximumSize, kTraceHeap);
+  HeapCreateEvent e2(0, kOptions, kInitialSize, kMaximumSize, kTraceHeap);
+  HeapCreateEvent e3(0, kOptions, kInitialSize + 1, kMaximumSize + 1,
+                     kTraceHeap);
   EXPECT_TRUE(e1.Equals(&e1));
   EXPECT_TRUE(e1.Equals(&e2));
   EXPECT_FALSE(e1.Equals(&e3));

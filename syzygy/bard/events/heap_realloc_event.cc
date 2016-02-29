@@ -15,17 +15,19 @@
 #include "syzygy/bard/events/heap_realloc_event.h"
 
 #include "syzygy/bard/backdrops/heap_backdrop.h"
-#include "syzygy/trace/common/clock.h"
+#include "syzygy/bard/events/play_util.h"
 
 namespace bard {
 namespace events {
 
-HeapReAllocEvent::HeapReAllocEvent(HANDLE trace_heap,
+HeapReAllocEvent::HeapReAllocEvent(uint32_t stack_trace_id,
+                                   HANDLE trace_heap,
                                    DWORD flags,
                                    LPVOID trace_alloc,
                                    SIZE_T bytes,
                                    LPVOID trace_realloc)
-    : trace_heap_(trace_heap),
+    : stack_trace_id_(stack_trace_id),
+      trace_heap_(trace_heap),
       flags_(flags),
       trace_alloc_(trace_alloc),
       bytes_(bytes),
@@ -40,7 +42,8 @@ bool HeapReAllocEvent::Save(const EventInterface* const event,
   const HeapReAllocEvent* derived_event =
       reinterpret_cast<const HeapReAllocEvent*>(event);
 
-  return out_archive->Save(
+  return out_archive->Save(derived_event->stack_trace_id_) &&
+         out_archive->Save(
              reinterpret_cast<uintptr_t>(derived_event->trace_heap_)) &&
          out_archive->Save(derived_event->flags_) &&
          out_archive->Save(
@@ -54,22 +57,19 @@ scoped_ptr<HeapReAllocEvent> HeapReAllocEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
-  uintptr_t trace_heap;
-  DWORD flags;
-  uintptr_t trace_alloc;
-  SIZE_T bytes;
-  uintptr_t trace_realloc;
-  if (in_archive->Load(&trace_heap) &&
-      in_archive->Load(&flags) &&
-      in_archive->Load(&trace_alloc) &&
-      in_archive->Load(&bytes) &&
-      in_archive->Load(&trace_realloc)) {
-    return scoped_ptr<HeapReAllocEvent>(
-        new HeapReAllocEvent(reinterpret_cast<HANDLE>(trace_heap),
-                             flags,
-                             reinterpret_cast<LPVOID>(trace_alloc),
-                             bytes,
-                             reinterpret_cast<LPVOID>(trace_realloc)));
+  uint32_t stack_trace_id = 0;
+  uintptr_t trace_heap = 0;
+  DWORD flags = 0;
+  uintptr_t trace_alloc = 0;
+  SIZE_T bytes = 0;
+  uintptr_t trace_realloc = 0;
+  if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
+      in_archive->Load(&flags) && in_archive->Load(&trace_alloc) &&
+      in_archive->Load(&bytes) && in_archive->Load(&trace_realloc)) {
+    return scoped_ptr<HeapReAllocEvent>(new HeapReAllocEvent(
+        stack_trace_id, reinterpret_cast<HANDLE>(trace_heap), flags,
+        reinterpret_cast<LPVOID>(trace_alloc), bytes,
+        reinterpret_cast<LPVOID>(trace_realloc)));
   }
   return nullptr;
 }
@@ -88,10 +88,10 @@ bool HeapReAllocEvent::Play(void* backdrop) {
     return false;
   }
 
-  uint64_t t0 = ::trace::common::GetTsc();
-  LPVOID live_realloc =
-      heap_backdrop->HeapReAlloc(live_heap, flags_, live_alloc, bytes_);
-  uint64_t t1 = ::trace::common::GetTsc();
+  uint64_t timing = 0;
+  LPVOID live_realloc = InvokeOnBackdrop(
+      stack_trace_id_, &timing, heap_backdrop, &HeapBackdrop::HeapReAlloc,
+      live_heap, flags_, live_alloc, bytes_);
 
   if (!live_realloc && trace_realloc_) {
     LOG(ERROR) << "HeapReAlloc failed to allocate memory.";
@@ -110,7 +110,7 @@ bool HeapReAllocEvent::Play(void* backdrop) {
     }
   }
 
-  heap_backdrop->UpdateStats(type(), t1 - t0);
+  heap_backdrop->UpdateStats(type(), timing);
 
   return true;
 }
@@ -122,9 +122,9 @@ bool HeapReAllocEvent::Equals(const EventInterface* rhs) const {
     return false;
 
   const auto e = reinterpret_cast<const HeapReAllocEvent*>(rhs);
-  if (trace_heap_ != e->trace_heap_ || flags_ != e->flags_ ||
-      trace_alloc_ != e->trace_alloc_ || bytes_ != e->bytes_ ||
-      trace_realloc_ != e->trace_realloc_) {
+  if (stack_trace_id_ != e->stack_trace_id_ || trace_heap_ != e->trace_heap_ ||
+      flags_ != e->flags_ || trace_alloc_ != e->trace_alloc_ ||
+      bytes_ != e->bytes_ || trace_realloc_ != e->trace_realloc_) {
     return false;
   }
 

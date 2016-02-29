@@ -53,7 +53,7 @@ class HeapFreeEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(HeapFreeEventTest, TestSuccessCall) {
-  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, true);
+  HeapFreeEvent heap_free_event(0, kTraceHeap, kFlags, kTraceAlloc, true);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kFlags, kLiveAlloc))
       .WillOnce(Return(true));
@@ -66,7 +66,7 @@ TEST_F(HeapFreeEventTest, TestSuccessCall) {
 }
 
 TEST_F(HeapFreeEventTest, TestFailCall) {
-  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, false);
+  HeapFreeEvent heap_free_event(0, kTraceHeap, kFlags, kTraceAlloc, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kFlags, kLiveAlloc))
       .WillOnce(Return(false));
@@ -79,7 +79,7 @@ TEST_F(HeapFreeEventTest, TestFailCall) {
 }
 
 TEST_F(HeapFreeEventTest, TestInconsistentReturn) {
-  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, false);
+  HeapFreeEvent heap_free_event(0, kTraceHeap, kFlags, kTraceAlloc, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kFlags, kLiveAlloc))
       .WillOnce(Return(true));
@@ -92,9 +92,9 @@ TEST_F(HeapFreeEventTest, TestInconsistentReturn) {
 }
 
 TEST_F(HeapFreeEventTest, Equals) {
-  HeapFreeEvent e1(kTraceHeap, kFlags, kTraceAlloc, true);
-  HeapFreeEvent e2(kTraceHeap, kFlags, kTraceAlloc, true);
-  HeapFreeEvent e3(kTraceHeap, kFlags + 1, kTraceAlloc, false);
+  HeapFreeEvent e1(0, kTraceHeap, kFlags, kTraceAlloc, true);
+  HeapFreeEvent e2(0, kTraceHeap, kFlags, kTraceAlloc, true);
+  HeapFreeEvent e3(0, kTraceHeap, kFlags + 1, kTraceAlloc, false);
   EXPECT_TRUE(e1.Equals(&e1));
   EXPECT_TRUE(e1.Equals(&e2));
   EXPECT_FALSE(e1.Equals(&e3));
@@ -102,7 +102,7 @@ TEST_F(HeapFreeEventTest, Equals) {
 }
 
 TEST_F(HeapFreeEventTest, TestSerialization) {
-  HeapFreeEvent heap_free_event(kTraceHeap, kFlags, kTraceAlloc, true);
+  HeapFreeEvent heap_free_event(0, kTraceHeap, kFlags, kTraceAlloc, true);
   testing::TestEventSerialization(heap_free_event);
 }
 

@@ -459,7 +459,8 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
       ArgumentParser<HANDLE, DWORD, SIZE_T, LPVOID> parser;
       if (!parser.Parse(args))
         return false;
-      evt.reset(new bard::events::HeapAllocEvent(parser.arg0(), parser.arg1(),
+      evt.reset(new bard::events::HeapAllocEvent(data->stack_trace_id,
+                                                 parser.arg0(), parser.arg1(),
                                                  parser.arg2(), parser.arg3()));
       break;
     }
@@ -469,7 +470,8 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
       if (!parser.Parse(args))
         return false;
       evt.reset(new bard::events::HeapCreateEvent(
-          parser.arg0(), parser.arg1(), parser.arg2(), parser.arg3()));
+          data->stack_trace_id, parser.arg0(), parser.arg1(), parser.arg2(),
+          parser.arg3()));
       break;
     }
 
@@ -477,8 +479,8 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
       ArgumentParser<HANDLE, BOOL> parser;
       if (!parser.Parse(args))
         return false;
-      evt.reset(
-          new bard::events::HeapDestroyEvent(parser.arg0(), parser.arg1()));
+      evt.reset(new bard::events::HeapDestroyEvent(
+          data->stack_trace_id, parser.arg0(), parser.arg1()));
       break;
     }
 
@@ -488,7 +490,8 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
       ArgumentParser<HANDLE, DWORD, LPVOID, BOOL, uint32_t> parser;
       if (!parser.Parse(args))
         return false;
-      evt.reset(new bard::events::HeapFreeEvent(parser.arg0(), parser.arg1(),
+      evt.reset(new bard::events::HeapFreeEvent(data->stack_trace_id,
+                                                parser.arg0(), parser.arg1(),
                                                 parser.arg2(), parser.arg3()));
       break;
     }
@@ -497,9 +500,9 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
       ArgumentParser<HANDLE, DWORD, LPVOID, SIZE_T, LPVOID> parser;
       if (!parser.Parse(args))
         return false;
-      evt.reset(new bard::events::HeapReAllocEvent(parser.arg0(), parser.arg1(),
-                                                   parser.arg2(), parser.arg3(),
-                                                   parser.arg4()));
+      evt.reset(new bard::events::HeapReAllocEvent(
+          data->stack_trace_id, parser.arg0(), parser.arg1(), parser.arg2(),
+          parser.arg3(), parser.arg4()));
       break;
     }
 
@@ -509,8 +512,8 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
       if (!parser.Parse(args))
         return false;
       evt.reset(new bard::events::HeapSetInformationEvent(
-          parser.arg0(), parser.arg1(), parser.arg2(), parser.arg3(),
-          parser.arg4()));
+          data->stack_trace_id, parser.arg0(), parser.arg1(), parser.arg2(),
+          parser.arg3(), parser.arg4()));
       break;
     }
 
@@ -518,7 +521,8 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
       ArgumentParser<HANDLE, DWORD, LPCVOID, SIZE_T> parser;
       if (!parser.Parse(args))
         return false;
-      evt.reset(new bard::events::HeapSizeEvent(parser.arg0(), parser.arg1(),
+      evt.reset(new bard::events::HeapSizeEvent(data->stack_trace_id,
+                                                parser.arg0(), parser.arg1(),
                                                 parser.arg2(), parser.arg3()));
       break;
     }

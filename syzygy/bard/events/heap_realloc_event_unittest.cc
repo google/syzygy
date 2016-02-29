@@ -40,7 +40,8 @@ const SIZE_T kBytes = 100;
 class HeapReAllocEventTest : public testing::Test {
  public:
   HeapReAllocEventTest()
-      : heap_realloc_event_(kTraceHeap,
+      : heap_realloc_event_(0,
+                            kTraceHeap,
                             kFlags,
                             kTraceAlloc,
                             kBytes,
@@ -92,9 +93,11 @@ TEST_F(HeapReAllocEventTest, TestFailCall) {
 }
 
 TEST_F(HeapReAllocEventTest, Equals) {
-  HeapReAllocEvent e1(kTraceHeap, kFlags, kTraceAlloc, kBytes, kTraceReAlloc);
-  HeapReAllocEvent e2(kTraceHeap, kFlags, kTraceAlloc, kBytes, kTraceReAlloc);
-  HeapReAllocEvent e3(kTraceHeap, kFlags + 1, kTraceAlloc, kBytes,
+  HeapReAllocEvent e1(0, kTraceHeap, kFlags, kTraceAlloc, kBytes,
+                      kTraceReAlloc);
+  HeapReAllocEvent e2(0, kTraceHeap, kFlags, kTraceAlloc, kBytes,
+                      kTraceReAlloc);
+  HeapReAllocEvent e3(0, kTraceHeap, kFlags + 1, kTraceAlloc, kBytes,
                       kTraceReAlloc);
   EXPECT_TRUE(e1.Equals(&e1));
   EXPECT_TRUE(e1.Equals(&e2));

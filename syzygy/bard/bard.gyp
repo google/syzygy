@@ -47,6 +47,9 @@
         'events/heap_size_event.h',
         'events/linked_event.cc',
         'events/linked_event.h',
+        'events/play_util.cc',
+        'events/play_util.h',
+        'events/play_util_impl.h',
       ],
       'dependencies': [
         '<(src)/base/base.gyp:base',
@@ -83,6 +86,7 @@
         'events/heap_set_information_event_unittest.cc',
         'events/heap_size_event_unittest.cc',
         'events/linked_event_unittest.cc',
+        'events/play_util_unittest.cc',
         '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [

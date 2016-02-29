@@ -56,8 +56,8 @@ class HeapSetInformationEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(HeapSetInformationEventTest, TestSuccessCall) {
-  HeapSetInformationEvent heap_set_information_event(
-      kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
+  HeapSetInformationEvent heap_set_information_event(0, kTraceHeap, kInfoClass,
+                                                     kInfo, kInfoLength, true);
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kInfoClass, kInfo, kInfoLength))
       .WillOnce(Return(true));
 
@@ -66,8 +66,8 @@ TEST_F(HeapSetInformationEventTest, TestSuccessCall) {
 }
 
 TEST_F(HeapSetInformationEventTest, TestFailCall) {
-  HeapSetInformationEvent heap_set_information_event(
-      kTraceHeap, kInfoClass, kInfo, kInfoLength, false);
+  HeapSetInformationEvent heap_set_information_event(0, kTraceHeap, kInfoClass,
+                                                     kInfo, kInfoLength, false);
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kInfoClass, kInfo, kInfoLength))
       .WillOnce(Return(false));
 
@@ -76,8 +76,8 @@ TEST_F(HeapSetInformationEventTest, TestFailCall) {
 }
 
 TEST_F(HeapSetInformationEventTest, TestInconsistentReturn) {
-  HeapSetInformationEvent heap_set_information_event(
-      kTraceHeap, kInfoClass, kInfo, kInfoLength, false);
+  HeapSetInformationEvent heap_set_information_event(0, kTraceHeap, kInfoClass,
+                                                     kInfo, kInfoLength, false);
   EXPECT_CALL(*this, FakeCall(kLiveHeap, kInfoClass, kInfo, kInfoLength))
       .WillOnce(Return(true));
 
@@ -86,9 +86,12 @@ TEST_F(HeapSetInformationEventTest, TestInconsistentReturn) {
 }
 
 TEST_F(HeapSetInformationEventTest, Equals) {
-  HeapSetInformationEvent e1(kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
-  HeapSetInformationEvent e2(kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
-  HeapSetInformationEvent e3(kTraceHeap, kInfoClass, kInfo, kInfoLength, false);
+  HeapSetInformationEvent e1(0, kTraceHeap, kInfoClass, kInfo, kInfoLength,
+                             true);
+  HeapSetInformationEvent e2(0, kTraceHeap, kInfoClass, kInfo, kInfoLength,
+                             true);
+  HeapSetInformationEvent e3(0, kTraceHeap, kInfoClass, kInfo, kInfoLength,
+                             false);
   EXPECT_TRUE(e1.Equals(&e1));
   EXPECT_TRUE(e1.Equals(&e2));
   EXPECT_FALSE(e1.Equals(&e3));
@@ -96,8 +99,8 @@ TEST_F(HeapSetInformationEventTest, Equals) {
 }
 
 TEST_F(HeapSetInformationEventTest, TestSerialization) {
-  HeapSetInformationEvent heap_set_information_event(
-      kTraceHeap, kInfoClass, kInfo, kInfoLength, true);
+  HeapSetInformationEvent heap_set_information_event(0, kTraceHeap, kInfoClass,
+                                                     kInfo, kInfoLength, true);
   testing::TestEventSerialization(heap_set_information_event);
 }
 

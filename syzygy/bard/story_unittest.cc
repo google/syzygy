@@ -14,6 +14,10 @@
 
 #include "syzygy/bard/story.h"
 
+#include <vector>
+
+#include "base/atomicops.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
 #include "syzygy/bard/events/heap_create_event.h"
@@ -51,6 +55,50 @@ class InvalidEvent : public EventInterface {
 
   bool Play(void* backdrop) override { return true; }
   bool Equals(const EventInterface*) const override { return false; }
+};
+
+// A simple event that simply returns false. Used for testing playback.
+class FailedEvent : public EventInterface {
+ public:
+  EventType type() const override { return EventType::kMaxEventType; }
+
+  bool Play(void* backdrop) override { return false; }
+  bool Equals(const EventInterface*) const override { return false; }
+};
+
+// A simple event that appends its ID to a vector. Used for testing playback.
+class AppendEvent : public EventInterface {
+ public:
+  explicit AppendEvent(uint32_t id) : id_(id) {}
+  EventType type() const override { return EventType::kMaxEventType; }
+
+  bool Play(void* backdrop) override {
+    auto v = reinterpret_cast<std::vector<uint32_t>*>(backdrop);
+    v->push_back(id_);
+    return true;
+  }
+  bool Equals(const EventInterface*) const override { return false; }
+
+ private:
+  uint32_t id_;
+};
+
+// A simple event that increments a counter atomically. Used for testing
+// playback.
+class IncrementEvent : public EventInterface {
+ public:
+  explicit IncrementEvent(uint32_t amount) : amount_(amount) {}
+  EventType type() const override { return EventType::kMaxEventType; }
+
+  bool Play(void* backdrop) override {
+    auto atomic = reinterpret_cast<volatile base::subtle::Atomic32*>(backdrop);
+    base::subtle::Barrier_AtomicIncrement(atomic, amount_);
+    return true;
+  }
+  bool Equals(const EventInterface*) const override { return false; }
+
+ private:
+  uint32_t amount_;
 };
 
 }  // namespace
@@ -93,14 +141,14 @@ TEST(StoryTest, CreatePlotLine) {
 
 TEST(StoryTest, TestSerialization) {
   scoped_ptr<EventInterface> event1(
-      new HeapCreateEvent(kOptions, kInitialSize, kMaximumSize, kTraceHeap));
+      new HeapCreateEvent(0, kOptions, kInitialSize, kMaximumSize, kTraceHeap));
   scoped_ptr<EventInterface> event2(
-      new HeapAllocEvent(kTraceHeap, kFlags, kBytes, kTraceAlloc));
+      new HeapAllocEvent(0, kTraceHeap, kFlags, kBytes, kTraceAlloc));
   scoped_ptr<EventInterface> event3(
-      new HeapSizeEvent(kTraceHeap, kFlags, kTraceAlloc, kSize));
+      new HeapSizeEvent(0, kTraceHeap, kFlags, kTraceAlloc, kSize));
   scoped_ptr<EventInterface> event4(
-      new HeapFreeEvent(kTraceHeap, kFlags, kTraceAlloc, true));
-  scoped_ptr<EventInterface> event5(new HeapDestroyEvent(kTraceHeap, true));
+      new HeapFreeEvent(0, kTraceHeap, kFlags, kTraceAlloc, true));
+  scoped_ptr<EventInterface> event5(new HeapDestroyEvent(0, kTraceHeap, true));
 
   // The following events will either be cross plot line dependencies or have
   // such dependencies.
@@ -134,6 +182,70 @@ TEST(StoryTest, TestSerialization) {
   story.AddPlotLine(plot_line2.Pass());
 
   EXPECT_TRUE(testing::TestSerialization(story));
+}
+
+TEST(PlotLineRunnerTest, StopOnFailedEvent) {
+  Story::PlotLine plot_line;
+  plot_line.push_back(new AppendEvent(0));
+  plot_line.push_back(new FailedEvent());
+  plot_line.push_back(new AppendEvent(1));
+
+  std::vector<uint32_t> v;
+  Story::PlotLineRunner runner(&v, &plot_line);
+  runner.Start();
+  runner.Join();
+
+  EXPECT_TRUE(runner.Failed());
+  EXPECT_EQ(plot_line[1], runner.failed_event());
+  EXPECT_THAT(v, testing::ElementsAre(0));
+}
+
+TEST(PlotLineRunnerTest, Succeeds) {
+  Story::PlotLine plot_line;
+  plot_line.push_back(new AppendEvent(0));
+  plot_line.push_back(new AppendEvent(1));
+  plot_line.push_back(new AppendEvent(2));
+
+  std::vector<uint32_t> v;
+  Story::PlotLineRunner runner(&v, &plot_line);
+  runner.Start();
+  runner.Join();
+
+  EXPECT_FALSE(runner.Failed());
+  EXPECT_EQ(nullptr, runner.failed_event());
+  EXPECT_THAT(v, testing::ElementsAre(0, 1, 2));
+}
+
+TEST(StoryTest, PlaybackStopsAndFails) {
+  Story story;
+
+  auto plot_line = story.CreatePlotLine();
+  plot_line->push_back(new AppendEvent(0));
+  plot_line->push_back(new FailedEvent());
+  plot_line->push_back(new AppendEvent(1));
+
+  std::vector<uint32_t> v;
+  EXPECT_FALSE(story.Play(&v));
+  EXPECT_THAT(v, testing::ElementsAre(0));
+}
+
+TEST(StoryTest, PlaybackSucceeds) {
+  Story story;
+
+  // 10 plotlines (threads) with 10000 events each was sufficient to generate
+  // race conditions on a Z600.
+  uint32_t sum = 0;
+  for (size_t i = 0; i < 10; ++i) {
+    auto pl = story.CreatePlotLine();;
+    for (size_t j = 0; j < 10000; ++j) {
+      pl->push_back(new IncrementEvent(j + i));
+      sum += j + i;
+    }
+  }
+
+  base::subtle::Atomic32 atomic = 0;
+  EXPECT_TRUE(story.Play(&atomic));
+  EXPECT_EQ(sum, atomic);
 }
 
 }  // namespace bard

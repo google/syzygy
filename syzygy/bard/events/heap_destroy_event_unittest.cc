@@ -49,7 +49,7 @@ class HeapDestroyEventTest : public testing::Test {
 }  // namespace
 
 TEST_F(HeapDestroyEventTest, TestSuccessCall) {
-  HeapDestroyEvent heap_destroy_event(kTraceHeap, true);
+  HeapDestroyEvent heap_destroy_event(0, kTraceHeap, true);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(true));
 
@@ -61,7 +61,7 @@ TEST_F(HeapDestroyEventTest, TestSuccessCall) {
 }
 
 TEST_F(HeapDestroyEventTest, TestFailCall) {
-  HeapDestroyEvent heap_destroy_event(kTraceHeap, false);
+  HeapDestroyEvent heap_destroy_event(0, kTraceHeap, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(false));
 
@@ -73,7 +73,7 @@ TEST_F(HeapDestroyEventTest, TestFailCall) {
 }
 
 TEST_F(HeapDestroyEventTest, TestInconsistentReturn) {
-  HeapDestroyEvent heap_destroy_event(kTraceHeap, false);
+  HeapDestroyEvent heap_destroy_event(0, kTraceHeap, false);
 
   EXPECT_CALL(*this, FakeCall(kLiveHeap)).WillOnce(Return(true));
 
@@ -85,9 +85,9 @@ TEST_F(HeapDestroyEventTest, TestInconsistentReturn) {
 }
 
 TEST_F(HeapDestroyEventTest, Equals) {
-  HeapDestroyEvent e1(kTraceHeap, false);
-  HeapDestroyEvent e2(kTraceHeap, false);
-  HeapDestroyEvent e3(kTraceHeap, true);
+  HeapDestroyEvent e1(0, kTraceHeap, false);
+  HeapDestroyEvent e2(0, kTraceHeap, false);
+  HeapDestroyEvent e3(0, kTraceHeap, true);
   EXPECT_TRUE(e1.Equals(&e1));
   EXPECT_TRUE(e1.Equals(&e2));
   EXPECT_FALSE(e1.Equals(&e3));
@@ -95,7 +95,7 @@ TEST_F(HeapDestroyEventTest, Equals) {
 }
 
 TEST_F(HeapDestroyEventTest, TestSerialization) {
-  HeapDestroyEvent heap_destroy_event(kTraceHeap, true);
+  HeapDestroyEvent heap_destroy_event(0, kTraceHeap, true);
   testing::TestEventSerialization(heap_destroy_event);
 }
 

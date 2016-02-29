@@ -38,7 +38,7 @@ const SIZE_T kSize = 100;
 class HeapSizeEventTest : public testing::Test {
  public:
   HeapSizeEventTest()
-      : heap_size_event_(kTraceHeap, kFlags, kTraceAlloc, kSize) {}
+      : heap_size_event_(0, kTraceHeap, kFlags, kTraceAlloc, kSize) {}
 
   MOCK_METHOD3(FakeCall, SIZE_T(HANDLE, DWORD, LPCVOID));
 
@@ -73,9 +73,9 @@ TEST_F(HeapSizeEventTest, TestFailCall) {
 }
 
 TEST_F(HeapSizeEventTest, Equals) {
-  HeapSizeEvent e1(kTraceHeap, kFlags, kTraceAlloc, kSize);
-  HeapSizeEvent e2(kTraceHeap, kFlags, kTraceAlloc, kSize);
-  HeapSizeEvent e3(kTraceHeap, kFlags + 1, kTraceAlloc, kSize + 1);
+  HeapSizeEvent e1(0, kTraceHeap, kFlags, kTraceAlloc, kSize);
+  HeapSizeEvent e2(0, kTraceHeap, kFlags, kTraceAlloc, kSize);
+  HeapSizeEvent e3(0, kTraceHeap, kFlags + 1, kTraceAlloc, kSize + 1);
   EXPECT_TRUE(e1.Equals(&e1));
   EXPECT_TRUE(e1.Equals(&e2));
   EXPECT_FALSE(e1.Equals(&e3));

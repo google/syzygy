@@ -149,4 +149,41 @@ bool Story::Load(core::InArchive* in_archive) {
   return true;
 }
 
+bool Story::Play(void* backdrop) {
+  // Create all of the runners and threads for them.
+  ScopedVector<PlotLineRunner> runners;
+  for (auto plot_line : plot_lines_)
+    runners.push_back(new PlotLineRunner(backdrop, plot_line));
+
+  // Start the threads.
+  for (auto runner : runners)
+    runner->Start();
+
+  // Join the threads and collect their results.
+  bool success = true;
+  for (auto runner : runners) {
+    runner->Join();
+    if (runner->Failed())
+      success = false;
+  }
+
+  return success;
+}
+
+Story::PlotLineRunner::PlotLineRunner(void* backdrop, PlotLine* plot_line)
+    : base::SimpleThread("PlotLineRunner"),
+      backdrop_(backdrop),
+      plot_line_(plot_line),
+      failed_event_(nullptr) {
+}
+
+void Story::PlotLineRunner::Run() {
+  for (auto evt : *plot_line_) {
+    if (!evt->Play(backdrop_)) {
+      failed_event_ = evt;
+      return;
+    }
+  }
+}
+
 }  // namespace bard

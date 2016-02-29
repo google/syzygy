@@ -28,7 +28,8 @@ namespace events {
 // HeapBackdrop.
 class HeapSizeEvent : public EventInterface {
  public:
-  HeapSizeEvent(HANDLE trace_heap,
+  HeapSizeEvent(uint32_t stack_trace_id,
+                HANDLE trace_heap,
                 DWORD flags,
                 LPCVOID trace_alloc,
                 SIZE_T trace_size);
@@ -49,6 +50,7 @@ class HeapSizeEvent : public EventInterface {
 
   // @name Accessors.
   // @{
+  uint32_t stack_trace_id() const { return stack_trace_id_; }
   HANDLE trace_heap() const { return trace_heap_; }
   DWORD flags() const { return flags_; }
   LPCVOID trace_alloc() const { return trace_alloc_; }
@@ -56,6 +58,9 @@ class HeapSizeEvent : public EventInterface {
   // @}
 
  private:
+  // The stack trace ID that will be used during playback.
+  uint32_t stack_trace_id_;
+
   // Arguments to HeapSize.
   HANDLE trace_heap_;
   DWORD flags_;
