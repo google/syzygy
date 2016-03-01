@@ -45,7 +45,7 @@
                 'toolchain_wrapper.bat',
             # The $(VCInstallDir) already contains a trailing slash, so we don't
             # need to emit one.
-            'VCVARSALL=$(VCInstallDir)vcvarsall.bat',
+            'VCVARSALL=$(VCInstallDir)../win8sdk/bin/SetEnv.cmd',
           ],
           'process_outputs_as_sources': 1,
         },

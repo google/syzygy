@@ -17,7 +17,9 @@ are brought in.
 """
 
 import os
+import shlex
 import sys
+import vs_toolchain_wrapper
 
 
 def apply_gyp_environment_from_file(file_path):
@@ -46,6 +48,20 @@ def apply_gyp_environment_from_file(file_path):
         )
       else:
         os.environ[var] = file_val
+
+
+def GetOutputDirectory():
+  """Returns the output directory that GYP will use."""
+
+  # Handle generator flags from the environment.
+  genflags = shlex.split(os.environ.get('GYP_GENERATOR_FLAGS', ''))
+
+  needle = 'output_dir='
+  for item in genflags:
+    if item.startswith(needle):
+      return item[len(needle):]
+
+  return 'out'
 
 
 def apply_syzygy_gyp_env(syzygy_src_path):
@@ -78,4 +94,14 @@ if __name__ == '__main__':
   # before passing execution to gyp_main.
   sys.path.append(gyp_pylib)
   sys.path.append(build_dir)
+
+  # Setup the VS toolchain.
+  vs_runtime_dll_dirs =  \
+      vs_toolchain_wrapper.SetEnvironmentAndGetRuntimeDllDirs()
+  if vs_runtime_dll_dirs:
+    x64_runtime, x86_runtime = vs_runtime_dll_dirs
+    vs_toolchain_wrapper.CopyVsRuntimeDlls(
+        os.path.join(src_dir, GetOutputDirectory()),
+        (x86_runtime, x64_runtime))
+
   execfile(gyp_main)

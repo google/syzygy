@@ -95,6 +95,12 @@ hooks = [
                "--output", "src\\syzygy\\build\\TIMESTAMP.gen"],
   },
   {
+    # Update the Windows toolchain if necessary.
+    'name': 'win_toolchain',
+    'pattern': '.',
+    'action': ['python', 'src/syzygy/build/vs_toolchain_wrapper.py', 'update'],
+  },
+  {
     "name": "run_gyp",
     "pattern": ".",
     "action": [Var("python_path"),
