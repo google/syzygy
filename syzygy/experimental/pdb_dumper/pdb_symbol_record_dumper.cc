@@ -95,7 +95,8 @@ bool DumpDatasSym32(FILE* out,
     return false;
 
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
-  DumpIndentedText(out, indent_level, "Type index: %d\n", symbol_info.typind);
+  DumpIndentedText(out, indent_level, "Type index: 0x%08X\n",
+                   symbol_info.typind);
   DumpIndentedText(out, indent_level, "Offset: 0x%08X\n", symbol_info.off);
   DumpIndentedText(out, indent_level, "Segment: 0x%04X\n", symbol_info.seg);
   return true;
@@ -279,8 +280,16 @@ bool DumpLabelSym32(FILE* out,
 }
 
 bool DumpRegSym(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  DCHECK_NE(reinterpret_cast<FILE*>(nullptr), out);
+  DCHECK_NE(reinterpret_cast<PdbStream*>(nullptr), stream);
+  cci::RegSym sym = {};
+  std::string name;
+  if (!ReadSymbolAndName(stream, len, &sym, &name))
+    return false;
+  DumpIndentedText(out, indent_level, "Type index: 0x%08X\n", sym.typind);
+  DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
+  DumpIndentedText(out, indent_level, "Name     : %s\n", name.c_str());
+  return true;
 }
 
 bool DumpConstSym(FILE* out,
@@ -329,7 +338,8 @@ bool DumpUdtSym(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
     return false;
 
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
-  DumpIndentedText(out, indent_level, "Type index: %d\n", symbol_info.typind);
+  DumpIndentedText(out, indent_level, "Type index: 0x%08X\n",
+                   symbol_info.typind);
   return true;
 }
 
@@ -352,7 +362,7 @@ bool DumpBpRelSym32(FILE* out,
     return false;
 
   DumpIndentedText(out, indent_level, "off: %d\n", bp_rel_sym.off);
-  DumpIndentedText(out, indent_level, "typind: %d\n", bp_rel_sym.typind);
+  DumpIndentedText(out, indent_level, "typind: 0x%08X\n", bp_rel_sym.typind);
   DumpIndentedText(out, indent_level, "Name: %s\n", name.c_str());
 
   return true;
@@ -418,7 +428,8 @@ bool DumpThreadSym32(FILE* out,
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
   DumpIndentedText(out, indent_level, "Offset: %d\n", symbol_info.off);
   DumpIndentedText(out, indent_level, "Segment: %d\n", symbol_info.seg);
-  DumpIndentedText(out, indent_level, "Type index: %d\n", symbol_info.typind);
+  DumpIndentedText(out, indent_level, "Type index: 0x%08X\n",
+                   symbol_info.typind);
   return true;
 }
 
@@ -690,7 +701,7 @@ bool DumpLocalSym2013(FILE* out,
   }
 
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
-  DumpIndentedText(out, indent_level, "typeind: %d\n", symbol_info.typind);
+  DumpIndentedText(out, indent_level, "typeind: 0x%08X\n", symbol_info.typind);
   DumpIndentedText(out, indent_level, "Flags:\n");
   DumpIndentedText(out, indent_level + 1, "IsParam            : %d\n",
                    symbol_info.flags.fIsParam);
@@ -706,9 +717,70 @@ bool DumpLocalSym2013(FILE* out,
                    symbol_info.flags.fIsAliased);
   DumpIndentedText(out, indent_level + 1, "IsAlias            : %d\n",
                    symbol_info.flags.fIsAlias);
+  DumpIndentedText(out, indent_level + 1, "fIsRetValue        : %d\n",
+    symbol_info.flags.fIsRetValue);
+  DumpIndentedText(out, indent_level + 1, "fIsOptimizedOut    : %d\n",
+                   symbol_info.flags.fIsOptimizedOut);
+  DumpIndentedText(out, indent_level + 1, "fIsEnregGlob       : %d\n",
+                   symbol_info.flags.fIsEnregGlob);
+  DumpIndentedText(out, indent_level + 1, "fIsEnregStat       : %d\n",
+                   symbol_info.flags.fIsEnregStat);
   DumpIndentedText(out, indent_level + 1, "reserved           : %d\n",
                    symbol_info.flags.reserved);
   DumpIndentedText(out, indent_level, "name: %s\n", symbol_name.c_str());
+
+  return true;
+}
+
+bool DumpDefrangeSymRegister(FILE* out,
+                             PdbStream* stream,
+                             uint16 len,
+                             uint8 indent_level) {
+  // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
+  // stream of shorter length.
+  uint16 bytes_left = len;
+
+  // Read the fixed part.
+  size_t to_read = offsetof(DefrangeSymRegister, gaps);
+  size_t bytes_read = 0;
+  DefrangeSymRegister sym;
+  if (!stream->ReadBytes(&sym, to_read, &bytes_read) || bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  bytes_left -= bytes_read;
+
+  DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
+  DumpIndentedText(out, indent_level, "attr.maybe: %d\n", sym.attr.maybe);
+  DumpIndentedText(out, indent_level, "Range:\n");
+  DumpIndentedText(out, indent_level + 1, "offStart: 0x%08X\n",
+                   sym.range.offStart);
+  DumpIndentedText(out, indent_level + 1, "isectStart: %d\n",
+                   sym.range.isectStart);
+  DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n",
+                   sym.range.cbRange);
+
+  // Read the variable length part.
+  DumpIndentedText(out, indent_level, "Gaps:\n");
+  CvLvarAddrGap gap = {};
+  to_read = sizeof(CvLvarAddrGap);
+  while (bytes_left >= to_read) {
+    if (!stream->ReadBytes(&gap, to_read, &bytes_read) ||
+        bytes_read != to_read) {
+      LOG(ERROR) << "Unable to read symbol record.";
+      return false;
+    }
+    bytes_left -= bytes_read;  // Note: bytes_left >= to_read = bytes_read
+    DumpIndentedText(out, indent_level + 1, "gapStartOffset: 0x%04X\n",
+                     gap.gapStartOffset);
+    DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n", gap.cbRange);
+  }
+
+  // Note: alignment is 4, same as sizeof(CvLvarAddrGap).
+  if (bytes_left > 0) {
+    LOG(ERROR) << "Unexpected symbol record length.";
+    return false;
+  }
 
   return true;
 }
@@ -836,7 +908,6 @@ bool DumpFrameCookie(FILE* out,
                      uint16 len,
                      uint8 indent_level) {
   cci::FrameCookie frame_cookie = {};
-
   if (!stream->Read(&frame_cookie, 1))
     return false;
 
@@ -845,6 +916,22 @@ bool DumpFrameCookie(FILE* out,
   DumpIndentedText(out, indent_level, "Cookietype: 0x%08X\n",
                    frame_cookie.cookietype);
   DumpIndentedText(out, indent_level, "Flags: 0x%02X\n", frame_cookie.flags);
+
+  return true;
+}
+
+bool DumpFrameCookieSym(FILE* out,
+                        PdbStream* stream,
+                        uint16 len,
+                        uint8 indent_level) {
+  FrameCookieSym frame_cookie = {};
+  if (!stream->Read(&frame_cookie, 1))
+    return false;
+
+  DumpIndentedText(out, indent_level, "Offs: %d\n", frame_cookie.off);
+  DumpIndentedText(out, indent_level, "Reg: %d\n", frame_cookie.reg);
+  DumpIndentedText(out, indent_level, "Cookietype: 0x%08X\n",
+                   frame_cookie.cookietype);
 
   return true;
 }
@@ -1003,8 +1090,15 @@ void DumpSymbolRecords(FILE* out,
       DumpUnknown(out, stream, symbol_iter->len, indent_level + 1);
     }
     stream->Seek(common::AlignUp(stream->pos(), 4));
-    if (stream->pos() != symbol_iter->start_position + symbol_iter->len) {
-      LOG(ERROR) << "Symbol record stream is not valid.";
+
+    size_t expected_pos = symbol_iter->start_position + symbol_iter->len;
+    if (stream->pos() != expected_pos) {
+      LOG(ERROR)
+          << base::StringPrintf(
+                 "Symbol record stream is not valid (after type 0x%04X). ",
+                 symbol_iter->type)
+          << base::StringPrintf("Position after parsing is %d (expected %d).",
+                                stream->pos(), expected_pos);
       return;
     }
   }

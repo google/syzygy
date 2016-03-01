@@ -193,9 +193,15 @@ void DumpLines(const OffsetStringMap& name_map,
           return;
         break;
       default:
-        LOG(ERROR) << "Unsupported line information type " << line_info_type
-                   << ".";
-        return;
+        // Skip over for now.
+        DumpIndentedText(out, indent_level, "Unsupported line info type.\n");
+        DumpIndentedText(out, indent_level + 1, "Type: %d\n", line_info_type);
+        DumpIndentedText(out, indent_level + 1, "Length: %d\n", length);
+        if (!stream->Seek(stream->pos() + length)) {
+          LOG(ERROR) << "Failed to skip over unsupported line info type.";
+          return;
+        }
+        break;
     }
   }
 }

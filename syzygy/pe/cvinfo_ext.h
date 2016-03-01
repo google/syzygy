@@ -39,12 +39,18 @@ const uint16 S_RETURN = 0x000D;  // Function return description.
 const uint16 S_ENTRYTHIS = 0x000E;  // Description of this pointer at entry.
 
 // Symbols that are not in the enum in the cv_info file.
-const uint16 S_COMPILE3 = 0x113C;
-const uint16 S_MSTOOLENV_V3 = 0x113D;
-const uint16 S_LOCAL_VS2013 = 0x113E;
+const uint16 S_COMPILE3 = 0x113C;  // Replacement for S_COMPILE2.
+const uint16 S_MSTOOLENV_V3 = 0x113D;  // Environment block split off from
+                                       // S_COMPILE2.
+const uint16 S_LOCAL_VS2013 = 0x113E;  // Defines a local symbol in optimized
+                                       // code.
 
-// Provides the frame pointer offset for the S_LOCAL_VS2013 variables.
-const uint16 S_FPOFF_VS2013 = 0x1144;
+// Ranges for en-registered symbol.
+const uint16 S_DEFRANGE_REGISTER = 0x1141;
+
+// Range for stack symbol span valid full scope of function body, gap might
+// apply. Provides the frame pointer offset for the S_LOCAL_VS2013 variables.
+const uint16 S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE = 0x1144;
 
 // Since VS2013 it seems that the compiler isn't emitting the same value as
 // those in cvinfo.h for the S_GPROC32 and S_LPROC32 types, the following 2
@@ -53,13 +59,16 @@ const uint16 S_LPROC32_VS2013 = 0x1146;
 const uint16 S_GPROC32_VS2013 = 0x1147;
 }  // namespace Microsoft_Cci_Pdb
 
-// This macro allow the easy construction of switch statements over the symbol
-// type enum. It define the case table, the first parameter of each entry is the
-// type of the symbol and the second one is the type of structure used to
-// represent this symbol.
-// NOTE: All _ST suffixed symbols are identical to those symbols without the _ST
-//       suffix. However, the trailing string they contain is encoded as uint16
-//       length prefixed string, versus a zero-terminated string.
+// This macro enables the easy construction of switch statements over the
+// symbol type enum. It defines the case table, the first parameter of each
+// entry is the type of the symbol and the second one is the type of structure
+// used to represent this symbol.
+// NOTE: All _ST suffixed symbols are identical to those symbols without the
+//       _ST suffix. However, the trailing string they contain is encoded as
+//       uint16 length prefixed string, versus a zero-terminated string.
+// NOTE: This overrides the association from S_FRAMECOOKIE to the FrameCookie
+//       struct (associating FrameCookieSym instead) as observed data does not
+//       match the cvinfo struct.
 #define SYM_TYPE_CASE_TABLE(decl) \
     decl(S_COMPILE_CV2, CompileSymCV2) \
     decl(S_SSEARCH, SearchSym) \
@@ -172,12 +181,13 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_COFFGROUP, CoffGroupSym) \
     decl(S_EXPORT, ExportSym) \
     decl(S_CALLSITEINFO, CallsiteInfo) \
-    decl(S_FRAMECOOKIE, FrameCookie) \
+    decl(S_FRAMECOOKIE, FrameCookieSym) \
     decl(S_DISCARDED, DiscardedSym) \
     decl(S_COMPILE3, CompileSym2) \
     decl(S_MSTOOLENV_V3, MSToolEnvV3) \
     decl(S_LOCAL_VS2013, LocalSym2013) \
-    decl(S_FPOFF_VS2013, FPOffs2013) \
+    decl(S_DEFRANGE_REGISTER, DefrangeSymRegister) \
+    decl(S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE, FPOffs2013) \
     decl(S_LPROC32_VS2013, ProcSym32) \
     decl(S_GPROC32_VS2013, ProcSym32)
 
@@ -586,6 +596,15 @@ union CompileSymFlags {
 // exactly 4 bytes in size.
 COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSymFlags, 4);
 
+// Altough S_FRAMECOOKIE is supposed to use the cvinfo FrameCookie struct, in
+// practice we observe a different struct.
+struct FrameCookieSym {
+  uint32 off;
+  uint16 reg;
+  uint16 cookietype;
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(FrameCookieSym, 8);
+
 // This is a new compiland details symbol type seen in MSVS 2010 and later.
 struct CompileSym2 {
   // uint16 reclen;  // Record length.
@@ -681,7 +700,11 @@ union LocalVarFlags {
     uint16 fIsAggregated : 1;
     uint16 fIsAliased : 1;
     uint16 fIsAlias : 1;
-    uint16 reserved : 9;
+    uint16 fIsRetValue : 1;      // represents a function return value
+    uint16 fIsOptimizedOut : 1;  // variable has no lifetimes
+    uint16 fIsEnregGlob : 1;     // variable is an enregistered global
+    uint16 fIsEnregStat : 1;     // variable is an enregistered static
+    uint16 reserved : 5;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -690,11 +713,50 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(LocalVarFlags, 2);
 
 // New symbol used for local symbols.
 struct LocalSym2013 {
-  uint32 typind;       // (type index) type index
-  LocalVarFlags flags; // local var flags
-  uint8 name[1];       // Name of this symbol.
+  uint32 typind;        // (type index) type index
+  LocalVarFlags flags;  // local var flags
+  uint8 name[1];        // Name of this symbol.
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym2013, 7);
+
+// Represents an address range, used for optimized code debug info.
+struct CvLvarAddrRange {
+  uint32 offStart;
+  uint16 isectStart;
+  uint16 cbRange;  // Length.
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(CvLvarAddrRange, 8);
+
+// Represents the holes in overall address range, all address is pre-bbt.
+// It is for compress and reduce the amount of relocations need.
+struct CvLvarAddrGap {
+  uint16 gapStartOffset;  // Relative offset from beginning of live range.
+  uint16 cbRange;  // Length of gap.
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(CvLvarAddrGap, 4);
+
+// Attributes of a variable's range.
+union CvRangeAttr {
+  uint16 raw;
+  struct {
+    uint16 maybe : 1;     // May have no user name on one of control flow path.
+    uint16 padding : 15;  // Padding for future use.
+  };
+};
+// We coerce a stream of bytes to this structure, so we require it to be
+// exactly 2 bytes in size.
+COMPILE_ASSERT_IS_POD_OF_SIZE(CvRangeAttr, 2);
+
+// A live range of en-registed variable.
+struct DefrangeSymRegister {
+  // unsigned short     reclen;     // Record length
+  // unsigned short     rectyp;     // S_DEFRANGE_REGISTER
+  uint16 reg;             // Register to hold the value of the symbol
+  CvRangeAttr attr;       // Attribute of the register range.
+  CvLvarAddrRange range;  // Range of addresses where this program is valid.
+  CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(DefrangeSymRegister, 16);
 
 // Frame pointer offset for LocalSym2013 variable.
 struct FPOffs2013 {

@@ -23,10 +23,11 @@
 
 namespace pdb {
 
-// Stores the basic information for a symbol record.
+// Stores the basic information for a symbol record. Symbol records are
+// composed of length and type fields, followed by some data.
 struct SymbolRecord {
-  size_t start_position;
-  uint16 len;
+  size_t start_position;  // Positioned after the length and type fields.
+  uint16 len;  // Length of data.
   uint16 type;
 };
 typedef std::vector<SymbolRecord> SymbolRecordVector;
