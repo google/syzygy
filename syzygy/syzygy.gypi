@@ -131,6 +131,9 @@
                 'FavorSizeOrSpeed': '1',
                 'WholeProgramOptimization': 'true',
               },
+              'VCLibrarianTool': {
+                'LinkTimeCodeGeneration': 'true',  # /LTCG
+              },
               'VCLinkerTool': {
                 # 0: Inherit, 1: Enabled, 2-4: For PGO.
                 'conditions': [
