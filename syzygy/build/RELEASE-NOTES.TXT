@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.14.0
+
+[fce63bdc64] Add a fix to support the I_FXSAVE and I_FXRSTOR instructions.
+
 Version 0.8.13.1
 
 [8f7d7913d1] SyzyASan - Tolerate patching races with retries.
