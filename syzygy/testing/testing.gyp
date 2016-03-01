@@ -15,6 +15,15 @@
 {
   'variables': {
     'chromium_code': 1,
+    'conditions': [
+      ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
+        # The $(VCInstallDir) already contains a trailing slash, so we don't
+        # need to emit one.
+        'vc_vars_all_path': '$(VCInstallDir)../win8sdk/bin/SetEnv.cmd',
+      }, {
+        'vc_vars_all_path': '$(VCInstallDir)vcvarsall.bat',
+      }],
+    ],
   },
   'targets': [
     {
@@ -43,9 +52,7 @@
                 'toolchain_wrapper.bat.template',
             '--output=<(SHARED_INTERMEDIATE_DIR)/syzygy/testing/'
                 'toolchain_wrapper.bat',
-            # The $(VCInstallDir) already contains a trailing slash, so we don't
-            # need to emit one.
-            'VCVARSALL=$(VCInstallDir)../win8sdk/bin/SetEnv.cmd',
+            'VCVARSALL=<@(vc_vars_all_path)',
           ],
           'process_outputs_as_sources': 1,
         },
