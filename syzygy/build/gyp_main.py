@@ -25,7 +25,7 @@ import vs_toolchain_wrapper
 def apply_gyp_environment_from_file(file_path):
   """Reads in a *.gyp_env file and applies the valid keys to os.environ."""
   if not os.path.exists(file_path):
-    return
+    return False
   with open(file_path, 'rU') as f:
     file_contents = f.read()
   try:
@@ -48,6 +48,7 @@ def apply_gyp_environment_from_file(file_path):
         )
       else:
         os.environ[var] = file_val
+  return True
 
 
 def GetOutputDirectory():
@@ -68,7 +69,9 @@ def apply_syzygy_gyp_env(syzygy_src_path):
   if 'SKIP_SYZYGY_GYP_ENV' not in os.environ:
     # Update the environment based on syzygy.gyp_env
     path = os.path.join(syzygy_src_path, 'syzygy.gyp_env')
-    apply_gyp_environment_from_file(path)
+    if not apply_gyp_environment_from_file(path):
+      # Default to ninja if no generator has explicitly been set.
+      os.environ['GYP_GENERATORS'] = 'ninja'
 
 
 if __name__ == '__main__':
