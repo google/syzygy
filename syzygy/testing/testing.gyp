@@ -19,7 +19,7 @@
       ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
         # The $(VCInstallDir) already contains a trailing slash, so we don't
         # need to emit one.
-        'vc_vars_all_path': '$(VCInstallDir)../win8sdk/bin/SetEnv.cmd',
+        'vc_vars_all_path': '$(VCInstallDir)../win_sdk/bin/SetEnv.cmd',
       }, {
         'vc_vars_all_path': '$(VCInstallDir)vcvarsall.bat',
       }],

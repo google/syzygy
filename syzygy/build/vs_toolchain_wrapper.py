@@ -17,7 +17,8 @@
 # src/build), with the following additions:
 # - It update the path so vs_toolchain can find the scripts that it need.
 # - It override the _GetDesiredVsToolchainHashes function so we can control the
-#   version of the toolchain that we're using (VS2013u5 with the Win 8.1 SDK).
+#   version of the toolchain that we're using (VS2013u5 with the Win 10 SDK
+#   v10240).
 
 import json
 import os
@@ -48,8 +49,8 @@ def _GetSyzygyDesiredVsToolchainHashes():
     # Update 1 with Debuggers, UCRT installers and ucrtbased.dll
     return ['5a85cf1ce842f7cc96b9d17039a445a9dc9cf0dd']
   else:
-    # Default to VS2013.
-    return ['ee7d718ec60c2dc5d255bbe325909c2021a7efef']
+    # Default to VS2013 the Win 10 SDK v10240.
+    return ['9ff97c632ae1fee0c98bcd53e71770eb3a0d8deb']
 
 
 # Override the vs_toolchain._GetDesiredVsToolchainHashes function.

@@ -25,16 +25,32 @@ import subprocess
 import sys
 
 
+# Check if we're in a Syzygy checkout, if so use the version of cdb.exe from the
+# toolchain directory in depot_tools.
+script_dir = os.path.dirname(os.path.realpath(__file__))
+syzygy_build_dir = os.path.abspath(
+    os.path.join(script_dir, os.pardir, os.pardir, 'build'))
+syzygy_toolchain_script = os.path.join(syzygy_build_dir,
+                                       'vs_toolchain_wrapper.py')
+if os.path.exists(syzygy_toolchain_script):
+  sys.path.insert(0, syzygy_build_dir)
+  import vs_toolchain_wrapper
+  vs_toolchain_wrapper.SetEnvironmentAndGetRuntimeDllDirs()
+  _DEFAULT_CDB_PATHS = [os.path.join(os.environ['WINDOWSSDKDIR'], 'Debuggers',
+      'x86', 'cdb.exe')]
+else:
+  # Provide some default paths to some version of cdb.exe that work with this
+  # script.
+  _DEFAULT_CDB_PATHS = [
+      r'c:\Program Files (x86)\Debugging Tools for Windows (x86)\cdb.exe',
+      r'c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x86\cdb.exe',
+      r'c:\Program Files (x86)\Windows Kits\10.0\Debuggers\x86\cdb.exe',
+    ]
+
+
 # The sentinel value that we use at the end of the command executed in the
 # debugger.
 _SENTINEL = 'ENDENDEND'
-
-
-# The default values for the path to cdb.exe.
-_DEFAULT_CDB_PATHS = [
-    r'c:\Program Files (x86)\Debugging Tools for Windows (x86)\cdb.exe',
-    r'c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x86\cdb.exe',
-  ]
 
 
 # The frame containing the error info structure.
