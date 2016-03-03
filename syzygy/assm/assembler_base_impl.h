@@ -96,6 +96,13 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   void EmitArithmeticInstructionToOperand(uint8 op_8, uint8 op_32,
       uint8 sub_op, const Operand& dst, const Immediate& src);
 
+  // Emit an arithmetic instruction with 3 operands.
+  void EmitThreeOperandArithmeticInstructionToRegister32(
+      uint8 op,
+      const Register32& dst,
+      const Register32& src,
+      const Immediate& index);
+
   // Emit an XCHG instruction.
   void EmitXchg(ValueSize size, RegisterId dst, RegisterId src);
 
@@ -452,6 +459,15 @@ EmitArithmeticInstructionToOperand(
     EmitOperand(sub_op, dst);
     Emit32BitImmediate(src);
   }
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::InstructionBuffer::
+EmitThreeOperandArithmeticInstructionToRegister32(
+    uint8 op, const Register32& dst, const Register32& src,
+    const Immediate& index) {
+  EmitArithmeticInstruction(op, dst, src);
+  Emit32BitImmediate(index);
 }
 
 template <class ReferenceType>
@@ -1181,6 +1197,15 @@ void AssemblerBase<ReferenceType>::imul(const Register32& dst,
   InstructionBuffer instr(this);
   instr.EmitOpCodeByte(0x0F);
   instr.EmitArithmeticInstruction(0xAF, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::imul(const Register32& dst,
+                                        const Register32& base,
+                                        const Immediate& disp) {
+  InstructionBuffer instr(this);
+  instr.EmitThreeOperandArithmeticInstructionToRegister32(0x69, dst, base,
+                                                          disp);
 }
 
 template <class ReferenceType>

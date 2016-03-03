@@ -198,6 +198,8 @@ class AssemblerBase {
 
   void imul(const Register32& dst, const Register32& src);
   void imul(const Register32& dst, const Operand& src);
+  void imul(const Register32& dst, const Register32& base,
+            const Immediate& index);
   // @}
 
   // @name Logical operations.
