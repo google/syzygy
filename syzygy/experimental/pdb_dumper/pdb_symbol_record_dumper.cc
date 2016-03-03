@@ -69,6 +69,45 @@ const char* SymbolTypeName(uint16 symbol_type) {
   }
 }
 
+void DumpLvarAddrRange(FILE* out,
+                       uint8 indent_level,
+                       const CvLvarAddrRange& range) {
+  DumpIndentedText(out, indent_level, "Range:\n");
+  DumpIndentedText(out, indent_level + 1, "offStart: 0x%08X\n", range.offStart);
+  DumpIndentedText(out, indent_level + 1, "isectStart: %d\n", range.isectStart);
+  DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n", range.cbRange);
+}
+
+bool DumpLvarAddrGaps(FILE* out,
+                      PdbStream* stream,
+                      uint16 len,
+                      uint8 indent_level) {
+  DumpIndentedText(out, indent_level, "Gaps:\n");
+  uint16 bytes_left = len;
+  CvLvarAddrGap gap = {};
+  size_t to_read = sizeof(CvLvarAddrGap);
+  while (bytes_left >= to_read) {
+    size_t bytes_read = 0;
+    if (!stream->ReadBytes(&gap, to_read, &bytes_read) ||
+        bytes_read != to_read) {
+      LOG(ERROR) << "Unable to read symbol record.";
+      return false;
+    }
+    bytes_left -= bytes_read;  // Note: bytes_left >= to_read = bytes_read
+    DumpIndentedText(out, indent_level + 1, "gapStartOffset: 0x%04X\n",
+                     gap.gapStartOffset);
+    DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n", gap.cbRange);
+  }
+
+  // Note: alignment is 4, same as sizeof(CvLvarAddrGap).
+  if (bytes_left > 0) {
+    LOG(ERROR) << "Unexpected symbol record length.";
+    return false;
+  }
+
+  return true;
+}
+
 // Dump a symbol record using RefSym2 struct to out.
 bool DumpRefSym2(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
   cci::RefSym2 symbol_info = {};
@@ -151,12 +190,14 @@ bool DumpFrameProcSym(FILE* out,
   if (!stream->Read(&frame_proc_sym, 1))
     return false;
 
-  DumpIndentedText(out, indent_level, "cbFrame: %d\n", frame_proc_sym.cbFrame);
-  DumpIndentedText(out, indent_level, "cbPad: %d\n", frame_proc_sym.cbPad);
-  DumpIndentedText(out, indent_level, "offPad: %d\n", frame_proc_sym.offPad);
-  DumpIndentedText(out, indent_level, "cbSaveRegs: %d\n",
+  DumpIndentedText(out, indent_level, "cbFrame: 0x%08X\n",
+                   frame_proc_sym.cbFrame);
+  DumpIndentedText(out, indent_level, "cbPad: 0x%08X\n", frame_proc_sym.cbPad);
+  DumpIndentedText(out, indent_level, "offPad: 0x%08X\n",
+                   frame_proc_sym.offPad);
+  DumpIndentedText(out, indent_level, "cbSaveRegs: 0x%08X\n",
                    frame_proc_sym.cbSaveRegs);
-  DumpIndentedText(out, indent_level, "offExHdlr: %d\n",
+  DumpIndentedText(out, indent_level, "offExHdlr: 0x%08X\n",
                    frame_proc_sym.offExHdlr);
   DumpIndentedText(out, indent_level, "secExHdlr: %d\n",
                    frame_proc_sym.secExHdlr);
@@ -381,9 +422,9 @@ bool DumpProcSym32(FILE* out,
   DumpIndentedText(out, indent_level, "Parent     : 0x%08X\n", sym.parent);
   DumpIndentedText(out, indent_level, "End        : 0x%08X\n", sym.end);
   DumpIndentedText(out, indent_level, "Next       : 0x%08X\n", sym.next);
-  DumpIndentedText(out, indent_level, "Length     : %d\n", sym.len);
-  DumpIndentedText(out, indent_level, "Debug start: %d\n", sym.dbgStart);
-  DumpIndentedText(out, indent_level, "Debug end  : %d\n", sym.dbgEnd);
+  DumpIndentedText(out, indent_level, "Length     : 0x%08X\n", sym.len);
+  DumpIndentedText(out, indent_level, "Debug start: 0x%08X\n", sym.dbgStart);
+  DumpIndentedText(out, indent_level, "Debug end  : 0x%08X\n", sym.dbgEnd);
   DumpIndentedText(out, indent_level, "Type index : 0x%08X\n", sym.typind);
   DumpIndentedText(out, indent_level, "Offset     : 0x%08X\n", sym.off);
   DumpIndentedText(out, indent_level, "Segment    : %d\n", sym.seg);
@@ -744,7 +785,8 @@ bool DumpDefrangeSymRegister(FILE* out,
   size_t to_read = offsetof(DefrangeSymRegister, gaps);
   size_t bytes_read = 0;
   DefrangeSymRegister sym;
-  if (!stream->ReadBytes(&sym, to_read, &bytes_read) || bytes_read != to_read) {
+  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
+      bytes_read != to_read) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -752,37 +794,65 @@ bool DumpDefrangeSymRegister(FILE* out,
 
   DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
   DumpIndentedText(out, indent_level, "attr.maybe: %d\n", sym.attr.maybe);
-  DumpIndentedText(out, indent_level, "Range:\n");
-  DumpIndentedText(out, indent_level + 1, "offStart: 0x%08X\n",
-                   sym.range.offStart);
-  DumpIndentedText(out, indent_level + 1, "isectStart: %d\n",
-                   sym.range.isectStart);
-  DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n",
-                   sym.range.cbRange);
+  DumpLvarAddrRange(out, indent_level, sym.range);
 
-  // Read the variable length part.
-  DumpIndentedText(out, indent_level, "Gaps:\n");
-  CvLvarAddrGap gap = {};
-  to_read = sizeof(CvLvarAddrGap);
-  while (bytes_left >= to_read) {
-    if (!stream->ReadBytes(&gap, to_read, &bytes_read) ||
-        bytes_read != to_read) {
-      LOG(ERROR) << "Unable to read symbol record.";
-      return false;
-    }
-    bytes_left -= bytes_read;  // Note: bytes_left >= to_read = bytes_read
-    DumpIndentedText(out, indent_level + 1, "gapStartOffset: 0x%04X\n",
-                     gap.gapStartOffset);
-    DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n", gap.cbRange);
-  }
+  // Read and dump the variable length part.
+  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
+}
 
-  // Note: alignment is 4, same as sizeof(CvLvarAddrGap).
-  if (bytes_left > 0) {
-    LOG(ERROR) << "Unexpected symbol record length.";
+bool DumpDefRangeSymFramePointerRel(FILE* out,
+                                    PdbStream* stream,
+                                    uint16 len,
+                                    uint8 indent_level) {
+  // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
+  // stream of shorter length.
+  uint16 bytes_left = len;
+
+  // Read the fixed part.
+  size_t to_read = offsetof(DefRangeSymFramePointerRel, gaps);
+  size_t bytes_read = 0;
+  DefRangeSymFramePointerRel sym;
+  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
+  bytes_left -= bytes_read;
 
-  return true;
+  DumpIndentedText(out, indent_level + 1, "offFramePointer: %d\n",
+                   sym.offFramePointer);
+  DumpLvarAddrRange(out, indent_level, sym.range);
+
+  // Read and dump the variable length part.
+  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
+}
+
+bool DumpDefRangeSymSubfieldRegister(FILE* out,
+                                     PdbStream* stream,
+                                     uint16 len,
+                                     uint8 indent_level) {
+  // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
+  // stream of shorter length.
+  uint16 bytes_left = len;
+
+  // Read the fixed part.
+  size_t to_read = offsetof(DefRangeSymSubfieldRegister, gaps);
+  size_t bytes_read = 0;
+  DefRangeSymSubfieldRegister sym;
+  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  bytes_left -= bytes_read;
+
+  DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
+  DumpIndentedText(out, indent_level, "attr.maybe: %d\n", sym.attr.maybe);
+  DumpIndentedText(out, indent_level, "offParent: 0x%04X\n", sym.offParent);
+  DumpLvarAddrRange(out, indent_level, sym.range);
+
+  // Read and dump the variable length part.
+  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
 }
 
 bool DumpFPOffs2013(FILE* out,
@@ -795,6 +865,38 @@ bool DumpFPOffs2013(FILE* out,
 
   DumpIndentedText(out, indent_level, "Offs: %d\n", fp_offs.offs);
   return true;
+}
+
+bool DumpDefRangeSymRegisterRel(FILE* out,
+                                PdbStream* stream,
+                                uint16 len,
+                                uint8 indent_level) {
+  // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
+  // stream of shorter length.
+  uint16 bytes_left = len;
+
+  // Read the fixed part.
+  size_t to_read = offsetof(DefRangeSymRegisterRel, gaps);
+  size_t bytes_read = 0;
+  DefRangeSymRegisterRel sym;
+  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
+      bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  bytes_left -= bytes_read;
+
+  DumpIndentedText(out, indent_level, "baseReg: %d\n", sym.baseReg);
+  DumpIndentedText(out, indent_level, "spilledUdtMember: %d\n",
+                   sym.spilledUdtMember);
+  DumpIndentedText(out, indent_level, "offsetParent: 0x%04X\n",
+                   sym.offsetParent);
+  DumpIndentedText(out, indent_level, "offBasePointer: %d\n",
+                   sym.offBasePointer);
+  DumpLvarAddrRange(out, indent_level, sym.range);
+
+  // Read and dump the variable length part.
+  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
 }
 
 bool DumpDefRangeSym(FILE* out,

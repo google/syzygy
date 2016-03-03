@@ -47,10 +47,15 @@ const uint16 S_LOCAL_VS2013 = 0x113E;  // Defines a local symbol in optimized
 
 // Ranges for en-registered symbol.
 const uint16 S_DEFRANGE_REGISTER = 0x1141;
-
+// Range for stack symbol.
+const uint16 S_DEFRANGE_FRAMEPOINTER_REL = 0x1142;
+// Ranges for en-registered field of symbol.
+const uint16 S_DEFRANGE_SUBFIELD_REGISTER = 0x1143;
 // Range for stack symbol span valid full scope of function body, gap might
 // apply. Provides the frame pointer offset for the S_LOCAL_VS2013 variables.
 const uint16 S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE = 0x1144;
+// Range for symbol address as register + offset.
+const uint16 S_DEFRANGE_REGISTER_REL = 0x1145;
 
 // Since VS2013 it seems that the compiler isn't emitting the same value as
 // those in cvinfo.h for the S_GPROC32 and S_LPROC32 types, the following 2
@@ -187,7 +192,10 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(S_MSTOOLENV_V3, MSToolEnvV3) \
     decl(S_LOCAL_VS2013, LocalSym2013) \
     decl(S_DEFRANGE_REGISTER, DefrangeSymRegister) \
+    decl(S_DEFRANGE_FRAMEPOINTER_REL, DefRangeSymFramePointerRel) \
+    decl(S_DEFRANGE_SUBFIELD_REGISTER, DefRangeSymSubfieldRegister) \
     decl(S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE, FPOffs2013) \
+    decl(S_DEFRANGE_REGISTER_REL, DefRangeSymRegisterRel) \
     decl(S_LPROC32_VS2013, ProcSym32) \
     decl(S_GPROC32_VS2013, ProcSym32)
 
@@ -749,8 +757,6 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(CvRangeAttr, 2);
 
 // A live range of en-registed variable.
 struct DefrangeSymRegister {
-  // unsigned short     reclen;     // Record length
-  // unsigned short     rectyp;     // S_DEFRANGE_REGISTER
   uint16 reg;             // Register to hold the value of the symbol
   CvRangeAttr attr;       // Attribute of the register range.
   CvLvarAddrRange range;  // Range of addresses where this program is valid.
@@ -758,11 +764,42 @@ struct DefrangeSymRegister {
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(DefrangeSymRegister, 16);
 
+// A live range of frame variable.
+struct DefRangeSymFramePointerRel {
+  int32 offFramePointer;  // Offset to frame pointer.
+  CvLvarAddrRange range;   // Range of addresses where this program is valid.
+  CvLvarAddrGap gaps[1];   // The value is not available in following gaps.
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(DefRangeSymFramePointerRel, 16);
+
+// Ranges for en-registered field of symbol.
+struct DefRangeSymSubfieldRegister {
+  uint16 reg;             // Register to hold the value of the symbol
+  CvRangeAttr attr;       // Attribute of the register range.
+  uint32 offParent : 12;  // Offset in parent variable.
+  uint32 padding : 20;    // Padding for future use.
+  CvLvarAddrRange range;  // Range of addresses where this program is valid.
+  CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(DefRangeSymSubfieldRegister, 20);
+
 // Frame pointer offset for LocalSym2013 variable.
 struct FPOffs2013 {
   int offs;
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(FPOffs2013, 4);
+
+// Range for symbol address as register + offset.
+struct DefRangeSymRegisterRel {
+  uint16 baseReg;  // Register to hold the base pointer of the symbol.
+  uint16 spilledUdtMember : 1;  // Spilled member for s.i.
+  uint16 padding : 3;           // Padding for future use.
+  uint16 offsetParent : 12;     // Offset in parent variable.
+  int32 offBasePointer;        // Offset to register.
+  CvLvarAddrRange range;  // Range of addresses where this program is valid.
+  CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
+};
+COMPILE_ASSERT_IS_POD_OF_SIZE(DefRangeSymRegisterRel, 20);
 
 // Defines flags used for export symbols, see EXPORTSYM_FLAGS.
 union ExportVarFlags {
