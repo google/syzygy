@@ -443,10 +443,10 @@ const uint16_t S_GPROC32_VS2013 = 0x1147;
     decl(T_WCHAR, wchar_t, 2) \
     decl(T_INT1, int8_t, 1) \
     decl(T_UINT1, uint8_t, 1) \
-    decl(T_SHORT, int16_t _t, 2) \
-    decl(T_USHORT, uint16_t _t, 2) \
-    decl(T_INT2, int16_t _t, 2) \
-    decl(T_UINT2, uint16_t _t, 2) \
+    decl(T_SHORT, int16_t, 2) \
+    decl(T_USHORT, uint16_t, 2) \
+    decl(T_INT2, int16_t, 2) \
+    decl(T_UINT2, uint16_t, 2) \
     decl(T_LONG, int32_t, 4) \
     decl(T_ULONG, uint32_t, 4) \
     decl(T_INT4, int32_t, 4) \
