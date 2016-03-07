@@ -143,7 +143,7 @@ TEST_F(PEImageLayoutBuilderTest, RewriteTestDll) {
 
   // We expect our image to be no bigger. In fact, we are generally smaller as
   // we trim some cruft from the .relocs section.
-  int64 orig_size, rewritten_size;
+  int64_t orig_size, rewritten_size;
   ASSERT_TRUE(base::GetFileSize(image_path_, &orig_size));
   ASSERT_TRUE(base::GetFileSize(temp_file_, &rewritten_size));
   EXPECT_LE(rewritten_size, orig_size);
@@ -202,7 +202,7 @@ TEST_F(PEImageLayoutBuilderTest, PadTestDll) {
     ++obg_section_it;
   }
 
-  int64 orig_size, rewritten_size;
+  int64_t orig_size, rewritten_size;
   ASSERT_TRUE(base::GetFileSize(image_path_, &orig_size));
   ASSERT_TRUE(base::GetFileSize(temp_file_, &rewritten_size));
   EXPECT_GE(rewritten_size, orig_size + expected_file_size_increase);
@@ -217,7 +217,7 @@ TEST_F(PEImageLayoutBuilderTest, CodeAlignmentTestDll) {
   // wrong symbols for this image.
   ASSERT_NO_FATAL_FAILURE(testing::TwiddlePdbGuidAndPath(dos_header_block_));
 
-  const uint32 kCodeAlignment = 8;
+  const uint32_t kCodeAlignment = 8;
   ImageLayout layout(&block_graph_);
   PEImageLayoutBuilder builder(&layout);
   builder.set_code_alignment(kCodeAlignment);

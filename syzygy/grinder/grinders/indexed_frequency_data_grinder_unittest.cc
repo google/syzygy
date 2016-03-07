@@ -43,16 +43,17 @@ using version::kSyzygyVersion;
 using base::CreateAndOpenTemporaryFileInDir;
 
 const wchar_t kImageFileName[] = L"foo.dll";
-const uint32 kBaseAddress = 0xDEADBEEF;
-const uint32 kModuleSize = 0x1000;
-const uint32 kImageChecksum = 0xCAFEBABE;
-const uint32 kTimeDateStamp = 0xBABECAFE;
+const uint32_t kBaseAddress = 0xDEADBEEF;
+const uint32_t kModuleSize = 0x1000;
+const uint32_t kImageChecksum = 0xCAFEBABE;
+const uint32_t kTimeDateStamp = 0xBABECAFE;
 
-// We allocate the frequency data using new uint8[], so we need to make sure it
+// We allocate the frequency data using new uint8_t[], so we need to make sure
+// it
 // gets cleaned up with the appropriate deleter.
 struct TraceIndexedFrequencyDataDeleter {
   inline void operator()(TraceIndexedFrequencyData* ptr) const {
-    delete [] reinterpret_cast<uint8*>(ptr);
+    delete[] reinterpret_cast<uint8_t*>(ptr);
   }
 };
 typedef scoped_ptr<TraceIndexedFrequencyData,
@@ -176,7 +177,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
     static const size_t kBufferSize =
         sizeof(TraceIndexedFrequencyData) + kMaxDataSize - 1;
 
-    uint8* buffer = new uint8[kBufferSize];
+    uint8_t* buffer = new uint8_t[kBufferSize];
     ASSERT_TRUE(buffer != NULL);
     ::memset(buffer, 0, kBufferSize);
 
@@ -193,17 +194,19 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
 
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       for (size_t c = 0; c < kNumColumns; ++c) {
-        uint8 value = i + c + 1;
+        uint8_t value = i + c + 1;
         size_t offset = (i * kNumColumns) + c;
         switch (frequency_size) {
           case 1:
             (*data)->frequency_data[offset] = value;
             break;
           case 2:
-            reinterpret_cast<uint16*>(&(*data)->frequency_data)[offset] = value;
+            reinterpret_cast<uint16_t*>(&(*data)->frequency_data)[offset] =
+                value;
             break;
           case 4:
-            reinterpret_cast<uint32*>(&(*data)->frequency_data)[offset] = value;
+            reinterpret_cast<uint32_t*>(&(*data)->frequency_data)[offset] =
+                value;
             break;
         }
       }
@@ -256,7 +259,7 @@ TEST_F(IndexedFrequencyDataGrinderTest, UpdateBasicBlockFrequencyData) {
   ASSERT_NO_FATAL_FAILURE(InitModuleInfo(&module_info));
 
   // Validate for all valid frequency sizes.
-  const uint8 kMaxFrequencySize = 4;
+  const uint8_t kMaxFrequencySize = 4;
   for (size_t frequency_size = 1;
        frequency_size <= kMaxFrequencySize;
        frequency_size *= 2) {

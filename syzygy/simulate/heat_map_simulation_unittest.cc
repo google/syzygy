@@ -55,13 +55,15 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
   struct MockBlockInfo {
     time_t time;
-    uint32 start;
+    uint32_t start;
     size_t size;
     std::string name;
     BlockGraph::Block* block;
 
-    MockBlockInfo(time_t time_, uint32 start_, size_t size_,
-        BlockGraph* block_graph)
+    MockBlockInfo(time_t time_,
+                  uint32_t start_,
+                  size_t size_,
+                  BlockGraph* block_graph)
         : time(time_), start(start_), size(size_), name(""), block(NULL) {
       DCHECK(block_graph != NULL);
       block = block_graph->AddBlock(BlockGraph::CODE_BLOCK, size_, "block");
@@ -70,8 +72,11 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
       block->set_name(name);
     }
 
-    MockBlockInfo(time_t time_, uint32 start_, size_t size_, std::string name_,
-        BlockGraph* block_graph)
+    MockBlockInfo(time_t time_,
+                  uint32_t start_,
+                  size_t size_,
+                  std::string name_,
+                  BlockGraph* block_graph)
         : time(time_), start(start_), size(size_), name(name_), block(NULL) {
       DCHECK(block_graph != NULL);
       block = block_graph->AddBlock(BlockGraph::CODE_BLOCK, size_, name_);
@@ -113,15 +118,14 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   //     totals in each time slice.
   // @param expected_slices An expected_size sized array with the expected
   //     memory slices in each time slice.
-  void CheckSimulationResult(
-      uint32 expected_size,
-      const uint32 expected_times[],
-      TimeSlice::MemorySliceMap expected_slices[]) {
+  void CheckSimulationResult(uint32_t expected_size,
+                             const uint32_t expected_times[],
+                             TimeSlice::MemorySliceMap expected_slices[]) {
     std::vector<uint32> expected_totals(expected_size, 0);
 
     // Loop through all the functions and add the number of times they were
     // called to their respective MemorySlice and TimeSlice totals.
-    for (uint32 i = 0; i < expected_size; ++i) {
+    for (uint32_t i = 0; i < expected_size; ++i) {
       TimeSlice::MemorySliceMap::iterator u = expected_slices[i].begin();
       for (; u != expected_slices[i].end(); ++u) {
         u->second.total = 0;
@@ -137,14 +141,14 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
     simulation_->OnProcessStarted(time, 1);
 
-    for (uint32 i = 0; i < arraysize(blocks_); i++) {
+    for (uint32_t i = 0; i < arraysize(blocks_); i++) {
       simulation_->OnFunctionEntry(Time::FromTimeT(blocks_[i].time),
                                    blocks_[i].block);
     }
 
     EXPECT_EQ(simulation_->time_memory_map().size(), expected_size);
 
-    for (uint32 i = 0; i < expected_size; i++) {
+    for (uint32_t i = 0; i < expected_size; i++) {
       HeatMapSimulation::TimeMemoryMap::const_iterator current_slice =
           simulation_->time_memory_map().find(expected_times[i]);
 
@@ -168,8 +172,8 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   //     of different MockBlockInfos in input that cover to that position.
   std::vector<uint32> Vectorize(const MockBlockInfoList &input, size_t size) {
     std::vector<uint32> vector_input(size, 0);
-    for (uint32 i = 0; i < input.size(); i++) {
-      for (uint32 u = 0; u < input[i].size; u++)
+    for (uint32_t i = 0; i < input.size(); i++) {
+      for (uint32_t u = 0; u < input[i].size; u++)
         vector_input[input[i].start + u - input[0].start]++;
     }
 
@@ -197,10 +201,10 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
     // Get the time of the blocks, the address of the first block, and the
     // size of all them.
     time_t time = input[0].time;
-    uint32 start = input[0].start;
+    uint32_t start = input[0].start;
     size_t size = input[0].start + input[0].size;
 
-    for (uint32 i = 0; i < input.size(); i++) {
+    for (uint32_t i = 0; i < input.size(); i++) {
       if (input[i].time != time) {
         // This should never be reached
         ADD_FAILURE();
@@ -213,7 +217,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 
     std::vector<uint32> slices = Vectorize(input, size);
 
-    uint32 slice = 0;
+    uint32_t slice = 0;
     while (slice < slices.size()) {
       if (slices[slice] == 0) {
         slice++;
@@ -226,10 +230,10 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
           break;
       }
 
-      uint32 block_size = 0;
+      uint32_t block_size = 0;
       block_size = random_(max_size - slice) + 1;
 
-      for (uint32 i = 0; i < block_size; i++) {
+      for (uint32_t i = 0; i < block_size; i++) {
         if (slices[slice + i] > 0)
           slices[slice + i]--;
       }
@@ -252,7 +256,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
     MockBlockInfoList time_input;
     time_t last_time = blocks_[0].time;
 
-    for (uint32 i = 0; i <= arraysize(blocks_); i++) {
+    for (uint32_t i = 0; i <= arraysize(blocks_); i++) {
       if (i == arraysize(blocks_) || last_time != blocks_[i].time) {
         MockBlockInfoList random_time_input = RandomizeTimeBlocks(time_input);
 
@@ -284,8 +288,8 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
 }  // namespace
 
 TEST_F(HeatMapSimulationTest, CorrectHeatMap) {
-  static const uint32 expected_size = 2;
-  static const uint32 expected_times[expected_size] = {10000000, 30000000};
+  static const uint32_t expected_size = 2;
+  static const uint32_t expected_times[expected_size] = {10000000, 30000000};
 
   TimeSlice::MemorySliceMap expected_slices[expected_size];
   expected_slices[0][0].functions["A"] = 10;
@@ -305,8 +309,8 @@ TEST_F(HeatMapSimulationTest, CorrectHeatMap) {
 }
 
 TEST_F(HeatMapSimulationTest, SmallMemorySliceSize) {
-  static const uint32 expected_size = 2;
-  static const uint32 expected_times[expected_size] = {10000000, 30000000};
+  static const uint32_t expected_size = 2;
+  static const uint32_t expected_times[expected_size] = {10000000, 30000000};
 
   TimeSlice::MemorySliceMap expected_slices[expected_size];
   expected_slices[0][0].functions["A"] = 2;
@@ -343,8 +347,8 @@ TEST_F(HeatMapSimulationTest, SmallMemorySliceSize) {
 }
 
 TEST_F(HeatMapSimulationTest, BigTimeSliceSize) {
-  static const uint32 expected_size = 1;
-  static const uint32 expected_times[expected_size] = {0};
+  static const uint32_t expected_size = 1;
+  static const uint32_t expected_times[expected_size] = {0};
 
   TimeSlice::MemorySliceMap expected_slices[expected_size];
   expected_slices[0][0].functions["A"] = 10;
@@ -364,8 +368,8 @@ TEST_F(HeatMapSimulationTest, BigTimeSliceSize) {
 }
 
 TEST_F(HeatMapSimulationTest, BigTimeSliceSizeSmallMemorySliceSize) {
-  static const uint32 expected_size = 1;
-  static const uint32 expected_times[expected_size] = {0};
+  static const uint32_t expected_size = 1;
+  static const uint32_t expected_times[expected_size] = {0};
 
   TimeSlice::MemorySliceMap expected_slices[expected_size];
   expected_slices[0][0].functions["A"] = 2;
@@ -405,8 +409,8 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
   // Using a blocks_ and its respective output,
   // generate several other random inputs that should result in the
   // same output and test HeatMapSimulation with them.
-  static const uint32 expected_size = 2;
-  static const uint32 expected_times[expected_size] = {10000000, 30000000};
+  static const uint32_t expected_size = 2;
+  static const uint32_t expected_times[expected_size] = {10000000, 30000000};
 
   TimeSlice::MemorySliceMap expected_slices[expected_size];
   expected_slices[0][0].total = 2;
@@ -428,13 +432,13 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
   ASSERT_EQ(arraysize(expected_times), expected_size);
   ASSERT_EQ(arraysize(expected_slices), expected_size);
 
-  for (uint32 i = 0; i < 100; i++) {
+  for (uint32_t i = 0; i < 100; i++) {
     // Generate a random input that should have the same output than blocks_.
     MockBlockInfoList random_input = GenerateRandomInput();
 
     std::stringstream s;
     s << "Failed with input: ";
-    for (uint32 i = 0; i < random_input.size(); i++) {
+    for (uint32_t i = 0; i < random_input.size(); i++) {
       s << '(' << random_input[i].time << ", " << random_input[i].start;
       s << ", " << random_input[i].size << "), ";
     }
@@ -447,12 +451,12 @@ TEST_F(HeatMapSimulationTest, RandomInput) {
     simulation_->set_memory_slice_bytes(1);
     simulation_->set_time_slice_usecs(1);
 
-    for (uint32 i = 0; i < random_input.size(); i++) {
+    for (uint32_t i = 0; i < random_input.size(); i++) {
       simulation_->OnFunctionEntry(Time::FromTimeT(random_input[i].time),
                                    random_input[i].block);
     }
 
-    for (uint32 i = 0; i < expected_size; i++) {
+    for (uint32_t i = 0; i < expected_size; i++) {
       HeatMapSimulation::TimeMemoryMap::const_iterator current_slice =
         simulation_->time_memory_map().find(expected_times[i]);
 

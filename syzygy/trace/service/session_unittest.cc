@@ -284,7 +284,7 @@ class TestService : public Service {
   virtual Session* CreateSession() override { return new TestSession(this); }
 
  private:
-  uint32 process_id_;  // Under lock_;
+  uint32_t process_id_;  // Under lock_;
 };
 
 class SessionTest : public ::testing::Test {

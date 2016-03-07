@@ -29,7 +29,7 @@ class BufferSerializerTest : public testing::Test {
     const size_t kBufferSize = 1024U;
 
     // Initialize buffer.
-    uint8 buffer[kBufferSize];
+    uint8_t buffer[kBufferSize];
     ::memset(buffer, 0, kBufferSize);
 
     // Assemble a NOP into the buffer.

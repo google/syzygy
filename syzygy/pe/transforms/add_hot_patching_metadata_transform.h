@@ -25,7 +25,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/callback.h"
 #include "syzygy/block_graph/transforms/named_transform.h"
 

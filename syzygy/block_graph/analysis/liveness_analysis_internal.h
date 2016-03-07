@@ -17,7 +17,6 @@
 #ifndef SYZYGY_BLOCK_GRAPH_ANALYSIS_LIVENESS_ANALYSIS_INTERNAL_H_
 #define SYZYGY_BLOCK_GRAPH_ANALYSIS_LIVENESS_ANALYSIS_INTERNAL_H_
 
-#include "base/basictypes.h"
 #include "syzygy/block_graph/analysis/liveness_analysis.h"
 
 namespace block_graph {
@@ -86,7 +85,7 @@ class LivenessAnalysis::StateHelper {
   // For a given distorm register, returns the corresponding registers mask.
   // @param reg A distorm register to convert to a registers mask.
   // @returns The resulting registers mask.
-  static RegisterMask RegisterToRegisterMask(uint8 reg);
+  static RegisterMask RegisterToRegisterMask(uint8_t reg);
 
   // Reset the liveness information to assume no registers are live.
   // @param state State to clear.

@@ -35,10 +35,10 @@ using testing::Property;
 using testing::Return;
 
 // _asm ret
-const uint8 kCodeRet[] = { 0xC3 };
+const uint8_t kCodeRet[] = {0xC3};
 
 // Dummy data.
-const uint8 kData[] = { 0x01, 0x02, 0x03, 0x04 };
+const uint8_t kData[] = {0x01, 0x02, 0x03, 0x04};
 
 class MockSubGraphTransformInterface : public SubGraphTransformInterface {
  public:

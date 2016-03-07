@@ -67,7 +67,7 @@ class ArWriterTest : public testing::Test {
 
     // Add the same object file again but with a different name. This should
     // cause duplicate symbols to be encountered, but it should't be a problem.
-    int64 size = 0;
+    int64_t size = 0;
     ASSERT_TRUE(base::GetFileSize(object_files_[0], &size));
     contents_.resize(size);
     ASSERT_TRUE(base::ReadFile(object_files_[0],

@@ -35,9 +35,9 @@ typedef common::IndexedFrequencyData::DataType DataType;
 using block_graph::BlockGraph;
 using common::IndexedFrequencyData;
 
-const uint32 kAgentId = 0xDEADBEEF;
-const uint32 kAgentVersion = 5;
-const uint32 kNumEntries = 7;
+const uint32_t kAgentId = 0xDEADBEEF;
+const uint32_t kAgentVersion = 5;
+const uint32_t kNumEntries = 7;
 
 class AddFrequencyDataTransformTest
     : public testing::TestDllTransformTest {
@@ -94,32 +94,32 @@ void AddFrequencyDataTransformTest::Apply(size_t num_entries,
 }  // namespace
 
 TEST_F(AddFrequencyDataTransformTest, ApplySingleByteColumn) {
-  const uint32 kNumColumns = 1;
-  const uint8 kFrequencySize = 1;
+  const uint32_t kNumColumns = 1;
+  const uint8_t kFrequencySize = 1;
   ASSERT_NO_FATAL_FAILURE(
       Apply(kNumEntries, kNumColumns, kFrequencySize,
           common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
 }
 
 TEST_F(AddFrequencyDataTransformTest, ApplyMultipleByteColumn) {
-  const uint32 kNumColumns = 4;
-  const uint8 kFrequencySize = 1;
+  const uint32_t kNumColumns = 4;
+  const uint8_t kFrequencySize = 1;
   ASSERT_NO_FATAL_FAILURE(
       Apply(kNumEntries, kNumColumns, kFrequencySize,
           common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
 }
 
 TEST_F(AddFrequencyDataTransformTest, ApplySingleWordColumn) {
-  const uint32 kNumColumns = 1;
-  const uint8 kFrequencySize = 4;
+  const uint32_t kNumColumns = 1;
+  const uint8_t kFrequencySize = 4;
   ASSERT_NO_FATAL_FAILURE(
       Apply(kNumEntries, kNumColumns, kFrequencySize,
           common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));
 }
 
 TEST_F(AddFrequencyDataTransformTest, ApplyMultipleWordColumn) {
-  const uint32 kNumColumns = 4;
-  const uint8 kFrequencySize = 4;
+  const uint32_t kNumColumns = 4;
+  const uint8_t kFrequencySize = 4;
   ASSERT_NO_FATAL_FAILURE(
       Apply(kNumEntries, kNumColumns, kFrequencySize,
           common::IndexedFrequencyData::BASIC_BLOCK_ENTRY));

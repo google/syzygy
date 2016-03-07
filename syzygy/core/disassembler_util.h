@@ -17,9 +17,9 @@
 #ifndef SYZYGY_CORE_DISASSEMBLER_UTIL_H_
 #define SYZYGY_CORE_DISASSEMBLER_UTIL_H_
 
+#include <stdint.h>
 #include <string>
 
-#include "base/basictypes.h"
 #include "syzygy/assm/register.h"
 #include "distorm.h"  // NOLINT
 #include "mnemonics.h"  // NOLINT
@@ -54,10 +54,13 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
 // @param buffer the buffer containing the data to decode.
 // @param length the length of the buffer.
 // @returns true if an instruction was decoded, false otherwise.
-bool DecodeOneInstruction(
-    uint32 address, const uint8* buffer, size_t length, _DInst* instruction);
-bool DecodeOneInstruction(
-    const uint8* buffer, size_t length, _DInst* instruction);
+bool DecodeOneInstruction(uint32_t address,
+                          const uint8_t* buffer,
+                          size_t length,
+                          _DInst* instruction);
+bool DecodeOneInstruction(const uint8_t* buffer,
+                          size_t length,
+                          _DInst* instruction);
 
 // Dump text representation of exactly one instruction to a std::string.
 // @param instruction the instruction to dump.
@@ -153,12 +156,12 @@ _RegisterType GetRegisterType(RegisterId reg_id);
 // Given a Distorm register type, converts to a RegisterId.
 // @param distorm_reg_type The Distorm register type to be converted.
 // @returns the id of the register.
-RegisterId GetRegisterId(uint32 distorm_reg_type);
+RegisterId GetRegisterId(uint32_t distorm_reg_type);
 
 // Given a Distorm register type, returns the associated register object.
 // @param distorm_reg_type The Distorm register type to be converted.
 // @returns a const reference to the register object.
-const Register& GetRegister(uint32 distorm_reg_type);
+const Register& GetRegister(uint32_t distorm_reg_type);
 
 // @}
 

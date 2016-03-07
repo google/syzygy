@@ -100,14 +100,14 @@ class TraceFileSegment {
   TraceFileSegmentHeader* header;
 
   // The lower bound of the call trace buffer in the client process.
-  uint8* base_ptr;
+  uint8_t* base_ptr;
 
   // The next memory location at which the client should write call
   // trace data.
-  uint8* write_ptr;
+  uint8_t* write_ptr;
 
   // The upper bound of the call trace buffer in the client process.
-  uint8* end_ptr;
+  uint8_t* end_ptr;
 };
 
 // Helper function to transform a DllMain reason to a call trace event type.

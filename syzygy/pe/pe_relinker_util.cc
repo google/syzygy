@@ -128,7 +128,7 @@ PdbStream* GetOrCreatePdbStreamByName(const char* stream_name,
     }
   } else {
     stream = new PdbByteStream();
-    uint32 index = pdb_file->AppendStream(stream.get());
+    uint32_t index = pdb_file->AppendStream(stream.get());
     (*name_stream_map)[stream_name] = index;
   }
 
@@ -139,8 +139,8 @@ PdbStream* GetOrCreatePdbStreamByName(const char* stream_name,
 // describing this module and transform. The history stream consists of
 // a named PDB stream with the name /Syzygy/History. It consists of:
 //
-//   uint32 version
-//   uint32 history_length
+//   uint32_t version
+//   uint32_t history_length
 //   serialized pe::Metadata 0
 //   ...
 //   serialized pe::Metadata history_length - 1
@@ -186,8 +186,8 @@ bool WriteSyzygyHistoryStream(const base::FilePath& input_path,
   // Validate the history stream if it is non-empty.
   if (history_reader->length() > 0) {
     // Read the header.
-    uint32 version = 0;
-    uint32 history_length = 0;
+    uint32_t version = 0;
+    uint32_t history_length = 0;
     if (!history_reader->Seek(0) ||
         !history_reader->Read(&version, 1) ||
         !history_reader->Read(&history_length, 1)) {
@@ -214,7 +214,7 @@ bool WriteSyzygyHistoryStream(const base::FilePath& input_path,
     // If there wasn't already a history stream, create one and write the
     // header.
     DCHECK_EQ(0u, history_writer->pos());
-    const uint32 kHistoryLength = 1;
+    const uint32_t kHistoryLength = 1;
     if (!history_writer->Write(pdb::kSyzygyHistoryStreamVersion) ||
         !history_writer->Write(kHistoryLength)) {
       LOG(ERROR) << "Failed to write Syzygy history stream header.";

@@ -31,16 +31,16 @@ FunctionCallLogger::FunctionCallLogger(
   // Generate a unique 'serial number' for this instance. This is so that we
   // can tell one logger from the next in unittests, where they often end up
   // having the same address.
-  uint64 t = ::trace::common::GetTsc();
-  serial_ = static_cast<uint32>(t & 0xFFFFFFFF) ^
-            static_cast<uint32>((t >> 32) & 0xFFFFFFFF) ^
-            reinterpret_cast<uint32>(this);
+  uint64_t t = ::trace::common::GetTsc();
+  serial_ = static_cast<uint32_t>(t & 0xFFFFFFFF) ^
+            static_cast<uint32_t>((t >> 32) & 0xFFFFFFFF) ^
+            reinterpret_cast<uint32_t>(this);
 }
 
 // Given a function name returns it's ID. If this is the first time seeing
 // a given function name then emits a record to the call-trace buffer.
-uint32 FunctionCallLogger::GetFunctionId(TraceFileSegment* segment,
-                                         const std::string& function_name) {
+uint32_t FunctionCallLogger::GetFunctionId(TraceFileSegment* segment,
+                                           const std::string& function_name) {
   DCHECK_NE(static_cast<TraceFileSegment*>(nullptr), segment);
   size_t id = 0;
 
@@ -70,7 +70,7 @@ uint32 FunctionCallLogger::GetFunctionId(TraceFileSegment* segment,
   return id;
 }
 
-uint32 FunctionCallLogger::GetStackTraceId(TraceFileSegment* segment) {
+uint32_t FunctionCallLogger::GetStackTraceId(TraceFileSegment* segment) {
   DCHECK_NE(static_cast<TraceFileSegment*>(nullptr), segment);
   if (stack_trace_tracking_ == kTrackingNone)
     return 0;

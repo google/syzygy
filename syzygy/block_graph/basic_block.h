@@ -258,7 +258,7 @@ class Instruction {
   // @param buf the data comprising the instruction.
   // @param len the maximum length (in bytes) of @p buf to consume
   // @returns true on success, false otherwise.
-  static bool FromBuffer(const uint8* buf, size_t len, Instruction* inst);
+  static bool FromBuffer(const uint8_t* buf, size_t len, Instruction* inst);
 
   // Accessors.
   // @{
@@ -275,10 +275,10 @@ class Instruction {
   void set_label(const BlockGraph::Label& label) { label_ = label; }
   bool has_label() const { return label_.IsValid(); }
 
-  uint16 opcode() const { return representation_.opcode; }
+  uint16_t opcode() const { return representation_.opcode; }
   Size size() const { return representation_.size; }
-  const uint8* data() const { return data_; }
-  uint8* GetMutableData() { return data_; }
+  const uint8_t* data() const { return data_; }
+  uint8_t* GetMutableData() { return data_; }
   /// @}
 
   // @name Deprecated accessors.
@@ -337,7 +337,7 @@ class Instruction {
                             BasicBlockReference* reference) const;
 
   // Helper function to invert a conditional branching opcode.
-  static bool InvertConditionalBranchOpcode(uint16* opcode);
+  static bool InvertConditionalBranchOpcode(uint16_t* opcode);
 
   // Returns true if the given PC-relative or indirect-memory call instruction
   // is to a non-returning function. The block (and offset into it) being
@@ -353,7 +353,7 @@ class Instruction {
  protected:
   // Construct an instruction from its parsed representation and underlying
   // memory buffer.
-  Instruction(const _DInst& repr, const uint8* data);
+  Instruction(const _DInst& repr, const uint8_t* data);
 
   // The internal representation of this instruction.
   Representation representation_;
@@ -369,7 +369,7 @@ class Instruction {
   SourceRange source_range_;
 
   // The data associated with this instruction.
-  uint8 data_[kMaxSize];
+  uint8_t data_[kMaxSize];
 
   // Deprecated.
   Offset offset_;
@@ -390,7 +390,7 @@ class Successor {
   typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
   // The op-code of an binary instruction.
-  typedef uint16 OpCode;
+  typedef uint16_t OpCode;
 
   // The set of logical branching flow a successor may embody.
   enum Condition {
@@ -711,7 +711,7 @@ class BasicDataBlock : public BasicBlock {
   // Accessors.
   // @{
   Size size() const { return size_; }
-  const uint8* data() const { return data_; }
+  const uint8_t* data() const { return data_; }
 
   const BasicBlockReferenceMap& references() const { return references_; }
   BasicBlockReferenceMap& references() { return references_; }
@@ -750,7 +750,7 @@ class BasicDataBlock : public BasicBlock {
   BasicDataBlock(BasicBlockSubGraph* subgraph,
                  const base::StringPiece& name,
                  BlockId id,
-                 const uint8* data,
+                 const uint8_t* data,
                  Size size);
 
   // The number of bytes of data in the original block that corresponds with
@@ -759,7 +759,7 @@ class BasicDataBlock : public BasicBlock {
 
   // The data in the original block that corresponds with this basic block
   // will be referenced here.
-  const uint8* data_;
+  const uint8_t* data_;
 
   // The source range, if any, associated with this data block.
   SourceRange source_range_;

@@ -80,7 +80,7 @@ bool DumpLineInfo(const OffsetStringMap& file_names,
                   FILE* out,
                   PdbStream* stream,
                   size_t length,
-                  uint8 indent_level) {
+                  uint8_t indent_level) {
   DCHECK(stream != NULL);
   size_t base = stream->pos();
   // Read the header.
@@ -158,7 +158,7 @@ void DumpLines(const OffsetStringMap& name_map,
                pdb::PdbStream* stream,
                size_t start,
                size_t lines_bytes,
-               uint8 indent_level) {
+               uint8_t indent_level) {
   DCHECK(stream != NULL);
   if (lines_bytes == 0)
     return;
@@ -176,8 +176,8 @@ void DumpLines(const OffsetStringMap& name_map,
   size_t end = start + lines_bytes;
   OffsetStringMap file_names;
   while (stream->pos() < end) {
-    uint32 line_info_type = 0;
-    uint32 length = 0;
+    uint32_t line_info_type = 0;
+    uint32_t length = 0;
     if (!stream->Read(&line_info_type, 1) || !stream->Read(&length, 1)) {
       LOG(ERROR) << "Unable to read line info signature.";
       return;
@@ -213,7 +213,7 @@ void DumpModuleInfoStream(const DbiModuleInfo& module_info,
                           FILE* out,
                           PdbStream* stream) {
   DCHECK(stream != NULL);
-  uint8 indent_level = 1;
+  uint8_t indent_level = 1;
   DumpIndentedText(out,
                    indent_level,
                    "Module name: %s\n",
@@ -222,7 +222,7 @@ void DumpModuleInfoStream(const DbiModuleInfo& module_info,
                    indent_level,
                    "Object name: %s\n",
                    module_info.object_name().c_str());
-  uint32 type = 0;
+  uint32_t type = 0;
   if (!stream->Read(&type, 1) || type != cci::C13) {
     LOG(ERROR) << "Unexpected symbol stream type " << type << ".";
     return;

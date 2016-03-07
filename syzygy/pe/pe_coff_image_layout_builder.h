@@ -85,7 +85,7 @@ class PECoffImageLayoutBuilder {
   // @returns true on success, false on failure.
   // @note Sections cannot be laid out at offset zero; derived classes are
   //     expected to lay out some headers before laying out sections.
-  bool OpenSection(const char* name, uint32 characteristics);
+  bool OpenSection(const char* name, uint32_t characteristics);
 
   // Start laying out a new section. If another section is currently open,
   // it will first be closed.

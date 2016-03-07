@@ -15,6 +15,7 @@
 #ifndef SYZYGY_AGENT_ASAN_IAT_PATCHER_H_
 #define SYZYGY_AGENT_ASAN_IAT_PATCHER_H_
 
+#include <stdint.h>
 #include <windows.h>
 
 #include <map>

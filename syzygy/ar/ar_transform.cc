@@ -152,7 +152,7 @@ bool OnDiskArTransformAdapter::Transform(ParsedArFileHeader* header,
   }
 
   // Read the transformed file from disk.
-  int64 size = 0;
+  int64_t size = 0;
   if (!base::GetFileSize(output_path, &size)) {
     LOG(ERROR) << "Unable to read size of file: " << output_path.value();
     return false;

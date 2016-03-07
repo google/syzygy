@@ -78,7 +78,7 @@ bool ParseArFileHeader(const ArFileHeader& header,
   parsed_header->name = std::string(header.name, name_len);
 
   // The time is in seconds since epoch.
-  uint64 timestamp;
+  uint64_t timestamp;
   if (!ParseArNumber(header.timestamp, &timestamp))
     return false;
   parsed_header->timestamp = base::Time::FromDoubleT(
@@ -104,13 +104,12 @@ bool ReadObject(FILE* file, Object* object) {
   return true;
 }
 
-bool ParseSecondarySymbolTable(
-    size_t file_size,
-    const uint8* data,
-    size_t length,
-    SymbolIndexMap* symbols,
-    FileOffsetVector* file_offsets) {
-  DCHECK_NE(reinterpret_cast<const uint8*>(NULL), data);
+bool ParseSecondarySymbolTable(size_t file_size,
+                               const uint8_t* data,
+                               size_t length,
+                               SymbolIndexMap* symbols,
+                               FileOffsetVector* file_offsets) {
+  DCHECK_NE(reinterpret_cast<const uint8_t*>(NULL), data);
   DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), symbols);
   DCHECK_NE(reinterpret_cast<FileOffsetVector*>(NULL), file_offsets);
 
@@ -120,7 +119,7 @@ bool ParseSecondarySymbolTable(
   }
 
   // Validate the size of the secondary symbol table.
-  const uint32* offsets = reinterpret_cast<const uint32*>(data) + 1;
+  const uint32_t* offsets = reinterpret_cast<const uint32_t*>(data) + 1;
   size_t file_count = offsets[-1];
   if (length < (file_count + 2) * sizeof(uint32)) {
     LOG(ERROR) << "Secondary symbol table file offsets are truncated.";
@@ -130,8 +129,8 @@ bool ParseSecondarySymbolTable(
   size_t symbol_count = offsets[file_count];
 
   // Get pointers to the various parts of the symbol table.
-  const uint16* indices = reinterpret_cast<const uint16*>(
-      offsets + file_count + 1);
+  const uint16_t* indices =
+      reinterpret_cast<const uint16_t*>(offsets + file_count + 1);
   const char* names = reinterpret_cast<const char*>(indices + symbol_count);
   const char* names_end = reinterpret_cast<const char*>(data + length);
   if (names > names_end) {
@@ -172,7 +171,7 @@ bool ParseSecondarySymbolTable(
       return false;
     }
 
-    uint16 file_index = indices[i];
+    uint16_t file_index = indices[i];
     std::string name = std::string(names, name_len);
     names += name_len + 1;
 
@@ -217,7 +216,7 @@ bool ArReader::Init(const base::FilePath& ar_path) {
     return false;
   }
 
-  if (!base::GetFileSize(path_, reinterpret_cast<int64*>(&length_))) {
+  if (!base::GetFileSize(path_, reinterpret_cast<int64_t*>(&length_))) {
     LOG(ERROR) << "Unable to get the archive file size.";
     return false;
   }
@@ -413,9 +412,8 @@ bool ArReader::ReadNextFile(ParsedArFileHeader* header,
     return false;
   offset_ += sizeof(raw_header);
 
-  uint64 aligned_size = common::AlignUp64(header->size,
-                                          kArFileAlignment);
-  uint64 seek_size = aligned_size;
+  uint64_t aligned_size = common::AlignUp64(header->size, kArFileAlignment);
+  uint64_t seek_size = aligned_size;
 
   // Read the actual file contents if necessary.
   if (data != NULL) {
@@ -463,7 +461,7 @@ bool ArReader::TranslateFilename(const std::string& internal_name,
     return true;
   }
 
-  uint32 filename_offset = 0;
+  uint32_t filename_offset = 0;
   if (!base::StringToUint(internal_name.c_str() + 1, &filename_offset)) {
     LOG(ERROR) << "Unable to parse filename offset: " << internal_name;
     return false;

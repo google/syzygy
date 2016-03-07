@@ -39,7 +39,7 @@ void FinalizeReferences(BlockGraph::Block* block) {
     const BlockGraph::Reference& ref = entry.second;
 
     // We are going to write the new value to this memory address.
-    uint8* src_addr = const_cast<uint8*>(block->data()) + offset;
+    uint8_t* src_addr = const_cast<uint8_t*>(block->data()) + offset;
     DCHECK(src_addr >= block->data());
     DCHECK(src_addr < block->data() + block->data_size() - ref.size() + 1);
 
@@ -48,7 +48,7 @@ void FinalizeReferences(BlockGraph::Block* block) {
     DCHECK(ref.IsDirect());
 
     // Calculate the value that we need to write.
-    uint32 value = 0;
+    uint32_t value = 0;
     switch (ref.type()) {
       case BlockGraph::ABSOLUTE_REF: {
         value = reinterpret_cast<uint32>(ref.referenced()->data() +
@@ -69,16 +69,16 @@ void FinalizeReferences(BlockGraph::Block* block) {
 
     // Now store the new value.
     switch (ref.size()) {
-      case sizeof(uint8): {
-        *reinterpret_cast<uint8*>(src_addr) = static_cast<uint8>(value);
+      case sizeof(uint8_t): {
+        *reinterpret_cast<uint8_t*>(src_addr) = static_cast<uint8_t>(value);
         break;
       }
       case sizeof(uint16): {
-        *reinterpret_cast<uint16*>(src_addr) = static_cast<uint16>(value);
+        *reinterpret_cast<uint16_t*>(src_addr) = static_cast<uint16>(value);
         break;
       }
       case sizeof(uint32): {
-        *reinterpret_cast<uint32*>(src_addr) = static_cast<uint32>(value);
+        *reinterpret_cast<uint32_t*>(src_addr) = static_cast<uint32>(value);
         break;
       }
       default:
@@ -99,7 +99,7 @@ HotPatchingWriter::~HotPatchingWriter() {
 }
 
 size_t HotPatchingWriter::GetUsedMemory() const {
-    return virtual_memory_cursor_ - reinterpret_cast<uint8*>(virtual_memory_);
+  return virtual_memory_cursor_ - reinterpret_cast<uint8_t*>(virtual_memory_);
 }
 
 bool HotPatchingWriter::Init(size_t virtual_memory_size) {
@@ -114,7 +114,7 @@ bool HotPatchingWriter::Init(size_t virtual_memory_size) {
   }
 
   // Set up members.
-  virtual_memory_cursor_ = static_cast<uint8*>(virtual_memory_);
+  virtual_memory_cursor_ = static_cast<uint8_t*>(virtual_memory_);
   virtual_memory_size_ = virtual_memory_size;
 
   return true;
@@ -125,15 +125,15 @@ HotPatchingWriter::FunctionPointer HotPatchingWriter::Write(
   DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block);
 
   // Respect block padding.
-  uint8* block_location = virtual_memory_cursor_ + block->padding_before();
+  uint8_t* block_location = virtual_memory_cursor_ + block->padding_before();
 
   // Respect block alignment.
-  block_location = reinterpret_cast<uint8*>(common::AlignUp(
+  block_location = reinterpret_cast<uint8_t*>(common::AlignUp(
       reinterpret_cast<size_t>(block_location), block->alignment()));
 
   // Check if we fit into the allocated memory.
   if (!(block_location + block->size() <
-        static_cast<uint8*>(virtual_memory_) + virtual_memory_size_)) {
+        static_cast<uint8_t*>(virtual_memory_) + virtual_memory_size_)) {
     return false;
   }
 

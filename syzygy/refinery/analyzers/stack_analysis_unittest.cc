@@ -75,9 +75,9 @@ class StackAndFrameAnalyzersTest : public testing::Test {
   }
 
   base::FilePath minidump_path() { return scoped_minidump_.minidump_path(); }
-  uint32 expected_esp() { return expected_esp_; }
-  uint32 eip_lowerbound() { return eip_lowerbound_; }
-  uint32 eip_upperbound() { return eip_upperbound_; }
+  uint32_t expected_esp() { return expected_esp_; }
+  uint32_t eip_lowerbound() { return eip_lowerbound_; }
+  uint32_t eip_upperbound() { return eip_upperbound_; }
   Address expected_param_address() { return expected_param_address_; }
   Address expected_udt_address() { return expected_udt_address_; }
   Address expected_udt_ptr_address() { return expected_udt_ptr_address_; }
@@ -183,9 +183,9 @@ class StackAndFrameAnalyzersTest : public testing::Test {
   scoped_refptr<SymbolProvider> symbol_provider_;
 
   // For stack frame validation.
-  uint32 expected_esp_;
-  uint32 eip_lowerbound_;
-  uint32 eip_upperbound_;
+  uint32_t expected_esp_;
+  uint32_t eip_lowerbound_;
+  uint32_t eip_upperbound_;
 
   // Typed block validation.
   Address expected_param_address_;
@@ -212,7 +212,7 @@ TEST_F(StackAndFrameAnalyzersTest, BasicTest) {
   // be sizeof(void*) + sizeof(int) off of the current frame's top of stack
   // immediately prior to the call (accounting for callee argument and return
   // address).
-  uint32 expected_frame_base = 0U;
+  uint32_t expected_frame_base = 0U;
   __asm {
     mov expected_frame_base, esp
   }

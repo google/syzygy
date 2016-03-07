@@ -34,30 +34,30 @@ namespace pdb {
 // @param indent_level The level of indentation to use.
 // @returns true on success, false on error.
 bool DumpLeaf(const TypeInfoRecordMap& type_map,
-              uint16 type_value,
+              uint16_t type_value,
               FILE* out,
               PdbStream* stream,
-              uint16 len,
-              uint8 indent_level);
+              uint16_t len,
+              uint8_t indent_level);
 
 // Returns the size of the struct associated with a numeric leaf type.
-size_t NumericLeafSize(uint16 symbol_type);
+size_t NumericLeafSize(uint16_t symbol_type);
 
 // Returns the name associated with a numeric leaf type.
-const char* NumericLeafName(uint16 leaf_type);
+const char* NumericLeafName(uint16_t leaf_type);
 
 // Dump a numeric leaf.
 // @param out The output where the data should be dumped.
 // @param leaf_type The type of the numeric leaf.
 // @param stream The stream containing the data. It should be positioned at the
 //     beginning of the data block.
-void DumpNumericLeaf(FILE* out, uint16 leaf_type, PdbStream* stream);
+void DumpNumericLeaf(FILE* out, uint16_t leaf_type, PdbStream* stream);
 
 // Get the name and the size associated with a numeric leaf.
 // @param leaf_type The type of the numeric leaf.
 // @param leaf_size A pointer to the variable that will store the leaf size.
 // Return The name of the leaf if it's a numeric one, NULL otherwise.
-const char* GetNumericLeafNameAndSize(uint16 leaf_type, size_t* leaf_size);
+const char* GetNumericLeafNameAndSize(uint16_t leaf_type, size_t* leaf_size);
 
 // Hexdump the data of an undeciphered leaf.
 // @param type_map The map containing all the type info records.
@@ -70,8 +70,8 @@ const char* GetNumericLeafNameAndSize(uint16 leaf_type, size_t* leaf_size);
 bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
                      FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level);
+                     uint16_t len,
+                     uint8_t indent_level);
 
 }  // namespace pdb
 

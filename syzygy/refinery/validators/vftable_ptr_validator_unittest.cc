@@ -39,9 +39,9 @@ const Address kAddressOther = 2000ULL;  // Fits 32-bit.
 const Address kUdtAddress = 9000ULL;    // Fits 32-bit.
 const Size kSize = 42U;
 const Size kSizeOther = 43U;
-const uint32 kChecksum = 11U;
-const uint32 kChecksumOther = 12U;
-const uint32 kTimestamp = 22U;
+const uint32_t kChecksum = 11U;
+const uint32_t kChecksumOther = 12U;
+const uint32_t kTimestamp = 22U;
 const wchar_t kPath[] = L"c:\\path\\ModuleName";
 const wchar_t kPathOther[] = L"c:\\path\\ModuleNameOther";
 

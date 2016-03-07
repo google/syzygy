@@ -27,14 +27,14 @@ const int kC = 12345;
 
 namespace core {
 
-RandomNumberGenerator::RandomNumberGenerator(uint32 seed) : seed_(seed) {
+RandomNumberGenerator::RandomNumberGenerator(uint32_t seed) : seed_(seed) {
 }
 
-uint32 RandomNumberGenerator::operator()(uint32 n) {
+uint32_t RandomNumberGenerator::operator()(uint32_t n) {
   // The generator is g(N + 1) = (g(N) * kA + kC) mod 2^32.
   // The use of unsigned 32 bit values yields the mod 2^32 for free.
   seed_ = seed_ * kA + kC;
-  uint32 ret = seed_ % n;
+  uint32_t ret = seed_ % n;
   DCHECK_GT(n, ret);
   return ret;
 }

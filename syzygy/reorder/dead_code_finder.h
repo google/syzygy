@@ -36,8 +36,8 @@ class DeadCodeFinder : public Reorderer::OrderGenerator {
   // @{
   virtual bool OnCodeBlockEntry(const Block* block,
                                 RelativeAddress address,
-                                uint32 process_id,
-                                uint32 thread_id,
+                                uint32_t process_id,
+                                uint32_t thread_id,
                                 const UniqueTime& time) override;
   virtual bool CalculateReordering(const PEFile& pe_file,
                                    const ImageLayout& image,

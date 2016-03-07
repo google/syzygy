@@ -18,7 +18,7 @@ namespace block_graph {
 
 namespace {
 
-ValueSize ValueSizeFromConstant(uint32 input_value) {
+ValueSize ValueSizeFromConstant(uint32_t input_value) {
   // IA32 assembly may/will sign-extend 8-bit literals, so we attempt to encode
   // in 8 bits only those literals whose value will be unchanged by that
   // treatment.
@@ -69,11 +69,11 @@ BasicBlockAssembler::Immediate Immediate() {
   return BasicBlockAssembler::Immediate();
 }
 
-BasicBlockAssembler::Immediate Immediate(uint32 value) {
+BasicBlockAssembler::Immediate Immediate(uint32_t value) {
   return BasicBlockAssembler::Immediate(value, ValueSizeFromConstant(value));
 }
 
-BasicBlockAssembler::Immediate Immediate(uint32 value, ValueSize size) {
+BasicBlockAssembler::Immediate Immediate(uint32_t value, ValueSize size) {
   return BasicBlockAssembler::Immediate(value, size);
 }
 
@@ -95,8 +95,9 @@ BasicBlockAssembler::Immediate Immediate(BlockGraph::Block* block,
       0, assm::kSize32Bit, UntypedReference(block, offset, base));
 }
 
-BasicBlockAssembler::Immediate Immediate(
-    uint32 value, ValueSize size, const UntypedReference& ref) {
+BasicBlockAssembler::Immediate Immediate(uint32_t value,
+                                         ValueSize size,
+                                         const UntypedReference& ref) {
   DCHECK(ref.IsValid());
   return BasicBlockAssembler::Immediate(value, size, ref);
 }
@@ -105,12 +106,12 @@ BasicBlockAssembler::Displacement Displacement() {
   return BasicBlockAssembler::Displacement();
 }
 
-BasicBlockAssembler::Displacement Displacement(uint32 value) {
+BasicBlockAssembler::Displacement Displacement(uint32_t value) {
   return BasicBlockAssembler::Displacement(value,
                                            ValueSizeFromConstant(value));
 }
 
-BasicBlockAssembler::Displacement Displacement(uint32 value, ValueSize size) {
+BasicBlockAssembler::Displacement Displacement(uint32_t value, ValueSize size) {
   return BasicBlockAssembler::Displacement(value, size);
 }
 
@@ -132,8 +133,9 @@ BasicBlockAssembler::Displacement Displacement(
       0, assm::kSize32Bit, UntypedReference(block, offset, base));
 }
 
-BasicBlockAssembler::Displacement Displacement(
-    uint32 value, ValueSize size, const UntypedReference& ref) {
+BasicBlockAssembler::Displacement Displacement(uint32_t value,
+                                               ValueSize size,
+                                               const UntypedReference& ref) {
   DCHECK(ref.IsValid());
   return BasicBlockAssembler::Displacement(value, size, ref);
 }
@@ -178,8 +180,11 @@ BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(
 }
 
 void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
-    uint32 location, const uint8* bytes, size_t num_bytes,
-    const ReferenceInfo* refs, size_t num_refs) {
+    uint32_t location,
+    const uint8_t* bytes,
+    size_t num_bytes,
+    const ReferenceInfo* refs,
+    size_t num_refs) {
   Instruction instruction;
   CHECK(Instruction::FromBuffer(bytes, num_bytes, &instruction));
   instruction.set_source_range(source_range_);
@@ -194,7 +199,9 @@ void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
 }
 
 bool BasicBlockAssembler::BasicBlockSerializer::FinalizeLabel(
-    uint32 location, const uint8* bytes, size_t num_bytes) {
+    uint32_t location,
+    const uint8_t* bytes,
+    size_t num_bytes) {
   // No support for labels.
   return false;
 }
@@ -204,7 +211,7 @@ BasicBlockAssembler::BasicBlockAssembler(const Instructions::iterator& where,
     : Super(0, &serializer_), serializer_(where, list) {
 }
 
-BasicBlockAssembler::BasicBlockAssembler(uint32 location,
+BasicBlockAssembler::BasicBlockAssembler(uint32_t location,
                                          const Instructions::iterator& where,
                                          Instructions* list)
     : Super(location, &serializer_), serializer_(where, list) {

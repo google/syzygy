@@ -57,14 +57,14 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
   virtual ~LinearOrderGenerator();
 
   // OrderGenerator implementation.
-  virtual bool OnProcessStarted(uint32 process_id,
+  virtual bool OnProcessStarted(uint32_t process_id,
                                 const UniqueTime& time) override;
-  virtual bool OnProcessEnded(uint32 process_id,
+  virtual bool OnProcessEnded(uint32_t process_id,
                               const UniqueTime& time) override;
   virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
-                                uint32 process_id,
-                                uint32 thread_id,
+                                uint32_t process_id,
+                                uint32_t thread_id,
                                 const UniqueTime& time) override;
   virtual bool CalculateReordering(const PEFile& pe_file,
                                    const ImageLayout& image,
@@ -113,15 +113,18 @@ class LinearOrderGenerator : public Reorderer::OrderGenerator {
 
 struct LinearOrderGenerator::BlockCall {
   const BlockGraph::Block* block;
-  uint32 process_id;
-  uint32 thread_id;
+  uint32_t process_id;
+  uint32_t thread_id;
   UniqueTime time;
 
-  BlockCall(const BlockGraph::Block* block, uint32 process_id,
-            uint32 thread_id, const UniqueTime& time)
-      : block(block), process_id(process_id), thread_id(thread_id),
-        time(time) {
-  }
+  BlockCall(const BlockGraph::Block* block,
+            uint32_t process_id,
+            uint32_t thread_id,
+            const UniqueTime& time)
+      : block(block),
+        process_id(process_id),
+        thread_id(thread_id),
+        time(time) {}
 };
 
 }  // namespace reorder

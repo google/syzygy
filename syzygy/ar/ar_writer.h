@@ -55,7 +55,7 @@ class ArWriter {
   // @returns true on success, false otherwise.
   bool AddFile(const base::StringPiece& filename,
                const base::Time& timestamp,
-               uint32 mode,
+               uint32_t mode,
                const DataBuffer* contents);
   bool AddFile(const base::FilePath& path);
 

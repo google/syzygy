@@ -20,7 +20,6 @@
 
 #include <windows.h>
 
-#include "base/basictypes.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/common/assertions.h"
 
@@ -46,14 +45,14 @@ struct IndexedFrequencyData {
 
   // An identifier denoting the agent with which this frequency data
   // instrumentation is intended to work.
-  uint32 agent_id;
+  uint32_t agent_id;
 
   // The version of the data structure and agent of the toolchain that
   // instrumented the binary. If this doesn't match the running client
   // library then the whole process should be aborted. This just a simple
   // counter which should be updated whenever a non-backwards compatible
   // change is made to the data structure or its usage.
-  uint32 version;
+  uint32_t version;
 
   // This points to an array of length 'num_entries' counter elements. At
   // link time it is initialized to point to statically allocated array that is
@@ -70,13 +69,13 @@ struct IndexedFrequencyData {
 
   // The number of entries in the frequency table. This is required by the
   // runtime client library so it knows how big an array to allocate.
-  uint32 num_entries;
+  uint32_t num_entries;
 
   // The number of columns for each entry.
-  uint32 num_columns;
+  uint32_t num_columns;
 
   // The number of bytes used for each element of frequency_data: 1, 4, or 8.
-  uint8 frequency_size;
+  uint8_t frequency_size;
 
   // Each module only needs to be registered once with the call-trace service.
   // Our hooks grab various entry points (e.g. TLS initializers and the image
@@ -84,10 +83,10 @@ struct IndexedFrequencyData {
   // use this to determine whether or not we should try initializing things.
   // Upon first entry this is protected by the loader lock and afterwards it
   // is only read, so synchronization is not an issue.
-  uint8 initialization_attempted;
+  uint8_t initialization_attempted;
 
   // The type of data associated with this module.
-  uint8 data_type;
+  uint8_t data_type;
 };
 COMPILE_ASSERT_IS_POD(IndexedFrequencyData);
 
@@ -113,22 +112,22 @@ struct ThreadLocalIndexedFrequencyData {
 #pragma pack(pop)
 
 // The basic-block coverage agent ID.
-extern const uint32 kBasicBlockCoverageAgentId;
+extern const uint32_t kBasicBlockCoverageAgentId;
 
 // The basic-block entry counting agent ID.
-extern const uint32 kBasicBlockEntryAgentId;
+extern const uint32_t kBasicBlockEntryAgentId;
 
 // The jump table counting agent ID.
-extern const uint32 kJumpTableCountAgentId;
+extern const uint32_t kJumpTableCountAgentId;
 
 // The basic-block trace agent version.
-extern const uint32 kBasicBlockFrequencyDataVersion;
+extern const uint32_t kBasicBlockFrequencyDataVersion;
 
 // The branch trace agent version.
-extern const uint32 kBranchFrequencyDataVersion;
+extern const uint32_t kBranchFrequencyDataVersion;
 
 // The jump table trace agent version.
-extern const uint32 kJumpTableFrequencyDataVersion;
+extern const uint32_t kJumpTableFrequencyDataVersion;
 
 // The name of the basic-block ranges stream added to the PDB by
 // any instrumentation employing basic-block trace data.

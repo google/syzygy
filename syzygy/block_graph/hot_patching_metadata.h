@@ -21,7 +21,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 
 namespace block_graph {
 
@@ -32,13 +31,13 @@ namespace block_graph {
 // This data structure describes a single Block in the HotPatchingMetadata.
 struct HotPatchingBlockMetadata {
   // The RVA of the start of the block.
-  uint32 relative_address;
+  uint32_t relative_address;
 
   // The size of the code in the block data.
-  uint16 code_size;
+  uint16_t code_size;
 
   // The size of the block data.
-  uint16 block_size;
+  uint16_t block_size;
 };
 
 // This struct contains the data that will be injected into images transformed
@@ -46,10 +45,10 @@ struct HotPatchingBlockMetadata {
 // required to perform the hot patching of blocks at runtime.
 struct HotPatchingMetadataHeader {
   // Version information.
-  uint32 version;
+  uint32_t version;
 
   // Number of HotPatchingBlockMetadata structures to follow.
-  uint32 number_of_blocks;
+  uint32_t number_of_blocks;
 };
 
 #pragma pack(pop)
@@ -57,7 +56,7 @@ struct HotPatchingMetadataHeader {
 // The current version of the HotPatchingMetadata structure. This needs to
 // be incremented if any time a non-backwards compatible change is made to the
 // serialization format.
-const uint32 kHotPatchingMetadataVersion = 1U;
+const uint32_t kHotPatchingMetadataVersion = 1U;
 
 }  // namespace block_graph
 

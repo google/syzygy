@@ -33,7 +33,7 @@ bool AddIndexedDataRangesStreamPdbMutator::AddNamedStreams(
   // Create the stream.
   scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream);
   CHECK(stream->Init(
-      reinterpret_cast<const uint8*>(&indexed_data_ranges_.at(0)),
+      reinterpret_cast<const uint8_t*>(&indexed_data_ranges_.at(0)),
       indexed_data_ranges_.size() * sizeof(indexed_data_ranges_.at(0))));
 
   // Add the stream to the PDB.

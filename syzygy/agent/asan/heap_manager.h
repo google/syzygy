@@ -17,7 +17,6 @@
 #ifndef SYZYGY_AGENT_ASAN_HEAP_MANAGER_H_
 #define SYZYGY_AGENT_ASAN_HEAP_MANAGER_H_
 
-#include "base/basictypes.h"
 #include "base/logging.h"
 #include "syzygy/agent/asan/heap.h"
 

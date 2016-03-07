@@ -68,7 +68,7 @@ class BranchHookTransform
   // @{
   bool buffering() const { return buffering_; }
   void set_buffering(bool buffering) { buffering_ = buffering; }
-  void set_fs_slot(uint32 slot) { fs_slot_ = slot; }
+  void set_fs_slot(uint32_t slot) { fs_slot_ = slot; }
   // @}
 
  protected:
@@ -128,7 +128,7 @@ class BranchHookTransform
 
   // If not zero, use a FS slot to keep thread local storage instead of the
   // standard API.
-  uint32 fs_slot_;
+  uint32_t fs_slot_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(BranchHookTransform);

@@ -26,7 +26,6 @@
 #ifndef SYZYGY_AGENT_ASAN_PAGE_ALLOCATOR_H_
 #define SYZYGY_AGENT_ASAN_PAGE_ALLOCATOR_H_
 
-#include "base/basictypes.h"
 #include "base/synchronization/lock.h"
 
 namespace agent {

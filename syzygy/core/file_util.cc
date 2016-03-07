@@ -119,7 +119,7 @@ namespace {
 struct FileMagic {
   FileType file_type;
   size_t magic_size;
-  const uint8* magic;
+  const uint8_t* magic;
 };
 
 // Macros for defining magic signatures for files.
@@ -130,32 +130,31 @@ struct FileMagic {
 
 // Magic signatures used by various file types.
 // Archive (.lib) files begin with a simple string.
-const uint8 kArchiveFileMagic[] = "!<arch>";
+const uint8_t kArchiveFileMagic[] = "!<arch>";
 // Machine independent COFF files begin with 0x00 0x00, and then two bytes
 // that aren't 0xFF 0xFF. Anonymous object files (unsupported) are followed by
 // 0xFF 0xFF, and then two bytes containing type information.
 // - Export definitions are type 0x00 0x00.
 // - Object files containing LTCG intermediate code appear to be type 0x01 0x00.
-const uint8 kCoffFileMagic0[] = { 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00 };
-const uint8 kCoffFileMagic1[] = { 0x00, 0x00, 0xFF, 0xFF };
-const uint8 kCoffFileMagic2[] = { 0x00, 0x00 };
+const uint8_t kCoffFileMagic0[] = {0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00};
+const uint8_t kCoffFileMagic1[] = {0x00, 0x00, 0xFF, 0xFF};
+const uint8_t kCoffFileMagic2[] = {0x00, 0x00};
 // X86 COFF files begin with 0x4c 0x01.
-const uint8 kCoffFileMagic3[] = { 0x4C, 0x01 };
+const uint8_t kCoffFileMagic3[] = {0x4C, 0x01};
 // X86-64 COFF files begin with 0x64 0x86.
-const uint8 kCoffFileMagic4[] = { 0x64, 0x86 };
-const uint8 kPdbFileMagic[] = "Microsoft C/C++ MSF ";
+const uint8_t kCoffFileMagic4[] = {0x64, 0x86};
+const uint8_t kPdbFileMagic[] = "Microsoft C/C++ MSF ";
 // PE files all contain DOS stubs, and the first two bytes of 16-bit DOS
 // exectuables are always "MZ".
-const uint8 kPeFileMagic[] = "MZ";
+const uint8_t kPeFileMagic[] = "MZ";
 // This is a dummy resource file entry that also reads as an invalid 16-bit
 // resource. This allows MS tools to distinguish between 16-bit and 32-bit
 // resources. We only care about 32-bit resources, and this is sufficient for
 // us to distinguish between a resource file and a COFF object file.
-const uint8 kResourceFileMagic[] = {
-    0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00,
-    0xFF, 0xFF, 0x00, 0x00, 0xFF, 0xFF, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+const uint8_t kResourceFileMagic[] = {
+    0x00, 0x00, 0x00, 0x00, 0x20, 0x00, 0x00, 0x00, 0xFF, 0xFF, 0x00,
+    0x00, 0xFF, 0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
 
 // Simple magic signatures for files.
 const FileMagic kFileMagics[] = {
@@ -186,7 +185,7 @@ bool GuessFileTypeImpl(size_t length, InStream* stream, FileType* file_type) {
     return true;
 
   // Check all of the magic signatures.
-  std::vector<uint8> magic;
+  std::vector<uint8_t> magic;
   for (size_t i = 0; i < arraysize(kFileMagics); ++i) {
     const FileMagic& file_magic = kFileMagics[i];
 
@@ -234,7 +233,7 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
 
   size_t file_size = 0;
   {
-    int64 temp_file_size = 0;
+    int64_t temp_file_size = 0;
     if (!base::GetFileSize(path, &temp_file_size)) {
       LOG(ERROR) << "Unable to get file size: " << path.value();
       return false;
@@ -260,11 +259,13 @@ bool GuessFileType(const base::FilePath& path, FileType* file_type) {
   return true;
 }
 
-bool GuessFileType(const uint8* contents, size_t length, FileType* file_type) {
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), contents);
+bool GuessFileType(const uint8_t* contents,
+                   size_t length,
+                   FileType* file_type) {
+  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), contents);
   DCHECK_NE(reinterpret_cast<FileType*>(NULL), file_type);
 
-  ByteInStream<const uint8*> stream(contents, contents + length);
+  ByteInStream<const uint8_t*> stream(contents, contents + length);
   if (!GuessFileTypeImpl(length, &stream, file_type))
     return false;
 

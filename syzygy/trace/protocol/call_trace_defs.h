@@ -15,12 +15,12 @@
 #ifndef SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_
 #define SYZYGY_TRACE_PROTOCOL_CALL_TRACE_DEFS_H_
 
+#include <stdint.h>
 #include <windows.h>
 #include <wmistr.h>
 #include <evntrace.h>  // NOLINT - wmistr must precede envtrace.h
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/common/assertions.h"
 #include "syzygy/trace/common/clock.h"
@@ -126,22 +126,22 @@ typedef void* SessionHandle;
 // A prefix for each trace record on disk.
 struct RecordPrefix {
   // The timestamp of the trace event.
-  uint64 timestamp;
+  uint64_t timestamp;
 
   // The size of the record, in bytes;
-  uint32 size;
+  uint32_t size;
 
   // The type of trace record.  Will be a value from the TraceEventType
   // enumeration.
-  uint16 type;
+  uint16_t type;
 
   // If the call trace service aggregates all trace records to a single
   // file, instead of a file per process, then it's possible that a
   // single file could contain traces produced by multiple versions of
   // the client library.
   struct {
-    uint8 hi;
-    uint8 lo;
+    uint8_t hi;
+    uint8_t lo;
   } version;
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(RecordPrefix, 16);
@@ -168,13 +168,13 @@ struct TraceFileHeader {
 
   // The version of the call trace service which recorded this trace file.
   struct {
-    uint16 lo;
-    uint16 hi;
+    uint16_t lo;
+    uint16_t hi;
   } server_version;
 
   // The number of bytes in the header. This is the size of this structure
   // plus the length of the blob.
-  uint32 header_size;
+  uint32_t header_size;
 
   // Nothing above this point in the header can change in order to maintain
   // the ability to parse the basic header with the version number. This by
@@ -183,23 +183,23 @@ struct TraceFileHeader {
 
   // The block size used when writing the file to disk. The header and
   // all segments are padded and byte aligned to this block size.
-  uint32 block_size;
+  uint32_t block_size;
 
   // The id of the process being traced.
-  uint32 process_id;
+  uint32_t process_id;
 
   // The base address at which the executable module was loaded when the
   // trace file was created.
-  uint32 module_base_address;
+  uint32_t module_base_address;
 
   // The size of the executable module.
-  uint32 module_size;
+  uint32_t module_size;
 
   // The checksum of the executable module.
-  uint32 module_checksum;
+  uint32_t module_checksum;
 
   // The timestamp of the executable module.
-  uint32 module_time_date_stamp;
+  uint32_t module_time_date_stamp;
 
   // System information.
   OSVERSIONINFOEX os_version_info;
@@ -227,7 +227,7 @@ struct TraceFileHeader {
   // This stores the variable length data, concatenated. This should be pointer
   // aligned so that PODs with alignment constraints embedded in the blob can be
   // read directly from a header loaded into memory.
-  uint8 blob_data[1];
+  uint8_t blob_data[1];
 };
 COMPILE_ASSERT_IS_POD(TraceFileHeader);
 
@@ -242,12 +242,12 @@ struct TraceFileSegmentHeader {
 
   // The identity of the thread that is reporting in this segment
   // of the trace file.
-  uint32 thread_id;
+  uint32_t thread_id;
 
   // The number of data bytes in this segment of the trace file. This
   // value does not include the size of the record prefix nor the size
   // of the segment header.
-  uint32 segment_length;
+  uint32_t segment_length;
 };
 COMPILE_ASSERT_IS_POD(TraceFileSegmentHeader);
 
@@ -271,8 +271,8 @@ COMPILE_ASSERT_IS_POD(TraceEnterExitEventData);
 struct TraceModuleData {
   ModuleAddr module_base_addr;
   size_t module_base_size;
-  uint32 module_checksum;
-  uint32 module_time_date_stamp;
+  uint32_t module_checksum;
+  uint32_t module_time_date_stamp;
   wchar_t module_name[256];
   wchar_t module_exe[MAX_PATH];
 };
@@ -326,18 +326,18 @@ enum InvocationInfoFlags {
 struct InvocationInfo {
   union {
     RetAddr caller;
-    uint32 caller_symbol_id;
+    uint32_t caller_symbol_id;
   };
   union {
     FuncAddr function;
-    uint32 function_symbol_id;
+    uint32_t function_symbol_id;
   };
   size_t num_calls;
-  uint32 flags:8;
-  uint32 caller_offset:24;
-  uint64 cycles_min;
-  uint64 cycles_max;
-  uint64 cycles_sum;
+  uint32_t flags : 8;
+  uint32_t caller_offset : 24;
+  uint64_t cycles_min;
+  uint64_t cycles_max;
+  uint64_t cycles_sum;
 };
 COMPILE_ASSERT_IS_POD(InvocationInfo);
 
@@ -367,26 +367,26 @@ struct TraceIndexedFrequencyData {
   // been reported via a TraceModuleData struct.
   ModuleAddr module_base_addr;
   size_t module_base_size;
-  uint32 module_checksum;
-  uint32 module_time_date_stamp;
+  uint32_t module_checksum;
+  uint32_t module_time_date_stamp;
 
   // The number of entries being reported. It is up to the instrumentation to
   // output any other metadata that is required to map an index to an address.
-  uint32 num_entries;
+  uint32_t num_entries;
 
   // The number of columns for each record. Each column entry has the data sized
   // specified by |frequency_size|.
-  uint32 num_columns;
+  uint32_t num_columns;
 
   // The type of data contained in this frequency record. This should be one of
   // the data-types defined in IndexedFrequencyData::DataType.
-  uint8 data_type;
+  uint8_t data_type;
 
   // The size of the frequency reports: 1, 2 or 4 bytes.
-  uint8 frequency_size;
+  uint8_t frequency_size;
 
   // In fact, there are frequency_size * num_basic_blocks bytes that follow.
-  uint8 frequency_data[1];
+  uint8_t frequency_data[1];
 };
 COMPILE_ASSERT_IS_POD(TraceIndexedFrequencyData);
 
@@ -394,7 +394,7 @@ struct TraceDynamicSymbol {
   enum { kTypeId = TRACE_DYNAMIC_SYMBOL };
 
   // The symbol's ID, unique per process.
-  uint32 symbol_id;
+  uint32_t symbol_id;
   // In fact as many as our enclosing record's size allows for,
   // zero terminated.
   char symbol_name[1];
@@ -408,29 +408,29 @@ struct TraceSampleData {
   // been reported via a TraceModuleData struct.
   ModuleAddr module_base_addr;
   size_t module_size;
-  uint32 module_checksum;
-  uint32 module_time_date_stamp;
+  uint32_t module_checksum;
+  uint32_t module_time_date_stamp;
 
   // The size of each bucket in the sample data. This will be a power of 2 in
   // size.
-  uint32 bucket_size;
+  uint32_t bucket_size;
 
   // The beginning of the sampling buckets as an address in the image.
   // This will be aligned with the bucket size.
   ModuleAddr bucket_start;
 
   // The number of buckets in the sample data.
-  uint32 bucket_count;
+  uint32_t bucket_count;
 
   // The time when the trace started and ended.
-  uint64 sampling_start_time;
-  uint64 sampling_end_time;
+  uint64_t sampling_start_time;
+  uint64_t sampling_end_time;
 
   // The sampling interval, expressed in clock cycles.
-  uint64 sampling_interval;
+  uint64_t sampling_interval;
 
   // There are actually |bucket_count| buckets that follow.
-  uint32 buckets[1];
+  uint32_t buckets[1];
 };
 COMPILE_ASSERT_IS_POD(TraceSampleData);
 
@@ -439,10 +439,10 @@ struct TraceFunctionNameTableEntry {
   enum { kTypeId = TRACE_FUNCTION_NAME_TABLE_ENTRY };
 
   // The assigned ID of this function.
-  uint32 function_id;
+  uint32_t function_id;
 
   // The length of the function name.
-  uint32 name_length;
+  uint32_t name_length;
 
   // The name of this function. This is actually of length |name_length|,
   // which doesn't need to include null termination.
@@ -457,10 +457,10 @@ struct TraceStackTrace {
 
   // The ID of this stack trace. This is computed as a hash of the stack trace
   // and is unique for a given set of load addresses (ie: for a process).
-  uint32 stack_trace_id;
+  uint32_t stack_trace_id;
 
   // The number of frames in the stack trace.
-  uint32 num_frames;
+  uint32_t num_frames;
 
   // The frames of the stack trace. There are actually |num_frames| frames
   // in total.
@@ -472,30 +472,30 @@ struct TraceDetailedFunctionCall {
   enum { kTypeId = TRACE_DETAILED_FUNCTION_CALL };
 
   // The timestamp of the funtion call.
-  uint64 timestamp;
+  uint64_t timestamp;
 
   // The ID of the function. This is an entry in the global
   // function table.
-  uint32 function_id;
+  uint32_t function_id;
 
   // The ID of the stack trace leading to the function call.
-  uint32 stack_trace_id;
+  uint32_t stack_trace_id;
 
   // The size of the argument data.
-  uint32 argument_data_size;
+  uint32_t argument_data_size;
 
   // The blob of argument data. This is actually of size
   // |argument_data_size|. This is laid out as follows:
-  // uint32 argument_count
-  // uint32 argument_length_0
-  // uint32 argument_length_1
+  // uint32_t argument_count
+  // uint32_t argument_length_0
+  // uint32_t argument_length_1
   // ...
-  // uint8 argument_data_0
-  // uint8 argument_data_1
+  // uint8_t argument_data_0
+  // uint8_t argument_data_1
   // ...
   // The content and interpretation of this data is up to the
   // individual producer and consumer.
-  uint8 argument_data[1];
+  uint8_t argument_data[1];
 };
 COMPILE_ASSERT_IS_POD(TraceDetailedFunctionCall);
 
@@ -505,7 +505,7 @@ struct TraceComment {
   enum { kTypedId = TRACE_COMMENT };
 
   // The size of the comment in bytes.
-  uint32 comment_size;
+  uint32_t comment_size;
 
   // Actually of size |comment_size|. A UTF8 encoded string.
   char comment[1];
@@ -515,7 +515,7 @@ struct TraceComment {
 struct TraceProcessHeap {
   enum { kTypeId = TRACE_PROCESS_HEAP };
 
-  uint32 process_heap;
+  uint32_t process_heap;
 };
 COMPILE_ASSERT_IS_POD(TraceProcessHeap);
 

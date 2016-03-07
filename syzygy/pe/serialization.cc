@@ -31,7 +31,7 @@ using block_graph::BlockGraphSerializer;
 
 // Used for versioning the serialized stream. Be sure to change this if
 // non-backwards compatible changes are made to the stream layout.
-static const uint32 kSerializedBlockGraphAndImageLayoutVersion = 0;
+static const uint32_t kSerializedBlockGraphAndImageLayoutVersion = 0;
 
 bool MetadataMatchesPEFile(const Metadata& metadata, const PEFile& pe_file) {
   PEFile::Signature pe_signature;
@@ -227,7 +227,7 @@ bool LoadBlockData(const PEFile* pe_file,
   DCHECK_EQ(0u, block->data_size());
   DCHECK(block->data() == NULL);
 
-  const uint8* data = pe_file->GetImageData(block_addr, data_size);
+  const uint8_t* data = pe_file->GetImageData(block_addr, data_size);
   if (data == NULL) {
     LOG(ERROR) << "Unable to get data from PE file for block with id "
                << block->id() << ".";
@@ -254,7 +254,7 @@ bool LoadBlockGraphAndImageLayout(
   // Load and check the stream version. This is where we could dispatch to
   // different handlers for old versions of the stream if we wish to maintain
   // backwards compatibility.
-  uint32 stream_version = 0;
+  uint32_t stream_version = 0;
   if (!in_archive->Load(&stream_version)) {
     LOG(ERROR) << "Unable to load serialized stream version.";
     return false;

@@ -29,7 +29,7 @@ namespace msf {
 
 namespace {
 
-uint32 GetNumPages(uint32 num_bytes) {
+uint32_t GetNumPages(uint32_t num_bytes) {
   return (num_bytes + msf::kMsfPageSize - 1) / msf::kMsfPageSize;
 }
 
@@ -58,8 +58,9 @@ class TestMsfWriter : public MsfWriter {
 
 class TestMsfStream : public MsfStream {
  public:
-  TestMsfStream(uint32 length, uint32 mask) : MsfStream(length), data_(length) {
-    uint32* data = reinterpret_cast<uint32*>(data_.data());
+  TestMsfStream(uint32_t length, uint32_t mask)
+      : MsfStream(length), data_(length) {
+    uint32_t* data = reinterpret_cast<uint32_t*>(data_.data());
 
     // Just to make sure the data is non-repeating (so we can distinguish if it
     // has been correctly written or not) fill it with integers encoding their
@@ -85,7 +86,7 @@ class TestMsfStream : public MsfStream {
   }
 
  private:
-  std::vector<uint8> data_;
+  std::vector<uint8_t> data_;
 };
 
 void EnsureMsfContentsAreIdentical(const MsfFile& msf_file,
@@ -101,8 +102,8 @@ void EnsureMsfContentsAreIdentical(const MsfFile& msf_file,
 
     ASSERT_EQ(stream->length(), stream_read->length());
 
-    std::vector<uint8> data;
-    std::vector<uint8> data_read;
+    std::vector<uint8_t> data;
+    std::vector<uint8_t> data_read;
     ASSERT_TRUE(stream->Seek(0));
     ASSERT_TRUE(stream_read->Seek(0));
     ASSERT_TRUE(stream->Read(&data, stream->length()));
@@ -135,13 +136,13 @@ TEST(MsfWriterTest, AppendStream) {
   // Test writing a stream that will force allocation of the free page map
   // pages.
   std::vector<uint32> pages_written;
-  uint32 page_count = 0;
+  uint32_t page_count = 0;
   EXPECT_TRUE(writer.AppendStream(stream.get(), &pages_written, &page_count));
   writer.file().reset();
 
   // We expect pages_written to contain 4 pages, like the stream. However, we
   // expect page_count to have 2 more pages for the free page map.
-  uint32 expected_pages_written[] = {0, 3, 4, 5};
+  uint32_t expected_pages_written[] = {0, 3, 4, 5};
   EXPECT_THAT(pages_written,
               ::testing::ElementsAreArray(expected_pages_written));
   EXPECT_EQ(page_count, 6);
@@ -149,12 +150,12 @@ TEST(MsfWriterTest, AppendStream) {
   // Build the expected stream contents. Two blank pages should have been
   // reserved by the append stream routine.
   stream->Seek(0);
-  std::vector<uint8> expected_contents(6 * kMsfPageSize);
+  std::vector<uint8_t> expected_contents(6 * kMsfPageSize);
   ASSERT_TRUE(stream->Read(expected_contents.data(), kMsfPageSize));
   ASSERT_TRUE(stream->Read(expected_contents.data() + 3 * kMsfPageSize,
                            3 * kMsfPageSize));
 
-  std::vector<uint8> contents(6 * kMsfPageSize);
+  std::vector<uint8_t> contents(6 * kMsfPageSize);
   ASSERT_EQ(
       contents.size(),
       base::ReadFile(temp_file.path(), reinterpret_cast<char*>(contents.data()),
@@ -182,7 +183,7 @@ TEST(MsfWriterTest, WriteHeader) {
 
   // Build the expected stream contents. Two blank pages should have been
   // reserved by the append stream routine.
-  std::vector<uint8> expected_contents(sizeof(MsfHeader));
+  std::vector<uint8_t> expected_contents(sizeof(MsfHeader));
   MsfHeader* header = reinterpret_cast<MsfHeader*>(expected_contents.data());
   ::memcpy(header->magic_string, kMsfHeaderMagicString,
            kMsfHeaderMagicStringSize);
@@ -192,7 +193,7 @@ TEST(MsfWriterTest, WriteHeader) {
   header->directory_size = 67 * 4;
   header->root_pages[0] = 1;
 
-  std::vector<uint8> contents(sizeof(MsfHeader));
+  std::vector<uint8_t> contents(sizeof(MsfHeader));
   ASSERT_EQ(
       contents.size(),
       base::ReadFile(temp_file.path(), reinterpret_cast<char*>(contents.data()),
@@ -203,7 +204,7 @@ TEST(MsfWriterTest, WriteHeader) {
 
 TEST(MsfWriterTest, WriteMsfFile) {
   MsfFile msf_file;
-  for (uint32 i = 0; i < 4; ++i)
+  for (uint32_t i = 0; i < 4; ++i)
     msf_file.AppendStream(new TestMsfStream(1 << (8 + i), (i << 24)));
 
   // Test that we can create an MSF file and then read it successfully.

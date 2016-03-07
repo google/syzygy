@@ -47,7 +47,7 @@ class ParseTraceFileHeaderBlobTest : public ::testing::Test {
     return ParseTraceFileHeaderBlob(header, NULL, NULL, NULL);
   }
 
-  std::vector<uint8> buffer_;
+  std::vector<uint8_t> buffer_;
 };
 
 }  // namespace
@@ -78,7 +78,7 @@ TEST_F(ParseTraceFileHeaderBlobTest, FailsOnShortData) {
 
   for (size_t i = 0; i < 8; ++i) {
     EXPECT_FALSE(TestParseTraceFileHeaderBlob(*GetHeader()));
-    ASSERT_TRUE(writer.Write<uint8>(0));
+    ASSERT_TRUE(writer.Write<uint8_t>(0));
     SetHeaderSize();
   }
 

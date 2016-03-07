@@ -80,10 +80,10 @@ class AllocateFromHeapManagerHelper {
     EXPECT_NE(nullptr, allocation_code_page_);
 
     assm::BufferSerializer bs(
-        reinterpret_cast<uint8*>(allocation_code_page_) + offset,
+        reinterpret_cast<uint8_t*>(allocation_code_page_) + offset,
         GetPageSize() - offset);
     assm::AssemblerImpl assembler(
-        reinterpret_cast<uint32>(allocation_code_page_) + offset, &bs);
+        reinterpret_cast<uint32_t>(allocation_code_page_) + offset, &bs);
 
     assembler.push(assm::ebp);
     assembler.mov(assm::ebp, assm::esp);
@@ -98,8 +98,8 @@ class AllocateFromHeapManagerHelper {
 
     // Call the AllocateFromHeapManager function.
     assembler.call(assm::AssemblerImpl::Immediate(
-        reinterpret_cast<uint32>(&AllocateFromHeapManager),
-                                 assm::kSize32Bit, NULL));
+        reinterpret_cast<uint32_t>(&AllocateFromHeapManager), assm::kSize32Bit,
+        NULL));
     assembler.mov(assm::esp, assm::ebp);
     assembler.pop(assm::ebp);
     assembler.ret();
@@ -118,7 +118,7 @@ class AllocateFromHeapManagerHelper {
     using AllocFunctionPtr = void*(*)(BlockHeapManager* heap_manager,
                                       HeapId heap_id,
                                       size_t bytes);
-    uint8* func = reinterpret_cast<uint8*>(allocation_code_page_) + offset_;
+    uint8_t* func = reinterpret_cast<uint8_t*>(allocation_code_page_) + offset_;
     return reinterpret_cast<AllocFunctionPtr>(func)(
         heap_manager_, heap_id_, bytes);
   }
@@ -360,9 +360,9 @@ class ScopedHeap {
       // Search through all blocks in each shard.
       TestQuarantine::Node* current_node = test_quarantine->heads_[i];
       while (current_node != nullptr) {
-        const uint8* body =
-            reinterpret_cast<const uint8*>(current_node->object.header) +
-                current_node->object.header_size;
+        const uint8_t* body =
+            reinterpret_cast<const uint8_t*>(current_node->object.header) +
+            current_node->object.header_size;
         if (body == mem) {
           EXPECT_TRUE(
               current_node->object.header->state == QUARANTINED_BLOCK ||
@@ -377,7 +377,7 @@ class ScopedHeap {
   }
 
   // Returns the heap supported features.
-  uint32 GetHeapFeatures() {
+  uint32_t GetHeapFeatures() {
     return heap_manager_->GetHeapFromId(heap_id_)->GetHeapFeatures();
   }
 
@@ -470,7 +470,7 @@ class BlockHeapManagerTest : public testing::TestWithAsanRuntime {
   // Verifies that [alloc, alloc + size) is accessible, and that
   // [alloc - 1] and [alloc+size] are poisoned.
   void VerifyAllocAccess(void* alloc, size_t size) {
-    uint8* mem = reinterpret_cast<uint8*>(alloc);
+    uint8_t* mem = reinterpret_cast<uint8_t*>(alloc);
     ASSERT_FALSE(runtime_->shadow()->IsAccessible(mem - 1));
     ASSERT_TRUE(runtime_->shadow()->IsLeftRedzone(mem - 1));
     for (size_t i = 0; i < size; ++i)
@@ -480,7 +480,7 @@ class BlockHeapManagerTest : public testing::TestWithAsanRuntime {
 
   // Verifies that [alloc-1, alloc+size] is poisoned.
   void VerifyFreedAccess(void* alloc, size_t size) {
-    uint8* mem = reinterpret_cast<uint8*>(alloc);
+    uint8_t* mem = reinterpret_cast<uint8_t*>(alloc);
     ASSERT_FALSE(runtime_->shadow()->IsAccessible(mem - 1));
     ASSERT_TRUE(runtime_->shadow()->IsLeftRedzone(mem - 1));
     for (size_t i = 0; i < size; ++i) {
@@ -848,7 +848,7 @@ TEST_F(BlockHeapManagerTest, CaptureTID) {
   ::common::AsanParameters parameters = heap_manager_->parameters();
   parameters.quarantine_size = GetAllocSize(kAllocSize);
   heap_manager_->set_parameters(parameters);
-  uint8* mem = static_cast<uint8*>(heap.Allocate(kAllocSize));
+  uint8_t* mem = static_cast<uint8_t*>(heap.Allocate(kAllocSize));
   BlockBody* body = reinterpret_cast<BlockBody*>(mem);
   ASSERT_TRUE(heap.Free(mem));
   BlockHeader* header = BlockGetHeaderFromBody(body);
@@ -907,7 +907,7 @@ TEST_F(BlockHeapManagerTest, SetTrailerPaddingSize) {
     for (; offset < augmented_alloc_size - sizeof(BlockHeader);
          ++offset) {
       EXPECT_FALSE(runtime_->shadow()->IsAccessible(
-          reinterpret_cast<const uint8*>(mem) + offset));
+          reinterpret_cast<const uint8_t*>(mem) + offset));
     }
     ASSERT_TRUE(heap.Free(mem));
   }
@@ -981,7 +981,7 @@ TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantine) {
 
     // Change some of the block content and then flush the quarantine. The block
     // hash should be invalid and it should cause an error to be fired.
-    reinterpret_cast<int32*>(mem)[0] = rand();
+    reinterpret_cast<int32_t*>(mem)[0] = rand();
     heap.FlushQuarantine();
 
     // Try again for all but the last attempt if this appears to have failed.
@@ -1017,7 +1017,7 @@ TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantineOnHeapDestroy) {
       EXPECT_TRUE(errors_.empty());
 
       // Change some of the block content to invalidate the block's hash.
-      reinterpret_cast<int32*>(mem)[0] = rand();
+      reinterpret_cast<int32_t*>(mem)[0] = rand();
     }
 
     // The destructor of |heap| should be called and all the quarantined blocks
@@ -1056,7 +1056,7 @@ TEST_F(BlockHeapManagerTest, CorruptHeapOnTrimQuarantine) {
       EXPECT_TRUE(errors_.empty());
 
       // Change some of the block content to invalidate the block's hash.
-      reinterpret_cast<int32*>(mem)[0] = rand();
+      reinterpret_cast<int32_t*>(mem)[0] = rand();
     }
 
     // The destructor of |heap| should be called and all the quarantined blocks
@@ -1101,7 +1101,7 @@ TEST_F(BlockHeapManagerTest, CorruptionIsReportedOnlyOnce) {
     EXPECT_TRUE(errors_.empty());
 
     // Change some of the block content to corrupt it.
-    reinterpret_cast<int32*>(mem)[0] ^= 0xFFFFFFFF;
+    reinterpret_cast<int32_t*>(mem)[0] ^= 0xFFFFFFFF;
   }
 
   // Empty the quarantine and free all the blocks that were in it. We should be
@@ -1167,7 +1167,7 @@ TEST_F(BlockHeapManagerTest, SubsampledAllocationGuards) {
 
     for (size_t i = 0; i < alloc_size; ++i) {
       EXPECT_TRUE(runtime_->shadow()->IsAccessible(
-          reinterpret_cast<uint8*>(alloc) + i));
+          reinterpret_cast<uint8_t*>(alloc) + i));
     }
 
     // Determine if the allocation has guards or not.
@@ -1703,7 +1703,7 @@ bool ShadowIsConsistentPostFree(
   index >>= kShadowRatioLog;
   uintptr_t index_end = index + (size >> kShadowRatioLog);
 
-  uint8 m = shadow->shadow()[index];
+  uint8_t m = shadow->shadow()[index];
   if (m != ShadowMarker::kHeapAddressableMarker &&
       m != ShadowMarker::kAsanReservedMarker &&
       m != ShadowMarker::kHeapFreedMarker) {

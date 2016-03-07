@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/pdb/gen/pdb_type_info_records.h"
+#include "syzygy/pdb/gen/pdb_type_info_records.h"  // NOLINT
 
 #include "base/files/file_util.h"
 #include "base/strings/utf_string_conversions.h"
@@ -623,7 +623,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncOff) {
-  const uint16 kPad = 0x0000;
+  const uint16_t kPad = 0x0000;
   const uint32_t kType = 0x20AC;
   const uint32_t kOffset = 0x0FF531;
 
@@ -644,7 +644,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncOff) {
 }
 
 TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncTab) {
-  const uint16 kPad = 0x0000;
+  const uint16_t kPad = 0x0000;
   const uint32_t kType = 0x2015;
 
   LeafVFuncTab type_record;
@@ -679,7 +679,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVTShape) {
 
 TEST_F(PdbTypeInfoRecordsTest, ReadMethodListRecord) {
   const LeafMemberAttributeField kAttr = {0x1212};
-  const uint16 kPad = 0x0000;
+  const uint16_t kPad = 0x0000;
   const uint32_t kType = 0xF0F0F0F0;
   const uint32_t kVbaseOff = 0xBA5E0000;
 

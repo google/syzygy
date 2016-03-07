@@ -22,9 +22,10 @@ namespace core {
 
 namespace {
 
-const uint8 kSampleData[] = "This is some simple sample data. Simple is as "
-                            "simple does. Similar samples are amply simple to "
-                            "compress.";
+const uint8_t kSampleData[] =
+    "This is some simple sample data. Simple is as "
+    "simple does. Similar samples are amply simple to "
+    "compress.";
 
 class ZOutStreamTest : public ::testing::Test {
  public:
@@ -32,7 +33,7 @@ class ZOutStreamTest : public ::testing::Test {
     out_stream_.reset(CreateByteOutStream(std::back_inserter(compressed_)));
   }
 
-  std::vector<uint8> compressed_;
+  std::vector<uint8_t> compressed_;
   ScopedOutStreamPtr out_stream_;
 };
 
@@ -52,9 +53,9 @@ class ZInStreamTest : public ::testing::Test {
                                         compressed_.end()));
   }
 
-  std::vector<uint8> compressed_;
+  std::vector<uint8_t> compressed_;
   ScopedInStreamPtr in_stream_;
-  uint8 buffer[2 * sizeof(kSampleData)];
+  uint8_t buffer[2 * sizeof(kSampleData)];
 };
 
 }  // namespace
@@ -95,8 +96,8 @@ TEST_F(ZInStreamTest, DecompressionWorks) {
 }
 
 TEST(ZStreamTest, RoundTrip) {
-  std::vector<uint8> compressed;
-  std::vector<uint8> decompressed;
+  std::vector<uint8_t> compressed;
+  std::vector<uint8_t> decompressed;
 
   ScopedOutStreamPtr out_stream(
       CreateByteOutStream(std::back_inserter(compressed)));
@@ -121,7 +122,7 @@ TEST(ZStreamTest, RoundTrip) {
   decompressed.resize(bytes_read);
 
   // We shouldn't be able to read any more data from either stream.
-  uint8 buffer[1] = {};
+  uint8_t buffer[1] = {};
   bytes_read = 0;
   EXPECT_TRUE(unzip_stream.Read(sizeof(buffer), buffer, &bytes_read));
   EXPECT_EQ(0, bytes_read);

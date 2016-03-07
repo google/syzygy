@@ -28,8 +28,11 @@ SyzygyVersion::SyzygyVersion()
       patch_(0) {
 }
 
-SyzygyVersion::SyzygyVersion(uint16 major, uint16 minor, uint16 build,
-                             uint16 patch, const char* last_change)
+SyzygyVersion::SyzygyVersion(uint16_t major,
+                             uint16_t minor,
+                             uint16_t build,
+                             uint16_t patch,
+                             const char* last_change)
     : major_(major),
       minor_(minor),
       build_(build),

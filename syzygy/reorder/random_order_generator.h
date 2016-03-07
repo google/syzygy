@@ -28,8 +28,8 @@ class RandomOrderGenerator : public Reorderer::OrderGenerator {
   // OrderGenerator implementation.
   virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
-                                uint32 process_id,
-                                uint32 thread_id,
+                                uint32_t process_id,
+                                uint32_t thread_id,
                                 const UniqueTime& time) override;
   virtual bool CalculateReordering(const PEFile& pe_file,
                                    const ImageLayout& image,
@@ -38,7 +38,7 @@ class RandomOrderGenerator : public Reorderer::OrderGenerator {
                                    Order* order) override;
 
  private:
-  const uint32 seed_;
+  const uint32_t seed_;
 };
 
 }  // namespace reorder

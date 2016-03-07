@@ -68,7 +68,7 @@ class CoverageGrinderTest : public testing::PELibUnitTest {
     EXPECT_TRUE(grinder.OutputData(output_file.get()));
     output_file.reset();
 
-    int64 cache_grind_file_size = 0;
+    int64_t cache_grind_file_size = 0;
     ASSERT_TRUE(base::GetFileSize(output_path.path(), &cache_grind_file_size));
     EXPECT_LT(0u, cache_grind_file_size);
   }

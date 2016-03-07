@@ -186,7 +186,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
       expected[65] = 2;  // mov ebp, esp (2 bytes).
       expected[66] = 1;  // push ecx (1 byte).
 
-      uint32 min_visit_count = 0xFFFFFFFF;
+      uint32_t min_visit_count = 0xFFFFFFFF;
       for (size_t i = 0; i < g.line_info_.source_lines().size(); ++i) {
         const LineInfo::SourceLine& line = g.line_info_.source_lines()[i];
         if (line.visit_count == 0)
@@ -217,7 +217,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     csv_file.reset();
 
     // Ensure output was produced.
-    int64 file_size = 0;
+    int64_t file_size = 0;
     ASSERT_TRUE(base::GetFileSize(csv_path, &file_size));
     ASSERT_LT(0u, file_size);
   }
@@ -235,7 +235,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
   base::CommandLine cmd_line_;
   trace::parser::Parser parser_;
 
-  std::vector<uint8> buffer_;
+  std::vector<uint8_t> buffer_;
   TraceSampleData* sample_data_;
 
   trace::common::ClockInfo clock_info_;
@@ -296,8 +296,8 @@ TEST_F(SampleGrinderTest, IncrementModuleData) {
 
   // We make our sampling interval 1/10th of the clock rate, so that each
   // sample is worth 0.1 'seconds'.
-  uint64 sampling_interval = clock_info_.tsc_info.frequency / 10;
-  uint32 bucket_start = 0x00011000;
+  uint64_t sampling_interval = clock_info_.tsc_info.frequency / 10;
+  uint32_t bucket_start = 0x00011000;
 
   sample_data_->module_base_addr = reinterpret_cast<ModuleAddr>(0x00100000);
   sample_data_->module_size = 0x00010000;

@@ -119,7 +119,7 @@ bool InspectModuleForEmbeddedAsanParameters(
   PIMAGE_SECTION_HEADER section = pe_image.GetImageSectionHeaderByName(
       ::common::kAsanParametersSectionName);
   if (section != nullptr) {
-    const uint8* image_base = reinterpret_cast<const uint8*>(module);
+    const uint8_t* image_base = reinterpret_cast<const uint8_t*>(module);
     *asan_params = reinterpret_cast<const ::common::AsanParameters*>(
         image_base + section->VirtualAddress);
   }

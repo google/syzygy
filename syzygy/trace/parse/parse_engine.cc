@@ -60,7 +60,8 @@ void ParseEngine::set_event_handler(ParseEventHandler* event_handler) {
 }
 
 const ModuleInformation* ParseEngine::GetModuleInformation(
-    uint32 process_id, AbsoluteAddress64 addr) const {
+    uint32_t process_id,
+    AbsoluteAddress64 addr) const {
   ProcessMap::const_iterator processes_it = processes_.find(process_id);
   if (processes_it == processes_.end())
     return nullptr;

@@ -19,7 +19,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/macros.h"
 
 namespace assm {
@@ -57,16 +56,16 @@ class LabelBase {
 
   struct LabelUsage {
     // The location of the use.
-    uint32 location;
+    uint32_t location;
     // The size of the
     RegisterSize size;
   };
 
   bool bound() const { return bound_; }
-  uint32 location() const { return location_; }
+  uint32_t location() const { return location_; }
 
   // Interface for assembler to declare usage of unbound labels.
-  void Use(uint32 location, RegisterSize size);
+  void Use(uint32_t location, RegisterSize size);
 
   // Revisits label usages and writes them with the correct value.
   bool Finalize();
@@ -78,7 +77,7 @@ class LabelBase {
   bool bound_;
 
   // The location this label is bound to. Valid iff bound_ is true;
-  uint32 location_;
+  uint32_t location_;
 
   // Keeps track of where the unbound label has been used.
   std::vector<LabelUsage> uses_;
@@ -106,7 +105,7 @@ bool LabelBase<ReferenceType>::Bind() {
 }
 
 template <class ReferenceType>
-void LabelBase<ReferenceType>::Use(uint32 location, RegisterSize size) {
+void LabelBase<ReferenceType>::Use(uint32_t location, RegisterSize size) {
   DCHECK(!bound_);
   LabelUsage usage = { location, size };
   uses_.push_back(usage);

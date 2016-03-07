@@ -298,14 +298,14 @@ int FilterExceptionsInModule(HMODULE module,
 
   // Get the module extents in memory.
   base::win::PEImage image(module);
-  uint8* module_start = reinterpret_cast<uint8*>(module);
-  uint8* module_end = module_start +
-      image.GetNTHeaders()->OptionalHeader.SizeOfImage;
+  uint8_t* module_start = reinterpret_cast<uint8_t*>(module);
+  uint8_t* module_end =
+      module_start + image.GetNTHeaders()->OptionalHeader.SizeOfImage;
 
   // Filter exceptions where the return address originates from within the
   // instrumented module.
-  uint8** ebp = reinterpret_cast<uint8**>(ep->ContextRecord->Ebp);
-  uint8* ret = ebp[1];
+  uint8_t** ebp = reinterpret_cast<uint8_t**>(ep->ContextRecord->Ebp);
+  uint8_t* ret = ebp[1];
   if (ret >= module_start && ret < module_end)
     return EXCEPTION_EXECUTE_HANDLER;
 
@@ -882,7 +882,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     get_my_rva_ += 6;
   }
 
-  uint32 ProfileInvokeGetRVA() {
+  uint32_t ProfileInvokeGetRVA() {
     return InvokeTestDllFunction(testing::kProfileGetMyRVA);
   }
 
@@ -1263,7 +1263,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
   pe::PEFile pe_image_;
   pe::ImageLayout image_layout_;
   block_graph::BlockGraph block_graph_;
-  uint32 get_my_rva_;
+  uint32_t get_my_rva_;
 };
 typedef testing::StrictMock<LenientInstrumentAppIntegrationTest>
     InstrumentAppIntegrationTest;

@@ -87,7 +87,7 @@ const char kNewRelocsBlockName[] = "<refs>";
 // @returns true on success, false on failure.
 bool GetCoffRelocationType(BlockGraph::ReferenceType ref_type,
                            BlockGraph::Size ref_size,
-                           uint16* coff_reloc_type) {
+                           uint16_t* coff_reloc_type) {
   switch (ref_type) {
     case BlockGraph::RELOC_ABSOLUTE_REF:
       DCHECK_EQ(sizeof(uint32), ref_size);
@@ -400,7 +400,7 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
             if (!WriteReferenceValue<uint16>(ref, ref_it->first, block))
               return false;
             break;
-          case sizeof(uint8):
+          case sizeof(uint8_t):
             // TODO(chrisha): This is really a special 7-bit relocation; we do
             // not touch these, for now.
             break;

@@ -21,7 +21,7 @@
 
 namespace core {
 
-Disassembler::Disassembler(const uint8* code,
+Disassembler::Disassembler(const uint8_t* code,
                            size_t code_size,
                            AbsoluteAddress code_addr,
                            const InstructionCallback& on_instruction)
@@ -32,7 +32,7 @@ Disassembler::Disassembler(const uint8* code,
       disassembled_bytes_(0) {
 }
 
-Disassembler::Disassembler(const uint8* code,
+Disassembler::Disassembler(const uint8_t* code,
                            size_t code_size,
                            AbsoluteAddress code_addr,
                            const AddressSet& entry_points,
@@ -42,7 +42,6 @@ Disassembler::Disassembler(const uint8* code,
       code_addr_(code_addr),
       on_instruction_(on_instruction),
       disassembled_bytes_(0) {
-
   AddressSet::const_iterator it = entry_points.begin();
   for (; it != entry_points.end(); ++it)
     Unvisited(*it);
@@ -166,7 +165,7 @@ Disassembler::WalkResult Disassembler::Walk() {
           break;
       }
 
-      uint8 fc = META_GET_FC(inst.meta);
+      uint8_t fc = META_GET_FC(inst.meta);
       switch (fc) {
         case FC_NONE:
         case FC_CALL:

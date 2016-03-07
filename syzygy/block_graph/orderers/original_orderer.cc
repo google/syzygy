@@ -24,7 +24,7 @@ namespace {
 bool BlockIsZeros(const BlockGraph::Block* block) {
   if (block->references().size() != 0)
     return false;
-  const uint8* data = block->data();
+  const uint8_t* data = block->data();
   if (data == NULL)
     return true;
   for (size_t i = 0; i < block->data_size(); ++i, ++data) {

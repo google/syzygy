@@ -17,7 +17,7 @@
 #ifndef SYZYGY_COMMON_ALIGN_H_
 #define SYZYGY_COMMON_ALIGN_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
 
 namespace common {
 
@@ -72,31 +72,31 @@ template<typename T> size_t GetAlignment(const T* pointer);
 // @param value An integer value to test.
 // @param pointer The pointer to test.
 // @returns true iff @p value  or @p value is a power of two.
-bool IsPowerOfTwo64(uint64 value);
+bool IsPowerOfTwo64(uint64_t value);
 
 // @param value the value to round up.
 // @param alignment the alignment boundary to round @p value up to.
 // @pre alignment != 0.
 // @returns @p value rounded up to the nearest higher multiple of @p alignment.
-uint64 AlignUp64(uint64 value, uint64 alignment);
+uint64_t AlignUp64(uint64_t value, uint64_t alignment);
 
 // @param value the value to round up.
 // @param alignment the alignment boundary to round @p value up to.
 // @pre alignment != 0.
 // @returns @p value rounded down to the nearest lower multiple of @p alignment.
-uint64 AlignDown64(uint64 value, uint64 alignment);
+uint64_t AlignDown64(uint64_t value, uint64_t alignment);
 
 // @param value the value to test.
 // @param alignment the alignment boundary to test.
 // @pre alignment != 0.
 // @returns true iff value is an even multiple of alignment.
-bool IsAligned64(uint64 value, uint64 alignment);
+bool IsAligned64(uint64_t value, uint64_t alignment);
 
 // Determines the address alignment. If @p value or @p pointer is 0, the
 // maximum alignment for a 64-bit value is returned (1 << 63).
 // @param value The value for which to get the alignment.
 // @returns the power of 2 on which @p value is aligned.
-uint64 GetAlignment64(uint64 value);
+uint64_t GetAlignment64(uint64_t value);
 
 }  // namespace common
 

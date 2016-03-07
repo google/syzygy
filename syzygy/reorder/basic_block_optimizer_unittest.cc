@@ -91,8 +91,14 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
     return NULL;
   }
 
-  void SetEntryCounts(uint32 bb0, uint32 bb1, uint32 bb2, uint32 bb3,
-                      uint32 bb4, uint32 bb5, uint32 bb6, uint32 bb7) {
+  void SetEntryCounts(uint32_t bb0,
+                      uint32_t bb1,
+                      uint32_t bb2,
+                      uint32_t bb3,
+                      uint32_t bb4,
+                      uint32_t bb5,
+                      uint32_t bb6,
+                      uint32_t bb7) {
     entry_counts_.num_entries = kNumCodeBasicBlocks;
     entry_counts_.num_columns = 1;
     entry_counts_.data_type =

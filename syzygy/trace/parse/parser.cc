@@ -97,7 +97,8 @@ bool Parser::Consume() {
 }
 
 const ModuleInformation* Parser::GetModuleInformation(
-    uint32 process_id, AbsoluteAddress64 addr) const {
+    uint32_t process_id,
+    AbsoluteAddress64 addr) const {
   DCHECK(active_parse_engine_ != NULL);
   return active_parse_engine_->GetModuleInformation(process_id, addr);
 }
@@ -212,7 +213,9 @@ void ParseEventHandlerImpl::OnIndexedFrequency(
 }
 
 void ParseEventHandlerImpl::OnDynamicSymbol(
-    DWORD process_id, uint32 symbol_id, const base::StringPiece& symbol_name) {
+    DWORD process_id,
+    uint32_t symbol_id,
+    const base::StringPiece& symbol_name) {
 }
 
 void ParseEventHandlerImpl::OnSampleData(

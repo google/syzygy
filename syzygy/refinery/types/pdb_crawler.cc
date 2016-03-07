@@ -1418,7 +1418,7 @@ bool PdbCrawler::InitializeForFile(const base::FilePath& path) {
   }
 
   // The dbi stream's header contains the index of the public symbol stream.
-  uint32 sym_stream_idx = dbi_stream.header().symbol_record_stream;
+  uint32_t sym_stream_idx = dbi_stream.header().symbol_record_stream;
   if (sym_stream_idx != -1) {
     sym_stream_ = pdb_file.GetStream(sym_stream_idx);
     if (sym_stream_ == nullptr) {
@@ -1434,7 +1434,7 @@ bool PdbCrawler::InitializeForFile(const base::FilePath& path) {
   // Get the PE image section information. The DbiDbgHeader contains the index
   // of a stream that contains this information as an array of
   // IMAGE_SECTION_HEADER.
-  uint32 img_hdr_stream_idx = dbi_stream.dbg_header().section_header;
+  uint32_t img_hdr_stream_idx = dbi_stream.dbg_header().section_header;
   if (img_hdr_stream_idx == -1) {
     LOG(ERROR) << "No section header stream.";
     return false;
@@ -1476,8 +1476,8 @@ bool PdbCrawler::GetTypes(TypeRepository* types) {
 
 bool PdbCrawler::GetVFTableRVAForSymbol(
     base::hash_set<RelativeAddress>* vftable_rvas,
-    uint16 symbol_length,
-    uint16 symbol_type,
+    uint16_t symbol_length,
+    uint16_t symbol_type,
     pdb::PdbStream* symbol_stream) {
   DCHECK(symbol_stream);  DCHECK(vftable_rvas);
 

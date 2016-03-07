@@ -397,7 +397,7 @@ TEST_F(PERelinkerTest, BlockGraphStreamVersionIsTheCurrentOne) {
   core::NativeBinaryInArchive in_archive(in_stream.get());
 
   // Ensure that the version of the stream is the current one.
-  uint32 stream_version = 0;
+  uint32_t stream_version = 0;
   EXPECT_TRUE(in_archive.Load(&stream_version));
   ASSERT_EQ(stream_version, pdb::kSyzygyBlockGraphStreamVersion);
 }

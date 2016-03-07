@@ -34,11 +34,11 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr,
   // we've reached the end of an accessible memory block.
   // TODO(sebmarchand): Look into doing this more efficiently.
   while (true) {
-    uint8 shadow = shadow_[index++];
+    uint8_t shadow = shadow_[index++];
     if (ShadowMarkerHelper::IsRedzone(shadow))
       return false;
 
-    uint8 max_index = shadow ? shadow : kShadowRatio;
+    uint8_t max_index = shadow ? shadow : kShadowRatio;
     DCHECK_EQ(0U, max_index % sizeof(type));
     max_index /= sizeof(type);
     while (max_index-- > 0) {

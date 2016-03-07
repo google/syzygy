@@ -18,7 +18,6 @@
 #ifndef SYZYGY_AGENT_MEMPROF_PARAMETERS_H_
 #define SYZYGY_AGENT_MEMPROF_PARAMETERS_H_
 
-#include "base/basictypes.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/common/assertions.h"
 

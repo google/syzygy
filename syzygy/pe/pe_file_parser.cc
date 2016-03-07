@@ -103,7 +103,7 @@ class PEFilePtr {
   // Set the pointer to the address @p addr, which must be contained
   // within @p block, and the corresponding data in @p block.
   bool Set(BlockGraph::Block* block, RelativeAddress addr) {
-    const uint8* ptr = block->data();
+    const uint8_t* ptr = block->data();
     ptrdiff_t offs = addr - block->addr();
     if (ptr == NULL || offs < 0)
       return false;
@@ -120,7 +120,7 @@ class PEFilePtr {
   // Set the pointer to the address @p addr, and length @p len,
   // iff the @p image contains that data.
   bool Read(const PEFile& image, RelativeAddress addr, size_t len) {
-    const uint8* ptr = image.GetImageData(addr, len);
+    const uint8_t* ptr = image.GetImageData(addr, len);
     if (ptr == NULL)
       return false;
 
@@ -151,15 +151,15 @@ class PEFilePtr {
   RelativeAddress addr() const { return addr_; }
   void set_addr(RelativeAddress addr) { addr_ = addr; }
 
-  const uint8* ptr() const { return ptr_; }
-  void set_ptr(const uint8* ptr) { ptr_ = ptr; }
+  const uint8_t* ptr() const { return ptr_; }
+  void set_ptr(const uint8_t* ptr) { ptr_ = ptr; }
 
   size_t len() const { return len_; }
   void set_len(size_t len) { len_ = len; }
 
  private:
   RelativeAddress addr_;
-  const uint8* ptr_;
+  const uint8_t* ptr_;
   size_t len_;
 };
 
@@ -246,7 +246,7 @@ class PEFileStructPtr {
   RelativeAddress AddressOf(const void* ptr) const {
     DCHECK(IsValid());
 
-    const uint8* tmp = reinterpret_cast<const uint8*>(ptr);
+    const uint8_t* tmp = reinterpret_cast<const uint8_t*>(ptr);
     DCHECK(tmp >= ptr_.ptr());
     ptrdiff_t offs = tmp - ptr_.ptr();
     DCHECK(offs >= 0 && static_cast<size_t>(offs) < ptr_.len());
@@ -368,8 +368,8 @@ bool PEFileParser::ParseImage(PEHeader* pe_header) {
       // that the toolchain doesn't produce binaries with bad signatures.
       if (parser.entry == IMAGE_DIRECTORY_ENTRY_SECURITY) {
         LOG(WARNING) << "Ignoring security directory (image signature)!";
-        uint8* data = pe_header->nt_headers->GetMutableData();
-        DCHECK_NE(static_cast<uint8*>(nullptr), data);
+        uint8_t* data = pe_header->nt_headers->GetMutableData();
+        DCHECK_NE(static_cast<uint8_t*>(nullptr), data);
         IMAGE_NT_HEADERS* nt_headers =
             reinterpret_cast<IMAGE_NT_HEADERS*>(data);
         auto& data_dir = nt_headers->OptionalHeader.DataDirectory[parser.entry];
@@ -393,8 +393,8 @@ bool PEFileParser::ParseImage(PEHeader* pe_header) {
 bool PEFileParser::ParseImageHeader(PEHeader* header) {
   // Get the start of the image headers.
   size_t dos_header_size =
-      reinterpret_cast<const uint8*>(image_file_.nt_headers()) -
-      reinterpret_cast<const uint8*>(image_file_.dos_header());
+      reinterpret_cast<const uint8_t*>(image_file_.nt_headers()) -
+      reinterpret_cast<const uint8_t*>(image_file_.dos_header());
 
   if (dos_header_size < sizeof(IMAGE_DOS_HEADER)) {
     LOG(ERROR) << "Impossibly small DOS header.";
@@ -1361,7 +1361,7 @@ BlockGraph::Block* PEFileParser::AddBlock(BlockGraph::BlockType type,
     }
     block->set_section(section);
 
-    const uint8* data = image_file_.GetImageData(addr, size);
+    const uint8_t* data = image_file_.GetImageData(addr, size);
     if (data != NULL)
       block->SetData(data, size);
   }
@@ -1407,9 +1407,9 @@ bool PEFileParser::MaybeAddAbsolute(const PEFileStructPtr<ItemType>& structure,
                                     const DWORD* item) {
   DCHECK(item != NULL);
 
-  const uint8* tmp = reinterpret_cast<const uint8*>(item);
-  size_t offset = tmp - reinterpret_cast<const uint8*>(structure.ptr()) +
-      sizeof(*item);
+  const uint8_t* tmp = reinterpret_cast<const uint8_t*>(item);
+  size_t offset =
+      tmp - reinterpret_cast<const uint8_t*>(structure.ptr()) + sizeof(*item);
   if (structure.len() <= offset)
     return true;
 

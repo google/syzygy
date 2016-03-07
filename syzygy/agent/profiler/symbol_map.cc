@@ -35,20 +35,19 @@ void SymbolMap::AddSymbol(const void* start_addr,
   if (!symbol)
     return;
 
-  Range range(reinterpret_cast<const uint8*>(start_addr), length);
+  Range range(reinterpret_cast<const uint8_t*>(start_addr), length);
   RetireRangeUnlocked(range);
 
   bool inserted = addr_space_.Insert(
-      Range(reinterpret_cast<const uint8*>(start_addr), length), symbol);
+      Range(reinterpret_cast<const uint8_t*>(start_addr), length), symbol);
   DCHECK(inserted);
 }
 
 void SymbolMap::MoveSymbol(const void* old_addr, const void* new_addr) {
   base::AutoLock hold(lock_);
 
-  SymbolAddressSpace::RangeMapIter found =
-      addr_space_.FindFirstIntersection(
-          Range(reinterpret_cast<const uint8*>(old_addr), 1));
+  SymbolAddressSpace::RangeMapIter found = addr_space_.FindFirstIntersection(
+      Range(reinterpret_cast<const uint8_t*>(old_addr), 1));
 
   // If we don't have a record of the original symbol, then we can't move it.
   // This may occur if a symbol provider starts pushing events only after its
@@ -65,19 +64,18 @@ void SymbolMap::MoveSymbol(const void* old_addr, const void* new_addr) {
   addr_space_.Remove(found);
 
   RetireRangeUnlocked(
-      Range(reinterpret_cast<const uint8*>(new_addr), length));
+      Range(reinterpret_cast<const uint8_t*>(new_addr), length));
 
   bool inserted = addr_space_.Insert(
-      Range(reinterpret_cast<const uint8*>(new_addr), length), symbol);
+      Range(reinterpret_cast<const uint8_t*>(new_addr), length), symbol);
   DCHECK(inserted);
 }
 
 scoped_refptr<SymbolMap::Symbol> SymbolMap::FindSymbol(const void* addr) {
   base::AutoLock hold(lock_);
 
-  SymbolAddressSpace::RangeMapIter found =
-      addr_space_.FindFirstIntersection(
-          Range(reinterpret_cast<const uint8*>(addr), 1));
+  SymbolAddressSpace::RangeMapIter found = addr_space_.FindFirstIntersection(
+      Range(reinterpret_cast<const uint8_t*>(addr), 1));
 
   if (found == addr_space_.end())
     return NULL;

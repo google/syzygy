@@ -125,8 +125,8 @@ class Decomposer {
   //     mechanism.
   struct VisitLinkerSymbolContext;
   bool VisitLinkerSymbol(VisitLinkerSymbolContext* context,
-                         uint16 symbol_length,
-                         uint16 symbol_type,
+                         uint16_t symbol_length,
+                         uint16_t symbol_type,
                          pdb::PdbStream* stream);
   // @}
 

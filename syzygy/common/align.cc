@@ -21,8 +21,8 @@ namespace common {
 namespace {
 
 template <typename T>
-uint8 CountTrailingZeros(T value) {
-  uint8 trailing_zeros = 0;
+uint8_t CountTrailingZeros(T value) {
+  uint8_t trailing_zeros = 0;
 
   // Sets the trailing zeros to one and sets the other bits to zero.
   // This is inspired from the code on this page:
@@ -69,11 +69,11 @@ size_t GetAlignment(size_t value) {
   return 1 << CountTrailingZeros(value);
 }
 
-bool IsPowerOfTwo64(uint64 value) {
+bool IsPowerOfTwo64(uint64_t value) {
   return value != 0 && (value & (value - 1)) == 0;
 }
 
-uint64 AlignUp64(uint64 value, uint64 alignment) {
+uint64_t AlignUp64(uint64_t value, uint64_t alignment) {
   DCHECK_NE(0U, alignment);
 
   if (IsPowerOfTwo64(alignment)) {
@@ -83,7 +83,7 @@ uint64 AlignUp64(uint64 value, uint64 alignment) {
   }
 }
 
-uint64 AlignDown64(uint64 value, uint64 alignment) {
+uint64_t AlignDown64(uint64_t value, uint64_t alignment) {
   DCHECK_NE(0U, alignment);
 
   if (IsPowerOfTwo64(alignment)) {
@@ -93,11 +93,11 @@ uint64 AlignDown64(uint64 value, uint64 alignment) {
   }
 }
 
-bool IsAligned64(uint64 value, uint64 alignment) {
+bool IsAligned64(uint64_t value, uint64_t alignment) {
   return AlignDown64(value, alignment) == value;
 }
 
-uint64 GetAlignment64(uint64 value) {
+uint64_t GetAlignment64(uint64_t value) {
   return 1ULL << CountTrailingZeros(value);
 }
 

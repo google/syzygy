@@ -595,8 +595,9 @@ void DiaBrowser::Reset() {
   sym_tags_.clear();
 }
 
-DiaBrowser::BrowserDirective DiaBrowser::PushMatch(
-    SymTag sym_tag, uint32 symbol_id, SymTagBitSet* sym_tags) {
+DiaBrowser::BrowserDirective DiaBrowser::PushMatch(SymTag sym_tag,
+                                                   uint32_t symbol_id,
+                                                   SymTagBitSet* sym_tags) {
   DCHECK(sym_tags != NULL);
   DCHECK(!front_size_.empty());
 

@@ -48,9 +48,7 @@ struct DummyObjectSizeFunctor {
 };
 
 struct DummyObjectHashFunctor {
-  uint32 operator()(const DummyObject& o) {
-    return o.hash;
-  }
+  uint32_t operator()(const DummyObject& o) { return o.hash; }
 };
 
 typedef std::vector<DummyObject> DummyObjectVector;

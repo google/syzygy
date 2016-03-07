@@ -17,8 +17,6 @@
 
 #include <type_traits>
 
-#include "base/basictypes.h"
-
 // Will cause compilation to fail if the given type is not a plain-old data
 // type.
 #define COMPILE_ASSERT_IS_POD(x) \

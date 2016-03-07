@@ -47,7 +47,7 @@ void AsanErrorCallback(AsanErrorInfo* error_info) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
   const size_t kAllocSize = 13;
-  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
   SetCallBackFunction(&AsanErrorCallback);
   EXPECT_EQ(mem.get(), memsetFunction(mem.GetAs<void*>(), 0xAA, kAllocSize));
@@ -65,7 +65,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
   const size_t kAllocSize = 13;
-  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
   ::memset(mem.get(), 0, kAllocSize);
   mem[4] = 0xAA;
@@ -85,7 +85,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
   const size_t kAllocSize = 13;
-  ScopedAsanAlloc<uint8> mem_src(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem_src(this, kAllocSize);
   ASSERT_TRUE(mem_src.get() != NULL);
   // Fill the array with value going from 0 to kAllocSize;
   for (size_t i = 0; i < kAllocSize; ++i)
@@ -111,9 +111,9 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
   const size_t kAllocSize = 13;
-  ScopedAsanAlloc<uint8> mem_src(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem_src(this, kAllocSize);
   ASSERT_TRUE(mem_src.get() != NULL);
-  ScopedAsanAlloc<uint8> mem_dst(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem_dst(this, kAllocSize);
   ASSERT_TRUE(mem_dst.get() != NULL);
   // Fill the array with value going from 0 to kAllocSize;
   for (size_t i = 0; i < kAllocSize; ++i) {
@@ -529,7 +529,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrncpy) {
   ResetLog();
 
   // Test an overflow on the destination.
-  std::vector<uint8> original_data(::strlen(long_str_value));
+  std::vector<uint8_t> original_data(::strlen(long_str_value));
   memcpy(&original_data[0], destination.get(), ::strlen(long_str_value));
   strncpyFunctionFailing(destination.get(),
                          long_source.get(),

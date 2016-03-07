@@ -57,8 +57,7 @@ class PEFileWriter {
 
   // Closes off the writing of a section by adding any necessary padding to the
   // output buffer.
-  void FlushSection(size_t section_index,
-                    std::vector<uint8>* buffer);
+  void FlushSection(size_t section_index, std::vector<uint8_t>* buffer);
 
   // Writes a single block to the buffer, first writing any necessary padding
   // (the content of which depends on the section type), followed by the
@@ -66,7 +65,7 @@ class PEFileWriter {
   bool WriteOneBlock(AbsoluteAddress image_base,
                      size_t section_index,
                      const BlockGraph::Block* block,
-                     std::vector<uint8>* buffer);
+                     std::vector<uint8_t>* buffer);
 
   // The file ranges of each section. This is populated by
   // CalculateSectionRanges and is a map from section index (as ordered in

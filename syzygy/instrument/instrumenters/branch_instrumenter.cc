@@ -25,7 +25,7 @@ namespace instrumenters {
 
 const char BranchInstrumenter::kAgentDllBasicBlockEntry[] =
     "basic_block_entry_client.dll";
-const uint32 kNumSlots = 4U;
+const uint32_t kNumSlots = 4U;
 
 BranchInstrumenter::BranchInstrumenter()
     : buffering_(false), fs_slot_(0U) {

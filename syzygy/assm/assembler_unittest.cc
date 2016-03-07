@@ -30,11 +30,11 @@ namespace {
 class TestSerializer : public AssemblerImpl::InstructionSerializer {
  public:
   struct Reference {
-    uint32 location;
+    uint32_t location;
     const void* ref;
   };
   struct Instruction {
-    uint32 location;
+    uint32_t location;
     size_t size;
     // Position in code.
     size_t position;
@@ -43,8 +43,8 @@ class TestSerializer : public AssemblerImpl::InstructionSerializer {
   TestSerializer() {
   }
 
-  virtual void AppendInstruction(uint32 location,
-                                 const uint8* bytes,
+  virtual void AppendInstruction(uint32_t location,
+                                 const uint8_t* bytes,
                                  size_t num_bytes,
                                  const AssemblerImpl::ReferenceInfo* refs,
                                  size_t num_refs) {
@@ -59,8 +59,8 @@ class TestSerializer : public AssemblerImpl::InstructionSerializer {
     code.insert(code.end(), bytes, bytes + num_bytes);
   }
 
-  virtual bool FinalizeLabel(uint32 location,
-                             const uint8* bytes,
+  virtual bool FinalizeLabel(uint32_t location,
+                             const uint8_t* bytes,
                              size_t num_bytes) {
     // Find the instruction that's being amended.
     for (auto instr: instructions) {
@@ -83,7 +83,7 @@ class TestSerializer : public AssemblerImpl::InstructionSerializer {
     return false;
   }
 
-  std::vector<uint8> code;
+  std::vector<uint8_t> code;
   std::vector<Instruction> instructions;
   std::vector<Reference> references;
 };
@@ -97,13 +97,13 @@ class AssemblerTest : public testing::Test {
   AssemblerImpl asm_;
 };
 
-#define EXPECT_BYTES(...) \
-do { \
-  uint8 data[] = { __VA_ARGS__ }; \
-  ASSERT_EQ(arraysize(data), serializer_.code.size()); \
-  EXPECT_EQ(0, memcmp(data, &serializer_.code.at(0), arraysize(data))); \
-  serializer_.code.clear(); \
-} while (0)
+#define EXPECT_BYTES(...)                                                 \
+  do {                                                                    \
+    uint8_t data[] = {__VA_ARGS__};                                       \
+    ASSERT_EQ(arraysize(data), serializer_.code.size());                  \
+    EXPECT_EQ(0, memcmp(data, &serializer_.code.at(0), arraysize(data))); \
+    serializer_.code.clear();                                             \
+  } while (0)
 
 template <typename ValueImpl>
 class ValueTest : public AssemblerTest {

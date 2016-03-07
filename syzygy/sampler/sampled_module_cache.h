@@ -52,7 +52,6 @@
 
 #include <map>
 
-#include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/files/file_path.h"
 #include "base/win/scoped_handle.h"
@@ -267,13 +266,13 @@ class SampledModuleCache::Module {
   HMODULE module() const { return module_; }
   const base::FilePath& module_path() const { return module_path_; }
   size_t module_size() const { return module_size_; }
-  uint32 module_checksum() const { return module_checksum_; }
-  uint32 module_time_date_stamp() const { return module_time_date_stamp_; }
+  uint32_t module_checksum() const { return module_checksum_; }
+  uint32_t module_time_date_stamp() const { return module_time_date_stamp_; }
   const void* buckets_begin() const { return buckets_begin_; }
   const void* buckets_end() const { return buckets_end_; }
   size_t log2_bucket_size() const { return log2_bucket_size_; }
-  uint64 profiling_start_time() const { return profiling_start_time_; }
-  uint64 profiling_stop_time() const { return profiling_stop_time_; }
+  uint64_t profiling_start_time() const { return profiling_start_time_; }
+  uint64_t profiling_stop_time() const { return profiling_stop_time_; }
   SamplingProfiler& profiler() { return profiler_; }
   const SamplingProfiler& profiler() const { return profiler_; }
   // @}
@@ -319,8 +318,8 @@ class SampledModuleCache::Module {
   // Information that uniquely identifies the module. This information is needed
   // when we output the TraceSampleData record to the trace file.
   size_t module_size_;
-  uint32 module_checksum_;
-  uint32 module_time_date_stamp_;
+  uint32_t module_checksum_;
+  uint32_t module_time_date_stamp_;
 
   // Information about the portion of the module being profiled. These are
   // addresses in the remove module and minimally highlight the .text section
@@ -331,8 +330,8 @@ class SampledModuleCache::Module {
 
   // The time when we started and stopped profiling this module, as reported by
   // RDTSC.
-  uint64 profiling_start_time_;
-  uint64 profiling_stop_time_;
+  uint64_t profiling_start_time_;
+  uint64_t profiling_stop_time_;
 
   // The sampling profiler instance that is profiling this module.
   SamplingProfiler profiler_;

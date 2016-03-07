@@ -40,7 +40,8 @@ void MsfFileImpl<T>::Clear() {
 }
 
 template <MsfFileType T>
-scoped_refptr<MsfStreamImpl<T>> MsfFileImpl<T>::GetStream(uint32 index) const {
+scoped_refptr<MsfStreamImpl<T>> MsfFileImpl<T>::GetStream(
+    uint32_t index) const {
   DCHECK_LT(index, streams_.size());
   return streams_[index];
 }
@@ -53,13 +54,14 @@ size_t MsfFileImpl<T>::AppendStream(MsfStreamImpl<T>* msf_stream) {
 }
 
 template <MsfFileType T>
-void MsfFileImpl<T>::ReplaceStream(uint32 index, MsfStreamImpl<T>* msf_stream) {
+void MsfFileImpl<T>::ReplaceStream(uint32_t index,
+                                   MsfStreamImpl<T>* msf_stream) {
   DCHECK_LT(index, streams_.size());
   streams_[index] = msf_stream;
 }
 
 template <MsfFileType T>
-void MsfFileImpl<T>::SetStream(uint32 index, MsfStreamImpl<T>* msf_stream) {
+void MsfFileImpl<T>::SetStream(uint32_t index, MsfStreamImpl<T>* msf_stream) {
   if (index >= streams_.size())
     streams_.resize(index + 1);
 

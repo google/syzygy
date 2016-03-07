@@ -96,7 +96,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
 
   // Let's reserve some space for the variable length header.
   const size_t kReasonableHeaderSize = 4096;
-  std::vector<uint8> raw_buffer;
+  std::vector<uint8_t> raw_buffer;
   raw_buffer.reserve(kReasonableHeaderSize);
   raw_buffer.resize(sizeof(TraceFileHeader));
 
@@ -174,9 +174,9 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
                                    &system_info);
 
   // Consume the body of the trace file.
-  uint64 next_segment = AlignUp64(file_header->header_size,
-                                  file_header->block_size);
-  scoped_ptr<uint8> buffer;
+  uint64_t next_segment =
+      AlignUp64(file_header->header_size, file_header->block_size);
+  scoped_ptr<uint8_t> buffer;
   size_t buffer_size = 0;
   while (true) {
     if (::_fseeki64(trace_file.get(), next_segment, SEEK_SET) != 0) {
@@ -217,7 +217,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
                                   file_header->block_size);
 
     if (aligned_size > buffer_size) {
-      buffer.reset(reinterpret_cast<uint8*>(::malloc(aligned_size)));
+      buffer.reset(reinterpret_cast<uint8_t*>(::malloc(aligned_size)));
       buffer_size = aligned_size;
     }
 
@@ -246,7 +246,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
 bool ParseEngineRpc::ConsumeSegmentEvents(
     const TraceFileHeader& file_header,
     const TraceFileSegmentHeader& segment_header,
-    uint8* buffer,
+    uint8_t* buffer,
     size_t buffer_length) {
   DCHECK(buffer != NULL);
   DCHECK(event_handler_ != NULL);
@@ -257,8 +257,8 @@ bool ParseEngineRpc::ConsumeSegmentEvents(
   event_record.Header.ThreadId = segment_header.thread_id;
   event_record.Header.Guid = kCallTraceEventClass;
 
-  uint8* read_ptr = buffer;
-  uint8* end_ptr = read_ptr + buffer_length;
+  uint8_t* read_ptr = buffer;
+  uint8_t* end_ptr = read_ptr + buffer_length;
 
   while (read_ptr < end_ptr) {
     RecordPrefix* prefix = reinterpret_cast<RecordPrefix*>(read_ptr);

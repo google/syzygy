@@ -30,41 +30,41 @@ typedef block_graph::BasicBlockSubGraph::BasicBlock::Instructions Instructions;
 typedef BasicBlockSubGraph::BlockDescription BlockDescription;
 
 // _asm add eax, ecx
-const uint8 kClearEax[] = { 0x03, 0xC1 };
+const uint8_t kClearEax[] = {0x03, 0xC1};
 // _asm add ecx, [eax]
-const uint8 kReadEax[] = { 0x03, 0x08 };
+const uint8_t kReadEax[] = {0x03, 0x08};
 // _asm add ecx, [eax + 42]
-const uint8 kReadEax42[] = { 0x03, 0x48, 0x2A };
+const uint8_t kReadEax42[] = {0x03, 0x48, 0x2A};
 // _asm add eax, ecx
-const uint8 kRegsOnly[] = { 0x03, 0xC1 };
+const uint8_t kRegsOnly[] = {0x03, 0xC1};
 // _asm add [eax + ebx*2 + 42], ecx
-const uint8 kWriteWithScale[] = { 0x01, 0x4C, 0x58, 0x2A };
+const uint8_t kWriteWithScale[] = {0x01, 0x4C, 0x58, 0x2A};
 // _asm add DWORD PTR [X], ecx
-const uint8 kWriteDispl[] = { 0x01, 0x0D, 0x80, 0x1E, 0xF2, 0x00 };
+const uint8_t kWriteDispl[] = {0x01, 0x0D, 0x80, 0x1E, 0xF2, 0x00};
 // _asm add [eax + 42], ecx
-const uint8 kWriteEax42[] = { 0x01, 0x48, 0x2A };
+const uint8_t kWriteEax42[] = {0x01, 0x48, 0x2A};
 // _asm lea ecx, [eax]
-const uint8 kLeaEax[] = { 0x8D, 0x08 };
+const uint8_t kLeaEax[] = {0x8D, 0x08};
 // _asm lea ecx, [eax + 42]
-const uint8 kLeaEax42[] = { 0x8D, 0x48, 0x2A };
+const uint8_t kLeaEax42[] = {0x8D, 0x48, 0x2A};
 
 // _asm repnz movsb
-const uint8 kRepMovsb[] = { 0xF2, 0xA4 };
+const uint8_t kRepMovsb[] = {0xF2, 0xA4};
 
 // _asm add ecx, [eax + C]
-const uint8 kReadEax10[] = { 0x03, 0x48, 0x0A };
-const uint8 kReadEax11[] = { 0x03, 0x48, 0x0B };
-const uint8 kReadEax12[] = { 0x03, 0x48, 0x0C };
-const uint8 kReadEax13[] = { 0x03, 0x48, 0x0D };
-const uint8 kReadEax14[] = { 0x03, 0x48, 0x0E };
-const uint8 kReadEax15[] = { 0x03, 0x48, 0x0F };
+const uint8_t kReadEax10[] = {0x03, 0x48, 0x0A};
+const uint8_t kReadEax11[] = {0x03, 0x48, 0x0B};
+const uint8_t kReadEax12[] = {0x03, 0x48, 0x0C};
+const uint8_t kReadEax13[] = {0x03, 0x48, 0x0D};
+const uint8_t kReadEax14[] = {0x03, 0x48, 0x0E};
+const uint8_t kReadEax15[] = {0x03, 0x48, 0x0F};
 
 // _asm ret
-const uint8 kRet[] = { 0xC3 };
+const uint8_t kRet[] = {0xC3};
 // _asm call <FFFFFFFF>
-const uint8 kCall[] = { 0xE8, 0xFF, 0xD7, 0xFF, 0xFF };
+const uint8_t kCall[] = {0xE8, 0xFF, 0xD7, 0xFF, 0xFF};
 // _asm rdtsc
-const uint8 kRdtsc[] = { 0x0F, 0x31 };
+const uint8_t kRdtsc[] = {0x0F, 0x31};
 
 void AddSuccessorBetween(Successor::Condition condition,
                          BasicCodeBlock* from,
@@ -83,13 +83,13 @@ class TestMemoryAccessAnalysisState: public MemoryAccessAnalysis::State {
  public:
   bool IsEmpty(const assm::Register32& reg) const;
   bool IsEmpty() const;
-  bool Contains(const assm::Register32& reg, int32 displ) const;
+  bool Contains(const assm::Register32& reg, int32_t displ) const;
 
-  template<size_t N>
-  bool HasNonRedundantAccess(const uint8 (& data)[N]) const;
+  template <size_t N>
+  bool HasNonRedundantAccess(const uint8_t(&data)[N]) const;
 
-  template<size_t N>
-  void Execute(const uint8 (& data)[N]);
+  template <size_t N>
+  void Execute(const uint8_t(&data)[N]);
 
   using MemoryAccessAnalysis::State::Clear;
 };
@@ -113,8 +113,8 @@ class MemoryAccessAnalysisTest : public testing::Test {
     return memory_access_.GetStateAtEntryOf(bb, state);
   }
 
-  template<size_t N>
-  void PropagateForward(const uint8 (& data)[N]);
+  template <size_t N>
+  void PropagateForward(const uint8_t(&data)[N]);
 
  protected:
   TestMemoryAccessAnalysis memory_access_;
@@ -136,16 +136,16 @@ bool TestMemoryAccessAnalysisState::IsEmpty() const {
   return true;
 }
 
-bool TestMemoryAccessAnalysisState::Contains(
-    const assm::Register32& reg, int32 displ) const {
+bool TestMemoryAccessAnalysisState::Contains(const assm::Register32& reg,
+                                             int32_t displ) const {
   const std::set<int32>& offsets = active_memory_accesses_[
       reg.id() - assm::kRegister32Min];
   return offsets.find(displ) != offsets.end();
 }
 
-template<size_t N>
+template <size_t N>
 bool TestMemoryAccessAnalysisState::HasNonRedundantAccess(
-    const uint8 (& data)[N]) const {
+    const uint8_t(&data)[N]) const {
   // Decode an instruction.
   DCHECK_GT(assm::kMaxInstructionLength, N);
 
@@ -160,8 +160,8 @@ bool TestMemoryAccessAnalysisState::HasNonRedundantAccess(
   return MemoryAccessAnalysis::State::HasNonRedundantAccess(temp);
 }
 
-template<size_t N>
-void TestMemoryAccessAnalysisState::Execute(const uint8 (& data)[N]) {
+template <size_t N>
+void TestMemoryAccessAnalysisState::Execute(const uint8_t(&data)[N]) {
   // Decode an instruction.
   DCHECK_GT(assm::kMaxInstructionLength, N);
 
@@ -176,9 +176,8 @@ void TestMemoryAccessAnalysisState::Execute(const uint8 (& data)[N]) {
   MemoryAccessAnalysis::State::Execute(temp);
 }
 
-template<size_t N>
-void MemoryAccessAnalysisTest::PropagateForward(
-    const uint8 (& data)[N]) {
+template <size_t N>
+void MemoryAccessAnalysisTest::PropagateForward(const uint8_t(&data)[N]) {
   // Decode an instruction.
   DCHECK_GT(assm::kMaxInstructionLength, N);
 
@@ -500,7 +499,7 @@ TEST_F(MemoryAccessAnalysisTest, Analyze) {
 
 TEST_F(MemoryAccessAnalysisTest, AnalyzeWithData) {
   BasicBlockSubGraph subgraph;
-  const uint8 raw_data[] = { 0, 1, 2, 3, 4 };
+  const uint8_t raw_data[] = {0, 1, 2, 3, 4};
   const size_t raw_data_len = ARRAYSIZE(raw_data);
 
   BlockDescription* block = subgraph.AddBlockDescription(

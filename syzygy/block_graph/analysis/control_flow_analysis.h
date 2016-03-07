@@ -19,7 +19,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 

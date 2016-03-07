@@ -41,10 +41,10 @@ using basic_block_util::ModuleInformation;
 using testing::ContainerEq;
 
 const wchar_t kImageFileName[] = L"foo.dll";
-const uint32 kBaseAddress = 0xDEADBEEF;
-const uint32 kModuleSize = 0x1000;
-const uint32 kImageChecksum = 0xCAFEBABE;
-const uint32 kTimeDateStamp = 0xBABECAFE;
+const uint32_t kBaseAddress = 0xDEADBEEF;
+const uint32_t kModuleSize = 0x1000;
+const uint32_t kImageChecksum = 0xCAFEBABE;
+const uint32_t kTimeDateStamp = 0xBABECAFE;
 
 class TestIndexedFrequencyDataSerializer
     : public IndexedFrequencyDataSerializer {

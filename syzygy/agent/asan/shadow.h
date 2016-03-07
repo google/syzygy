@@ -70,7 +70,6 @@
 #include <string>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/block.h"
@@ -171,7 +170,7 @@ class Shadow {
   // @param addr The address for which we want the ShadowMarker value.
   // @returns a pointer to the shadow memory corresponding to the given
   //     address.
-  const uint8* GetShadowMemoryForAddress(const void* addr) const;
+  const uint8_t* GetShadowMemoryForAddress(const void* addr) const;
 
   // Returns the ShadowMarker value for the byte at @p addr.
   // @param addr The address for which we want the ShadowMarker value.
@@ -217,7 +216,7 @@ class Shadow {
   //     at this address.
   // @note This function doesn't work for nested blocks.
   // TODO(sebmarchand): Add support for nested blocks.
-  size_t GetAllocSize(const uint8* mem) const;
+  size_t GetAllocSize(const uint8_t* mem) const;
 
   // Poisons memory for an freshly allocated block.
   // @param info Info about the block layout.
@@ -286,13 +285,13 @@ class Shadow {
 
   // Read only accessor of shadow memory.
   // @returns a pointer to the actual shadow memory.
-  const uint8* shadow() const { return shadow_; }
+  const uint8_t* shadow() const { return shadow_; }
 
   // Returns the length of the shadow array.
   size_t length() const { return length_; }
 
   // Read only accessor of page protection bits.
-  const uint8* page_bits() const { return page_bits_.data(); }
+  const uint8_t* page_bits() const { return page_bits_.data(); }
 
   // Returns the length of the page bits array.
   size_t const page_bits_size() const { return page_bits_.size(); }
@@ -372,7 +371,7 @@ class Shadow {
   bool own_memory_;
 
   // The actual shadow that is being referred to.
-  uint8* shadow_;
+  uint8_t* shadow_;
 
   // The length of the underlying shadow.
   size_t length_;
@@ -382,7 +381,7 @@ class Shadow {
 
   // Data about which pages are protected. This changes relatively rarely, so
   // is reasonable to synchronize. Under page_bits_lock_.
-  std::vector<uint8> page_bits_;
+  std::vector<uint8_t> page_bits_;
 };
 
 // A helper class to walk over the blocks contained in a given memory region.
@@ -424,17 +423,17 @@ class ShadowWalker {
   bool recursive_;
 
   // The bounds of the memory region for this walker.
-  const uint8* lower_bound_;
-  const uint8* upper_bound_;
+  const uint8_t* lower_bound_;
+  const uint8_t* upper_bound_;
 
   // The current cursor of the shadow walker. This points to upper_bound_ when
   // the walk is terminated.
-  const uint8* cursor_;
+  const uint8_t* cursor_;
 
   // The shadow cursor. This is maintained simply for debugging and to ensure
   // that the shadow memory associated with |cursor_| makes it into the crash
   // report.
-  const uint8* shadow_cursor_;
+  const uint8_t* shadow_cursor_;
 
   // The current nesting depth. Starts at -1.
   int nesting_depth_;

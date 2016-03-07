@@ -68,7 +68,7 @@ uint8_t xormem(const void* mem, size_t num_bytes) {
 // TODO(siggi): Move somewhere central and eliminate dupes.
 bool GetNamedValueUnsigned(const refinery::TypedData& data,
                            base::StringPiece16 field_name,
-                           uint64* value) {
+                           uint64_t* value) {
   DCHECK(value);
   refinery::TypedData field;
   if (!data.GetNamedField(field_name, &field) ||

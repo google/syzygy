@@ -154,13 +154,13 @@ class StackCaptureCache {
     // @{
     // The total number of stacks requested over the lifetime of the stack
     // cache.
-    uint64 requested;
+    uint64_t requested;
     // The total number of stacks that have had to be allocated. This is not
     // necessarily the same as |cached| as the stack cache can reclaim
     // unreferenced stacks.
-    uint64 allocated;
+    uint64_t allocated;
     // The total number of active references to stack captures.
-    uint64 references;
+    uint64_t references;
     // @}
 
     // These count information about individual frames.
@@ -168,13 +168,13 @@ class StackCaptureCache {
     // The total number of frames across all active stack captures. This is used
     // for calculating our compression ratio. This double counts actually stored
     // frames by the number of times they are referenced.
-    uint64 frames_stored;
+    uint64_t frames_stored;
     // The total number of frames that are physically stored across all active
     // stack captures. This does not double count multiply-referenced captures.
-    uint64 frames_alive;
+    uint64_t frames_alive;
     // The total number of frames in unreferenced stack captures. This is used
     // to figure out how much of our cache is actually dead.
-    uint64 frames_dead;
+    uint64_t frames_dead;
     // @}
   };
 
@@ -291,7 +291,7 @@ class StackCaptureCache::CachePage {
   size_t bytes_left() const { return kDataSize - bytes_used_; }
 
   // @returns a pointer to the beginning of the stack captures.
-  uint8* data() { return data_; }
+  uint8_t* data() { return data_; }
 
   // @returns the size of the data.
   size_t data_size() { return kDataSize; }
@@ -322,7 +322,7 @@ class StackCaptureCache::CachePage {
       - sizeof(size_t);
   static_assert(kDataSize < kCachePageSize,
                 "kCachePageSize must be big enough for CachePage header.");
-  uint8 data_[kDataSize];
+  uint8_t data_[kDataSize];
 
  private:
   DISALLOW_COPY_AND_ASSIGN(CachePage);

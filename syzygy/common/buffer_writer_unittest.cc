@@ -21,8 +21,8 @@ namespace common {
 namespace {
 
 struct {
-  uint32 i;
-  uint16 iarray[2];
+  uint32_t i;
+  uint16_t iarray[2];
   char string[2];
   char unused1;
   char unused2;
@@ -40,8 +40,8 @@ class BufferWriterTest : public ::testing::Test {
   void WriteData(BufferWriter* writer) {
     ASSERT_TRUE(writer != NULL);
 
-    uint32 i = 0x12345678;  // 4 bytes.
-    uint16 iarray[2] = { 0xDEAD, 0xBEEF };  // 4 bytes
+    uint32_t i = 0x12345678;                // 4 bytes.
+    uint16_t iarray[2] = {0xDEAD, 0xBEEF};  // 4 bytes
     char string[] = "f";  // 2 bytes.
     wchar_t wstring[] = L"b";  // 4 bytes.
 
@@ -59,8 +59,8 @@ class BufferWriterTest : public ::testing::Test {
     ASSERT_EQ(16u, writer->pos());
   }
 
-  std::vector<uint8> vector_;
-  uint8 buffer_[16];
+  std::vector<uint8_t> vector_;
+  uint8_t buffer_[16];
 };
 
 }  // namespace
@@ -90,20 +90,20 @@ TEST_F(BufferWriterTest, WriteBehaviour) {
   EXPECT_FALSE(writer.Consume(sizeof(buffer_)));  // Write past the end.
   EXPECT_FALSE(writer.Consume(0xFFFFFFFF));  // Overflow of pos_.
 
-  uint8 data8[sizeof(buffer_)] = {};
+  uint8_t data8[sizeof(buffer_)] = {};
 
   EXPECT_TRUE(writer.Write(1, data8));
   EXPECT_EQ(2u, writer.pos());
   EXPECT_FALSE(writer.Write(arraysize(data8), (void*)data8));
 
-  uint16 data16[sizeof(buffer_) / 2] = {};
+  uint16_t data16[sizeof(buffer_) / 2] = {};
   EXPECT_TRUE(writer.Write(1, data16));
   EXPECT_EQ(4u, writer.pos());
   EXPECT_FALSE(writer.Write(arraysize(data16), data16));
 
-  uint16 small_datum = 42;
+  uint16_t small_datum = 42;
   struct {
-    uint8 buffer[sizeof(buffer_)];
+    uint8_t buffer[sizeof(buffer_)];
   } big_datum = {};
 
   EXPECT_TRUE(writer.Write(small_datum));

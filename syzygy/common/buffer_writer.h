@@ -16,12 +16,12 @@
 // implementations provided:
 //
 // 1. BufferWriter: for writing to fixed-size preallocated buffers; and,
-// 2. VectorBufferWriter: for writing to growable std::vector<uint8>-backed
+// 2. VectorBufferWriter: for writing to growable std::vector<uint8_t>-backed
 //                        buffers.
 //
 // Intended usage:
 //
-//   uint8 buffer[1024];
+//   uint8_t buffer[1024];
 //   FixedBufferWriter writer(buffer, sizeof(buffer));
 //   writer.WriteString(some_string);
 //   writer.AlignUp(sizeof(uint32));
@@ -109,7 +109,7 @@ class BufferWriter {
   // This is intended to be called by the constructors of derived classes.
   // @param buffer the initial destination buffer.
   // @param buffer_length the initial length of the buffer, in bytes.
-  void SetBuffer(uint8* buffer, size_t buffer_length);
+  void SetBuffer(uint8_t* buffer, size_t buffer_length);
 
   // This function is responsible for ensuring that the buffer has the expected
   // size. It should return a pointer to the buffer with sufficient size, or
@@ -129,7 +129,7 @@ class BufferWriter {
   // @param new_length the new buffer length requested.
   // @returns a pointer to the buffer of size at least @p new_length bytes on
   //     success, a NULL pointer on failure.
-  virtual uint8* GrowBuffer(size_t new_length);
+  virtual uint8_t* GrowBuffer(size_t new_length);
 
  private:
   // This handles overflow checking, determines if the buffer needs to be
@@ -140,7 +140,7 @@ class BufferWriter {
   // @returns true on success, false otherwise.
   bool EnsureCanWriteFromCurrentPosition(size_t new_length);
 
-  uint8* buffer_;
+  uint8_t* buffer_;
   size_t buffer_length_;
   size_t pos_;
 };
@@ -151,12 +151,12 @@ class VectorBufferWriter : public BufferWriter {
   // @param vector the vector to be written to. Writing will start at position
   //     zero, and once we've exceeded the current size of the vector writes
   //     will cause it to grow.
-  explicit VectorBufferWriter(std::vector<uint8>* vector);
+  explicit VectorBufferWriter(std::vector<uint8_t>* vector);
 
  protected:
-  virtual uint8* GrowBuffer(size_t size);
+  virtual uint8_t* GrowBuffer(size_t size);
 
-  std::vector<uint8>* vector_;
+  std::vector<uint8_t>* vector_;
 };
 
 template<typename T> bool BufferWriter::Write(size_t element_count,

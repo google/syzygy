@@ -61,7 +61,7 @@ BlockGraph::Block* AddBlock(BlockGraph* bg,
 
   block->set_section(section->id());
   if (initialized) {
-    uint8* data = block->AllocateData(block->size());
+    uint8_t* data = block->AllocateData(block->size());
     // Make some non-zero data so that this block can not be implicitly
     // initialized.
     data[0] = 1;

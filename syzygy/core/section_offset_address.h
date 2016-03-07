@@ -15,8 +15,9 @@
 #ifndef SYZYGY_CORE_SECTION_OFFSET_ADDRESS_H_
 #define SYZYGY_CORE_SECTION_OFFSET_ADDRESS_H_
 
+#include <stdint.h>
 #include <iosfwd>
-#include "base/basictypes.h"
+
 #include "syzygy/core/serialization.h"
 
 namespace core {
@@ -33,7 +34,7 @@ class SectionOffsetAddress {
   // A struct that contains all data from a SectionOffsetAddress and that is
   // returned by value().
   struct SectionOffset {
-    SectionOffset(uint32 section_id, uint32 offset);
+    SectionOffset(uint32_t section_id, uint32_t offset);
 
     bool operator<(const SectionOffset& other) const;
     bool operator<=(const SectionOffset& other) const;
@@ -42,12 +43,12 @@ class SectionOffsetAddress {
     bool operator==(const SectionOffset& other) const;
     bool operator!=(const SectionOffset& other) const;
 
-    uint32 section_id;
-    uint32 offset;
+    uint32_t section_id;
+    uint32_t offset;
   };
 
   SectionOffsetAddress();
-  SectionOffsetAddress(uint32 section_id, uint32 offset);
+  SectionOffsetAddress(uint32_t section_id, uint32_t offset);
 
   // Non-explicit copy constructor, for STL container compatibility.
   SectionOffsetAddress(const SectionOffsetAddress& other);  // NOLINT
@@ -60,8 +61,8 @@ class SectionOffsetAddress {
   bool operator!=(const SectionOffsetAddress& other) const;
 
   void operator=(const SectionOffsetAddress& other);
-  void operator+=(int32 offset);
-  void operator-=(int32 offset);
+  void operator+=(int32_t offset);
+  void operator-=(int32_t offset);
 
   SectionOffsetAddress operator+(size_t offset) const;
   SectionOffsetAddress operator-(size_t offset) const;
@@ -69,11 +70,11 @@ class SectionOffsetAddress {
   const SectionOffset& value() const { return value_; }
   void set_value(const SectionOffset& value) { value_ = value; }
 
-  uint32 section_id() const { return value_.section_id; }
-  void set_section_id(uint32 section_id) { value_.section_id = section_id; }
+  uint32_t section_id() const { return value_.section_id; }
+  void set_section_id(uint32_t section_id) { value_.section_id = section_id; }
 
-  uint32 offset() const { return value_.offset; }
-  void set_offset(uint32 offset) { value_.offset = offset; }
+  uint32_t offset() const { return value_.offset; }
+  void set_offset(uint32_t offset) { value_.offset = offset; }
 
   // Aligns the address on a multiple of |alignment|.
   // @param alignment the alignment boundary to round the address up to.
@@ -91,7 +92,7 @@ class SectionOffsetAddress {
   // guarantee an alignment on a greater power of 2 without knowing the
   // exact alignment of the section.
   // @returns the alignment of the address.
-  uint32 GetAlignment() const;
+  uint32_t GetAlignment() const;
 
   // For serialization.
   bool Save(OutArchive *out_archive) const;

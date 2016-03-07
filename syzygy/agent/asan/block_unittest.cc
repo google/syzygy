@@ -84,13 +84,13 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
   if (block.header->has_header_padding) {
     EXPECT_LE(kShadowRatio, block.header_padding_size);
     EXPECT_EQ(block.header_padding_size,
-              *reinterpret_cast<const uint32*>(block.header_padding));
+              *reinterpret_cast<const uint32_t*>(block.header_padding));
     EXPECT_EQ(block.header_padding_size,
-              *reinterpret_cast<const uint32*>(block.RawHeaderPadding() +
-                  block.header_padding_size - sizeof(uint32)));
-    for (size_t i = sizeof(uint32);
-         i < block.header_padding_size - sizeof(uint32);
-         ++i) {
+              *reinterpret_cast<const uint32_t*>(block.RawHeaderPadding() +
+                                                 block.header_padding_size -
+                                                 sizeof(uint32_t)));
+    for (size_t i = sizeof(uint32_t);
+         i < block.header_padding_size - sizeof(uint32_t); ++i) {
       EXPECT_EQ(kBlockHeaderPaddingByte, block.RawHeaderPadding(i));
     }
   }
@@ -100,7 +100,7 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
   if (block.header->has_excess_trailer_padding) {
     start_of_trailer_iteration = 4;
     EXPECT_EQ(block.trailer_padding_size,
-              *reinterpret_cast<const uint32*>(block.trailer_padding));
+              *reinterpret_cast<const uint32_t*>(block.trailer_padding));
   }
   for (size_t i = start_of_trailer_iteration; i < block.trailer_padding_size;
        ++i) {
@@ -183,7 +183,7 @@ TEST_F(BlockTest, EndToEnd) {
   BlockInfo block_info = {};
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 4, 0, 0, &layout));
-  scoped_ptr<uint8> block_data(new uint8[layout.block_size]);
+  scoped_ptr<uint8_t> block_data(new uint8_t[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data.get(), false, &block_info);
@@ -191,7 +191,7 @@ TEST_F(BlockTest, EndToEnd) {
   block_data.reset(NULL);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 61, 0, 0, &layout));
-  block_data.reset(new uint8[layout.block_size]);
+  block_data.reset(new uint8_t[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data.get(), false, &block_info);
@@ -199,7 +199,7 @@ TEST_F(BlockTest, EndToEnd) {
   block_data.reset(NULL);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 32, 32, &layout));
-  block_data.reset(new uint8[layout.block_size]);
+  block_data.reset(new uint8_t[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data.get(), false, &block_info);
@@ -224,7 +224,7 @@ TEST_F(BlockTest, GetHeaderFromBody) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
-  scoped_ptr<uint8> data(new uint8[layout2.block_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
 
   // First try navigating a block without header padding.
@@ -267,8 +267,8 @@ TEST_F(BlockTest, GetHeaderFromBody) {
   EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
   // This fails because the padding length is invalid.
   info.header->has_header_padding = 1;
-  uint32* head = reinterpret_cast<uint32*>(info.header_padding);
-  uint32* tail = head + (info.header_padding_size / sizeof(uint32)) - 1;
+  uint32_t* head = reinterpret_cast<uint32_t*>(info.header_padding);
+  uint32_t* tail = head + (info.header_padding_size / sizeof(uint32_t)) - 1;
   ++(*tail);
   EXPECT_TRUE(BlockGetHeaderFromBody(info.body) == nullptr);
   // This fails because the padding lengths don't agree.
@@ -299,7 +299,7 @@ TEST_F(BlockTest, ConvertBlockInfo) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
-  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
 
   BlockInfo expanded = {};
@@ -326,7 +326,7 @@ TEST_F(BlockTest, BlockInfoFromMemory) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
-  scoped_ptr<uint8> data(new uint8[layout2.block_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
 
   // First recover a block without header padding.
@@ -357,8 +357,8 @@ TEST_F(BlockTest, BlockInfoFromMemory) {
   EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
   --info.header->magic;
   // Failed because the header padding lengths don't match.
-  uint32* head = reinterpret_cast<uint32*>(info.header_padding);
-  uint32* tail = head + (info.header_padding_size / sizeof(uint32)) - 1;
+  uint32_t* head = reinterpret_cast<uint32_t*>(info.header_padding);
+  uint32_t* tail = head + (info.header_padding_size / sizeof(uint32_t)) - 1;
   ++(*tail);
   EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
   --(*tail);
@@ -393,7 +393,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10,
       4 * sizeof(BlockHeader), 0, &layout));
 
-  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
 
   BlockInfo info = {};
@@ -406,9 +406,8 @@ TEST_F(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   // Invalidates the padding size and make sure that we can't retrieve the block
   // information.
   size_t* padding_size = reinterpret_cast<size_t*>(info.header + 1);
-  EXPECT_GE(*padding_size, 2 * sizeof(uint32));
-  for (*padding_size = 0;
-       *padding_size < 2 * sizeof(uint32);
+  EXPECT_GE(*padding_size, 2 * sizeof(uint32_t));
+  for (*padding_size = 0; *padding_size < 2 * sizeof(uint32_t);
        ++(*padding_size)) {
     EXPECT_FALSE(BlockInfoFromMemory(info.header, &info_recovered));
   }
@@ -437,7 +436,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
-  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   BlockInfo block_info = {};
   BlockInitialize(layout, data.get(), true, &block_info);
 
@@ -451,7 +450,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryForNestedBlock) {
 TEST_F(BlockTest, ChecksumWorksForAllStates) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
-  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
   BlockInfo info = {};
   BlockInitialize(layout, data.get(), false, &info);
@@ -469,10 +468,10 @@ namespace {
 // byte with altered data. Within that byte determines the mask of bits that
 // have been altered. Returns the results via |offset| and |mask|.
 void FindModifiedBits(size_t length,
-                      const uint8* buffer1,
-                      const uint8* buffer2,
+                      const uint8_t* buffer1,
+                      const uint8_t* buffer2,
                       size_t* offset,
-                      uint8* mask) {
+                      uint8_t* mask) {
   ASSERT_TRUE(buffer1 != NULL);
   ASSERT_TRUE(buffer2 != NULL);
   ASSERT_TRUE(offset != NULL);
@@ -493,23 +492,23 @@ void FindModifiedBits(size_t length,
 // This is initialized by TestChecksumDetectsTampering, but referred to by
 // ChecksumDetectsTamperingWithMask as well, hence not in a function.
 size_t state_offset = SIZE_MAX;
-uint8 state_mask = 0;
+uint8_t state_mask = 0;
 
 bool ChecksumDetectsTamperingWithMask(const BlockInfo& block_info,
                                       void* address_to_modify,
-                                      uint8 mask_to_modify) {
-  uint8* byte_to_modify = reinterpret_cast<uint8*>(address_to_modify);
+                                      uint8_t mask_to_modify) {
+  uint8_t* byte_to_modify = reinterpret_cast<uint8_t*>(address_to_modify);
 
   // Remember the original contents.
-  uint8 original_value = *byte_to_modify;
-  uint8 original_bits = original_value & ~mask_to_modify;
+  uint8_t original_value = *byte_to_modify;
+  uint8_t original_bits = original_value & ~mask_to_modify;
 
   // Since the checksum can collide we check a handful of times to build up
   // some confidence. Since we sometimes expect this to return false the number
   // of iterations needs to be kept reasonably low to keep the unittest fast.
   bool detected = false;
   BlockSetChecksum(block_info);
-  uint32 checksum = block_info.header->checksum;
+  uint32_t checksum = block_info.header->checksum;
   for (size_t i = 0; i < 4; ++i) {
     // Modify the value, altering only bits in |mask_to_modify|.
     while (true) {
@@ -579,7 +578,7 @@ bool ChecksumDetectsTampering(const BlockInfo& block_info,
 }
 
 void TestChecksumDetectsTampering(const BlockInfo& block_info) {
-  uint32 checksum = BlockCalculateChecksum(block_info);
+  uint32_t checksum = BlockCalculateChecksum(block_info);
   block_info.header->checksum = checksum;
   EXPECT_TRUE(BlockChecksumIsValid(block_info));
   ++block_info.header->checksum;
@@ -602,11 +601,9 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
     BlockHeader header1 = {};
     BlockHeader header2 = {};
     header2.state = UINT_MAX;
-    FindModifiedBits(sizeof(BlockHeader),
-                     reinterpret_cast<const uint8*>(&header1),
-                     reinterpret_cast<const uint8*>(&header2),
-                     &state_offset,
-                     &state_mask);
+    FindModifiedBits(
+        sizeof(BlockHeader), reinterpret_cast<const uint8_t*>(&header1),
+        reinterpret_cast<const uint8_t*>(&header2), &state_offset, &state_mask);
   }
 
   // Header bytes should be tamper proof.

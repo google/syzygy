@@ -85,7 +85,6 @@
 #ifndef SYZYGY_AGENT_ASAN_BLOCK_H_
 #define SYZYGY_AGENT_ASAN_BLOCK_H_
 
-#include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "syzygy/agent/asan/constants.h"
@@ -104,12 +103,12 @@ struct BlockLayout;
 class Shadow;
 
 // Various constants for identifying the beginnings of regions of memory.
-static const uint16 kBlockHeaderMagic = 0xCA80;
+static const uint16_t kBlockHeaderMagic = 0xCA80;
 
 // Various constants used for filling regions of memory.
-static const uint8 kBlockHeaderPaddingByte = 0x1C;
-static const uint8 kBlockTrailerPaddingByte = 0xC3;
-static const uint8 kBlockFloodFillByte = 0xFD;
+static const uint8_t kBlockHeaderPaddingByte = 0x1C;
+static const uint8_t kBlockTrailerPaddingByte = 0xC3;
+static const uint8_t kBlockFloodFillByte = 0xFD;
 
 // The number of bits in the checksum field. This is parameterized so that
 // it can be referred to by the checksumming code.
@@ -192,17 +191,17 @@ struct BlockTrailer {
   // TODO(chrisha): Make these thread serial numbers, to deal with thread
   //     number reuse. This can be accomplished in the agent via the existing
   //     thread attach/detach callbacks.
-  uint32 alloc_tid;
-  uint32 free_tid;
+  uint32_t alloc_tid;
+  uint32_t free_tid;
   // The time at which the block was allocated. Combined with the address of
   // the block itself this acts as a (unique with high probability) serial
   // number for the block (especially if the heap is lazy to reuse
   // allocations).
-  uint32 alloc_ticks;
+  uint32_t alloc_ticks;
   // The time at which the block was freed (zero if not yet freed).
-  uint32 free_ticks;
+  uint32_t free_ticks;
   // The ID of the heap that allocated the block.
-  uint32 heap_id;
+  uint32_t heap_id;
 };
 #pragma pack(pop)
 static_assert((sizeof(BlockTrailer) % kShadowRatio) == (kShadowRatio / 2),
@@ -218,7 +217,7 @@ struct CompactBlockInfo {
   // Pointer to the beginning of the allocation.
   BlockHeader* header;
   // The size of the entire allocation.
-  uint32 block_size;
+  uint32_t block_size;
   struct {
     // The entire size of the header, including padding.
     unsigned header_size : 15;
@@ -259,11 +258,11 @@ struct BlockInfo {
   // strict subset of the entire block, depending on how it was allocated.
   // These pages will have protections toggled as the block changes state.
   // These must stay contiguous.
-  uint8* block_pages;
+  uint8_t* block_pages;
   size_t block_pages_size;
-  uint8* left_redzone_pages;
+  uint8_t* left_redzone_pages;
   size_t left_redzone_pages_size;
-  uint8* right_redzone_pages;
+  uint8_t* right_redzone_pages;
   size_t right_redzone_pages_size;
 
   // Indicates if the block is nested.
@@ -274,45 +273,37 @@ struct BlockInfo {
   // builds.
   // @name
   // @{
-  uint8* RawBlock() const {
-    return reinterpret_cast<uint8*>(header);
-  }
-  uint8& RawBlock(size_t index) const {
+  uint8_t* RawBlock() const { return reinterpret_cast<uint8_t*>(header); }
+  uint8_t& RawBlock(size_t index) const {
     DCHECK_GT(block_size, index);
     return RawBlock()[index];
   }
-  uint8* RawHeader() const {
-    return reinterpret_cast<uint8*>(header);
-  }
-  uint8& RawHeader(size_t index) const {
+  uint8_t* RawHeader() const { return reinterpret_cast<uint8_t*>(header); }
+  uint8_t& RawHeader(size_t index) const {
     DCHECK_GT(sizeof(BlockHeader), index);
     return RawHeader()[index];
   }
-  uint8* RawHeaderPadding() const {
-    return reinterpret_cast<uint8*>(header_padding);
+  uint8_t* RawHeaderPadding() const {
+    return reinterpret_cast<uint8_t*>(header_padding);
   }
-  uint8& RawHeaderPadding(size_t index) const {
+  uint8_t& RawHeaderPadding(size_t index) const {
     DCHECK_GT(header_padding_size, index);
     return RawHeaderPadding()[index];
   }
-  uint8* RawBody() const {
-    return reinterpret_cast<uint8*>(body);
-  }
-  uint8& RawBody(size_t index) const {
+  uint8_t* RawBody() const { return reinterpret_cast<uint8_t*>(body); }
+  uint8_t& RawBody(size_t index) const {
     DCHECK_GT(body_size, index);
     return RawBody()[index];
   }
-  uint8* RawTrailerPadding() const {
-    return reinterpret_cast<uint8*>(trailer_padding);
+  uint8_t* RawTrailerPadding() const {
+    return reinterpret_cast<uint8_t*>(trailer_padding);
   }
-  uint8& RawTrailerPadding(size_t index) const {
+  uint8_t& RawTrailerPadding(size_t index) const {
     DCHECK_GT(trailer_padding_size, index);
     return RawTrailerPadding()[index];
   }
-  uint8* RawTrailer() const {
-    return reinterpret_cast<uint8*>(trailer);
-  }
-  uint8& RawTrailer(size_t index) const {
+  uint8_t* RawTrailer() const { return reinterpret_cast<uint8_t*>(trailer); }
+  uint8_t& RawTrailer(size_t index) const {
     DCHECK_GT(sizeof(BlockTrailer), index);
     return RawTrailer()[index];
   }
@@ -412,7 +403,7 @@ BlockHeader* BlockGetHeaderFromBody(const BlockBody* body);
 // @param block_info The block to be checksummed.
 // @returns the calculated checksum.
 // @note The pages containing the block must be writable and readable.
-uint32 BlockCalculateChecksum(const BlockInfo& block_info);
+uint32_t BlockCalculateChecksum(const BlockInfo& block_info);
 
 // Determines if the block checksum is valid.
 // @param block_info The block to be validated.

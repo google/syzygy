@@ -102,7 +102,7 @@ TEST(AsanRtlUtilsTest, ReportBadMemoryAccess) {
 TEST(AsanRtlUtilsTest, ReportBadAccess) {
   TestAsanRuntime runtime;
   SetAsanRuntimeInstance(&runtime);
-  uint8* bad_location = reinterpret_cast<uint8*>(0xBAD0ADD5);
+  uint8_t* bad_location = reinterpret_cast<uint8_t*>(0xBAD0ADD5);
   AccessMode access_mode = ASAN_READ_ACCESS;
   ReportBadAccess(bad_location, access_mode);
 
@@ -116,7 +116,7 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
   SetAsanRuntimeInstance(&runtime);
   AccessMode access_mode = ASAN_READ_ACCESS;
   const size_t kTestBufferSize = 64;
-  scoped_ptr<uint8> test_buffer(new uint8[kTestBufferSize]);
+  scoped_ptr<uint8_t> test_buffer(new uint8_t[kTestBufferSize]);
 
   TestMemoryRange(runtime.shadow(), test_buffer.get(), kTestBufferSize,
                   access_mode);

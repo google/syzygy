@@ -336,13 +336,13 @@ TEST_F(PEFileTest, DecodeExports) {
 
   ASSERT_EQ(ARRAYSIZE(expected), exports.size());
 
-  const uint8* module_base = reinterpret_cast<const uint8*>(test_dll_);
+  const uint8_t* module_base = reinterpret_cast<const uint8_t*>(test_dll_);
 
   // Resolve the exports and compare.
   for (size_t i = 0; i < arraysize(expected); ++i) {
     if (expected[i].forward.empty()) {
       // Look up the functions by ordinal.
-      const uint8* function = reinterpret_cast<const uint8*>(
+      const uint8_t* function = reinterpret_cast<const uint8_t*>(
           base::GetFunctionPointerFromNativeLibrary(
               test_dll_, reinterpret_cast<const char*>(expected[i].ordinal)));
       EXPECT_TRUE(function != NULL);

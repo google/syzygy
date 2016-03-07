@@ -70,7 +70,7 @@ bool PdbInfo::Init(const PEFile& pe_file) {
 
     // Read the actual debug directory data.
     PEFile::RelativeAddress pdb_info_addr(debug_dir.AddressOfRawData);
-    std::vector<uint8> buffer(debug_dir.SizeOfData);
+    std::vector<uint8_t> buffer(debug_dir.SizeOfData);
     if (!pe_file.ReadImage(pdb_info_addr, &buffer[0], buffer.size())) {
       LOG(ERROR) << "Unable to read debug directory data from PE file: "
                  << pe_file.path().value();

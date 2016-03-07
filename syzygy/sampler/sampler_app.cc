@@ -127,7 +127,7 @@ bool ParseSamplingInterval(const base::CommandLine* command_line,
     return false;
   }
 
-  int64 us = static_cast<int64>(1000000 * d);
+  int64_t us = static_cast<int64>(1000000 * d);
   if (us <= 0) {
     LOG(ERROR) << "--" << SamplerApp::kSamplingInterval
                << " must be at least 1us.";
@@ -148,7 +148,7 @@ const std::string TimeDeltaToString(const base::TimeDelta& td) {
   const int64& kMinute = base::Time::kMicrosecondsPerMinute;
   const int64& kHour = base::Time::kMicrosecondsPerHour;
   const int64& kDay = base::Time::kMicrosecondsPerDay;
-  int64 us = td.InMicroseconds();
+  int64_t us = td.InMicroseconds();
 
   if (us == 0)
     return "0s";
@@ -177,10 +177,10 @@ const std::string TimeDeltaToString(const base::TimeDelta& td) {
     return s;
   }
 
-  int64 days = us / kDay;
-  int64 hours = (us % kDay) / kHour;
-  int64 minutes = (us % kHour) / kMinute;
-  int64 seconds = (us % kMinute) / kSecond;
+  int64_t days = us / kDay;
+  int64_t hours = (us % kDay) / kHour;
+  int64_t minutes = (us % kHour) / kMinute;
+  int64_t seconds = (us % kMinute) / kSecond;
   us %= kSecond;
 
   if (days > 0)
@@ -349,7 +349,7 @@ bool GetModuleSignature(HANDLE process,
   DCHECK(module != NULL);
   DCHECK(module_sig != NULL);
 
-  uint8 buffer[4096] = {};
+  uint8_t buffer[4096] = {};
   static_assert(
       sizeof(buffer) >= sizeof(IMAGE_DOS_HEADER) + sizeof(IMAGE_NT_HEADERS),
       "buffer must be at least as big as headers.");
@@ -453,7 +453,7 @@ bool WriteTraceRecord(const TraceDataType* trace_data,
                       TraceFileWriter* writer) {
   DCHECK(writer != NULL);
 
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
   common::VectorBufferWriter w(&buffer);
 
   // Write the record prefix for the segment header.
@@ -527,7 +527,7 @@ bool WriteTraceModuleDataRecord(const SampledModuleCache::Module* module,
 
 // Converts the sample data in |module| to a TraceSampleData buffer and outputs
 // it to the provided TraceFileWriter.
-bool WriteTraceSampleDataRecord(uint64 sampling_interval_in_cycles,
+bool WriteTraceSampleDataRecord(uint64_t sampling_interval_in_cycles,
                                 const SampledModuleCache::Module* module,
                                 TraceFileWriter* writer) {
   DCHECK(module != NULL);
@@ -541,7 +541,7 @@ bool WriteTraceSampleDataRecord(uint64 sampling_interval_in_cycles,
   size_t size = offsetof(TraceSampleData, buckets) +
       sizeof(buckets[0]) * bucket_count;
 
-  std::vector<uint8> buffer(size);
+  std::vector<uint8_t> buffer(size);
   TraceSampleData* data = reinterpret_cast<TraceSampleData*>(buffer.data());
 
   static_assert(sizeof(buckets[0]) == sizeof(data->buckets[0]),
@@ -812,7 +812,7 @@ bool SamplerApp::ParsePids(const std::string& pids) {
     if (split[i].empty())
       continue;
 
-    uint32 pid = 0;
+    uint32_t pid = 0;
     if (!base::StringToUint(split[i], &pid)) {
       LOG(ERROR) << "Unable to parse \"" << split[i] << "\" as a PID.";
       return false;

@@ -38,7 +38,7 @@ std::ostream& operator<<(std::ostream& os,
 
 }  // namespace
 
-typedef AddressSpace<const uint8*, size_t, void*> PointerAddressSpace;
+typedef AddressSpace<const uint8_t*, size_t, void*> PointerAddressSpace;
 typedef AddressSpace<size_t, size_t, void*> IntegerAddressSpace;
 
 TEST(AddressSpaceTest, Create) {

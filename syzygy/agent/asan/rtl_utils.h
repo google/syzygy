@@ -65,7 +65,7 @@ void ReportBadMemoryAccess(void* location,
 // Report an invalid access to @p location.
 // @param location The memory address of the access.
 // @param access_mode The mode of the access.
-void ReportBadAccess(const uint8* location, AccessMode access_mode);
+void ReportBadAccess(const uint8_t* location, AccessMode access_mode);
 
 // Test that a memory range is accessible. Report an error if it's not.
 // @param shadow The shadow memory to use.
@@ -74,7 +74,7 @@ void ReportBadAccess(const uint8* location, AccessMode access_mode);
 // @param size The size of the memory range that we want to check.
 // @param access_mode The access mode.
 void TestMemoryRange(Shadow* shadow,
-                     const uint8* memory,
+                     const uint8_t* memory,
                      size_t size,
                      AccessMode access_mode);
 
@@ -86,8 +86,8 @@ void TestMemoryRange(Shadow* shadow,
 // @param access mode The access mode.
 template <typename T>
 void TestStructure(Shadow* shadow, const T* structure, AccessMode access_mode) {
-  TestMemoryRange(shadow, reinterpret_cast<const uint8*>(structure), sizeof(T),
-                  access_mode);
+  TestMemoryRange(shadow, reinterpret_cast<const uint8_t*>(structure),
+                  sizeof(T), access_mode);
 }
 
 }  // namespace asan

@@ -30,7 +30,7 @@ using block_graph::ConstTypedBlock;
 using block_graph::TypedBlock;
 using core::RelativeAddress;
 
-typedef std::vector<uint8> ByteVector;
+typedef std::vector<uint8_t> ByteVector;
 
 // A utility class to help with formatting the relocations section.
 class RelocWriter {
@@ -101,7 +101,7 @@ class RelocWriter {
   }
 
   void Append(const void* data, size_t size) {
-    const uint8* buf = reinterpret_cast<const uint8*>(data);
+    const uint8_t* buf = reinterpret_cast<const uint8_t*>(data);
     buf_.insert(buf_.end(), buf, buf + size);
   }
 
@@ -299,7 +299,7 @@ bool PEImageLayoutBuilder::SortSafeSehTable() {
   // The reference to the load config directory block.
   BlockGraph::Reference load_config_directory_block_ref;
   BlockGraph::Offset load_config_dir_offset =
-      reinterpret_cast<uint8*>(load_config) - nt_headers.block()->data();
+      reinterpret_cast<uint8_t*>(load_config) - nt_headers.block()->data();
   if (!nt_headers.GetReferenceAt(load_config_dir_offset,
                                  &load_config_directory_block_ref)) {
       LOG(ERROR) << "Failed to get a reference to the Load Config Directory.";

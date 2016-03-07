@@ -614,8 +614,8 @@ TEST_F(ProfilerTest, RecordsUsedSymbols) {
 
   // Add a dynamic symbol for the DllMain and a hypothetical bogus function.
   base::StringPiece dll_main_caller_name("DllMainCaller");
-  const uint8* dll_main_addr =
-      reinterpret_cast<const uint8*>(DllMainCaller(RETURN_ADDR, NULL));
+  const uint8_t* dll_main_addr =
+      reinterpret_cast<const uint8_t*>(DllMainCaller(RETURN_ADDR, NULL));
   size_t dll_main_len = DllMainCaller(RETURN_LENGTH, NULL);
   add_symbol_func_(dll_main_addr, dll_main_len,
                    dll_main_caller_name.data(), dll_main_caller_name.length());
@@ -680,8 +680,8 @@ TEST_F(ProfilerTest, OnDynamicFunctionEntry) {
 
   // Add a dynamic symbol for the DllMain and a hypothetical bogus function.
   base::StringPiece dll_main_caller_name("DllMainCaller");
-  const uint8* dll_main_addr =
-      reinterpret_cast<const uint8*>(DllMainCaller(RETURN_ADDR, NULL));
+  const uint8_t* dll_main_addr =
+      reinterpret_cast<const uint8_t*>(DllMainCaller(RETURN_ADDR, NULL));
   size_t dll_main_len = DllMainCaller(RETURN_LENGTH, NULL);
   add_symbol_func_(dll_main_addr, dll_main_len,
                    dll_main_caller_name.data(), dll_main_caller_name.length());
@@ -770,15 +770,15 @@ TEST_F(ProfilerTest, EntryHookPerformance) {
 
   // We grab the lowest value of 10 invocations to minimize scheduling
   // artifacts and such.
-  uint64 min_cycles = std::numeric_limits<uint64>::max();
+  uint64_t min_cycles = std::numeric_limits<uint64_t>::max();
   for (size_t i = 0; i < 10; ++i) {
     // Invoke on the entry hook a hundred thousand times, and measure the
     // wall-clock time from start to finish.
-    uint64 start_cycles = __rdtsc();
+    uint64_t start_cycles = __rdtsc();
     for (size_t j = 0; j < 100000; ++j) {
       InvokeFunctionAThunk();
     }
-    uint64 end_cycles = __rdtsc();
+    uint64_t end_cycles = __rdtsc();
 
     if (min_cycles > (end_cycles - start_cycles))
       min_cycles = end_cycles - start_cycles;

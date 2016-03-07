@@ -20,7 +20,7 @@
 namespace common {
 
 BufferWriter::BufferWriter(void* buffer, size_t buffer_length)
-    : buffer_(reinterpret_cast<uint8*>(buffer)),
+    : buffer_(reinterpret_cast<uint8_t*>(buffer)),
       buffer_length_(buffer_length),
       pos_(0) {
   if (buffer_length_ == 0) {
@@ -86,7 +86,7 @@ bool BufferWriter::EnsureCanWriteFromCurrentPosition(size_t new_length) {
     return true;
 
   // Attempt to grow.
-  uint8* new_buffer = GrowBuffer(new_length);
+  uint8_t* new_buffer = GrowBuffer(new_length);
   if (new_buffer == NULL)
     return false;
 
@@ -96,7 +96,7 @@ bool BufferWriter::EnsureCanWriteFromCurrentPosition(size_t new_length) {
   return true;
 }
 
-void BufferWriter::SetBuffer(uint8* buffer, size_t buffer_length) {
+void BufferWriter::SetBuffer(uint8_t* buffer, size_t buffer_length) {
   buffer_length_ = buffer_length;
   if (buffer_length_ == 0) {
     buffer_ = NULL;
@@ -106,12 +106,12 @@ void BufferWriter::SetBuffer(uint8* buffer, size_t buffer_length) {
   }
 }
 
-uint8* BufferWriter::GrowBuffer(size_t new_length) {
+uint8_t* BufferWriter::GrowBuffer(size_t new_length) {
   // Growing a fixed sized buffer is impossible.
   return NULL;
 }
 
-VectorBufferWriter::VectorBufferWriter(std::vector<uint8>* vector)
+VectorBufferWriter::VectorBufferWriter(std::vector<uint8_t>* vector)
     : BufferWriter(NULL, 0), vector_(vector) {
   DCHECK(vector != NULL);
 
@@ -119,7 +119,7 @@ VectorBufferWriter::VectorBufferWriter(std::vector<uint8>* vector)
     SetBuffer(&(*vector_)[0], vector_->size());
 }
 
-uint8* VectorBufferWriter::GrowBuffer(size_t new_length) {
+uint8_t* VectorBufferWriter::GrowBuffer(size_t new_length) {
   // NOTE: While this may appear to be O(N^2), it's actually not. vector is
   // smart enough to double the size of the allocation when a resize causes
   // a reallocation, so it is amortized O(N).

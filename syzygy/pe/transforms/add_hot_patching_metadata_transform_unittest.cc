@@ -94,7 +94,7 @@ TEST(AddHotPatchingMetadataTransformSimpleTest, CalculateCodeSize) {
                                                   "dummy");
 
   // Add some data to the block.
-  static const uint8 buffer[50];
+  static const uint8_t buffer[50];
   block->SetData(buffer, sizeof(buffer));
 
   // The whole data should be considered as code if there are no labels.
@@ -189,11 +189,10 @@ TEST_F(AddHotPatchingMetadataTransformTest, TransformBlockGraph) {
     const BlockGraph::Reference& ref = ref_entry.second;
 
     // Check reference offset.
-    EXPECT_EQ(
-      reinterpret_cast<const uint8*>(
-          &hp_block_metadata_arr[i].relative_address) -
-      reinterpret_cast<const uint8*>(hp_metadata_header),
-      ref_offset);
+    EXPECT_EQ(reinterpret_cast<const uint8_t*>(
+                  &hp_block_metadata_arr[i].relative_address) -
+                  reinterpret_cast<const uint8_t*>(hp_metadata_header),
+              ref_offset);
 
     // Check reference.
     EXPECT_EQ(0, ref.base());

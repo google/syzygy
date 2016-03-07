@@ -45,7 +45,7 @@ class TestMsfStream : public MsfStream {
 };
 
 struct Foo {
-  uint32 i;
+  uint32_t i;
   double d;
 };
 
@@ -68,9 +68,9 @@ TEST(MsfStreamTest, Constructor) {
 
 TEST(MsfStreamTest, Read) {
   scoped_refptr<TestMsfStream> stream(new TestMsfStream(12));
-  uint8 num8;
-  uint16 num16;
-  uint32 num32;
+  uint8_t num8;
+  uint16_t num16;
+  uint32_t num32;
 
   // 3 valid reads.
   EXPECT_TRUE(stream->Read(&num8, 3));   // 0..2

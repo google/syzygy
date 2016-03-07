@@ -54,7 +54,7 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidChecksum) {
 
     // Change some of the block content and verify that the block is now being
     // seen as corrupt.
-    uint8 original_value = fake_block.block_info.RawBody(0);
+    uint8_t original_value = fake_block.block_info.RawBody(0);
     fake_block.block_info.RawBody(0)++;
 
     // Try again for all but the last attempt if this appears to have failed.

@@ -32,8 +32,8 @@ namespace {
 // could be unloaded while we're accessing it.
 bool CaptureModuleInformation(const base::win::PEImage& image,
                               size_t* module_base_size,
-                              uint32* module_checksum,
-                              uint32* module_time_date_stamp) {
+                              uint32_t* module_checksum,
+                              uint32_t* module_time_date_stamp) {
   DCHECK(module_base_size != NULL);
   DCHECK(module_checksum != NULL);
   DCHECK(module_time_date_stamp != NULL);
@@ -66,8 +66,8 @@ bool LogModule(HMODULE module,
   // See whether we can acquire the module data.
   base::win::PEImage image(module);
   size_t module_base_size = 0;
-  uint32 module_checksum = 0;
-  uint32 module_time_date_stamp = 0;
+  uint32_t module_checksum = 0;
+  uint32_t module_time_date_stamp = 0;
   if (!CaptureModuleInformation(image,
                                 &module_base_size,
                                 &module_checksum,

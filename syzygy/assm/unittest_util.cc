@@ -21,37 +21,71 @@ namespace testing {
 // the Intel Architecture Software Developer's manual, page 4-8.
 
 // NOP (XCHG EAX, EAX)
-const uint8 kNop1[1] = { 0x90 };
+const uint8_t kNop1[1] = {0x90};
 // 66 NOP
-const uint8 kNop2[2] = { 0x66, 0x90 };
+const uint8_t kNop2[2] = {0x66, 0x90};
 // LEA REG, 0 (REG) (8-bit displacement)
-const uint8 kNop3[3] = { 0x66, 0x66, 0x90 };
+const uint8_t kNop3[3] = {0x66, 0x66, 0x90};
 // NOP DWORD PTR [EAX + 0] (8-bit displacement)
-const uint8 kNop4[4] = { 0x0F, 0x1F, 0x40, 0x00 };
+const uint8_t kNop4[4] = {0x0F, 0x1F, 0x40, 0x00};
 // NOP DWORD PTR [EAX + EAX*1 + 0] (8-bit displacement)
-const uint8 kNop5[5] = { 0x0F, 0x1F, 0x44, 0x00, 0x00 };
+const uint8_t kNop5[5] = {0x0F, 0x1F, 0x44, 0x00, 0x00};
 // LEA REG, 0 (REG) (32-bit displacement)
-const uint8 kNop6[6] = { 0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00 };
+const uint8_t kNop6[6] = {0x66, 0x0F, 0x1F, 0x44, 0x00, 0x00};
 // LEA REG, 0 (REG) (32-bit displacement)
-const uint8 kNop7[7] = { 0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00 };
+const uint8_t kNop7[7] = {0x0F, 0x1F, 0x80, 0x00, 0x00, 0x00, 0x00};
 // NOP DWORD PTR [EAX + EAX*1 + 0] (32-bit displacement)
-const uint8 kNop8[8] = { 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00 };
+const uint8_t kNop8[8] = {0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00};
 // NOP WORD  PTR [EAX + EAX*1 + 0] (32-bit displacement)
-const uint8 kNop9[9] = {
+const uint8_t kNop9[9] = {
     0x66,  // Prefix,
-    0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00  // kNop8.
+    0x0F,
+    0x1F,
+    0x84,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00  // kNop8.
 };
-const uint8 kNop10[10] = {
-    0x66, 0x66,  // Prefix,
-    0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00  // kNop8.
+const uint8_t kNop10[10] = {
+    0x66,
+    0x66,  // Prefix,
+    0x0F,
+    0x1F,
+    0x84,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00  // kNop8.
 };
-const uint8 kNop11[11] = {
-    0x66, 0x66, 0x66,  // Prefix,
-    0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00  // kNop8.
+const uint8_t kNop11[11] = {
+    0x66,
+    0x66,
+    0x66,  // Prefix,
+    0x0F,
+    0x1F,
+    0x84,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00  // kNop8.
 };
 
 // Collect all of the various NOPs in an array indexable by their length.
-const uint8* kNops[12] = { NULL, kNop1, kNop2, kNop3, kNop4, kNop5, kNop6,
-    kNop7, kNop8, kNop9, kNop10, kNop11 };
+const uint8_t* kNops[12] = {nullptr,
+                            kNop1,
+                            kNop2,
+                            kNop3,
+                            kNop4,
+                            kNop5,
+                            kNop6,
+                            kNop7,
+                            kNop8,
+                            kNop9,
+                            kNop10,
+                            kNop11};
 
 }  // namespace testing

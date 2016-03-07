@@ -467,9 +467,9 @@ base::string16 GetWinHttpVersion() {
 
 // Adapted from Chromium content/common/user_agent.cc
 void GetOSAndCPU(UserAgent* user_agent) {
-  int32 os_major_version = 0;
-  int32 os_minor_version = 0;
-  int32 os_bugfix_version = 0;
+  int32_t os_major_version = 0;
+  int32_t os_minor_version = 0;
+  int32_t os_bugfix_version = 0;
   base::SysInfo::OperatingSystemVersionNumbers(&os_major_version,
                                                &os_minor_version,
                                                &os_bugfix_version);

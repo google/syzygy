@@ -207,7 +207,7 @@ class ValueTest : public BasicBlockAssemblerTest {
   typedef typename ValueTraits::ValueType ValueType;
 
   void TestValue(const ValueType& value,
-                 uint32 expected_value,
+                 uint32_t expected_value,
                  assm::ValueSize expected_size) {
     EXPECT_EQ(expected_size, value.size());
     EXPECT_EQ(expected_value, value.value());
@@ -226,14 +226,14 @@ class ValueTest : public BasicBlockAssemblerTest {
     EXPECT_FALSE(value == value_diff);
   }
 
-  void Test8BitValue(uint32 input_value, uint32 expected_value) {
+  void Test8BitValue(uint32_t input_value, uint32_t expected_value) {
     TestValue(ValueTraits::Factory(input_value),
               expected_value, assm::kSize8Bit);
     TestValue(ValueTraits::Factory(input_value, assm::kSize8Bit),
               expected_value, assm::kSize8Bit);
   }
 
-  void Test32BitValue(uint32 input_value, uint32 expected_value) {
+  void Test32BitValue(uint32_t input_value, uint32_t expected_value) {
     TestValue(ValueTraits::Factory(input_value),
               expected_value, assm::kSize32Bit);
     TestValue(ValueTraits::Factory(input_value, assm::kSize32Bit),
@@ -245,8 +245,8 @@ struct ImmediateTestTraits {
   typedef BasicBlockAssembler::Immediate ValueType;
 
   static ValueType Factory() { return Immediate(); }
-  static ValueType Factory(uint32 value) { return Immediate(value); }
-  static ValueType Factory(uint32 value, assm::ValueSize size) {
+  static ValueType Factory(uint32_t value) { return Immediate(value); }
+  static ValueType Factory(uint32_t value, assm::ValueSize size) {
     return Immediate(value, size);
   }
   static ValueType Factory(BasicBlock* bb) { return Immediate(bb); }
@@ -259,7 +259,7 @@ struct ImmediateTestTraits {
                            BlockGraph::Offset base) {
     return Immediate(block, offset, base);
   }
-  static ValueType Factory(uint32 value,
+  static ValueType Factory(uint32_t value,
                            ValueSize size,
                            const UntypedReference& ref) {
     return Immediate(value, size, ref);
@@ -270,8 +270,8 @@ struct DisplacementTestTraits {
   typedef BasicBlockAssembler::Displacement ValueType;
 
   static ValueType Factory() { return Displacement(); }
-  static ValueType Factory(uint32 value) { return Displacement(value); }
-  static ValueType Factory(uint32 value, assm::ValueSize size) {
+  static ValueType Factory(uint32_t value) { return Displacement(value); }
+  static ValueType Factory(uint32_t value, assm::ValueSize size) {
     return Displacement(value, size);
   }
   static ValueType Factory(BasicBlock* bb) { return Displacement(bb); }
@@ -284,7 +284,7 @@ struct DisplacementTestTraits {
                            BlockGraph::Offset base) {
     return Displacement(block, offset, base);
   }
-  static ValueType Factory(uint32 value,
+  static ValueType Factory(uint32_t value,
                            ValueSize size,
                            const UntypedReference& ref) {
     return Displacement(value, size, ref);

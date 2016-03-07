@@ -26,8 +26,8 @@ TEST(PdbWriterTest, WriteStringTable) {
   const char* kStrings[] = { "string_a", "string_b", "", "string ccc" };
   const size_t kNumStrings = sizeof(kStrings) / sizeof(char*);
   const size_t kExpectedNumNonEmptyStrings = 3;
-  const uint32 kExpectedSize = 30;
-  const uint32 kExpectedStringOffsets[] = { 0, 9, 18, 19 };
+  const uint32_t kExpectedSize = 30;
+  const uint32_t kExpectedStringOffsets[] = {0, 9, 18, 19};
 
   StringTable strings(kStrings, kStrings + kNumStrings);
 
@@ -38,15 +38,15 @@ TEST(PdbWriterTest, WriteStringTable) {
 
   EXPECT_EQ(reader->length(), writer->pos());
 
-  uint32 signature = 0;
+  uint32_t signature = 0;
   EXPECT_TRUE(reader->Read(&signature, 1));
   EXPECT_EQ(kPdbStringTableSignature, signature);
 
-  uint32 version = 0;
+  uint32_t version = 0;
   EXPECT_TRUE(reader->Read(&version, 1));
   EXPECT_EQ(kPdbStringTableVersion, version);
 
-  uint32 size = 0;
+  uint32_t size = 0;
   EXPECT_TRUE(reader->Read(&size, 1));
   EXPECT_EQ(kExpectedSize, size);
 
@@ -56,17 +56,17 @@ TEST(PdbWriterTest, WriteStringTable) {
     EXPECT_EQ(strings[i], read_string);
   }
 
-  uint32 num_strings = 0;
+  uint32_t num_strings = 0;
   EXPECT_TRUE(reader->Read(&num_strings, 1));
   EXPECT_EQ(kNumStrings, num_strings);
 
   for (size_t i = 0; i < kNumStrings; ++i) {
-    uint32 offset = 0;
+    uint32_t offset = 0;
     EXPECT_TRUE(reader->Read(&offset, 1));
     EXPECT_EQ(kExpectedStringOffsets[i], offset);
   }
 
-  uint32 num_non_empty_strings = 0;
+  uint32_t num_non_empty_strings = 0;
   EXPECT_TRUE(reader->Read(&num_non_empty_strings, 1));
   EXPECT_EQ(kExpectedNumNonEmptyStrings, num_non_empty_strings);
 }
@@ -74,7 +74,7 @@ TEST(PdbWriterTest, WriteStringTable) {
 TEST(PdbWriterTest, WriteEmptyStringTable) {
   const size_t kNumStrings = 0;
   const size_t kExpectedNumNonEmptyStrings = 0;
-  const uint32 kExpectedSize = 0;
+  const uint32_t kExpectedSize = 0;
 
   StringTable strings;
 
@@ -85,23 +85,23 @@ TEST(PdbWriterTest, WriteEmptyStringTable) {
 
   EXPECT_EQ(reader->length(), writer->pos());
 
-  uint32 signature = 0;
+  uint32_t signature = 0;
   EXPECT_TRUE(reader->Read(&signature, 1));
   EXPECT_EQ(kPdbStringTableSignature, signature);
 
-  uint32 version = 0;
+  uint32_t version = 0;
   EXPECT_TRUE(reader->Read(&version, 1));
   EXPECT_EQ(kPdbStringTableVersion, version);
 
-  uint32 size = 0;
+  uint32_t size = 0;
   EXPECT_TRUE(reader->Read(&size, 1));
   EXPECT_EQ(kExpectedSize, size);
 
-  uint32 num_strings = 0;
+  uint32_t num_strings = 0;
   EXPECT_TRUE(reader->Read(&num_strings, 1));
   EXPECT_EQ(kNumStrings, num_strings);
 
-  uint32 num_non_empty_strings = 0;
+  uint32_t num_non_empty_strings = 0;
   EXPECT_TRUE(reader->Read(&num_non_empty_strings, 1));
   EXPECT_EQ(kExpectedNumNonEmptyStrings, num_non_empty_strings);
 }

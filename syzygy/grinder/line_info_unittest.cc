@@ -66,12 +66,11 @@ class LineInfoTest : public testing::Test {
   base::FilePath static_pdb_path_;
 };
 
-void PushBackSourceLine(
-    TestLineInfo* line_info,
-    const std::string* source_file_name,
-    size_t line_number,
-    uint32 address,
-    size_t size) {
+void PushBackSourceLine(TestLineInfo* line_info,
+                        const std::string* source_file_name,
+                        size_t line_number,
+                        uint32_t address,
+                        size_t size) {
   DCHECK(line_info != NULL);
   line_info->source_lines_.push_back(LineInfo::SourceLine(
       source_file_name,

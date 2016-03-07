@@ -131,17 +131,17 @@ void ContextToAsanContext(const CONTEXT& context, AsanContext* asan_context) {
   asan_context->original_esp = context.Esp;
 }
 
-void ReportBadAccess(const uint8* location, AccessMode access_mode) {
+void ReportBadAccess(const uint8_t* location, AccessMode access_mode) {
   AsanContext asan_context = {};
   CONTEXT context = {};
   ::RtlCaptureContext(&context);
   ContextToAsanContext(context, &asan_context);
-  ReportBadMemoryAccess(const_cast<uint8*>(location), access_mode, 1U,
+  ReportBadMemoryAccess(const_cast<uint8_t*>(location), access_mode, 1U,
                         asan_context);
 }
 
 void TestMemoryRange(Shadow* shadow,
-                     const uint8* memory,
+                     const uint8_t* memory,
                      size_t size,
                      AccessMode access_mode) {
   if (!shadow || size == 0U)
@@ -153,7 +153,7 @@ void TestMemoryRange(Shadow* shadow,
   //     address to be touched (via the shadow memory, 8 bytes at a time).
   if (!shadow->IsAccessible(memory) ||
       !shadow->IsAccessible(memory + size - 1)) {
-    const uint8* location = NULL;
+    const uint8_t* location = NULL;
     if (!shadow->IsAccessible(memory)) {
       location = memory;
     } else {

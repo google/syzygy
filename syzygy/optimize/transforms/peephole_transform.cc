@@ -238,7 +238,7 @@ bool PeepholeTransform::RemoveDeadCodeSubgraph(BasicBlockSubGraph* subgraph) {
         has_side_effects = true;
 
       // Determine whether this instruction may modify a register used later.
-      uint32 id = assm::kRegisterMin;
+      uint32_t id = assm::kRegisterMin;
       for (; id < assm::kRegisterMax; ++id) {
         assm::RegisterId reg_id = static_cast<assm::RegisterId>(id);
         const assm::Register& reg = assm::Register::Get(reg_id);

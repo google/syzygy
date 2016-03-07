@@ -16,7 +16,6 @@
 
 #include <windows.h>
 
-#include "base/basictypes.h"
 #include "gtest/gtest.h"
 #include "syzygy/testing/metrics.h"
 

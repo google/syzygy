@@ -33,7 +33,7 @@ namespace detail {
 
 namespace {
 
-bool GetFileSize(FILE* file, uint32* size) {
+bool GetFileSize(FILE* file, uint32_t* size) {
   DCHECK(file != NULL);
   DCHECK(size != NULL);
 
@@ -53,7 +53,7 @@ bool GetFileSize(FILE* file, uint32* size) {
   return true;
 }
 
-uint32 GetNumPages(const MsfHeader& header, uint32 num_bytes) {
+uint32_t GetNumPages(const MsfHeader& header, uint32_t num_bytes) {
   return (num_bytes + header.page_size - 1) / header.page_size;
 }
 
@@ -74,7 +74,7 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
   }
 
   // Get the file size.
-  uint32 file_size = 0;
+  uint32_t file_size = 0;
   if (!GetFileSize(file->file(), &file_size)) {
     LOG(ERROR) << "Unable to determine size of '" << msf_path.value() << "'.";
     return false;
@@ -85,7 +85,7 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
   // Read the header from the first page in the file. The page size we use here
   // is irrelevant as after reading the header we get the actual page size in
   // use by the MSF and from then on use that.
-  uint32 header_page = 0;
+  uint32_t header_page = 0;
   scoped_refptr<MsfFileStreamImpl<T>> header_stream(new MsfFileStreamImpl<T>(
       file.get(), sizeof(header), &header_page, kMsfPageSize));
   if (!header_stream->Read(&header, 1)) {
@@ -105,7 +105,7 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
     return false;
   }
 
-  // Load the directory page list (a sequence of uint32 page numbers that is
+  // Load the directory page list (a sequence of uint32_t page numbers that is
   // itself written across multiple root pages). To do this we need to know how
   // many pages are required to represent the directory, then we load a stream
   // containing that many page pointers from the root pages array.
@@ -136,11 +136,11 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
 
   // Iterate through the streams and construct MsfStreams.
   const uint32& num_streams = directory[0];
-  const uint32* stream_lengths = &(directory[1]);
-  const uint32* stream_pages = &(directory[1 + num_streams]);
+  const uint32_t* stream_lengths = &(directory[1]);
+  const uint32_t* stream_pages = &(directory[1 + num_streams]);
 
-  uint32 page_index = 0;
-  for (uint32 stream_index = 0; stream_index < num_streams; ++stream_index) {
+  uint32_t page_index = 0;
+  for (uint32_t stream_index = 0; stream_index < num_streams; ++stream_index) {
     msf_file->AppendStream(
         new MsfFileStreamImpl<T>(file.get(), stream_lengths[stream_index],
                                  stream_pages + page_index, header.page_size));

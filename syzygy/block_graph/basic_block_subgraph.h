@@ -21,7 +21,6 @@
 #include <set>
 #include <string>
 
-#include "base/basictypes.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/block_graph.h"
@@ -122,7 +121,7 @@ class BasicBlockSubGraph {
   //     by the composition.
   BasicDataBlock* AddBasicDataBlock(const base::StringPiece& name,
                                     Size size,
-                                    const uint8* data);
+                                    const uint8_t* data);
 
   // Adds a basic end block to the sub-graph. This basic block is a zero sized
   // placeholder block that is simply for carrying labels and references

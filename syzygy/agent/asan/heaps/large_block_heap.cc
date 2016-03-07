@@ -49,7 +49,7 @@ HeapType LargeBlockHeap::GetHeapType() const {
   return kLargeBlockHeap;
 }
 
-uint32 LargeBlockHeap::GetHeapFeatures() const {
+uint32_t LargeBlockHeap::GetHeapFeatures() const {
   return kHeapSupportsIsAllocated | kHeapSupportsGetAllocationSize |
       kHeapReportsReservations;
 }

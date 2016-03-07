@@ -93,7 +93,7 @@ size_t __cdecl asan_strlen(const char* str) {
   size_t size = 0;
   if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(str, 0U,
                                                                  &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
+    ReportBadAccess(reinterpret_cast<const uint8_t*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
     return ::strlen(str);
   }
@@ -107,7 +107,7 @@ const char* __cdecl asan_strrchr(const char* str, int character) {
   size_t size = 0;
   if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(str, 0U,
                                                                  &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
+    ReportBadAccess(reinterpret_cast<const uint8_t*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
   return ::strrchr(str, character);
@@ -120,7 +120,7 @@ const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character) {
   size_t size = 0;
   if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<wchar_t>(str, 0U,
                                                                     &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(str) + size,
+    ReportBadAccess(reinterpret_cast<const uint8_t*>(str) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
   return ::wcsrchr(str, character);
@@ -133,12 +133,12 @@ const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys) {
   size_t size = 0;
   if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<wchar_t>(keys, 0U,
                                                                     &size)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(keys) + size,
+    ReportBadAccess(reinterpret_cast<const uint8_t*>(keys) + size,
                     agent::asan::ASAN_READ_ACCESS);
   }
   const wchar_t* ret = ::wcsstr(str, keys);
   if (ret != NULL && !crt_interceptor_shadow_->IsAccessible(ret)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(ret),
+    ReportBadAccess(reinterpret_cast<const uint8_t*>(ret),
                     agent::asan::ASAN_READ_ACCESS);
   }
   return ret;
@@ -154,7 +154,7 @@ const wchar_t* asan_wcschr(const wchar_t* str, wchar_t character) {
     s++;
   }
   if (!crt_interceptor_shadow_->IsAccessible(s)) {
-    ReportBadAccess(reinterpret_cast<const uint8*>(s),
+    ReportBadAccess(reinterpret_cast<const uint8_t*>(s),
                     agent::asan::ASAN_READ_ACCESS);
     return ::wcschr(str, character);
   }
@@ -200,13 +200,13 @@ char* __cdecl asan_strncpy(char* destination, const char* source, size_t num) {
     if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(source, num,
                                                                    &src_size) &&
         src_size <= num) {
-      ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
+      ReportBadAccess(reinterpret_cast<const uint8_t*>(source) + src_size,
                       agent::asan::ASAN_READ_ACCESS);
     }
     // We can't use the GetNullTerminatedArraySize function here, as destination
     // might not be null terminated.
     TestMemoryRange(crt_interceptor_shadow_,
-                    reinterpret_cast<const uint8*>(destination), num,
+                    reinterpret_cast<const uint8_t*>(destination), num,
                     agent::asan::ASAN_WRITE_ACCESS);
   }
   return ::strncpy(destination, source, num);
@@ -221,18 +221,18 @@ char* __cdecl asan_strncat(char* destination, const char* source, size_t num) {
     if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(source, num,
                                                                    &src_size) &&
         src_size <= num) {
-      ReportBadAccess(reinterpret_cast<const uint8*>(source) + src_size,
+      ReportBadAccess(reinterpret_cast<const uint8_t*>(source) + src_size,
                       agent::asan::ASAN_READ_ACCESS);
     }
     size_t dst_size = 0;
     if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(
             destination, 0U, &dst_size)) {
-      ReportBadAccess(reinterpret_cast<const uint8*>(destination) + dst_size,
+      ReportBadAccess(reinterpret_cast<const uint8_t*>(destination) + dst_size,
                       agent::asan::ASAN_WRITE_ACCESS);
     } else {
       // Test if we can append the source to the destination.
       TestMemoryRange(crt_interceptor_shadow_,
-                      reinterpret_cast<const uint8*>(destination + dst_size),
+                      reinterpret_cast<const uint8_t*>(destination + dst_size),
                       std::min(num, src_size), agent::asan::ASAN_WRITE_ACCESS);
     }
   }

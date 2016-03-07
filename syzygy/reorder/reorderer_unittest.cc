@@ -72,8 +72,8 @@ class TestOrderGenerator : public Reorderer::OrderGenerator {
 
   virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
-                                uint32 process_id,
-                                uint32 thread_id,
+                                uint32_t process_id,
+                                uint32_t thread_id,
                                 const Reorderer::UniqueTime& time) override {
     // Record the visited block.
     blocks.push_back(block);
@@ -98,16 +98,16 @@ class MockOrderGenerator : public Reorderer::OrderGenerator {
   }
 
   MOCK_METHOD2(OnProcessStarted,
-               bool(uint32 process_id, const Reorderer::UniqueTime& time));
+               bool(uint32_t process_id, const Reorderer::UniqueTime& time));
 
   MOCK_METHOD2(OnProcessEnded,
-               bool(uint32 process_id, const Reorderer::UniqueTime& time));
+               bool(uint32_t process_id, const Reorderer::UniqueTime& time));
 
   MOCK_METHOD5(OnCodeBlockEntry,
                bool(const BlockGraph::Block* block,
                     RelativeAddress address,
-                    uint32 process_id,
-                    uint32 thread_id,
+                    uint32_t process_id,
+                    uint32_t thread_id,
                     const Reorderer::UniqueTime& time));
 
   MOCK_METHOD5(CalculateReordering,
@@ -234,8 +234,8 @@ bool TestParseEngine::ConsumeAllEvents() {
   static const size_t kBatchCallCount = 5;
   size_t i = 0;
   for (; i < blocks.size() / 2; i += kBatchCallCount) {
-    uint8 raw_data[sizeof(TraceBatchEnterData) +
-                   kBatchCallCount * sizeof(TraceEnterEventData)] = {};
+    uint8_t raw_data[sizeof(TraceBatchEnterData) +
+                     kBatchCallCount * sizeof(TraceEnterEventData)] = {};
     TraceBatchEnterData& event_data =
        *reinterpret_cast<TraceBatchEnterData*>(&raw_data);
     event_data.thread_id = kThreadId;
@@ -248,7 +248,7 @@ bool TestParseEngine::ConsumeAllEvents() {
                                          rva);
 
       // Convert this to an absolute address using the base address from above.
-      uint64 abs = dll_info.base_address.value() + rva.value();
+      uint64_t abs = dll_info.base_address.value() + rva.value();
       void* block_pointer = reinterpret_cast<void*>(abs);
 
       event_data.calls[j].function = block_pointer;
@@ -269,7 +269,7 @@ bool TestParseEngine::ConsumeAllEvents() {
                                        rva);
 
     // Convert this to an absolute address using the base address from above.
-    uint64 abs = dll_info.base_address.value() + rva.value();
+    uint64_t abs = dll_info.base_address.value() + rva.value();
     void* block_pointer = reinterpret_cast<void*>(abs);
 
     TraceEnterEventData event_data = {};

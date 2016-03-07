@@ -79,20 +79,20 @@ class PdbBitSet {
 // srcsrv tools.
 // @param string the string to hash.
 // @returns the hashed string.
-uint16 HashString(const base::StringPiece& string);
+uint16_t HashString(const base::StringPiece& string);
 
 // Get the DbiDbgHeader offset within the Dbi info stream. For some reason,
 // the EC info data comes before the Dbi debug header despite that the Dbi
 // debug header size comes before the EC info size in the Dbi header struct.
 // @param dbi_header the DBI header.
 // @returns the offset in the DBI stream of the DbiDbgHeader, in bytes.
-uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header);
+uint32_t GetDbiDbgHeaderOffset(const DbiHeader& dbi_header);
 
 // Ensures that the given stream in a PdbFile is writable.
 // @param index the index of the stream to make writable.
 // @param pdb_file the PdbFile containing the stream.
 // @returns true on success, false otherwise.
-bool EnsureStreamWritable(uint32 index, PdbFile* pdb_file);
+bool EnsureStreamWritable(uint32_t index, PdbFile* pdb_file);
 
 // Sets the OMAP_TO stream in the in-memory representation of a PDB file,
 // creating one if none exists.

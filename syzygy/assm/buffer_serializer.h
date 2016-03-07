@@ -32,38 +32,38 @@ class BufferSerializer : public AssemblerImpl::InstructionSerializer {
   // Creates a BufferSerializer object.
   // @param buffer A pointer to the buffer.
   // @param size The size of the buffer.
-  BufferSerializer(uint8* buffer, size_t size)
-      : buffer_(buffer), size_(size) { }
+  BufferSerializer(uint8_t* buffer, size_t size)
+      : buffer_(buffer), size_(size) {}
 
   // @name Accessors.
   // @{
-  uint8* buffer() const { return buffer_; }
+  uint8_t* buffer() const { return buffer_; }
   size_t size() const { return size_; }
   // @}
 
   // @name Implementation of the InstructionSerializer interface.
   // @{
   typedef assm::AssemblerImpl::ReferenceInfo ReferenceInfo;
-  void AppendInstruction(uint32 location,
-                         const uint8* bytes,
+  void AppendInstruction(uint32_t location,
+                         const uint8_t* bytes,
                          size_t num_bytes,
                          const ReferenceInfo* refs,
                          size_t num_refs) override {
-    uint8* write_location = static_cast<uint8*>(0) + location;
+    uint8_t* write_location = static_cast<uint8_t*>(0) + location;
     DCHECK_GE(write_location, buffer_);
     DCHECK_LE(write_location + num_bytes, buffer_ + size_);
 
     ::memcpy(write_location, bytes, num_bytes);
   }
-  bool FinalizeLabel(uint32 location,
-                     const uint8* bytes,
+  bool FinalizeLabel(uint32_t location,
+                     const uint8_t* bytes,
                      size_t num_bytes) override {
     return false;  // No label support.
   }
   // @}
 
  private:
-  uint8* buffer_;
+  uint8_t* buffer_;
   size_t size_;
 };
 

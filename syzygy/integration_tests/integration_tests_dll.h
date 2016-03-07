@@ -17,6 +17,8 @@
 #ifndef SYZYGY_INTEGRATION_TESTS_INTEGRATION_TESTS_DLL_H_
 #define SYZYGY_INTEGRATION_TESTS_INTEGRATION_TESTS_DLL_H_
 
+#include <stdint.h>
+
 namespace testing {
 
 // This macro declares the tests ids and the function that they're associated
@@ -24,53 +26,61 @@ namespace testing {
 #define END_TO_END_TEST_ID_TABLE(decl) \
     decl(kArrayComputation1, testing::ArrayComputation1)  \
     decl(kArrayComputation2, testing::ArrayComputation2)  \
-    decl(kAsanRead8BufferOverflow, testing::AsanReadBufferOverflow<int8>)  \
-    decl(kAsanRead16BufferOverflow, testing::AsanReadBufferOverflow<int16>)  \
-    decl(kAsanRead32BufferOverflow, testing::AsanReadBufferOverflow<int32>)  \
+    decl(kAsanRead8BufferOverflow, testing::AsanReadBufferOverflow<int8_t>)  \
+    decl(kAsanRead16BufferOverflow, testing::AsanReadBufferOverflow<int16_t>)  \
+    decl(kAsanRead32BufferOverflow, testing::AsanReadBufferOverflow<int32_t>)  \
     decl(kAsanRead64BufferOverflow, testing::AsanReadBufferOverflow<double>)  \
-    decl(kAsanRead8BufferUnderflow, testing::AsanReadBufferUnderflow<int8>)  \
-    decl(kAsanRead16BufferUnderflow, testing::AsanReadBufferUnderflow<int16>)  \
-    decl(kAsanRead32BufferUnderflow, testing::AsanReadBufferUnderflow<int32>)  \
+    decl(kAsanRead8BufferUnderflow, testing::AsanReadBufferUnderflow<int8_t>)  \
+    decl(kAsanRead16BufferUnderflow,  \
+         testing::AsanReadBufferUnderflow<int16_t>)  \
+    decl(kAsanRead32BufferUnderflow,  \
+         testing::AsanReadBufferUnderflow<int32_t>)  \
     decl(kAsanRead64BufferUnderflow,  \
          testing::AsanReadBufferUnderflow<double>)  \
-    decl(kAsanWrite8BufferOverflow, testing::AsanWriteBufferOverflow<int8>)  \
-    decl(kAsanWrite16BufferOverflow, testing::AsanWriteBufferOverflow<int16>)  \
-    decl(kAsanWrite32BufferOverflow, testing::AsanWriteBufferOverflow<int32>)  \
+    decl(kAsanWrite8BufferOverflow, testing::AsanWriteBufferOverflow<int8_t>)  \
+    decl(kAsanWrite16BufferOverflow,  \
+         testing::AsanWriteBufferOverflow<int16_t>)  \
+    decl(kAsanWrite32BufferOverflow,  \
+         testing::AsanWriteBufferOverflow<int32_t>)  \
     decl(kAsanWrite64BufferOverflow,  \
          testing::AsanWriteBufferOverflow<double>)  \
-    decl(kAsanWrite8BufferUnderflow, testing::AsanWriteBufferUnderflow<int8>)  \
+    decl(kAsanWrite8BufferUnderflow,  \
+         testing::AsanWriteBufferUnderflow<int8_t>)  \
     decl(kAsanWrite16BufferUnderflow,  \
-         testing::AsanWriteBufferUnderflow<int16>)  \
+         testing::AsanWriteBufferUnderflow<int16_t>)  \
     decl(kAsanWrite32BufferUnderflow,  \
-         testing::AsanWriteBufferUnderflow<int32>)  \
+         testing::AsanWriteBufferUnderflow<int32_t>)  \
     decl(kAsanWrite64BufferUnderflow,  \
          testing::AsanWriteBufferUnderflow<double>)  \
-    decl(kAsanRead8UseAfterFree, testing::AsanReadUseAfterFree<int8>)  \
-    decl(kAsanRead16UseAfterFree, testing::AsanReadUseAfterFree<int16>)  \
-    decl(kAsanRead32UseAfterFree, testing::AsanReadUseAfterFree<int32>)  \
+    decl(kAsanRead8UseAfterFree, testing::AsanReadUseAfterFree<int8_t>)  \
+    decl(kAsanRead16UseAfterFree, testing::AsanReadUseAfterFree<int16_t>)  \
+    decl(kAsanRead32UseAfterFree, testing::AsanReadUseAfterFree<int32_t>)  \
     decl(kAsanRead64UseAfterFree, testing::AsanReadUseAfterFree<double>)  \
-    decl(kAsanWrite8UseAfterFree, testing::AsanWriteUseAfterFree<int8>)  \
-    decl(kAsanWrite16UseAfterFree, testing::AsanWriteUseAfterFree<int16>)  \
-    decl(kAsanWrite32UseAfterFree, testing::AsanWriteUseAfterFree<int32>)  \
+    decl(kAsanWrite8UseAfterFree, testing::AsanWriteUseAfterFree<int8_t>)  \
+    decl(kAsanWrite16UseAfterFree, testing::AsanWriteUseAfterFree<int16_t>)  \
+    decl(kAsanWrite32UseAfterFree, testing::AsanWriteUseAfterFree<int32_t>)  \
     decl(kAsanWrite64UseAfterFree, testing::AsanWriteUseAfterFree<double>)  \
-    decl(kAsanMemsetOverflow, testing::AsanMemsetOverflow<int32>)  \
-    decl(kAsanMemsetUnderflow, testing::AsanMemsetUnderflow<int8>)  \
+    decl(kAsanMemsetOverflow, testing::AsanMemsetOverflow<int32_t>)  \
+    decl(kAsanMemsetUnderflow, testing::AsanMemsetUnderflow<int8_t>)  \
     decl(kAsanMemsetUseAfterFree, testing::AsanMemsetUseAfterFree<size_t>)  \
     decl(kAsanMemchrOverflow, testing::AsanMemchrOverflow<double>)  \
-    decl(kAsanMemchrUnderflow, testing::AsanMemchrUnderflow<int32>)  \
+    decl(kAsanMemchrUnderflow, testing::AsanMemchrUnderflow<int32_t>)  \
     decl(kAsanMemchrUseAfterFree, testing::AsanMemchrUseAfterFree<double>)  \
     decl(kAsanMemmoveReadOverflow, testing::AsanMemmoveReadOverflow<double>)  \
-    decl(kAsanMemmoveReadUnderflow, testing::AsanMemmoveReadUnderflow<int16>)  \
-    decl(kAsanMemmoveUseAfterFree, testing::AsanMemmoveUseAfterFree<uint32>)  \
+    decl(kAsanMemmoveReadUnderflow,  \
+         testing::AsanMemmoveReadUnderflow<int16_t>)  \
+    decl(kAsanMemmoveUseAfterFree,  \
+         testing::AsanMemmoveUseAfterFree<uint32_t>)  \
     decl(kAsanMemmoveWriteOverflow,  \
          testing::AsanMemmoveWriteOverflow<size_t>)  \
     decl(kAsanMemmoveWriteUnderflow,  \
-         testing::AsanMemmoveWriteUnderflow<int8>)  \
-    decl(kAsanMemcpyReadOverflow, testing::AsanMemcpyReadOverflow<int32>)  \
-    decl(kAsanMemcpyReadUnderflow, testing::AsanMemcpyReadUnderflow<int8>)  \
-    decl(kAsanMemcpyUseAfterFree, testing::AsanMemcpyUseAfterFree<int16>)  \
+         testing::AsanMemmoveWriteUnderflow<int8_t>)  \
+    decl(kAsanMemcpyReadOverflow, testing::AsanMemcpyReadOverflow<int32_t>)  \
+    decl(kAsanMemcpyReadUnderflow, testing::AsanMemcpyReadUnderflow<int8_t>)  \
+    decl(kAsanMemcpyUseAfterFree, testing::AsanMemcpyUseAfterFree<int16_t>)  \
     decl(kAsanMemcpyWriteOverflow, testing::AsanMemcpyWriteOverflow<double>)  \
-    decl(kAsanMemcpyWriteUnderflow, testing::AsanMemcpyWriteUnderflow<int16>)  \
+    decl(kAsanMemcpyWriteUnderflow,  \
+         testing::AsanMemcpyWriteUnderflow<int16_t>)  \
     decl(kAsanStrcspnKeysOverflow, testing::AsanStrcspnKeysOverflow)  \
     decl(kAsanStrcspnKeysUnderflow, testing::AsanStrcspnKeysUnderflow)  \
     decl(kAsanStrcspnKeysUseAfterFree, testing::AsanStrcspnKeysUseAfterFree)  \

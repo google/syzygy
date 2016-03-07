@@ -19,7 +19,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
 #include "syzygy/pdb/pdb_decl.h"

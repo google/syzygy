@@ -37,8 +37,8 @@ using trace::parser::Parser;
 
 // This is the static basic-block frequency array that our coverage
 // instrumentation will point to.
-const uint32 kBasicBlockCount = 2;
-uint8 bb_seen_array[kBasicBlockCount] = {};
+const uint32_t kBasicBlockCount = 2;
+uint8_t bb_seen_array[kBasicBlockCount] = {};
 
 // Force ourselves to have coverage data identical to that which would be
 // injected by the coverage instrumentation transform.
@@ -192,7 +192,7 @@ BOOL __declspec(naked) WINAPI CoverageClientTest::DllMainThunk(
 
 void VisitBlock(size_t i) {
   EXPECT_GT(coverage_data.num_entries, i);
-  static_cast<uint8*>(coverage_data.frequency_data)[i] = 1;
+  static_cast<uint8_t*>(coverage_data.frequency_data)[i] = 1;
 }
 
 }  // namespace
@@ -242,7 +242,7 @@ TEST_F(CoverageClientTest, VisitOneBB) {
   // Unload the DLL and stop the service.
   ASSERT_NO_FATAL_FAILURE(UnloadDll());
 
-  const uint8 kExpectedCoverageData[kBasicBlockCount] = { 1, 0 };
+  const uint8_t kExpectedCoverageData[kBasicBlockCount] = {1, 0};
 
   // Set up expectations for what should be in the trace.
   EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));

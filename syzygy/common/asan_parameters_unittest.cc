@@ -132,7 +132,7 @@ TEST(AsanParametersTest, InflateAsanParametersStackIdsOverlapParams) {
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIdsNoNull) {
-  uint8 data[sizeof(AsanParameters) + sizeof(AsanStackId)] = { 0 };
+  uint8_t data[sizeof(AsanParameters) + sizeof(AsanStackId)] = {0};
   AsanParameters* aparams = reinterpret_cast<AsanParameters*>(data);
   SetDefaultAsanParameters(aparams);
   aparams->ignored_stack_ids = reinterpret_cast<AsanStackId*>(
@@ -146,7 +146,7 @@ TEST(AsanParametersTest, InflateAsanParametersStackIdsNoNull) {
 }
 
 TEST(AsanParametersTest, InflateAsanParametersStackIds) {
-  uint8 data[sizeof(AsanParameters) + 2 * sizeof(AsanStackId)] = { 0 };
+  uint8_t data[sizeof(AsanParameters) + 2 * sizeof(AsanStackId)] = {0};
   AsanParameters* aparams = reinterpret_cast<AsanParameters*>(data);
   SetDefaultAsanParameters(aparams);
   aparams->ignored_stack_ids = reinterpret_cast<AsanStackId*>(

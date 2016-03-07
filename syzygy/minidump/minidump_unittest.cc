@@ -55,6 +55,7 @@ class ScopedMinidumpBuffer {
   }
 
   const uint8_t* data() const { return buf_.data(); }
+
   size_t len() const { return buf_.size(); }
 
  private:

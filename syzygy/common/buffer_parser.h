@@ -17,7 +17,7 @@
 #ifndef SYZYGY_COMMON_BUFFER_PARSER_H_
 #define SYZYGY_COMMON_BUFFER_PARSER_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
 
 namespace common {
 
@@ -132,7 +132,7 @@ class BinaryBufferParser {
   bool GetAtExplicitAlignment(
       size_t pos, size_t size, size_t align, const DataType** data_ptr) const;
 
-  const int8* data_;
+  const int8_t* data_;
   size_t data_len_;
 };
 

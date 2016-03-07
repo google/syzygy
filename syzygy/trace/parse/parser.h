@@ -32,8 +32,8 @@ namespace trace {
 namespace parser {
 
 typedef pe::ModuleInformation ModuleInformation;
-typedef uint64 AbsoluteAddress64;
-typedef uint64 Size64;
+typedef uint64_t AbsoluteAddress64;
+typedef uint64_t Size64;
 
 // This struct extends the pe::ModuleInformation structure to be possibly
 // annotated as dirty.
@@ -94,7 +94,7 @@ class Parser {
 
   // Given an address and a process id, returns the module in memory at that
   // address. Returns NULL if no such module exists.
-  const ModuleInformation* GetModuleInformation(uint32 process_id,
+  const ModuleInformation* GetModuleInformation(uint32_t process_id,
                                                 AbsoluteAddress64 addr) const;
 
   // Close all currently open trace files.
@@ -198,7 +198,7 @@ class ParseEventHandler {
 
   // Issued for dynamic symbol records.
   virtual void OnDynamicSymbol(DWORD process_id,
-                               uint32 symbol_id,
+                               uint32_t symbol_id,
                                const base::StringPiece& symbol_name) = 0;
 
   // Issued for sampling profiler data records.
@@ -290,7 +290,7 @@ class ParseEventHandlerImpl : public ParseEventHandler {
                           DWORD thread_id,
                           const TraceIndexedFrequencyData* data) override;
   void OnDynamicSymbol(DWORD process_id,
-                       uint32 symbol_id,
+                       uint32_t symbol_id,
                        const base::StringPiece& symbol_name) override;
   void OnSampleData(base::Time time,
                     DWORD process_id,

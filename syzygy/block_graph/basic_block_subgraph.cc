@@ -85,7 +85,7 @@ block_graph::BasicCodeBlock* BasicBlockSubGraph::AddBasicCodeBlock(
 block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
     const base::StringPiece& name,
     Size size,
-    const uint8* data) {
+    const uint8_t* data) {
   DCHECK(!name.empty());
 
   BlockId id = next_block_id_++;

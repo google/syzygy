@@ -592,7 +592,7 @@ void MinidumpSpecification::ThreadSpecification::FillStackMemorySpecification(
 }
 
 MinidumpSpecification::ExceptionSpecification::ExceptionSpecification(
-    uint32 thread_identifier) {
+    uint32_t thread_identifier) {
   thread_id = thread_identifier;
   exception_code = EXCEPTION_ACCESS_VIOLATION;
   exception_flags = EXCEPTION_NONCONTINUABLE;

@@ -59,8 +59,8 @@ class PdbCrawler {
 
  private:
   bool GetVFTableRVAForSymbol(base::hash_set<RelativeAddress>* vftable_rvas,
-                              uint16 symbol_length,
-                              uint16 symbol_type,
+                              uint16_t symbol_length,
+                              uint16_t symbol_type,
                               pdb::PdbStream* symbol_stream);
 
   // Pointers to the PDB type and symbol streams.

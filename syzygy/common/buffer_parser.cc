@@ -14,6 +14,8 @@
 
 #include "syzygy/common/buffer_parser.h"
 
+#include <stdint.h>
+
 #include "base/logging.h"
 
 namespace common {
@@ -27,7 +29,7 @@ bool GetStringAtImpl(const BinaryBufferParser* parser, size_t pos,
   DCHECK_NE(static_cast<CharType**>(nullptr), ptr);
   DCHECK_NE(static_cast<size_t*>(nullptr), len);
 
-  if (!common::IsAligned(reinterpret_cast<const uint8*>(parser->data()) + pos,
+  if (!common::IsAligned(reinterpret_cast<const uint8_t*>(parser->data()) + pos,
                          alignment)) {
     return false;
   }
@@ -53,11 +55,11 @@ bool GetStringAtImpl(const BinaryBufferParser* parser, size_t pos,
 BinaryBufferParser::BinaryBufferParser() : data_(nullptr), data_len_(0) {}
 
 BinaryBufferParser::BinaryBufferParser(const void* data, size_t data_len)
-    : data_(reinterpret_cast<const int8*>(data)), data_len_(data_len) {
+    : data_(reinterpret_cast<const int8_t*>(data)), data_len_(data_len) {
 }
 
 void BinaryBufferParser::SetData(const void* data, size_t data_len) {
-  data_ = reinterpret_cast<const int8*>(data);
+  data_ = reinterpret_cast<const int8_t*>(data);
   data_len_ = data_len;
 }
 

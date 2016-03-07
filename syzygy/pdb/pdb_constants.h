@@ -14,7 +14,7 @@
 #ifndef SYZYGY_PDB_PDB_CONSTANTS_H_
 #define SYZYGY_PDB_PDB_CONSTANTS_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
 
 namespace pdb {
 
@@ -25,42 +25,42 @@ const size_t kPdbOldDirectoryStream = 0;
 const size_t kPdbHeaderInfoStream = 1;
 
 // The version we've observed in the Pdb info header.
-const uint32 kPdbCurrentVersion = 20000404;
+const uint32_t kPdbCurrentVersion = 20000404;
 
 // The signature we've observed in the section contribs substream of the Pdb Dbi
 // stream.
-const uint32 kPdbDbiSectionContribsSignature = 0xF12EBA2D;
+const uint32_t kPdbDbiSectionContribsSignature = 0xF12EBA2D;
 
 // The signature we've observed for the string tables of the Pdb.
-const uint32 kPdbStringTableSignature = 0xEFFEEFFE;
+const uint32_t kPdbStringTableSignature = 0xEFFEEFFE;
 
 // The version we've observed for the string tables of the Pdb.
-const uint32 kPdbStringTableVersion = 1;
+const uint32_t kPdbStringTableVersion = 1;
 
 // The index of the Tpi (Type info) stream.
 const size_t kTpiStream = 2;
 
 // The version we've observed for the Tpi stream.
-const uint32 kTpiStreamVersion = 0x0131CA0B;
+const uint32_t kTpiStreamVersion = 0x0131CA0B;
 
 // The index of the first user-defined type.
 // Indexes in range 0x0-0xFFF are reserved.
 // See http://www.openwatcom.org/ftp/devel/docs/CodeView.pdf, section 5.
-const uint32 kTpiStreamFirstUserTypeIndex = 0x1000;
+const uint32_t kTpiStreamFirstUserTypeIndex = 0x1000;
 
 // The values we've observed for the hash key and hash buckets fields in the
 // header of an empty Tpi stream. See the pdb::TypeInfoHashHeader struct.
-const uint32 kTpiStreamEmptyHashKey = 0x4;
-const uint32 kTpiStreamEmptyHashBuckets = 0x8003;
+const uint32_t kTpiStreamEmptyHashKey = 0x4;
+const uint32_t kTpiStreamEmptyHashBuckets = 0x8003;
 
 // The index of the Dbi info stream.
 const size_t kDbiStream = 3;
 
 // The version we've observed for the Dbi stream.
-const uint32 kDbiStreamVersion = 0x01310977;
+const uint32_t kDbiStreamVersion = 0x01310977;
 
 // The signature we've observed in the header of the public stream.
-const uint32 kPublicStreamSignature = 0xF12F091A;
+const uint32_t kPublicStreamSignature = 0xF12F091A;
 
 // The named PDB stream containing the history of Syzygy transformations applied
 // to an image. This consists of a sequence of Metadata objects.
@@ -68,14 +68,14 @@ extern const char kSyzygyHistoryStreamName[];
 
 // The version of the Syzygy history stream. This needs to be incremented
 // whenever the format of the stream has changed.
-const uint32 kSyzygyHistoryStreamVersion = 0;
+const uint32_t kSyzygyHistoryStreamVersion = 0;
 
 // The named PDB stream containing the serialized BlockGraph of an image.
 extern const char kSyzygyBlockGraphStreamName[];
 
 // The version of the Syzygy BlockGraph data stream. This needs to be
 // incremented whenever the format of the stream has changed.
-const uint32 kSyzygyBlockGraphStreamVersion = 1;
+const uint32_t kSyzygyBlockGraphStreamVersion = 1;
 
 }  // namespace pdb
 

@@ -113,18 +113,18 @@ extern "C" {
 // @param increment The increment to move dst/src after each access.
 // @param compare Flag to activate shortcut of the execution on difference.
 // @param context The registers context of the access.
-void asan_check_strings_memory_accesses(uint8* dst,
+void asan_check_strings_memory_accesses(uint8_t* dst,
                                         AccessMode dst_access_mode,
-                                        uint8* src,
+                                        uint8_t* src,
                                         AccessMode src_access_mode,
-                                        uint32 length,
+                                        uint32_t length,
                                         size_t access_size,
-                                        int32 increment,
+                                        int32_t increment,
                                         bool compare,
                                         const AsanContext& context) {
-  int32 offset = 0;
+  int32_t offset = 0;
 
-  for (uint32 i = 0; i < length; ++i) {
+  for (uint32_t i = 0; i < length; ++i) {
     // Check next memory location at src[offset].
     if (src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS)
       CheckMemoryAccess(&src[offset], src_access_mode, access_size, context);
@@ -136,20 +136,20 @@ void asan_check_strings_memory_accesses(uint8* dst,
     // For CMPS instructions, we shortcut the execution of prefix REPZ when
     // memory contents differ.
     if (compare) {
-      uint32 src_content = 0;
-      uint32 dst_content = 0;
+      uint32_t src_content = 0;
+      uint32_t dst_content = 0;
       switch (access_size) {
       case 4:
-        src_content = *reinterpret_cast<uint32*>(&src[offset]);
-        dst_content = *reinterpret_cast<uint32*>(&dst[offset]);
+        src_content = *reinterpret_cast<uint32_t*>(&src[offset]);
+        dst_content = *reinterpret_cast<uint32_t*>(&dst[offset]);
         break;
       case 2:
-        src_content = *reinterpret_cast<uint16*>(&src[offset]);
-        dst_content = *reinterpret_cast<uint16*>(&dst[offset]);
+        src_content = *reinterpret_cast<uint16_t*>(&src[offset]);
+        dst_content = *reinterpret_cast<uint16_t*>(&dst[offset]);
         break;
       case 1:
-        src_content = *reinterpret_cast<uint8*>(&src[offset]);
-        dst_content = *reinterpret_cast<uint8*>(&dst[offset]);
+        src_content = *reinterpret_cast<uint8_t*>(&src[offset]);
+        dst_content = *reinterpret_cast<uint8_t*>(&dst[offset]);
         break;
       default:
         NOTREACHED() << "Unexpected access_size.";

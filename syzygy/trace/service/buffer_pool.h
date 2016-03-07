@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/trace/rpc/call_trace_rpc.h"
 

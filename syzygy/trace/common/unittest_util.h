@@ -58,8 +58,8 @@ class CallTraceService {
 // @param data The raw data.
 // @param length The length of the raw data.
 // @param writer The trace file writer to be written to.
-void WriteRecord(uint64 timestamp,
-                 uint16 record_type,
+void WriteRecord(uint64_t timestamp,
+                 uint16_t record_type,
                  const void* data,
                  size_t length,
                  trace::service::TraceFileWriter* writer);

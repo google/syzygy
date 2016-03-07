@@ -31,7 +31,7 @@ const size_t kDatasSym32StructSize = offsetof(cci::DatasSym32, name);
 
 ImageSymbol::ImageSymbol(cci::SYM type,
                          const core::SectionOffsetAddress& address,
-                         uint32 content_type,
+                         uint32_t content_type,
                          const std::string& name)
     : TypedSymbolImpl(type),
       address_(address),

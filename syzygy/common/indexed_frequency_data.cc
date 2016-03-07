@@ -18,15 +18,15 @@
 
 namespace common {
 
-const uint32 kBasicBlockCoverageAgentId = 0xC05E4A6E;
-const uint32 kBasicBlockEntryAgentId = 0xBBEABBEA;
-const uint32 kJumpTableCountAgentId = 0x07AB1E0C;
+const uint32_t kBasicBlockCoverageAgentId = 0xC05E4A6E;
+const uint32_t kBasicBlockEntryAgentId = 0xBBEABBEA;
+const uint32_t kJumpTableCountAgentId = 0x07AB1E0C;
 
 // This should be incremented when incompatible changes are made to a tracing
 // client.
-const uint32 kBasicBlockFrequencyDataVersion = 1;
-const uint32 kBranchFrequencyDataVersion = 1;
-const uint32 kJumpTableFrequencyDataVersion = 1;
+const uint32_t kBasicBlockFrequencyDataVersion = 1;
+const uint32_t kBranchFrequencyDataVersion = 1;
+const uint32_t kJumpTableFrequencyDataVersion = 1;
 
 const char kBasicBlockRangesStreamName[] = "/Syzygy/BasicBlockRanges";
 

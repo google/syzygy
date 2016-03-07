@@ -18,7 +18,6 @@
 #ifndef SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_APP_H_
 #define SYZYGY_TRACE_AGENT_LOGGER_AGENT_LOGGER_APP_H_
 
-#include "base/basictypes.h"
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/strings/string_piece.h"

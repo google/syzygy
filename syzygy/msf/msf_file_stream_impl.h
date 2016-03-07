@@ -30,7 +30,7 @@ namespace detail {
 template <MsfFileType T>
 MsfFileStreamImpl<T>::MsfFileStreamImpl(RefCountedFILE* file,
                                         size_t length,
-                                        const uint32* pages,
+                                        const uint32_t* pages,
                                         size_t page_size)
     : MsfStreamImpl(length), file_(file), page_size_(page_size) {
   size_t num_pages = (length + page_size - 1) / page_size;
@@ -68,7 +68,7 @@ bool MsfFileStreamImpl<T>::ReadBytes(void* dest,
 
     count -= chunk_size;
     Seek(pos() + chunk_size);
-    dest = reinterpret_cast<uint8*>(dest) + chunk_size;
+    dest = reinterpret_cast<uint8_t*>(dest) + chunk_size;
   }
 
   return true;
@@ -76,7 +76,7 @@ bool MsfFileStreamImpl<T>::ReadBytes(void* dest,
 
 template <MsfFileType T>
 bool MsfFileStreamImpl<T>::ReadFromPage(void* dest,
-                                        uint32 page_num,
+                                        uint32_t page_num,
                                         size_t offset,
                                         size_t count) {
   DCHECK(dest != NULL);

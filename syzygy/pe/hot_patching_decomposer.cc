@@ -75,14 +75,13 @@ bool CopySectionInfoToBlockGraph(
 // @param block The block to check.
 // @param offset The pointer must point after this offset.
 // @returns true if the conditions are met, false otherwise.
-bool DisplacementPointsIntoBlockAfterOffset(uint32 displacement,
+bool DisplacementPointsIntoBlockAfterOffset(uint32_t displacement,
                                             const BlockGraph::Block* block,
                                             size_t offset) {
   DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block);
 
-  return reinterpret_cast<uint8*>(displacement) >=
-             block->data() + offset &&
-         reinterpret_cast<uint8*>(displacement) <
+  return reinterpret_cast<uint8_t*>(displacement) >= block->data() + offset &&
+         reinterpret_cast<uint8_t*>(displacement) <
              block->data() + block->data_size();
 }
 
@@ -234,8 +233,8 @@ Block* HotPatchingDecomposer::CreateBlock(BlockType type,
   DCHECK(it != section_index_.end());
   block->set_section(it->second);
 
-  const uint8* data = static_cast<const uint8*>(
-      pe_image_->RVAToAddr(address.value()));
+  const uint8_t* data =
+      static_cast<const uint8_t*>(pe_image_->RVAToAddr(address.value()));
   if (data != nullptr)
     block->SetData(data, size);
 
@@ -252,7 +251,7 @@ bool HotPatchingDecomposer::InferCodeReferences(Block* block,
     _DInst inst;
 
     // Try to decode the next instruction.
-    const uint8* inst_data = block->data() + offset;
+    const uint8_t* inst_data = block->data() + offset;
     if (!core::DecodeOneInstruction(inst_data, code_size - offset, &inst)) {
       LOG(ERROR) << "Failed to decode instruction at offset " << offset
                  << " in block " << BlockInfo(block);
@@ -282,8 +281,8 @@ bool HotPatchingDecomposer::InferJumpTableReferences(Block* block,
                                                      size_t code_size) {
   DCHECK_NE(static_cast<BlockGraph::Block*>(nullptr), block);
 
-  const uint8* block_start = block->data();
-  const uint8* block_end = block->data() + block->data_size();
+  const uint8_t* block_start = block->data();
+  const uint8_t* block_end = block->data() + block->data_size();
 
   for (auto it = block->labels().begin(); it != block->labels().end();) {
     BlockGraph::Offset offset = it->first;
@@ -310,10 +309,10 @@ bool HotPatchingDecomposer::InferJumpTableReferences(Block* block,
       for (; addr <= end_addr - 4; addr += 4) {
 
         // Interpret the 4 bytes starting at |addr| as a pointer.
-        const uint8* const* target_location =
-            reinterpret_cast<const uint8* const*>(
-                block->data() + (addr - block->addr()));
-        const uint8* target_as_pointer = *target_location;
+        const uint8_t* const* target_location =
+            reinterpret_cast<const uint8_t* const*>(block->data() +
+                                                    (addr - block->addr()));
+        const uint8_t* target_as_pointer = *target_location;
 
         // Add an absolute reference if this address points into the block.
         if (block_start <= target_as_pointer && target_as_pointer < block_end) {
@@ -432,7 +431,7 @@ bool HotPatchingDecomposer::ParseCaseTableRead(BlockGraph::Block* block,
   BlockGraph::Offset ref_source_offset =
       offset + inst.size - reference_size;
   BlockGraph::Offset ref_target_offset =
-      reinterpret_cast<uint8*>(inst.disp) - block->data();
+      reinterpret_cast<uint8_t*>(inst.disp) - block->data();
 
   // The displacement is at the end of this instruction.
   if (!block->SetReference(ref_source_offset,
@@ -483,7 +482,7 @@ bool HotPatchingDecomposer::ParseJumpTableCall(BlockGraph::Block* block,
   BlockGraph::Offset ref_source_offset =
       offset + inst.size - reference_size;
   BlockGraph::Offset ref_target_offset =
-      reinterpret_cast<uint8*>(inst.disp) - block->data();
+      reinterpret_cast<uint8_t*>(inst.disp) - block->data();
 
   // The displacement is always at the end of a one-operand instruction.
   if (!block->SetReference(ref_source_offset,

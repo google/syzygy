@@ -48,10 +48,10 @@ class PdbDiaDumpApp : public application::AppImplBase {
   bool Usage(const char* message);
 
   bool DumpSymbols(IDiaSession* session);
-  bool DumpSymbol(uint8 indent_level, IDiaSymbol* symbol);
+  bool DumpSymbol(uint8_t indent_level, IDiaSymbol* symbol);
 
   bool DumpAllFrameData(IDiaSession* session);
-  bool DumpFrameData(uint8 indent_level, IDiaFrameData* frame_data);
+  bool DumpFrameData(uint8_t indent_level, IDiaFrameData* frame_data);
 
   base::FilePath pdb_path_;
 

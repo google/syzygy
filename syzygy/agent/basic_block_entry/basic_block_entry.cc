@@ -263,26 +263,26 @@ using ::common::IndexedFrequencyData;
 using agent::common::ScopedLastErrorKeeper;
 using trace::client::TraceFileSegment;
 
-const uint32 kUserApplicationSlot = 0x700;
-const uint32 kNumSlots = 4U;
-const uint32 kInvalidBasicBlockId = ~0U;
+const uint32_t kUserApplicationSlot = 0x700;
+const uint32_t kNumSlots = 4U;
+const uint32_t kInvalidBasicBlockId = ~0U;
 
 // The indexed_frequency_data for the bbentry instrumentation mode has 1 column.
 struct BBEntryFrequency {
-  uint32 frequency;
+  uint32_t frequency;
 };
 
 // The indexed_frequency_data for the branch instrumentation mode has 3 columns.
 struct BranchFrequency {
-  uint32 frequency;
-  uint32 branch_taken;
-  uint32 mispredicted;
+  uint32_t frequency;
+  uint32_t branch_taken;
+  uint32_t mispredicted;
 };
 
 // An entry in the basic block id buffer.
 struct BranchBufferEntry {
-  uint32 basic_block_id;
-  uint32 last_basic_block_id;
+  uint32_t basic_block_id;
+  uint32_t last_basic_block_id;
 };
 
 // All tracing runs through this object.
@@ -290,7 +290,7 @@ base::LazyInstance<BasicBlockEntry> static_bbentry_instance =
     LAZY_INSTANCE_INITIALIZER;
 
 // Increment and saturate a 32-bit value.
-inline uint32 IncrementAndSaturate(uint32 value) {
+inline uint32_t IncrementAndSaturate(uint32_t value) {
   if (value != ~0U)
     ++value;
   return value;
@@ -325,11 +325,11 @@ HMODULE GetModuleForAddr(const void* addr) {
 }
 
 // Returns true if @p version is the expected version for @p datatype_id.
-bool DatatypeVersionIsValid(uint32 data_type,
-                            uint32 agent_id,
-                            uint32 version,
-                            uint32 frequency_size,
-                            uint32 num_columns) {
+bool DatatypeVersionIsValid(uint32_t data_type,
+                            uint32_t agent_id,
+                            uint32_t version,
+                            uint32_t frequency_size,
+                            uint32_t num_columns) {
   // We can only handle this if it looks right.
   const size_t kIntSize = sizeof(int);
   if (data_type == IndexedFrequencyData::BRANCH) {
@@ -362,7 +362,7 @@ bool DatatypeVersionIsValid(uint32 data_type,
 struct BasicBlockEntry::IncrementIndexedFreqDataFrame {
   const void* ret_addr;
   IndexedFrequencyData* module_data;
-  uint32 index;
+  uint32_t index;
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(BasicBlockEntry::IncrementIndexedFreqDataFrame,
                               12);
@@ -410,30 +410,30 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // Saturation increment the frequency record for @p index. Note that in
   // Release mode, no range checking is performed on index.
   // @param basic_block_id the basic block index.
-  void Increment(uint32 basic_block_id);
+  void Increment(uint32_t basic_block_id);
 
   // Update state and frequency when a jump enters the basic block @p index
   // coming from the basic block @last.
   // @param basic_block_id the basic block index.
   // @param last_basic_block_id the originating basic block index from which we
   //     enter @p basic_block_id.
-  void Enter(uint32 basic_block_id, uint32 last_basic_block_id);
+  void Enter(uint32_t basic_block_id, uint32_t last_basic_block_id);
 
   // Update state and frequency when a jump leaves the basic block @p index.
   // @param basic_block_id the basic block index.
-  void Leave(uint32 basic_block_id);
+  void Leave(uint32_t basic_block_id);
 
   // Push a basic block id in the basic block ids buffer, to be processed later.
   // @param basic_block_id the basic block index.
   // @returns true when the buffer is full and there is no room for an other
   //     entry, false otherwise.
-  bool Push(uint32 basic_block_id);
+  bool Push(uint32_t basic_block_id);
 
   // Flush pending values in the basic block ids buffer.
   void Flush();
 
   // Return the id of the most recent basic block executed.
-  uint32 last_basic_block_id() { return last_basic_block_id_; }
+  uint32_t last_basic_block_id() { return last_basic_block_id_; }
 
   // Reset the most recent basic block executed.
   void reset_last_basic_block_id();
@@ -444,12 +444,12 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   // For a given basic block id, returns the corresponding BBEntryFrequency.
   // @param basic_block_id the basic block index.
   // @returns the bbentry frequency entry for a given basic block id.
-  BBEntryFrequency& GetBBEntryFrequency(uint32 basic_block_id);
+  BBEntryFrequency& GetBBEntryFrequency(uint32_t basic_block_id);
 
   // For a given basic block id, returns the corresponding BranchFrequency.
   // @param basic_block_id the basic block index.
   // @returns the branch frequency entry for a given basic block id.
-  BranchFrequency& GetBranchFrequency(uint32 basic_block_id);
+  BranchFrequency& GetBranchFrequency(uint32_t basic_block_id);
 
   // Retrieve the indexed_frequency_data specific fields for this agent.
   // @returns a pointer to the specific fields.
@@ -461,10 +461,10 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
  protected:
   // As a shortcut, this points to the beginning of the array of basic-block
   // entry frequency values. With tracing enabled, this is equivalent to:
-  //     reinterpret_cast<uint32*>(this->trace_data->frequency_data)
+  //     reinterpret_cast<uint32_t*>(this->trace_data->frequency_data)
   // If tracing is not enabled, this will be set to point to a static
   // allocation of IndexedFrequencyData::frequency_data.
-  uint32* frequency_data_;  // Under trace_lock_.
+  uint32_t* frequency_data_;  // Under trace_lock_.
 
   // Module information this thread state is gathering information on.
   const IndexedFrequencyData* module_data_;
@@ -476,13 +476,13 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
   std::vector<BranchBufferEntry> basic_block_id_buffer_;
 
   // Current offset of the next available entry in the basic block id buffer.
-  uint32 basic_block_id_buffer_offset_;
+  uint32_t basic_block_id_buffer_offset_;
 
   // The branch predictor state (2-bit saturating counter).
-  std::vector<uint8> predictor_data_;
+  std::vector<uint8_t> predictor_data_;
 
   // The last basic block id executed.
-  uint32 last_basic_block_id_;
+  uint32_t last_basic_block_id_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ThreadState);
@@ -491,7 +491,7 @@ class BasicBlockEntry::ThreadState : public agent::common::ThreadStateBase {
 BasicBlockEntry::ThreadState::ThreadState(IndexedFrequencyData* module_data,
                                           base::Lock* lock,
                                           void* frequency_data)
-    : frequency_data_(static_cast<uint32*>(frequency_data)),
+    : frequency_data_(static_cast<uint32_t*>(frequency_data)),
       module_data_(module_data),
       trace_lock_(lock),
       basic_block_id_buffer_offset_(0),
@@ -502,9 +502,9 @@ BasicBlockEntry::ThreadState::~ThreadState() {
   if (!basic_block_id_buffer_.empty())
     Flush();
 
-  uint32 slot = GetBasicBlockData()->fs_slot;
+  uint32_t slot = GetBasicBlockData()->fs_slot;
   if (slot != 0) {
-    uint32 address = kUserApplicationSlot + 4 * (slot - 1);
+    uint32_t address = kUserApplicationSlot + 4 * (slot - 1);
     __writefsdword(address, 0);
   }
 }
@@ -524,7 +524,7 @@ void BasicBlockEntry::ThreadState::reset_last_basic_block_id() {
 }
 
 BBEntryFrequency& BasicBlockEntry::ThreadState::GetBBEntryFrequency(
-    uint32 basic_block_id) {
+    uint32_t basic_block_id) {
   DCHECK(frequency_data_ != NULL);
   BBEntryFrequency* frequencies =
       reinterpret_cast<BBEntryFrequency*>(frequency_data_);
@@ -533,7 +533,7 @@ BBEntryFrequency& BasicBlockEntry::ThreadState::GetBBEntryFrequency(
 }
 
 BranchFrequency& BasicBlockEntry::ThreadState::GetBranchFrequency(
-    uint32 basic_block_id) {
+    uint32_t basic_block_id) {
   DCHECK(frequency_data_ != NULL);
   BranchFrequency* frequencies =
       reinterpret_cast<BranchFrequency*>(frequency_data_);
@@ -541,7 +541,7 @@ BranchFrequency& BasicBlockEntry::ThreadState::GetBranchFrequency(
   return entry;
 }
 
-inline void BasicBlockEntry::ThreadState::Increment(uint32 basic_block_id) {
+inline void BasicBlockEntry::ThreadState::Increment(uint32_t basic_block_id) {
   DCHECK(frequency_data_ != NULL);
   DCHECK(module_data_ != NULL);
   DCHECK_LT(basic_block_id, module_data_->num_entries);
@@ -551,8 +551,8 @@ inline void BasicBlockEntry::ThreadState::Increment(uint32 basic_block_id) {
   entry.frequency = IncrementAndSaturate(entry.frequency);
 }
 
-void BasicBlockEntry::ThreadState::Enter(
-    uint32 basic_block_id, uint32 last_basic_block_id) {
+void BasicBlockEntry::ThreadState::Enter(uint32_t basic_block_id,
+                                         uint32_t last_basic_block_id) {
   DCHECK(frequency_data_ != NULL);
   DCHECK(module_data_ != NULL);
   DCHECK_LT(basic_block_id, module_data_->num_entries);
@@ -590,7 +590,7 @@ void BasicBlockEntry::ThreadState::Enter(
   DCHECK(predictor_data_.size() == kPredictorCacheSize);
   if (last_basic_block_id != kInvalidBasicBlockId) {
     size_t offset = last_basic_block_id % kPredictorCacheSize;
-    uint8& state = predictor_data_[offset];
+    uint8_t& state = predictor_data_[offset];
     if (taken) {
       if (state < 2)
         previous.mispredicted = IncrementAndSaturate(previous.mispredicted);
@@ -605,18 +605,18 @@ void BasicBlockEntry::ThreadState::Enter(
   }
 }
 
-inline void BasicBlockEntry::ThreadState::Leave(uint32 basic_block_id) {
+inline void BasicBlockEntry::ThreadState::Leave(uint32_t basic_block_id) {
   DCHECK(module_data_ != NULL);
   DCHECK_LT(basic_block_id, module_data_->num_entries);
 
   last_basic_block_id_ = basic_block_id;
 }
 
-bool BasicBlockEntry::ThreadState::Push(uint32 basic_block_id) {
+bool BasicBlockEntry::ThreadState::Push(uint32_t basic_block_id) {
   DCHECK(module_data_ != NULL);
   DCHECK(basic_block_id < module_data_->num_entries);
 
-  uint32 last_offset = basic_block_id_buffer_offset_;
+  uint32_t last_offset = basic_block_id_buffer_offset_;
   DCHECK_LT(last_offset, basic_block_id_buffer_.size());
 
   BranchBufferEntry* entry = &basic_block_id_buffer_[last_offset];
@@ -629,7 +629,7 @@ bool BasicBlockEntry::ThreadState::Push(uint32 basic_block_id) {
 }
 
 void BasicBlockEntry::ThreadState::Flush() {
-  uint32 last_offset = basic_block_id_buffer_offset_;
+  uint32_t last_offset = basic_block_id_buffer_offset_;
 
   for (size_t offset = 0; offset < last_offset; ++offset) {
     BranchBufferEntry* entry = &basic_block_id_buffer_[offset];
@@ -712,7 +712,7 @@ bool BasicBlockEntry::InitializeFrequencyData(IndexedFrequencyData* data) {
 
   // Hook up the newly allocated buffer to the call-trace instrumentation.
   data->frequency_data =
-      reinterpret_cast<uint32*>(&trace_data->frequency_data[0]);
+      reinterpret_cast<uint32_t*>(&trace_data->frequency_data[0]);
 
   return true;
 }
@@ -743,9 +743,9 @@ BasicBlockEntry::ThreadState* BasicBlockEntry::CreateThreadState(
   if (session_.IsDisabled())
     return state;
 
-  uint32 slot = basicblock_data->fs_slot;
+  uint32_t slot = basicblock_data->fs_slot;
   if (slot != 0) {
-    uint32 address = kUserApplicationSlot + 4 * (slot - 1);
+    uint32_t address = kUserApplicationSlot + 4 * (slot - 1);
     // Sanity check: The slot must be available (not used by an other tool).
     DWORD content = __readfsdword(address);
     CHECK_EQ(content, 0U);
@@ -786,7 +786,7 @@ inline BasicBlockEntry::ThreadState* BasicBlockEntry::GetThreadState(
 
 template<int S>
 inline BasicBlockEntry::ThreadState* BasicBlockEntry::GetThreadStateSlot() {
-  uint32 address = kUserApplicationSlot + 4 * (S - 1);
+  uint32_t address = kUserApplicationSlot + 4 * (S - 1);
   DWORD content = __readfsdword(address);
   return reinterpret_cast<BasicBlockEntry::ThreadState*>(content);
 }
@@ -821,7 +821,7 @@ void WINAPI BasicBlockEntry::BranchEnterHook(
   }
 
   base::AutoLock scoped_lock(*state->trace_lock());
-  uint32 last_basic_block_id = state->last_basic_block_id();
+  uint32_t last_basic_block_id = state->last_basic_block_id();
   state->Enter(entry_frame->index, last_basic_block_id);
   state->reset_last_basic_block_id();
 }
@@ -863,20 +863,20 @@ void __fastcall BasicBlockEntry::FunctionEnterHookSlot(
   }
 }
 
-template<int S>
-void __fastcall BasicBlockEntry::BranchEnterHookSlot(uint32 index) {
+template <int S>
+void __fastcall BasicBlockEntry::BranchEnterHookSlot(uint32_t index) {
   ThreadState* state = GetThreadStateSlot<S>();
   if (state == NULL)
     return;
 
   base::AutoLock scoped_lock(*state->trace_lock());
-  uint32 last_basic_block_id = state->last_basic_block_id();
+  uint32_t last_basic_block_id = state->last_basic_block_id();
   state->Enter(index, last_basic_block_id);
   state->reset_last_basic_block_id();
 }
 
-template<int S>
-void __fastcall BasicBlockEntry::BranchEnterBufferedHookSlot(uint32 index) {
+template <int S>
+void __fastcall BasicBlockEntry::BranchEnterBufferedHookSlot(uint32_t index) {
   ThreadState* state = GetThreadStateSlot<S>();
   if (state == NULL)
     return;
@@ -888,8 +888,8 @@ void __fastcall BasicBlockEntry::BranchEnterBufferedHookSlot(uint32 index) {
   state->reset_last_basic_block_id();
 }
 
-template<int S>
-void __fastcall BasicBlockEntry::BranchExitHookSlot(uint32 index) {
+template <int S>
+void __fastcall BasicBlockEntry::BranchExitHookSlot(uint32_t index) {
   ThreadState* state = GetThreadStateSlot<S>();
   if (state == NULL)
     return;

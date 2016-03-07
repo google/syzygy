@@ -31,7 +31,7 @@ extern const char kArGlobalMagic[8];
 extern const char kArFileMagic[2];
 
 // The buffer object used for reading and writing files to an archive.
-typedef std::vector<uint8> DataBuffer;
+typedef std::vector<uint8_t> DataBuffer;
 
 // Maps symbols by their name to the index of the archived file containing
 // them.
@@ -70,8 +70,8 @@ struct ParsedArFileHeader {
 
   std::string name;
   base::Time timestamp;
-  uint32 mode;
-  uint64 size;
+  uint32_t mode;
+  uint64_t size;
 };
 
 }  // namespace ar

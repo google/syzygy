@@ -43,8 +43,8 @@ class FunctionCallLogger {
   // a given function name then emits a record to the call-trace buffer.
   // @param function_name The name of the function.
   // @returns the ID of the function.
-  uint32 GetFunctionId(TraceFileSegment* segment,
-                       const std::string& function_name);
+  uint32_t GetFunctionId(TraceFileSegment* segment,
+                         const std::string& function_name);
 
   // Gets a stack ID for the current stack. The behaviour of this function
   // depends on the stack_trace_tracking mode. If disabled, this always
@@ -52,7 +52,7 @@ class FunctionCallLogger {
   // If 'emit' mode is enabled, this will also keep track of already emitted
   // stack IDs and emit the stack the first time it's encountered.
   // @returns the ID of the current stack trace.
-  uint32 GetStackTraceId(TraceFileSegment* segment);
+  uint32_t GetStackTraceId(TraceFileSegment* segment);
 
   // Emits a detailed function call event with a variable number of arguments.
   // @tparam ArgTypeN The type of the optional Nth argument.
@@ -60,15 +60,15 @@ class FunctionCallLogger {
   // @param stack_trace_id The ID of the stack trace where the function was
   //     called.
   // @param argN The value of the optional Nth argument.
-  template<typename ArgType0 = NoArgument,
-           typename ArgType1 = NoArgument,
-           typename ArgType2 = NoArgument,
-           typename ArgType3 = NoArgument,
-           typename ArgType4 = NoArgument,
-           typename ArgType5 = NoArgument>
+  template <typename ArgType0 = NoArgument,
+            typename ArgType1 = NoArgument,
+            typename ArgType2 = NoArgument,
+            typename ArgType3 = NoArgument,
+            typename ArgType4 = NoArgument,
+            typename ArgType5 = NoArgument>
   void EmitDetailedFunctionCall(TraceFileSegment* segment,
-                                uint32 function_id,
-                                uint32 stack_trace_id,
+                                uint32_t function_id,
+                                uint32_t stack_trace_id,
                                 ArgType0 arg0 = NoArgument(),
                                 ArgType1 arg1 = NoArgument(),
                                 ArgType2 arg2 = NoArgument(),
@@ -94,7 +94,7 @@ class FunctionCallLogger {
 
   // @returns a unique serial number for this function call logger.
   // @note This is for unittesting purposes.
-  uint32 serial() const { return serial_; }
+  uint32_t serial() const { return serial_; }
 
  protected:
   // Flushes the provided segment, and gets a new one.
@@ -114,20 +114,20 @@ class FunctionCallLogger {
 
   // The counter to use for serialized timestamps. Only used if
   // |serialized_timestamps_| is true.
-  uint64 call_counter_;  // Under lock_.
+  uint64_t call_counter_;  // Under lock_.
 
   // A map of known function names and their IDs. This is used for making the
   // call-trace format more compact.
-  typedef std::map<std::string, uint32> FunctionIdMap;
+  typedef std::map<std::string, uint32_t> FunctionIdMap;
   FunctionIdMap function_id_map_;  // Under lock_.
 
   // A set of stack traces whose IDs have already been emitted. This is only
   // maintained if stack_trace_tracking_ is set to 'kTrackingEmit'.
-  typedef std::set<uint32> StackIdSet;
+  typedef std::set<uint32_t> StackIdSet;
   StackIdSet emitted_stack_ids_;  // Under lock_.
 
   // A unique serial number generated at construction time. For unittesting.
-  uint32 serial_;
+  uint32_t serial_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(FunctionCallLogger);
@@ -143,7 +143,7 @@ struct FunctionCallLogger::ArgumentSerializer {
   size_t size() const {
     return sizeof(ArgType);
   }
-  void serialize(ArgType argument, uint8* buffer) {
+  void serialize(ArgType argument, uint8_t* buffer) {
     ::memcpy(buffer, &argument, sizeof(ArgType));
   }
 };
@@ -154,24 +154,22 @@ template<> struct FunctionCallLogger::ArgumentSerializer<
   size_t size() const {
     return 0;
   }
-  void serialize(NoArgument argument, uint8* buffer) {
-    return;
-  }
+  void serialize(NoArgument argument, uint8_t* buffer) { return; }
 };
 
 // Implementation off the detailed function call logger. Populates a
 // TraceDetailedFunctionCall buffer with variable length encodings of
 // the arguments. Arguments are serialized using the ArgumentSerializer
 // helper.
-template<typename ArgType0,
-         typename ArgType1,
-         typename ArgType2,
-         typename ArgType3,
-         typename ArgType4,
-         typename ArgType5>
+template <typename ArgType0,
+          typename ArgType1,
+          typename ArgType2,
+          typename ArgType3,
+          typename ArgType4,
+          typename ArgType5>
 void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
-                                                  uint32 function_id,
-                                                  uint32 stack_trace_id,
+                                                  uint32_t function_id,
+                                                  uint32_t stack_trace_id,
                                                   ArgType0 arg0,
                                                   ArgType1 arg1,
                                                   ArgType2 arg2,
@@ -207,7 +205,7 @@ void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
   args_size += arg_size5;
 
   if (args_size > 0)
-    args_size += (args_count + 1) * sizeof(uint32);
+    args_size += (args_count + 1) * sizeof(uint32_t);
   size_t data_size = FIELD_OFFSET(TraceDetailedFunctionCall, argument_data) +
       args_size;
 
@@ -233,7 +231,7 @@ void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
     return;
 
   // Output the number of arguments.
-  uint32* arg_sizes = reinterpret_cast<uint32*>(data->argument_data);
+  uint32_t* arg_sizes = reinterpret_cast<uint32_t*>(data->argument_data);
   *(arg_sizes++) = args_count;
 
   // Output argument sizes.
@@ -251,7 +249,7 @@ void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
     *(arg_sizes++) = arg_size5;
 
   // Output argument data.
-  uint8* arg_data = reinterpret_cast<uint8*>(arg_sizes);
+  uint8_t* arg_data = reinterpret_cast<uint8_t*>(arg_sizes);
   ArgumentSerializer<ArgType0>().serialize(arg0, arg_data);
   arg_data += arg_size0;
   ArgumentSerializer<ArgType1>().serialize(arg1, arg_data);
@@ -277,18 +275,18 @@ void FunctionCallLogger::EmitDetailedFunctionCall(TraceFileSegment* segment,
 //     be statically initialized to -1.
 // @param function_name The name of the function being traced.
 // @param arguments The arguments to the function being traced.
-template<typename... Arguments>
+template <typename... Arguments>
 inline void EmitDetailedFunctionCallHelper(
     FunctionCallLogger* function_call_logger,
     trace::client::TraceFileSegment* segment,
-    uint32* logger_serial,
-    uint32* function_id,
+    uint32_t* logger_serial,
+    uint32_t* function_id,
     const char* function_name,
     const Arguments&... arguments) {
   DCHECK_NE(static_cast<FunctionCallLogger*>(nullptr), function_call_logger);
   DCHECK_NE(static_cast<trace::client::TraceFileSegment*>(nullptr), segment);
-  DCHECK_NE(static_cast<uint32*>(nullptr), logger_serial);
-  DCHECK_NE(static_cast<uint32*>(nullptr), function_id);
+  DCHECK_NE(static_cast<uint32_t*>(nullptr), logger_serial);
+  DCHECK_NE(static_cast<uint32_t*>(nullptr), function_id);
   DCHECK_NE(static_cast<char*>(nullptr), function_name);
 
   // This is racy but safe because of the way GetFunctionId works and because
@@ -298,8 +296,7 @@ inline void EmitDetailedFunctionCallHelper(
     *logger_serial = function_call_logger->serial();
     *function_id = function_call_logger->GetFunctionId(segment, function_name);
   }
-  uint32 stack_trace_id =
-      function_call_logger->GetStackTraceId(segment);
+  uint32_t stack_trace_id = function_call_logger->GetStackTraceId(segment);
   function_call_logger->EmitDetailedFunctionCall(
       segment, *function_id, stack_trace_id, arguments...);
 }
@@ -313,8 +310,8 @@ inline void EmitDetailedFunctionCallHelper(
 // @param segment A pointer to the TraceFileSegment to write to.
 #define EMIT_DETAILED_FUNCTION_CALL(function_call_logger, segment, ...)        \
   {                                                                            \
-    static uint32 logger_serial = UINT32_MAX;                                  \
-    static uint32 function_id = UINT32_MAX;                                    \
+    static uint32_t logger_serial = UINT32_MAX;                                \
+    static uint32_t function_id = UINT32_MAX;                                  \
     EmitDetailedFunctionCallHelper((function_call_logger), (segment),          \
                                    &logger_serial, &function_id, __FUNCTION__, \
                                    __VA_ARGS__);                               \

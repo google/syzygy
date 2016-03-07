@@ -49,8 +49,8 @@ class SamplingProfilerTest : public testing::Test {
                          arraysize(text_section->Name)));
     ASSERT_NE(0U, text_section->Characteristics & IMAGE_SCN_MEM_EXECUTE);
 
-    code_start = reinterpret_cast<uint8*>(&__ImageBase) +
-        text_section->VirtualAddress;
+    code_start =
+        reinterpret_cast<uint8_t*>(&__ImageBase) + text_section->VirtualAddress;
     code_size = text_section->Misc.VirtualSize;
   }
 

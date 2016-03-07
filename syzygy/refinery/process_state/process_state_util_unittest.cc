@@ -30,8 +30,8 @@ namespace {
 
 const Address kAddress = 0x0000CAFE;  // Fits 32-bit.
 const Size kSize = 42U;
-const uint32 kChecksum = 11U;
-const uint32 kTimestamp = 22U;
+const uint32_t kChecksum = 11U;
+const uint32_t kTimestamp = 22U;
 const wchar_t kPath[] = L"c:\\path\\ModuleName";
 const char kDataName[] = "data_name";
 const ModuleId kModuleId = 100;

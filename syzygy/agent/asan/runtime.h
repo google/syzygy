@@ -124,7 +124,7 @@ class AsanRuntime {
   const ::common::InflatedAsanParameters& params() const { return params_; }
 
   // @returns the value of the tick counter when the runtime was created.
-  uint32 starting_ticks() const { return starting_ticks_; }
+  uint32_t starting_ticks() const { return starting_ticks_; }
 
   // Retrieves the process's heap.
   // @returns The ID of the process's heap.
@@ -152,12 +152,12 @@ class AsanRuntime {
 
   // Observes a given thread ID, adding it to thread ID set.
   // @param thread_id The thread ID that has been observed.
-  void AddThreadId(uint32 thread_id);
+  void AddThreadId(uint32_t thread_id);
 
   // Determines if a thread ID has already been seen.
   // @param thread_id The thread ID to be queried.
   // @returns true if a given thread ID is valid for this process.
-  bool ThreadIdIsValid(uint32 thread_id);
+  bool ThreadIdIsValid(uint32_t thread_id);
 
   // @name Introspection entry points into the block heap manager. These
   //    are only meant to be run when the block heap manager lock is already
@@ -166,12 +166,12 @@ class AsanRuntime {
   //    held.
   // @{
   // Determines if a given heap ID is valid.
-  // @param uint32 heap_id The heap ID to check.
+  // @param uint32_t heap_id The heap ID to check.
   // @returns true if valid, false otherwise.
   bool HeapIdIsValid(HeapManagerInterface::HeapId heap_id);
 
   // Returns the type of a given heap.
-  // @param uint32 heap_id The heap ID to check.
+  // @param uint32_t heap_id The heap ID to check.
   // @returns the heap type, or kUnknownHeapType if the heap is invalid.
   HeapType GetHeapType(HeapManagerInterface::HeapId heap_id);
   // @}
@@ -306,12 +306,12 @@ class AsanRuntime {
 
   // The tick counter when the runtime was created. This is used for
   // bracketing valid alloc and free ticks values.
-  uint32 starting_ticks_;
+  uint32_t starting_ticks_;
 
   // The set of thread IDs that have been seen in the current process.
   // This is used to validate thread IDs in a block trailer.
   base::Lock thread_ids_lock_;
-  base::hash_set<uint32> thread_ids_;  // Under thread_ids_lock_.
+  base::hash_set<uint32_t> thread_ids_;  // Under thread_ids_lock_.
 
   // A random key that is generated on object creation. This is used for
   // correlating duplicate crash reports on the back-end.

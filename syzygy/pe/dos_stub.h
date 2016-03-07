@@ -19,13 +19,13 @@
 #ifndef SYZYGY_PE_DOS_STUB_H_
 #define SYZYGY_PE_DOS_STUB_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
 
 namespace pe {
 
 // Contains 16-bit X86 machine code DOS stub. This is to be injected between
 // the DOS header and NT headers in Syzygy transformed binaries.
-extern const uint8 kDosStub[];
+extern const uint8_t kDosStub[];
 extern const size_t kDosStubSize;
 
 }  // namespace pe

@@ -77,8 +77,8 @@ class DisassemblerTest: public testing::Test {
     return AbsoluteAddress(reinterpret_cast<size_t>(ptr));
   }
 
-  static const uint8* PointerTo(const void* ptr) {
-    return reinterpret_cast<const uint8*>(ptr);
+  static const uint8_t* PointerTo(const void* ptr) {
+    return reinterpret_cast<const uint8_t*>(ptr);
   }
 
   Disassembler::CallbackDirective RecordFunctionEncounter(
@@ -207,4 +207,4 @@ TEST_F(DisassemblerTest, StopsAtTerminateNoReturnFunctionCall) {
   ASSERT_EQ(Disassembler::kWalkSuccess, disasm.Walk());
 }
 
-}  // namespace image_util
+}  // namespace core

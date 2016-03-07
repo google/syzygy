@@ -45,17 +45,17 @@ class AsanRtlTest : public testing::TestAsanRtl {
   }
 
  protected:
-  void AllocMemoryBuffers(int32 length, int32 element_size);
+  void AllocMemoryBuffers(int32_t length, int32_t element_size);
   void FreeMemoryBuffers();
 
   // Memory buffers used to test special instructions.
   void* memory_src_;
   void* memory_dst_;
-  int32 memory_length_;
-  int32 memory_size_;
+  int32_t memory_length_;
+  int32_t memory_size_;
 };
 
-void AsanRtlTest::AllocMemoryBuffers(int32 length, int32 element_size) {
+void AsanRtlTest::AllocMemoryBuffers(int32_t length, int32_t element_size) {
   ASSERT_EQ(reinterpret_cast<void*>(NULL), memory_src_);
   ASSERT_EQ(reinterpret_cast<void*>(NULL), memory_dst_);
   ASSERT_EQ(0, memory_length_);
@@ -108,7 +108,7 @@ TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   // Run through access checking an allocation that's larger than our
   // block size (8), but not a multiple thereof to exercise all paths
   // in the access check function (save for the failure path).
-  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   MemoryAccessorTester tester;
@@ -123,7 +123,7 @@ TEST_F(AsanRtlTest, AsanCheckHeapBufferOverflow) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   MemoryAccessorTester tester;
@@ -138,7 +138,7 @@ TEST_F(AsanRtlTest, AsanCheckHeapBufferUnderflow) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   MemoryAccessorTester tester;
@@ -153,10 +153,10 @@ TEST_F(AsanRtlTest, AsanCheckUseAfterFree) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
-  uint8* mem_ptr = mem.get();
+  uint8_t* mem_ptr = mem.get();
   mem.reset(NULL);
 
   MemoryAccessorTester tester;
@@ -171,9 +171,9 @@ TEST_F(AsanRtlTest, AsanCheckDoubleFree) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
-  uint8* mem_ptr = NULL;
+  uint8_t* mem_ptr = NULL;
   {
-    ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+    ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
     ASSERT_TRUE(mem.get() != NULL);
     mem_ptr = mem.get();
   }
@@ -228,7 +228,7 @@ TEST_F(AsanRtlTest, AsanReportInvalidAccess) {
 
 TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {
   void* mem = HeapAllocFunction(heap_, 0, kAllocSize);
-  reinterpret_cast<uint8*>(mem)[-1]--;
+  reinterpret_cast<uint8_t*>(mem)[-1]--;
   MemoryAccessorTester tester;
   tester.set_expected_error_type(CORRUPT_BLOCK);
   EXPECT_TRUE(HeapFreeFunction(heap_, 0, mem));
@@ -246,7 +246,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
   runtime->params().check_heap_on_failure = true;
 
-  ScopedAsanAlloc<uint8> mem(this, kAllocSize);
+  ScopedAsanAlloc<uint8_t> mem(this, kAllocSize);
   ASSERT_TRUE(mem.get() != NULL);
 
   const size_t kMaxIterations = 10;
@@ -258,8 +258,8 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   EXPECT_TRUE(BlockInfoFromMemory(header, &block_info));
 
   // We'll update a non essential value of the block trailer to corrupt it.
-  uint8* mem_in_trailer = reinterpret_cast<uint8*>(
-      &block_info.trailer->alloc_tid);
+  uint8_t* mem_in_trailer =
+      reinterpret_cast<uint8_t*>(&block_info.trailer->alloc_tid);
 
   // This can fail because of a checksum collision. However, we run it a handful
   // of times to keep the chances as small as possible.
@@ -308,17 +308,17 @@ TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint8));
-  uint8* src = reinterpret_cast<uint8*>(memory_src_);
-  uint8* dst = reinterpret_cast<uint8*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint8_t));
+  uint8_t* src = reinterpret_cast<uint8_t*>(memory_src_);
+  uint8_t* dst = reinterpret_cast<uint8_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
 
-    for (int32 i = 0; i < memory_length_; ++i) {
+    for (int32_t i = 0; i < memory_length_; ++i) {
       MemoryAccessorTester tester;
       tester.ExpectSpecialMemoryErrorIsDetected(
         check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
@@ -338,17 +338,17 @@ TEST_F(AsanRtlTest, AsanSingleSpecial2byteInstructionCheckGoodAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint16));
-  uint16* src = reinterpret_cast<uint16*>(memory_src_);
-  uint16* dst = reinterpret_cast<uint16*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint16_t));
+  uint16_t* src = reinterpret_cast<uint16_t*>(memory_src_);
+  uint16_t* dst = reinterpret_cast<uint16_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
 
-    for (int32 i = 0; i < memory_length_; ++i) {
+    for (int32_t i = 0; i < memory_length_; ++i) {
       MemoryAccessorTester tester;
       tester.ExpectSpecialMemoryErrorIsDetected(
           check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
@@ -367,17 +367,17 @@ TEST_F(AsanRtlTest, AsanSingleSpecial4byteInstructionCheckGoodAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
 
-    for (int32 i = 0; i < memory_length_; ++i) {
+    for (int32_t i = 0; i < memory_length_; ++i) {
       MemoryAccessorTester tester;
       tester.ExpectSpecialMemoryErrorIsDetected(
           check_access_fn, MemoryAccessorTester::DIRECTION_FORWARD,
@@ -399,12 +399,12 @@ TEST_F(AsanRtlTest, AsanSingleSpecialInstructionCheckBadAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
@@ -436,12 +436,12 @@ TEST_F(AsanRtlTest, AsanSingleStoInstructionCheckBadAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
@@ -473,12 +473,12 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckGoodAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
@@ -500,12 +500,12 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckBadAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
@@ -533,12 +533,12 @@ TEST_F(AsanRtlTest, AsanDirectionSpecialInstructionCheckGoodAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
@@ -568,12 +568,12 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckZeroAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);
@@ -596,14 +596,14 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
   };
 
   // Allocate memory space.
-  AllocMemoryBuffers(kAllocSize, sizeof(uint32));
-  uint32* src = reinterpret_cast<uint32*>(memory_src_);
-  uint32* dst = reinterpret_cast<uint32*>(memory_dst_);
+  AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
+  uint32_t* src = reinterpret_cast<uint32_t*>(memory_src_);
+  uint32_t* dst = reinterpret_cast<uint32_t*>(memory_dst_);
 
   src[1] = 0x12345667;
 
   // Validate memory accesses.
-  for (int32 function = 0; function < arraysize(function_names); ++function) {
+  for (int32_t function = 0; function < arraysize(function_names); ++function) {
     FARPROC check_access_fn =
         ::GetProcAddress(asan_rtl_, function_names[function]);
     ASSERT_TRUE(check_access_fn != NULL);

@@ -94,7 +94,7 @@ void DumpReference(const BasicBlockReference& ref, FILE* out) {
   }
 }
 
-void HexDump(const uint8* data, size_t size, FILE* out) {
+void HexDump(const uint8_t* data, size_t size, FILE* out) {
   for (size_t i = 0; i < size; ++i)
     ::fprintf(out, "%02x", data[i]);
 }

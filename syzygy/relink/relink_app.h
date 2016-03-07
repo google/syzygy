@@ -64,7 +64,7 @@ class RelinkApp : public application::AppImplBase {
   base::FilePath output_image_path_;
   base::FilePath output_pdb_path_;
   base::FilePath order_file_path_;
-  uint32 seed_;
+  uint32_t seed_;
   size_t padding_;
   size_t code_alignment_;
   bool no_augment_pdb_;

@@ -30,7 +30,7 @@ class MsfByteStreamImpl : public MsfStreamImpl<T> {
   MsfByteStreamImpl();
 
   // Initializes the stream from the contents of a byte array.
-  bool Init(const uint8* data, size_t length);
+  bool Init(const uint8_t* data, size_t length);
 
   // Initializes the stream from the whole contents of another MsfStreamImpl.
   bool Init(MsfStreamImpl* stream);
@@ -45,7 +45,7 @@ class MsfByteStreamImpl : public MsfStreamImpl<T> {
   // @}
 
   // Gets the stream's data pointer.
-  uint8* data() { return &data_[0]; }
+  uint8_t* data() { return &data_[0]; }
 
  protected:
   // Our friend so it can access our internals.
@@ -55,7 +55,7 @@ class MsfByteStreamImpl : public MsfStreamImpl<T> {
   virtual ~MsfByteStreamImpl();
 
   // The stream's data.
-  std::vector<uint8> data_;
+  std::vector<uint8_t> data_;
 
   // This is a bit of a hack, allowing us to enforce single
   // WritableMsfStreamImpl

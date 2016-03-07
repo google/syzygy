@@ -29,7 +29,6 @@
 
 #include <map>
 
-#include "base/basictypes.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"
 
@@ -159,8 +158,8 @@ class LivenessAnalysis {
 // This class contains the liveness information at a given program point.
 class LivenessAnalysis::State {
  public:
-  typedef uint32 RegisterMask;
-  typedef uint32 FlagsMask;
+  typedef uint32_t RegisterMask;
+  typedef uint32_t FlagsMask;
 
   // On creation, a state assumes all registers alive.
   State();

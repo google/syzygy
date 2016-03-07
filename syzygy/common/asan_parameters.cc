@@ -73,10 +73,10 @@ struct UpdateValueFromCommandLine {
   }
 };
 
-// Parses a uint32 value from a string provided on the command-line.
+// Parses a uint32_t value from a string provided on the command-line.
 struct Uint32Parser {
   typedef size_t IntermediateType;
-  typedef uint32 ValueType;
+  typedef uint32_t ValueType;
   static bool Convert(const std::string& value_str, IntermediateType* value) {
     return base::StringToSizeT(value_str, value);
   }
@@ -110,7 +110,7 @@ bool ReadIgnoredStackIdsFromCommandLine(const base::CommandLine& cmd_line,
   std::string value_str = cmd_line.GetSwitchValueASCII(param_name);
   base::StringTokenizer string_tokenizer(value_str, ";");
   while (string_tokenizer.GetNext()) {
-    int64 new_value = 0;
+    int64_t new_value = 0;
     if (!base::HexStringToInt64(string_tokenizer.token(), &new_value)) {
       LOG(ERROR) << "Failed to parse \"" << param_name << "\" value of \""
                  << string_tokenizer.token() << "\".";
@@ -129,24 +129,24 @@ bool ReadIgnoredStackIdsFromCommandLine(const base::CommandLine& cmd_line,
 
 // SYZYgy Asan Runtime Options.
 const char kAsanParametersSectionName[] = ".syzyaro";
-const uint32 kAsanParametersSectionCharacteristics =
+const uint32_t kAsanParametersSectionCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
 
 // Default values of HeapProxy parameters
-const uint32 kDefaultQuarantineSize = 16 * 1024 * 1024;
-const uint32 kDefaultQuarantineBlockSize = 4 * 1024 * 1024;
-const uint32 kDefaultTrailerPaddingSize = 0;
+const uint32_t kDefaultQuarantineSize = 16 * 1024 * 1024;
+const uint32_t kDefaultQuarantineBlockSize = 4 * 1024 * 1024;
+const uint32_t kDefaultTrailerPaddingSize = 0;
 const float kDefaultAllocationGuardRate = 1.0;
 
 // Default values of StackCaptureCache parameters.
-const uint32 kDefaultReportingPeriod = 0;
-const uint32 kDefaultBottomFramesToSkip = 0;
+const uint32_t kDefaultReportingPeriod = 0;
+const uint32_t kDefaultBottomFramesToSkip = 0;
 
 // Default values of StackCapture parameters.
 // From http://msdn.microsoft.com/en-us/library/bb204633.aspx,
 // The maximum number of frames which CaptureStackBackTrace can be asked
 // to traverse must be less than 63, so this can't be any larger than 62.
-const uint32 kDefaultMaxNumFrames = 62;
+const uint32_t kDefaultMaxNumFrames = 62;
 
 // Default values of AsanRuntime parameters.
 const bool kDefaultExitOnFailure = false;
@@ -160,7 +160,7 @@ const bool kDefaultMiniDumpOnFailure = false;
 const bool kDefaultLogAsText = true;
 
 // Default values of ZebraBlockHeap parameters.
-const uint32 kDefaultZebraBlockHeapSize = 16 * 1024 * 1024;
+const uint32_t kDefaultZebraBlockHeapSize = 16 * 1024 * 1024;
 const float kDefaultZebraBlockHeapQuarantineRatio = 0.25f;
 
 // Default values of the BlockHeapManager parameters.
@@ -261,7 +261,7 @@ FlatAsanParameters::FlatAsanParameters(
       *(ignored_stack_ids++) = *id_it;
     *(ignored_stack_ids++) = 0;  // Terminating NULL.
     DCHECK_EQ(data_.data() + data_size,
-              reinterpret_cast<uint8*>(ignored_stack_ids));
+              reinterpret_cast<uint8_t*>(ignored_stack_ids));
   }
 }
 
@@ -315,19 +315,19 @@ bool InflateAsanParameters(const AsanParameters* pod_params,
 
   SetDefaultAsanParameters(inflated_params);
 
-  const uint8* data = reinterpret_cast<const uint8*>(pod_params);
-  const uint8* data_end = data + pod_params->size;
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(pod_params);
+  const uint8_t* data_end = data + pod_params->size;
 
   // This is the size of known POD data in the version of the structure
   // being inflated.
   size_t min_pod_size = kSizeOfAsanParametersByVersion[
       std::min(kAsanParametersVersion, pod_params->version)];
-  const uint8* min_pod_end = data + min_pod_size;
+  const uint8_t* min_pod_end = data + min_pod_size;
 
   // If we have stack IDs, ensure the pointer is to a valid location.
   if (pod_params->ignored_stack_ids != NULL) {
-    const uint8* ignored_stack_ids = reinterpret_cast<const uint8*>(
-        pod_params->ignored_stack_ids);
+    const uint8_t* ignored_stack_ids =
+        reinterpret_cast<const uint8_t*>(pod_params->ignored_stack_ids);
     if (ignored_stack_ids < min_pod_end || ignored_stack_ids >= data_end) {
       LOG(ERROR) << "Invalid ignored_stack_ids pointer.";
       return false;
@@ -349,7 +349,7 @@ bool InflateAsanParameters(const AsanParameters* pod_params,
   if (stack_id == NULL)
     return true;
   while (*stack_id != NULL) {
-    if (reinterpret_cast<const uint8*>(stack_id) > data_end) {
+    if (reinterpret_cast<const uint8_t*>(stack_id) > data_end) {
       LOG(ERROR) << "AsanParameters::ignored_stack_ids list is not NULL "
                  << "terminated.";
       return false;

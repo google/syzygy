@@ -46,7 +46,7 @@ typedef grinder::basic_block_util::EntryCountType EntryCountType;
 // _asm xor eax, eax
 // here:
 // _asm ret
-const uint8 kCodeJump[] = { 0x74, 0x02, 0x33, 0xC0, 0xC3 };
+const uint8_t kCodeJump[] = {0x74, 0x02, 0x33, 0xC0, 0xC3};
 
 // _asm jne here
 // leave:
@@ -54,7 +54,7 @@ const uint8 kCodeJump[] = { 0x74, 0x02, 0x33, 0xC0, 0xC3 };
 // here:
 // _asm xor eax, eax
 // _asm jmp leave
-const uint8 kCodeJumpInv[] = { 0x75, 0x01, 0xC3, 0x33, 0xC0, 0xEB, 0xFB };
+const uint8_t kCodeJumpInv[] = {0x75, 0x01, 0xC3, 0x33, 0xC0, 0xEB, 0xFB};
 
 const EntryCountType kRunMoreThanOnce = 100;
 const EntryCountType kHot = 100;
@@ -322,7 +322,7 @@ TEST_F(BasicBlockReorderingTransformTest, EvaluateSequentialCost) {
   order.push_back(b3_);
   order.push_back(b4_);
   order.push_back(b5_);
-  uint64 expected_cost = 19;
+  uint64_t expected_cost = 19;
   EXPECT_EQ(expected_cost,
             TestBasicBlockReorderingTransform::EvaluateCost(order,
                                                             subgraph_profile_));
@@ -336,7 +336,7 @@ TEST_F(BasicBlockReorderingTransformTest, EvaluateIfUnlikelyCost) {
   order.push_back(b4_);
   order.push_back(b5_);
   order.push_back(b2_);
-  uint64 expected_cost = 17;
+  uint64_t expected_cost = 17;
   EXPECT_EQ(expected_cost,
             TestBasicBlockReorderingTransform::EvaluateCost(order,
                                                             subgraph_profile_));
@@ -350,7 +350,7 @@ TEST_F(BasicBlockReorderingTransformTest, EvaluateBadOrderCost) {
   order.push_back(b4_);
   order.push_back(b3_);
   order.push_back(b2_);
-  uint64 expected_cost = 30;
+  uint64_t expected_cost = 30;
   EXPECT_EQ(expected_cost,
             TestBasicBlockReorderingTransform::EvaluateCost(order,
                                                             subgraph_profile_));

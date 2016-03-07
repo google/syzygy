@@ -142,7 +142,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantLong) {
 
 TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUquad) {
   const uint64_t kVal64 = 314159265358979;
-  const uint16 kLfUquad = Microsoft_Cci_Pdb::LF_UQUADWORD;
+  const uint16_t kLfUquad = Microsoft_Cci_Pdb::LF_UQUADWORD;
   NumericConstant numeric;
 
   // Test reading 64-bit values.
@@ -155,7 +155,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUquad) {
 
 TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericQuad) {
   const int64_t kVal64 = -314159265358979;
-  const uint16 kLfQuad = Microsoft_Cci_Pdb::LF_QUADWORD;
+  const uint16_t kLfQuad = Microsoft_Cci_Pdb::LF_QUADWORD;
   NumericConstant numeric;
 
   // Test reading signed 64-bit values.

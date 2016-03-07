@@ -32,7 +32,7 @@ namespace {
 /*const base::FilePath kPdbPath(L"dummy.pdb");
 const GUID kPdbGuid = { 0x11111111, 0x2222, 0x3333,
                         { 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB } };
-const uint32 kPdbAge = 0;*/
+const uint32_t kPdbAge = 0;*/
 
 class AddDebugDirectoryEntryTransformTest : public testing::PELibUnitTest {
  public:

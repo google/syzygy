@@ -38,7 +38,7 @@ HeapType WinHeap::GetHeapType() const {
   return kWinHeap;
 }
 
-uint32 WinHeap::GetHeapFeatures() const {
+uint32_t WinHeap::GetHeapFeatures() const {
   return kHeapSupportsGetAllocationSize;
 }
 

@@ -25,8 +25,8 @@ namespace testing {
 
 namespace {
 
-static uint32 kDummyModuleAddress = 0x07000000;
-static uint32 kDummyBucketSize = 4;
+static uint32_t kDummyModuleAddress = 0x07000000;
+static uint32_t kDummyBucketSize = 4;
 
 // Returns the address of 'LabelTestFunc'.
 void GetLabelTestFuncAdddress(const pe::PEFile& test_dll_pe_file,
@@ -49,7 +49,7 @@ void InitializeDummyTraceSampleData(
     const trace::common::ClockInfo& clock_info,
     const pe::PEFile& test_dll_pe_file,
     const pe::PEFile::Signature& test_dll_pe_sig,
-    std::vector<uint8>* buffer) {
+    std::vector<uint8_t>* buffer) {
   const IMAGE_SECTION_HEADER* text_header =
         test_dll_pe_file.GetSectionHeader(".text");
   ASSERT_TRUE(text_header != NULL);
@@ -136,7 +136,7 @@ void WriteDummySamplerTraceFile(const base::FilePath& path) {
       &writer));
 
   // The TraceSampleData should already be initialized
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
   InitializeDummyTraceSampleData(
       clock_info, test_dll_pe_file, test_dll_pe_sig, &buffer);
   ASSERT_FALSE(buffer.empty());

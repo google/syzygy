@@ -166,8 +166,8 @@ TEST(ZebraBlockHeapTest, AllocateSizeLimits) {
 
   // Test all possible allocation sizes.
   for (size_t i = 1; i <= GetPageSize(); ++i) {
-    uint8* alloc = reinterpret_cast<uint8*>(h.Allocate(i));
-    EXPECT_NE(reinterpret_cast<uint8*>(NULL), alloc);
+    uint8_t* alloc = reinterpret_cast<uint8_t*>(h.Allocate(i));
+    EXPECT_NE(reinterpret_cast<uint8_t*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
     EXPECT_TRUE(h.Free(alloc));
   }
@@ -187,7 +187,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockSizeLimits) {
 
   // Allocate all possible block sizes.
   for (size_t i = 0; i <= kMaxAllowedBlockSize; ++i) {
-    uint8* alloc = reinterpret_cast<uint8*>(
+    uint8_t* alloc = reinterpret_cast<uint8_t*>(
         h.AllocateBlock(i, sizeof(BlockHeader), sizeof(BlockTrailer), &layout));
 
     EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
@@ -197,10 +197,9 @@ TEST(ZebraBlockHeapTest, AllocateBlockSizeLimits) {
 
   // Impossible block sizes.
   for (size_t delta = 1; delta < 10000; delta += 7)
-    EXPECT_EQ(reinterpret_cast<uint8*>(NULL),
-              h.AllocateBlock(kMaxAllowedBlockSize + delta,
-                              sizeof(BlockHeader), sizeof(BlockTrailer),
-                              &layout));
+    EXPECT_EQ(reinterpret_cast<uint8_t*>(NULL),
+              h.AllocateBlock(kMaxAllowedBlockSize + delta, sizeof(BlockHeader),
+                              sizeof(BlockTrailer), &layout));
 }
 
 TEST(ZebraBlockHeapTest, AllocateTwoEmptyBlocks) {
@@ -234,10 +233,10 @@ TEST(ZebraBlockHeapTest, AllocateTwoEmptyBlocks) {
 TEST(ZebraBlockHeapTest, AllocateUntilFull) {
   TestZebraBlockHeap h;
   // Test maximum number of allocations.
-  std::vector<uint8*> buffers;
+  std::vector<uint8_t*> buffers;
   for (size_t i = 0; i < h.slab_count_; ++i) {
-    uint8* alloc = reinterpret_cast<uint8*>(h.Allocate(0xFF));
-    EXPECT_NE(reinterpret_cast<uint8*>(NULL), alloc);
+    uint8_t* alloc = reinterpret_cast<uint8_t*>(h.Allocate(0xFF));
+    EXPECT_NE(reinterpret_cast<uint8_t*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
     buffers.push_back(alloc);
   }
@@ -262,12 +261,12 @@ TEST(ZebraBlockHeapTest, StressAllocateFree) {
   TestZebraBlockHeap h;
 
   // Test maximum number of allocations.
-  std::vector<uint8*> buffers;
+  std::vector<uint8_t*> buffers;
 
   // Fill the heap.
   for (size_t i = 0; i < h.slab_count_; ++i) {
-    uint8* alloc = reinterpret_cast<uint8*>(h.Allocate(0xFF));
-    EXPECT_NE(reinterpret_cast<uint8*>(NULL), alloc);
+    uint8_t* alloc = reinterpret_cast<uint8_t*>(h.Allocate(0xFF));
+    EXPECT_NE(reinterpret_cast<uint8_t*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
     buffers.push_back(alloc);
   }
@@ -291,8 +290,8 @@ TEST(ZebraBlockHeapTest, StressAllocateFree) {
 
     // Allocates i blocks, so the heap is full again.
     for (size_t j = 0; j < i; ++j) {
-      uint8* alloc = reinterpret_cast<uint8*>(h.Allocate(0xFF));
-      EXPECT_NE(reinterpret_cast<uint8*>(NULL), alloc);
+      uint8_t* alloc = reinterpret_cast<uint8_t*>(h.Allocate(0xFF));
+      EXPECT_NE(reinterpret_cast<uint8_t*>(NULL), alloc);
       buffers.push_back(alloc);
     }
 
@@ -390,8 +389,8 @@ TEST(ZebraBlockHeapTest, IsAllocated) {
 
   void* a = h.Allocate(100);
   EXPECT_TRUE(h.IsAllocated(a));
-  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
-  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8_t*>(a) - 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8_t*>(a) + 1));
 
   h.Free(a);
   EXPECT_FALSE(h.IsAllocated(a));

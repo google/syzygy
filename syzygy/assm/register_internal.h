@@ -26,7 +26,6 @@
 #ifndef SYZYGY_ASSM_REGISTER_INTERNAL_H_
 #define SYZYGY_ASSM_REGISTER_INTERNAL_H_
 
-#include "base/basictypes.h"
 #include "base/logging.h"
 
 namespace assm {
@@ -85,7 +84,8 @@ enum RegisterId {
 };
 
 // We use another enum for register code simply for type safety. This makes it
-// so that we can't accidentally use a RegisterId or a uint8 as a RegisterCode.
+// so that we can't accidentally use a RegisterId or a uint8_t as a
+// RegisterCode.
 enum RegisterCode {
   kRegisterCode000 = 0,
   kRegisterCode001 = 1,

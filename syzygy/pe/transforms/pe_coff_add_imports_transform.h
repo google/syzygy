@@ -35,7 +35,7 @@ class ImportedModule {
  public:
   // Used to indicate that the date/time stamp for the module should not be
   // updated.
-  static const uint32 kInvalidDate = UINT32_MAX;
+  static const uint32_t kInvalidDate = UINT32_MAX;
 
   // The modes in which the transform will treat a symbol.
   enum TransformMode {
@@ -67,19 +67,18 @@ class ImportedModule {
   //
   // @param module_name the name of the module to import.
   // @param date the version time stamp.
-  ImportedModule(const base::StringPiece& module_name, uint32 date)
+  ImportedModule(const base::StringPiece& module_name, uint32_t date)
       : name_(module_name.begin(), module_name.end()),
         date_(date),
         imported_(false),
         mode_(kFindOnly),
-        added_(false) {
-  }
+        added_(false) {}
 
   // @returns the name of the module to import.
   const std::string& name() const { return name_; }
 
   // @returns the version date/time stamp of the module to import.
-  uint32 date() const { return date_; }
+  uint32_t date() const { return date_; }
 
   // @returns the mode of the transform.
   TransformMode mode() const { return mode_; }
@@ -217,7 +216,7 @@ class ImportedModule {
   std::string name_;
 
   // A version time stamp associated with the module.
-  uint32 date_;
+  uint32_t date_;
 
   // The symbols to be imported, sorted by name. This ensures that symbols are
   // stored uniquely.

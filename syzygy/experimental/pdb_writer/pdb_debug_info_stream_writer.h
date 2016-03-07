@@ -15,7 +15,8 @@
 #ifndef SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_DEBUG_INFO_STREAM_WRITER_H_
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_PDB_DEBUG_INFO_STREAM_WRITER_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
+
 #include "syzygy/pdb/pdb_decl.h"
 
 namespace pdb {
@@ -27,7 +28,7 @@ namespace pdb {
 // @param section_header_stream_index index of the section header stream.
 // @param stream the stream in which to write.
 // @returns true in case of success, false otherwise.
-bool WriteDebugInfoStream(uint32 pdb_age,
+bool WriteDebugInfoStream(uint32_t pdb_age,
                           size_t symbol_record_stream_index,
                           size_t public_stream_index,
                           size_t section_header_stream_index,

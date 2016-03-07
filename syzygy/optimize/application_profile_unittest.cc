@@ -55,13 +55,17 @@ const Offset kBasicBlockOffset2 = 7;
 const EntryCountType kBasicBlockCount0 = 100;
 const EntryCountType kBasicBlockCount1 = 80;
 const EntryCountType kBasicBlockCount2 = 20;
-const uint8 kSmallCode[] = {
-    0x3B, 0xC1,  // cmp %eax, %ecx
-    0x7D, 0x03,  // jge +7
-    0x03, 0xC1,  // add %eax, %ecx
-    0xC3,        // ret
-    0x2B, 0xC1,  // sub %eax, %ecx
-    0xC3         // ret
+const uint8_t kSmallCode[] = {
+    0x3B,
+    0xC1,  // cmp %eax, %ecx
+    0x7D,
+    0x03,  // jge +7
+    0x03,
+    0xC1,  // add %eax, %ecx
+    0xC3,  // ret
+    0x2B,
+    0xC1,  // sub %eax, %ecx
+    0xC3   // ret
 };
 
 class TestBlockProfile : public ApplicationProfile::BlockProfile {

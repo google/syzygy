@@ -228,14 +228,14 @@ bool BasicBlockReferrer::IsValid() const {
 }
 
 Instruction::Instruction() : offset_(BasicBlock::kNoOffset) {
-  static const uint8 kNop[] = { 0x90 };
+  static const uint8_t kNop[] = {0x90};
   CHECK(core::DecodeOneInstruction(kNop, sizeof(kNop), &representation_));
   DCHECK_EQ(sizeof(kNop), representation_.size);
   ::memcpy(data_, kNop, representation_.size);
   ::memset(data_ + sizeof(kNop), 0, sizeof(data_) - sizeof(kNop));
 }
 
-Instruction::Instruction(const _DInst& repr, const uint8* data)
+Instruction::Instruction(const _DInst& repr, const uint8_t* data)
     : representation_(repr), offset_(BasicBlock::kNoOffset) {
   DCHECK_LT(repr.size, sizeof(data_));
   DCHECK(data != NULL);
@@ -253,7 +253,9 @@ Instruction::Instruction(const Instruction& other)
   ::memcpy(data_, other.data_, sizeof(data_));
 }
 
-bool Instruction::FromBuffer(const uint8* buf, size_t len, Instruction* inst) {
+bool Instruction::FromBuffer(const uint8_t* buf,
+                             size_t len,
+                             Instruction* inst) {
   DCHECK(buf != NULL);
   DCHECK_LT(0U, len);
   DCHECK(inst != NULL);
@@ -283,7 +285,7 @@ bool Instruction::CallsNonReturningFunction() const {
     return false;
 
   // Is the target something we can follow?
-  uint8 operand_type = representation_.ops[0].type;
+  uint8_t operand_type = representation_.ops[0].type;
   if (operand_type != O_PC && operand_type != O_DISP)
     return false;
 
@@ -355,7 +357,7 @@ bool Instruction::FindOperandReference(size_t operand_index,
   return false;
 }
 
-bool Instruction::InvertConditionalBranchOpcode(uint16* opcode) {
+bool Instruction::InvertConditionalBranchOpcode(uint16_t* opcode) {
   DCHECK(opcode != NULL);
 
   switch (*opcode) {
@@ -783,7 +785,7 @@ BasicBlock::Size BasicCodeBlock::GetInstructionSize() const {
 BasicDataBlock::BasicDataBlock(BasicBlockSubGraph* subgraph,
                                const base::StringPiece& name,
                                BlockId id,
-                               const uint8* data,
+                               const uint8_t* data,
                                Size size)
     : BasicBlock(subgraph, name, id, BasicBlock::BASIC_DATA_BLOCK),
       size_(size),

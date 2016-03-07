@@ -44,8 +44,7 @@ using core::RelativeAddress;
 
 class ShuffleOrderer : public block_graph::BlockGraphOrdererInterface {
  public:
-  explicit ShuffleOrderer(uint32 seed) : rng_(seed) {
-  }
+  explicit ShuffleOrderer(uint32_t seed) : rng_(seed) {}
 
   virtual const char* name() const override { return "ShuffleOrderer"; }
 
@@ -348,7 +347,7 @@ TEST_F(CoffImageLayoutBuilderTest, ShiftedCode) {
       continue;
 
     mutable_it->second.InsertData(0, 11, false);
-    uint8* data = mutable_it->second.GetMutableData();
+    uint8_t* data = mutable_it->second.GetMutableData();
     for (size_t i = 0; i < 11; ++i) {
       // NOP.
       data[i] = testing::kNop1[0];

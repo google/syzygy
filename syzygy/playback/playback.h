@@ -95,8 +95,8 @@ class Playback {
  protected:
   typedef pe::Decomposer Decomposer;
   typedef TraceFileList::iterator TraceFileIter;
-  typedef uint64 AbsoluteAddress64;
-  typedef uint64 Size64;
+  typedef uint64_t AbsoluteAddress64;
+  typedef uint64_t Size64;
 
   // Loads information from the instrumented and original modules.
   bool LoadModuleInformation();

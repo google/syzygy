@@ -20,6 +20,7 @@
 #include <windows.h>  // NOLINT
 #include <dbghelp.h>
 
+#include <stdint.h>
 #include <string>
 #include <vector>
 

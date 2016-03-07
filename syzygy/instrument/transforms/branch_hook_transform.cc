@@ -65,7 +65,7 @@ bool SetupEntryHooks(const TransformPolicyInterface* policy,
                      BlockGraph::Block* header_block,
                      const std::string& module_name,
                      bool buffering,
-                     uint32 fs_slot,
+                     uint32_t fs_slot,
                      BlockGraph::Reference* function_enter,
                      BlockGraph::Reference* branch_enter,
                      BlockGraph::Reference* branch_exit) {

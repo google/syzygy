@@ -50,10 +50,18 @@ const MyData kDataBytes = { reinterpret_cast<void(*)(int)>(0xCAFEBABE),
 //
 // Note the reference to
 // y starts 5 bytes from the end.
-const uint8 kCodeBytes[] = {
-  0x8B, 0x44, 0x24, 0x04,              // mov eax,dword ptr [esp+4]
-  0x01, 0x05, 0x00, 0x00, 0x00, 0x00,  // add dword ptr [_y],eax
-  0xC3                                 // ret
+const uint8_t kCodeBytes[] = {
+    0x8B,
+    0x44,
+    0x24,
+    0x04,  // mov eax,dword ptr [esp+4]
+    0x01,
+    0x05,
+    0x00,
+    0x00,
+    0x00,
+    0x00,  // add dword ptr [_y],eax
+    0xC3   // ret
 };
 const BlockGraph::Offset kOffsetOfCode = 0;
 const BlockGraph::Offset kOffsetOfReferenceToData = sizeof(kCodeBytes) - 5;
@@ -107,7 +115,7 @@ class ApplyBasicBlockSubGraphTransformTest : public testing::Test {
     ASSERT_TRUE(code_block_ != NULL);
 
     // Set up the data block.
-    data_block_->SetData(reinterpret_cast<const uint8*>(&kDataBytes),
+    data_block_->SetData(reinterpret_cast<const uint8_t*>(&kDataBytes),
                          sizeof(kDataBytes));
 
     // Set up the code block.

@@ -105,7 +105,7 @@ bool LayoutBlock(BlockGraph::Block* block,
 bool BlockIsZeros(const BlockGraph::Block* block) {
   if (block->references().size() != 0)
     return false;
-  const uint8* data = block->data();
+  const uint8_t* data = block->data();
   if (data == NULL)
     return true;
   for (size_t i = 0; i < block->data_size(); ++i, ++data) {
@@ -162,7 +162,7 @@ size_t GetExplicitLength(const BlockGraph::Block* block) {
   // If there is any explicit data beyond the last reference we need to
   // manually check it.
   if (block->data_size() > length) {
-    const uint8* data = block->data();
+    const uint8_t* data = block->data();
     DCHECK(data != NULL);
 
     // Walk the data backwards from the end looking for the first non-zero byte.

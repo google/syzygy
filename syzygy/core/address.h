@@ -15,8 +15,9 @@
 #ifndef SYZYGY_CORE_ADDRESS_H_
 #define SYZYGY_CORE_ADDRESS_H_
 
+#include <stdint.h>
 #include <iosfwd>
-#include "base/basictypes.h"
+
 #include "base/logging.h"
 #include "syzygy/common/align.h"
 #include "syzygy/core/serialization.h"

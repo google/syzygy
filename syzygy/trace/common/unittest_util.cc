@@ -107,15 +107,15 @@ void CallTraceService::SetEnvironment() {
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar, env_var));
 }
 
-void WriteRecord(uint64 timestamp,
-                 uint16 record_type,
+void WriteRecord(uint64_t timestamp,
+                 uint16_t record_type,
                  const void* data,
                  size_t length,
                  trace::service::TraceFileWriter* writer) {
   ASSERT_TRUE(data != NULL);
   ASSERT_TRUE(writer != NULL);
 
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
   ::common::VectorBufferWriter buffer_writer(&buffer);
 
   RecordPrefix record = {};

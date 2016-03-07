@@ -17,7 +17,7 @@
 #ifndef SYZYGY_ASSM_UNITTEST_UTIL_H_
 #define SYZYGY_ASSM_UNITTEST_UTIL_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
 
 namespace testing {
 
@@ -25,20 +25,20 @@ namespace testing {
 // ones that are typically used by MSVC and recommended by Intel in
 // the Intel Architecture Software Developer's manual, page 4-8.
 
-extern const uint8 kNop1[1];
-extern const uint8 kNop2[2];
-extern const uint8 kNop3[3];
-extern const uint8 kNop4[4];
-extern const uint8 kNop5[5];
-extern const uint8 kNop6[6];
-extern const uint8 kNop7[7];
-extern const uint8 kNop8[8];
-extern const uint8 kNop9[9];
-extern const uint8 kNop10[10];
-extern const uint8 kNop11[11];
+extern const uint8_t kNop1[1];
+extern const uint8_t kNop2[2];
+extern const uint8_t kNop3[3];
+extern const uint8_t kNop4[4];
+extern const uint8_t kNop5[5];
+extern const uint8_t kNop6[6];
+extern const uint8_t kNop7[7];
+extern const uint8_t kNop8[8];
+extern const uint8_t kNop9[9];
+extern const uint8_t kNop10[10];
+extern const uint8_t kNop11[11];
 
 // Collect all of the various NOPs in an array indexable by their length.
-extern const uint8* kNops[12];
+extern const uint8_t* kNops[12];
 
 }  // namespace testing
 

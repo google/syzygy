@@ -96,7 +96,7 @@ struct LineInfo::SourceLine {
   size_t size;
   // Indicates the number of visits to this line. A value of zero indicates
   // that the line is instrumented, but has not been visited.
-  uint32 visit_count;
+  uint32_t visit_count;
 };
 
 }  // namespace grinder

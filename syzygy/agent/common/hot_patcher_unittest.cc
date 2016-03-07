@@ -14,9 +14,9 @@
 
 #include "syzygy/agent/common/hot_patcher.h"
 
+#include <stdint.h>
 #include <windows.h>
 
-#include "base/basictypes.h"
 #include "gtest/gtest.h"
 
 namespace agent {
@@ -31,16 +31,25 @@ typedef int (__stdcall *TestFunctionPtr)();
 // Padding bytes and a simple function that can be called via a TestFunctionPtr
 // function pointer and always returns 1. If we copy this function to a 2-byte
 // aligned location, this function fulfills all requirements of HotPacher.
-const uint8 kTestFunction[] = {
-  // Padding bytes. We use six padding bytes so the function will be 2-aligned
-  // when we write it to the beginning of a page or at an even offset.
-  // |kNumberOfPaddingBytesInTestFunction| must contain the number of padding
-  // 0xCC bytes.
-  0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC,
-  // MOV EAX, 1
-  0xB8, 0x01, 0x00, 0x00, 0x00,
-  // RET
-  0xC3,
+const uint8_t kTestFunction[] = {
+    // Padding bytes. We use six padding bytes so the function will be 2-aligned
+    // when we write it to the beginning of a page or at an even offset.
+    // |kNumberOfPaddingBytesInTestFunction| must contain the number of padding
+    // 0xCC bytes.
+    0xCC,
+    0xCC,
+    0xCC,
+    0xCC,
+    0xCC,
+    0xCC,
+    // MOV EAX, 1
+    0xB8,
+    0x01,
+    0x00,
+    0x00,
+    0x00,
+    // RET
+    0xC3,
 };
 
 // The number of padding 0xCCs in kTestFunction.
@@ -80,11 +89,12 @@ class HotPatcherTest : public ::testing::Test {
     ASSERT_NE(nullptr, virtual_memory);
 
     // We use this location in the virtual memory.
-    uint8* virtual_memory_cursor = static_cast<uint8*>(virtual_memory) + offset;
+    uint8_t* virtual_memory_cursor =
+        static_cast<uint8_t*>(virtual_memory) + offset;
 
     // We check that the newly allocated virtual memory is 2-byte aligned.
     // (The underlying virtual page itself should have a much higher alignment.)
-    ASSERT_EQ(0, reinterpret_cast<int32>(virtual_memory_cursor) % 2);
+    ASSERT_EQ(0, reinterpret_cast<int32_t>(virtual_memory_cursor) % 2);
 
     // Copy the test function into the virtual memory.
     ::memcpy(virtual_memory_cursor, kTestFunction, sizeof(kTestFunction));

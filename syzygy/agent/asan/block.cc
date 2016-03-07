@@ -53,7 +53,7 @@ void InitializeBlockHeader(BlockInfo* block_info) {
   block_info->header->is_nested = block_info->is_nested;
   block_info->header->has_header_padding = block_info->header_padding_size > 0;
   block_info->header->has_excess_trailer_padding =
-      block_info->trailer_padding_size > sizeof(uint32);
+      block_info->trailer_padding_size > sizeof(uint32_t);
   block_info->header->state = ALLOCATED_BLOCK;
   block_info->header->body_size = block_info->body_size;
 }
@@ -63,16 +63,15 @@ void InitializeBlockHeaderPadding(BlockInfo* block_info) {
   if (block_info->header_padding_size == 0)
     return;
   DCHECK(IsAligned(block_info->header_padding_size, kShadowRatio));
-  DCHECK(IsAligned(block_info->header_padding_size,
-                   2 * sizeof(uint32)));
+  DCHECK(IsAligned(block_info->header_padding_size, 2 * sizeof(uint32_t)));
 
-  ::memset(block_info->RawHeaderPadding() + sizeof(uint32),
+  ::memset(block_info->RawHeaderPadding() + sizeof(uint32_t),
            kBlockHeaderPaddingByte,
-           block_info->header_padding_size - 2 * sizeof(uint32));
-  uint32* head = reinterpret_cast<uint32*>(block_info->header_padding);
-  uint32* tail = reinterpret_cast<uint32*>(
-      block_info->RawHeaderPadding() + block_info->header_padding_size -
-          sizeof(uint32));
+           block_info->header_padding_size - 2 * sizeof(uint32_t));
+  uint32_t* head = reinterpret_cast<uint32_t*>(block_info->header_padding);
+  uint32_t* tail = reinterpret_cast<uint32_t*>(block_info->RawHeaderPadding() +
+                                               block_info->header_padding_size -
+                                               sizeof(uint32_t));
   *head = block_info->header_padding_size;
   *tail = block_info->header_padding_size;
 }
@@ -86,8 +85,8 @@ void InitializeBlockTrailerPadding(BlockInfo* block_info) {
   if (block_info->trailer_padding_size > (kShadowRatio / 2)) {
     // This is guaranteed by kShadowRatio being >= 8, but we double check
     // for sanity's sake.
-    DCHECK_LE(sizeof(uint32), block_info->trailer_padding_size);
-    uint32* head = reinterpret_cast<uint32*>(block_info->trailer_padding);
+    DCHECK_LE(sizeof(uint32_t), block_info->trailer_padding_size);
+    uint32_t* head = reinterpret_cast<uint32_t*>(block_info->trailer_padding);
     *head = block_info->trailer_padding_size;
   }
 }
@@ -99,10 +98,10 @@ void InitializeBlockTrailer(BlockInfo* block_info) {
   block_info->trailer->alloc_tid = ::GetCurrentThreadId();
 }
 
-// Combines the bits of a uint32 into the number of bits used to store the
+// Combines the bits of a uint32_t into the number of bits used to store the
 // block checksum.
-uint32 CombineUInt32IntoBlockChecksum(uint32 val) {
-  uint32 checksum = 0;
+uint32_t CombineUInt32IntoBlockChecksum(uint32_t val) {
+  uint32_t checksum = 0;
   while (val != 0) {
     checksum ^= val;
     val >>= kBlockHeaderChecksumBits;
@@ -143,35 +142,34 @@ bool BlockInfoFromMemoryImpl(const BlockHeader* const_header,
 
   // The raw_block header must be minimally aligned and begin with the expected
   // magic.
-  if (!IsAligned(reinterpret_cast<uint32>(header), kShadowRatio))
+  if (!IsAligned(reinterpret_cast<uint32_t>(header), kShadowRatio))
     return false;
   if (header->magic != kBlockHeaderMagic)
     return false;
 
   // Parse the header padding if present.
-  uint32 header_padding_size = 0;
+  uint32_t header_padding_size = 0;
   if (header->has_header_padding) {
-    uint8* padding = reinterpret_cast<uint8*>(header + 1);
-    uint32* head = reinterpret_cast<uint32*>(padding);
+    uint8_t* padding = reinterpret_cast<uint8_t*>(header + 1);
+    uint32_t* head = reinterpret_cast<uint32_t*>(padding);
     header_padding_size = *head;
-    if (header_padding_size < 2 * sizeof(uint32))
+    if (header_padding_size < 2 * sizeof(uint32_t))
       return false;
     if (!IsAligned(header_padding_size, kShadowRatio))
       return false;
-    uint32* tail = reinterpret_cast<uint32*>(
-        padding + header_padding_size - sizeof(uint32));
+    uint32_t* tail = reinterpret_cast<uint32_t*>(padding + header_padding_size -
+                                                 sizeof(uint32_t));
     if (header_padding_size != *tail)
       return false;
   }
 
   // Parse the body.
-  uint8* body = reinterpret_cast<uint8*>(header + 1) +
-      header_padding_size;
+  uint8_t* body = reinterpret_cast<uint8_t*>(header + 1) + header_padding_size;
 
   // Parse the trailer padding.
-  uint32 trailer_padding_size = 0;
+  uint32_t trailer_padding_size = 0;
   if (header->has_excess_trailer_padding) {
-    uint32* head = reinterpret_cast<uint32*>(body + header->body_size);
+    uint32_t* head = reinterpret_cast<uint32_t*>(body + header->body_size);
     trailer_padding_size = *head;
   } else if ((header->body_size % kShadowRatio) != (kShadowRatio / 2)) {
     trailer_padding_size = (kShadowRatio / 2) -
@@ -181,12 +179,12 @@ bool BlockInfoFromMemoryImpl(const BlockHeader* const_header,
   // Parse the trailer. The end of it must be 8 aligned.
   BlockTrailer* trailer = reinterpret_cast<BlockTrailer*>(
       body + header->body_size + trailer_padding_size);
-  if (!IsAligned(reinterpret_cast<uint32>(trailer + 1), kShadowRatio))
+  if (!IsAligned(reinterpret_cast<uint32_t>(trailer + 1), kShadowRatio))
     return false;
 
   block_info->header = header;
-  block_info->block_size = reinterpret_cast<uint8*>(trailer + 1)
-      - reinterpret_cast<uint8*>(header);
+  block_info->block_size = reinterpret_cast<uint8_t*>(trailer + 1) -
+                           reinterpret_cast<uint8_t*>(header);
   block_info->header_size = sizeof(BlockHeader) + header_padding_size;
   block_info->trailer_size = trailer_padding_size + sizeof(BlockTrailer);
   block_info->is_nested = header->is_nested;
@@ -200,7 +198,7 @@ BlockHeader* BlockGetHeaderFromBodyImpl(const BlockBody* const_body) {
   void* body = const_cast<BlockBody*>(const_body);
 
   // The header must be appropriately aligned.
-  if (!IsAligned(reinterpret_cast<uint32>(body), kShadowRatio))
+  if (!IsAligned(reinterpret_cast<uint32_t>(body), kShadowRatio))
     return NULL;
 
   // First assume that there is no padding, and check if a valid block header
@@ -211,10 +209,10 @@ BlockHeader* BlockGetHeaderFromBodyImpl(const BlockBody* const_body) {
 
   // Otherwise assume there is padding. The padding must be formatted
   // correctly and have a valid length.
-  uint32* tail = reinterpret_cast<uint32*>(body) - 1;
+  uint32_t* tail = reinterpret_cast<uint32_t*>(body) - 1;
   if (*tail == 0 || !IsAligned(*tail, kShadowRatio))
     return NULL;
-  uint32* head = (tail + 1) - ((*tail) / sizeof(uint32));
+  uint32_t* head = (tail + 1) - ((*tail) / sizeof(uint32_t));
   if (head > tail)
     return NULL;
   if (*head != *tail)
@@ -293,7 +291,7 @@ void BlockInitialize(const BlockLayout& layout,
                      bool is_nested,
                      BlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), allocation);
-  DCHECK(IsAligned(reinterpret_cast<uint32>(allocation),
+  DCHECK(IsAligned(reinterpret_cast<uint32_t>(allocation),
                    layout.block_alignment));
 
   // If no output structure is provided then use a local one. We need the data
@@ -306,7 +304,7 @@ void BlockInitialize(const BlockLayout& layout,
   }
 
   // Get pointers to the various components of the block.
-  uint8* cursor = reinterpret_cast<uint8*>(allocation);
+  uint8_t* cursor = reinterpret_cast<uint8_t*>(allocation);
   block_info->block_size = layout.block_size;
   block_info->is_nested = is_nested;
   block_info->header = reinterpret_cast<BlockHeader*>(cursor);
@@ -357,7 +355,7 @@ bool BlockInfoFromMemory(const BlockHeader* header,
 void ConvertBlockInfo(const CompactBlockInfo& compact, BlockInfo* expanded) {
   // Get a byte-aligned pointer to the header for use in calculating pointers to
   // various other points to the block.
-  uint8* block = reinterpret_cast<uint8*>(compact.header);
+  uint8_t* block = reinterpret_cast<uint8_t*>(compact.header);
 
   expanded->block_size = compact.block_size;
   expanded->header = compact.header;
@@ -409,19 +407,19 @@ BlockHeader* BlockGetHeaderFromBody(const BlockBody* body) {
   }
 }
 
-uint32 BlockCalculateChecksum(const BlockInfo& block_info) {
+uint32_t BlockCalculateChecksum(const BlockInfo& block_info) {
   // It is much easier to calculate the checksum in place so this actually
   // causes the block to be modified, but restores the original value.
-  uint32 old_checksum = block_info.header->checksum;
+  uint32_t old_checksum = block_info.header->checksum;
   block_info.header->checksum = 0;
   BlockSetChecksum(block_info);
-  uint32 new_checksum = block_info.header->checksum;
+  uint32_t new_checksum = block_info.header->checksum;
   block_info.header->checksum = old_checksum;
   return new_checksum;
 }
 
 bool BlockChecksumIsValid(const BlockInfo& block_info) {
-  uint32 checksum = BlockCalculateChecksum(block_info);
+  uint32_t checksum = BlockCalculateChecksum(block_info);
   if (checksum == block_info.header->checksum)
     return true;
   return false;
@@ -430,7 +428,7 @@ bool BlockChecksumIsValid(const BlockInfo& block_info) {
 void BlockSetChecksum(const BlockInfo& block_info) {
   block_info.header->checksum = 0;
 
-  uint32 checksum = 0;
+  uint32_t checksum = 0;
   switch (static_cast<BlockState>(block_info.header->state)) {
     case ALLOCATED_BLOCK:
     case QUARANTINED_FLOODED_BLOCK: {
@@ -481,8 +479,8 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
     return;
   }
 
-  uint32 alloc_start = reinterpret_cast<uint32>(block_info->header);
-  uint32 alloc_end = alloc_start + block_info->block_size;
+  uint32_t alloc_start = reinterpret_cast<uint32_t>(block_info->header);
+  uint32_t alloc_end = alloc_start + block_info->block_size;
   alloc_start = ::common::AlignUp(alloc_start, GetPageSize());
   alloc_end = ::common::AlignDown(alloc_end, GetPageSize());
   if (alloc_start >= alloc_end) {
@@ -490,16 +488,16 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
     return;
   }
 
-  block_info->block_pages = reinterpret_cast<uint8*>(alloc_start);
+  block_info->block_pages = reinterpret_cast<uint8_t*>(alloc_start);
   block_info->block_pages_size = alloc_end - alloc_start;
 
-  uint32 left_redzone_end = reinterpret_cast<uint32>(block_info->body);
-  uint32 right_redzone_start = left_redzone_end + block_info->body_size;
+  uint32_t left_redzone_end = reinterpret_cast<uint32_t>(block_info->body);
+  uint32_t right_redzone_start = left_redzone_end + block_info->body_size;
   left_redzone_end = ::common::AlignDown(left_redzone_end, GetPageSize());
   right_redzone_start = ::common::AlignUp(right_redzone_start, GetPageSize());
 
   if (alloc_start < left_redzone_end) {
-    block_info->left_redzone_pages = reinterpret_cast<uint8*>(alloc_start);
+    block_info->left_redzone_pages = reinterpret_cast<uint8_t*>(alloc_start);
     block_info->left_redzone_pages_size = left_redzone_end - alloc_start;
   } else {
     block_info->left_redzone_pages = nullptr;
@@ -508,7 +506,7 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
 
   if (right_redzone_start < alloc_end) {
     block_info->right_redzone_pages =
-        reinterpret_cast<uint8*>(right_redzone_start);
+        reinterpret_cast<uint8_t*>(right_redzone_start);
     block_info->right_redzone_pages_size = alloc_end - right_redzone_start;
   } else {
     block_info->right_redzone_pages = nullptr;
@@ -632,7 +630,7 @@ void FlipBits(const std::vector<size_t>& flips, const BlockInfo& block_info) {
     DCHECK_LT(flips[i], block_info.block_size * 8);
     size_t byte = flips[i] / 8;
     size_t bit = flips[i] % 8;
-    uint8 mask = static_cast<uint8>(1u << bit);
+    uint8_t mask = static_cast<uint8_t>(1u << bit);
     block_info.RawBlock(byte) ^= mask;
   }
 }
@@ -712,7 +710,7 @@ bool IsValidStackCapturePointer(const common::StackCapture* stack) {
 
 // Determines if a thread-id is valid by referring to the cache of thread-ids
 // in the runtime.
-bool IsValidThreadId(uint32 thread_id) {
+bool IsValidThreadId(uint32_t thread_id) {
   AsanRuntime* runtime = AsanRuntime::runtime();
   DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
   if (!runtime->ThreadIdIsValid(thread_id))
@@ -722,18 +720,18 @@ bool IsValidThreadId(uint32 thread_id) {
 
 // Determines if timestamp is plausible by referring to the process start
 // time as recorded by the runtime.
-bool IsValidTicks(uint32 ticks) {
-  uint32 end = ::GetTickCount();
+bool IsValidTicks(uint32_t ticks) {
+  uint32_t end = ::GetTickCount();
   AsanRuntime* runtime = AsanRuntime::runtime();
   DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
-  uint32 begin = runtime->starting_ticks();
+  uint32_t begin = runtime->starting_ticks();
   if (ticks < begin || ticks > end)
     return false;
   return true;
 }
 
 // Determines if a heap id is valid by referring to the runtime.
-bool IsValidHeapId(uint32 heap_id) {
+bool IsValidHeapId(uint32_t heap_id) {
   AsanRuntime* runtime = AsanRuntime::runtime();
   DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
   if (!runtime->HeapIdIsValid(heap_id))
@@ -782,19 +780,19 @@ bool BlockHeaderIsConsistent(BlockState block_state,
     return true;
 
   // Analyze the block header padding.
-  const uint32* head = reinterpret_cast<const uint32*>(
-      block_info.header_padding);
-  const uint32* tail = reinterpret_cast<const uint32*>(
-      block_info.RawHeaderPadding() + block_info.header_padding_size) - 1;
+  const uint32_t* head =
+      reinterpret_cast<const uint32_t*>(block_info.header_padding);
+  const uint32_t* tail =
+      reinterpret_cast<const uint32_t*>(block_info.RawHeaderPadding() +
+                                        block_info.header_padding_size) -
+      1;
   if (*head != block_info.header_padding_size)
     return false;
   if (*tail != block_info.header_padding_size)
     return false;
-  static const uint32 kHeaderPaddingValue =
-      (kBlockHeaderPaddingByte << 24) |
-      (kBlockHeaderPaddingByte << 16) |
-      (kBlockHeaderPaddingByte << 8) |
-      kBlockHeaderPaddingByte;
+  static const uint32_t kHeaderPaddingValue =
+      (kBlockHeaderPaddingByte << 24) | (kBlockHeaderPaddingByte << 16) |
+      (kBlockHeaderPaddingByte << 8) | kBlockHeaderPaddingByte;
   for (++head; head < tail; ++head) {
     if (*head != kHeaderPaddingValue)
       return false;
@@ -834,16 +832,16 @@ bool BlockTrailerIsConsistent(BlockState block_state,
   if (block_info.trailer_padding_size == 0)
     return true;
 
-  const uint8* padding = block_info.RawTrailerPadding();
+  const uint8_t* padding = block_info.RawTrailerPadding();
   size_t size = block_info.trailer_padding_size;
 
   // If we have excess trailer padding then check the encoded length.
   if (size > (kShadowRatio / 2)) {
-    const uint32* length = reinterpret_cast<const uint32*>(padding);
+    const uint32_t* length = reinterpret_cast<const uint32_t*>(padding);
     if (*length != size)
       return false;
-    padding += sizeof(uint32);
-    size -= sizeof(uint32);
+    padding += sizeof(uint32_t);
+    size -= sizeof(uint32_t);
   }
 
   // Check the remaining trailer padding to ensure it's appropriately

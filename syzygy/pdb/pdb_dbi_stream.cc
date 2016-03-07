@@ -91,7 +91,7 @@ bool DbiStream::ReadDbiSectionContribs(pdb::PdbStream* stream) {
   size_t section_contribs_start = sizeof(pdb::DbiHeader) + header_.gp_modi_size;
   size_t section_contribs_end =
       section_contribs_start + header_.section_contribution_size;
-  uint32 signature = 0;
+  uint32_t signature = 0;
 
   if (!stream->Seek(section_contribs_start) || !stream->Read(&signature, 1)) {
     LOG(ERROR) << "Unable to seek to section contributions substream.";
@@ -131,7 +131,7 @@ bool DbiStream::ReadDbiSectionMap(pdb::PdbStream* stream) {
       + header_.gp_modi_size
       + header_.section_contribution_size;
   size_t section_map_end = section_map_start + header_.section_map_size;
-  uint16 number_of_sections = 0;
+  uint16_t number_of_sections = 0;
 
   if (!stream->Seek(section_map_start)) {
     LOG(ERROR) << "Unable to seek to section map substream.";
@@ -148,7 +148,7 @@ bool DbiStream::ReadDbiSectionMap(pdb::PdbStream* stream) {
   // the value are always equals. If it's not it'll give us a sample to
   // understand what's this value.
 
-  uint16 number_of_sections_copy = 0;
+  uint16_t number_of_sections_copy = 0;
   if (!stream->Read(&number_of_sections_copy, 1)) {
     LOG(ERROR) << "Unable to read the copy of the length of the section map in "
                << "the Dbi stream.";
@@ -205,8 +205,8 @@ bool DbiStream::ReadDbiFileInfo(pdb::PdbStream* stream) {
       + header_.section_contribution_size
       + header_.section_map_size;
   size_t file_info_end = file_info_start + header_.file_info_size;
-  uint16 file_blocks_table_size = 0;
-  uint16 offset_table_size = 0;
+  uint16_t file_blocks_table_size = 0;
+  uint16_t offset_table_size = 0;
 
   if (!stream->Seek(file_info_start)) {
     LOG(ERROR) << "Unable to seek to file info substream.";
@@ -245,15 +245,15 @@ bool DbiStream::ReadDbiFileInfo(pdb::PdbStream* stream) {
 }
 
 bool DbiStream::ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
-                                      uint16 file_blocks_table_size,
+                                      uint16_t file_blocks_table_size,
                                       size_t file_blocks_table_start,
-                                      uint16 offset_table_size,
+                                      uint16_t offset_table_size,
                                       size_t offset_table_start) {
   file_info_.first.resize(file_blocks_table_size);
   // Read information about each block of the file info substream.
   for (int i = 0; i < file_blocks_table_size; ++i) {
-    uint16 block_start = 0;
-    uint16 block_length = 0;
+    uint16_t block_start = 0;
+    uint16_t block_length = 0;
 
     if (!stream->Seek(file_blocks_table_start + i * sizeof(block_start)) ||
         !stream->Read(&block_start, 1) ||

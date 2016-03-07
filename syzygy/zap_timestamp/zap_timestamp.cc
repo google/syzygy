@@ -188,7 +188,7 @@ bool MiniDecompose(const PEFile& pe_file,
 bool MarkData(const PEFile& pe_file,
               RelativeAddress rel_addr,
               size_t size,
-              const uint8* data,
+              const uint8_t* data,
               const base::StringPiece& name,
               PatchAddressSpace* file_addr_space) {
   DCHECK(file_addr_space);
@@ -218,7 +218,7 @@ bool MarkDataDirectoryTimestamps(const PEFile& pe_file,
                                  NtHeaders& nt_headers,
                                  size_t data_dir_index,
                                  const char* data_dir_name,
-                                 const uint8* timestamp_data,
+                                 const uint8_t* timestamp_data,
                                  PatchAddressSpace* file_addr_space) {
   DCHECK_GT(arraysize(nt_headers->OptionalHeader.DataDirectory),
             data_dir_index);
@@ -379,7 +379,7 @@ bool NormalizeDbiStream(DWORD pdb_age_data, PdbByteStream* dbi_stream) {
 
   LOG(INFO) << "Updating PDB DBI stream.";
 
-  uint8* dbi_data = dbi_stream->data();
+  uint8_t* dbi_data = dbi_stream->data();
   if (dbi_stream->length() < sizeof(pdb::DbiHeader)) {
     LOG(ERROR) << "DBI stream too short.";
     return false;
@@ -400,7 +400,7 @@ bool NormalizeDbiStream(DWORD pdb_age_data, PdbByteStream* dbi_stream) {
   // Run over the module information.
   // TODO(chrisha): Use BufferWriter to do this. We need to update it to handle
   //     type casts and bounds checking.
-  uint8* module_info_end = dbi_data + dbi_header->gp_modi_size;
+  uint8_t* module_info_end = dbi_data + dbi_header->gp_modi_size;
   while (dbi_data < module_info_end) {
     pdb::DbiModuleInfoBase* module_info =
         reinterpret_cast<pdb::DbiModuleInfoBase*>(dbi_data);
@@ -431,7 +431,8 @@ bool NormalizeDbiStream(DWORD pdb_age_data, PdbByteStream* dbi_stream) {
 
   // Run over the section contributions.
   dbi_data += sizeof(uint32);  // Skip the signature.
-  uint8* section_contrib_end = dbi_data + dbi_header->section_contribution_size;
+  uint8_t* section_contrib_end =
+      dbi_data + dbi_header->section_contribution_size;
   while (dbi_data < section_contrib_end) {
     pdb::DbiSectionContrib* section_contrib =
         reinterpret_cast<pdb::DbiSectionContrib*>(dbi_data);
@@ -446,15 +447,16 @@ bool NormalizeDbiStream(DWORD pdb_age_data, PdbByteStream* dbi_stream) {
 bool NormalizeSymbolRecordStream(PdbByteStream* stream) {
   DCHECK(stream != NULL);
 
-  uint8* data = stream->data();
-  uint8* data_end = data + stream->length();
+  uint8_t* data = stream->data();
+  uint8_t* data_end = data + stream->length();
 
   while (data < data_end) {
     // Get the size of the symbol record and skip past it.
-    uint16* size = reinterpret_cast<uint16*>(data);
+    uint16_t* size = reinterpret_cast<uint16_t*>(data);
     data += sizeof(*size);
 
-    // The size of the symbol record, plus its uint16 length, must be a multiple
+    // The size of the symbol record, plus its uint16_t length, must be a
+    // multiple
     // of 4. Each symbol record consists of the length followed by a symbol
     // type (also a short), so the size needs to be at least of length 2.
     // See http://code.google.com/p/syzygy/wiki/PdbFileFormat for a discussion
@@ -465,8 +467,8 @@ bool NormalizeSymbolRecordStream(PdbByteStream* stream) {
     // Up to the last 3 bytes are padding, as the record gets rounded up to
     // a multiple of 4 in size.
     static const size_t kMaxPadding = 3;
-    uint8* end = data + *size;
-    uint8* tail = end - kMaxPadding;
+    uint8_t* end = data + *size;
+    uint8_t* tail = end - kMaxPadding;
 
     // Skip past the symbol record.
     data = end;
@@ -661,7 +663,8 @@ bool ZapTimestamp::MarkPeFileRanges() {
   // Mark the export data directory timestamp.
   if (!MarkDataDirectoryTimestamps<IMAGE_EXPORT_DIRECTORY>(
           pe_file_, nt_headers, IMAGE_DIRECTORY_ENTRY_EXPORT,
-          "Export Directory", reinterpret_cast<const uint8*>(&timestamp_data_),
+          "Export Directory",
+          reinterpret_cast<const uint8_t*>(&timestamp_data_),
           &pe_file_addr_space_)) {
     // This logs verbosely on failure.
     return false;
@@ -671,7 +674,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
   if (!MarkDataDirectoryTimestamps<IMAGE_RESOURCE_DIRECTORY>(
           pe_file_, nt_headers, IMAGE_DIRECTORY_ENTRY_RESOURCE,
           "Resource Directory",
-          reinterpret_cast<const uint8*>(&timestamp_data_),
+          reinterpret_cast<const uint8_t*>(&timestamp_data_),
           &pe_file_addr_space_)) {
     // This logs verbosely on failure.
     return false;
@@ -694,7 +697,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
                  debug_dir.OffsetOf(debug_dir[i].TimeDateStamp);
       std::string name = base::StringPrintf("Debug Directory %d Timestamp", i);
       if (!MarkData(pe_file_, rel_addr, sizeof(timestamp_data_),
-                    reinterpret_cast<const uint8*>(&timestamp_data_), name,
+                    reinterpret_cast<const uint8_t*>(&timestamp_data_), name,
                     &pe_file_addr_space_)) {
         LOG(ERROR) << "Failed to mark TimeDateStamp of debug directory " << i
                    << ".";
@@ -726,7 +729,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
     rel_addr = cv_info_pdb.block()->addr() +
                cv_info_pdb.OffsetOf(cv_info_pdb->pdb_age);
     if (!MarkData(pe_file_, rel_addr, sizeof(pdb_age_data_),
-                  reinterpret_cast<const uint8*>(&pdb_age_data_), "PDB Age",
+                  reinterpret_cast<const uint8_t*>(&pdb_age_data_), "PDB Age",
                   &pe_file_addr_space_)) {
       LOG(ERROR) << "Failed to mark PDB age.";
       return false;
@@ -736,7 +739,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
     rel_addr = cv_info_pdb.block()->addr() +
                cv_info_pdb.OffsetOf(cv_info_pdb->signature);
     if (!MarkData(pe_file_, rel_addr, sizeof(pdb_guid_data_),
-                  reinterpret_cast<const uint8*>(&pdb_guid_data_), "PDB GUID",
+                  reinterpret_cast<const uint8_t*>(&pdb_guid_data_), "PDB GUID",
                   &pe_file_addr_space_)) {
       LOG(ERROR) << "Failed to mark PDB GUID.";
       return false;
@@ -756,7 +759,7 @@ bool ZapTimestamp::MarkPeFileRanges() {
   rel_addr = nt_headers.block()->addr() +
              nt_headers.OffsetOf(nt_headers->FileHeader.TimeDateStamp);
   if (!MarkData(pe_file_, rel_addr, sizeof(timestamp_data_),
-                reinterpret_cast<uint8*>(&timestamp_data_), "PE Timestamp",
+                reinterpret_cast<uint8_t*>(&timestamp_data_), "PE Timestamp",
                 &pe_file_addr_space_)) {
     LOG(ERROR) << "Failed to mark PE timestamp.";
     return false;
@@ -877,7 +880,7 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
     return false;
   }
 
-  uint8* dbi_data = dbi_stream->data();
+  uint8_t* dbi_data = dbi_stream->data();
   pdb::DbiHeader* dbi_header = reinterpret_cast<pdb::DbiHeader*>(dbi_data);
 
   // Normalize the symbol record stream in place.

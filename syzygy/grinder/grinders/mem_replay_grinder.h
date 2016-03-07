@@ -164,7 +164,7 @@ class MemReplayGrinder::PendingDetailedFunctionCall {
  private:
   base::Time time_;
   DWORD thread_id_;
-  std::vector<uint8> data_;
+  std::vector<uint8_t> data_;
 };
 
 // Houses timestamps and PlotLine data associated with a thread ID. This is

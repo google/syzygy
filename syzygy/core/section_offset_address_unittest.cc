@@ -21,8 +21,8 @@ namespace core {
 
 namespace {
 
-const uint32 kSectionId = 2;
-const uint32 kOffset = 0xCAFEBABE;
+const uint32_t kSectionId = 2;
+const uint32_t kOffset = 0xCAFEBABE;
 
 }  // namespace
 
@@ -33,8 +33,8 @@ TEST(SectionOffsetAddressTest, DefaultInitialization) {
 }
 
 TEST(SectionOffsetAddressTest, CreateInitialialized) {
-  const uint32 kSectionId = 2;
-  const uint32 kOffset = 0xCAFEBABE;
+  const uint32_t kSectionId = 2;
+  const uint32_t kOffset = 0xCAFEBABE;
 
   SectionOffsetAddress address(kSectionId, kOffset);
 
@@ -176,13 +176,13 @@ TEST(SectionOffsetAddressTest, AlignUp) {
 }
 
 TEST(SectionOffsetAddressTest, GetAlignment) {
-  const uint32 max_alignment = 512;
+  const uint32_t max_alignment = 512;
 
   const SectionOffsetAddress zero(0, 0);
   EXPECT_EQ(max_alignment, zero.GetAlignment());
   const SectionOffsetAddress one(0, 1);
 
-  for (uint32 i = 1; i <= max_alignment; i <<= 1) {
+  for (uint32_t i = 1; i <= max_alignment; i <<= 1) {
     SectionOffsetAddress address(0, i);
     EXPECT_EQ(i, address.GetAlignment());
   }

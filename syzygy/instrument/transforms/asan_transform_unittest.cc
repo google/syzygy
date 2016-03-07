@@ -211,8 +211,8 @@ class AsanTransformTest : public testing::TestDllTransformTest {
     }
   }
 
-  bool AddInstructionFromBuffer(const uint8* data, size_t length) {
-    EXPECT_NE(static_cast<const uint8*>(NULL), data);
+  bool AddInstructionFromBuffer(const uint8_t* data, size_t length) {
+    EXPECT_NE(static_cast<const uint8_t*>(NULL), data);
     EXPECT_GE(assm::kMaxInstructionLength, length);
 
     block_graph::Instruction temp;
@@ -228,7 +228,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   // Some handy constants we'll use throughout the tests.
   // @{
   static const BasicBlock::Size kDataSize;
-  static const uint8 kBlockData[];
+  static const uint8_t kBlockData[];
   // @}
 
  protected:
@@ -242,7 +242,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
 };
 
 const BasicBlock::Size AsanTransformTest::kDataSize = 32;
-const uint8 AsanTransformTest::kBlockData[AsanTransformTest::kDataSize] = {};
+const uint8_t AsanTransformTest::kBlockData[AsanTransformTest::kDataSize] = {};
 
 // Dummy library name to test |set_instrument_dll_name|.
 const char kFooDll[] = "foo.dll";
@@ -451,7 +451,7 @@ TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRangePe) {
   i1.set_source_range(source_range);
 
   // Keep track of basic block size.
-  uint32 before_instructions_count = basic_block_->instructions().size();
+  uint32_t before_instructions_count = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
@@ -465,7 +465,7 @@ TEST_F(AsanTransformTest, InjectAsanHooksWithSourceRangePe) {
 
   // Ensure this basic block is instrumented.
   EXPECT_TRUE(bb_transform.instrumentation_happened());
-  uint32 after_instructions_count = basic_block_->instructions().size();
+  uint32_t after_instructions_count = basic_block_->instructions().size();
   ASSERT_LT(before_instructions_count, after_instructions_count);
 
   // Walk through the instructions and validate the source range.
@@ -546,7 +546,7 @@ TEST_F(AsanTransformTest, InjectAsanHooksCoff) {
 }
 
 TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
-  uint32 instrumentable_instructions = 0;
+  uint32_t instrumentable_instructions = 0;
 
   // Generate a bunch of instrumentable and non-instrumentable instructions.
   bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));
@@ -563,8 +563,8 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
   // Non-instrumentable.
   bb_asm_->lea(assm::eax, block_graph::Operand(assm::ecx));
 
-  uint32 expected_instructions_count = basic_block_->instructions().size()
-      + 3 * instrumentable_instructions;
+  uint32_t expected_instructions_count =
+      basic_block_->instructions().size() + 3 * instrumentable_instructions;
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
@@ -577,7 +577,7 @@ TEST_F(AsanTransformTest, InstrumentDifferentKindOfInstructions) {
 }
 
 TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
-  uint32 instrumentable_instructions = 0;
+  uint32_t instrumentable_instructions = 0;
 
   // Generate a bunch of instrumentable and non instrumentable instructions.
   // We generate operand [ecx] multiple time as a redundant memory access.
@@ -592,8 +592,8 @@ TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
   instrumentable_instructions++;
   bb_asm_->jmp(block_graph::Operand(assm::ecx));
 
-  uint32 expected_instructions_count = basic_block_->instructions().size()
-      + 3 * instrumentable_instructions;
+  uint32_t expected_instructions_count =
+      basic_block_->instructions().size() + 3 * instrumentable_instructions;
   // Instrument this basic block.
   InitHooksRefs();
   TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
@@ -608,21 +608,21 @@ TEST_F(AsanTransformTest, InstrumentAndRemoveRedundantChecks) {
 
 TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
   // DEC DWORD [EBP - 0x2830]
-  static const uint8 kDec1[6] = { 0xff, 0x8d, 0xd0, 0xd7, 0xff, 0xff };
+  static const uint8_t kDec1[6] = {0xff, 0x8d, 0xd0, 0xd7, 0xff, 0xff};
   // INC DWORD [EBP - 0x31c]
-  static const uint8 kInc1[6] = { 0xff, 0x85, 0xe4, 0xfc, 0xff, 0xff };
+  static const uint8_t kInc1[6] = {0xff, 0x85, 0xe4, 0xfc, 0xff, 0xff};
   // INC DWORD [ESP + 0x1c]
-  static const uint8 kInc2[4] = { 0xff, 0x44, 0x24, 0x1c };
+  static const uint8_t kInc2[4] = {0xff, 0x44, 0x24, 0x1c};
   // NEG DWORD [EBP + 0x24]
-  static const uint8 kNeg1[3] = { 0xf7, 0x5d, 0x24 };
+  static const uint8_t kNeg1[3] = {0xf7, 0x5d, 0x24};
   // FILD QWORD [EBP - 0x8]
-  static const uint8 kFild1[3] = { 0xdf, 0x6d, 0xf8 };
+  static const uint8_t kFild1[3] = {0xdf, 0x6d, 0xf8};
   // FISTP QWORD [ESP + 0x28]
-  static const uint8 kFistp1[4] = { 0xdf, 0x7c, 0x24, 0x28 };
+  static const uint8_t kFistp1[4] = {0xdf, 0x7c, 0x24, 0x28};
   // MOV EDI, [EBP - 0x4]
-  static const uint8 kMov1[3] = { 0x8b, 0x7d, 0xfc };
+  static const uint8_t kMov1[3] = {0x8b, 0x7d, 0xfc};
   // MOV EAX, [EBP - 0x104]
-  static const uint8 kMov2[6] = { 0x8b, 0x85, 0xfc, 0xfe, 0xff, 0xff };
+  static const uint8_t kMov2[6] = {0x8b, 0x85, 0xfc, 0xfe, 0xff, 0xff};
 
   ASSERT_TRUE(AddInstructionFromBuffer(kDec1, sizeof(kDec1)));
   ASSERT_TRUE(AddInstructionFromBuffer(kInc1, sizeof(kInc1)));
@@ -634,7 +634,7 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
   ASSERT_TRUE(AddInstructionFromBuffer(kMov2, sizeof(kMov2)));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 expected_basic_block_size = basic_block_->instructions().size();
+  uint32_t expected_basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
@@ -651,12 +651,12 @@ TEST_F(AsanTransformTest, NonInstrumentableStackBasedInstructions) {
 
 TEST_F(AsanTransformTest, InstrumentableStackBasedUnsafeInstructions) {
   // DEC DWORD [EBP - 0x2830]
-  static const uint8 kDec1[6] = { 0xff, 0x8d, 0xd0, 0xd7, 0xff, 0xff };
+  static const uint8_t kDec1[6] = {0xff, 0x8d, 0xd0, 0xd7, 0xff, 0xff};
 
   ASSERT_TRUE(AddInstructionFromBuffer(kDec1, sizeof(kDec1)));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 previous_basic_block_size = basic_block_->instructions().size();
+  uint32_t previous_basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block considering invalid stack manipulation.
   InitHooksRefs();
@@ -674,15 +674,15 @@ TEST_F(AsanTransformTest, InstrumentableStackBasedUnsafeInstructions) {
 
 TEST_F(AsanTransformTest, NonInstrumentableSegmentBasedInstructions) {
   // add eax, fs:[eax]
-  static const uint8 kAdd1[3] = { 0x64, 0x03, 0x00 };
+  static const uint8_t kAdd1[3] = {0x64, 0x03, 0x00};
   // inc gs:[eax]
-  static const uint8 kInc1[3] = { 0x65, 0xFE, 0x00 };
+  static const uint8_t kInc1[3] = {0x65, 0xFE, 0x00};
 
   ASSERT_TRUE(AddInstructionFromBuffer(kAdd1, sizeof(kAdd1)));
   ASSERT_TRUE(AddInstructionFromBuffer(kInc1, sizeof(kInc1)));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 expected_basic_block_size = basic_block_->instructions().size();
+  uint32_t expected_basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
@@ -758,17 +758,17 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
 }
 
 TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
-  static const uint8 movsd[1] = { 0xA5 };
-  static const uint8 movsw[2] = { 0x66, 0xA5 };
-  static const uint8 movsb[1] = { 0xA4 };
+  static const uint8_t movsd[1] = {0xA5};
+  static const uint8_t movsw[2] = {0x66, 0xA5};
+  static const uint8_t movsb[1] = {0xA4};
 
-  static const uint8 cmpsd[1] = { 0xA7 };
-  static const uint8 cmpsw[2] = { 0x66, 0xA7 };
-  static const uint8 cmpsb[1] = { 0xA6 };
+  static const uint8_t cmpsd[1] = {0xA7};
+  static const uint8_t cmpsw[2] = {0x66, 0xA7};
+  static const uint8_t cmpsb[1] = {0xA6};
 
-  static const uint8 stosd[1] = { 0xAB };
-  static const uint8 stosw[2] = { 0x66, 0xAB };
-  static const uint8 stosb[1] = { 0xAA };
+  static const uint8_t stosd[1] = {0xAB};
+  static const uint8_t stosw[2] = {0x66, 0xAB};
+  static const uint8_t stosb[1] = {0xAA};
 
   EXPECT_TRUE(AddInstructionFromBuffer(movsd, sizeof(movsd)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsw, sizeof(movsw)));
@@ -781,10 +781,10 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
   EXPECT_TRUE(AddInstructionFromBuffer(stosb, sizeof(stosb)));
 
   // Keep number of instrumentable instructions.
-  uint32 count_instructions = basic_block_->instructions().size();
+  uint32_t count_instructions = basic_block_->instructions().size();
 
   // Keep track of the basic block size before Asan transform.
-  uint32 basic_block_size = basic_block_->instructions().size();
+  uint32_t basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
@@ -797,24 +797,24 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
   EXPECT_TRUE(bb_transform.instrumentation_happened());
 
   // Each instrumentable instructions implies 1 new instructions.
-  uint32 expected_basic_block_size = count_instructions + basic_block_size;
+  uint32_t expected_basic_block_size = count_instructions + basic_block_size;
 
   // Validate basic block size.
   ASSERT_EQ(basic_block_->instructions().size(), expected_basic_block_size);
 }
 
 TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
-  static const uint8 movsd[2] = { 0xF3, 0xA5 };
-  static const uint8 movsw[3] = { 0xF3, 0x66, 0xA5 };
-  static const uint8 movsb[2] = { 0xF3, 0xA4 };
+  static const uint8_t movsd[2] = {0xF3, 0xA5};
+  static const uint8_t movsw[3] = {0xF3, 0x66, 0xA5};
+  static const uint8_t movsb[2] = {0xF3, 0xA4};
 
-  static const uint8 cmpsd[2] = { 0xF3, 0xA7 };
-  static const uint8 cmpsw[3] = { 0xF3, 0x66, 0xA7 };
-  static const uint8 cmpsb[2] = { 0xF3, 0xA6 };
+  static const uint8_t cmpsd[2] = {0xF3, 0xA7};
+  static const uint8_t cmpsw[3] = {0xF3, 0x66, 0xA7};
+  static const uint8_t cmpsb[2] = {0xF3, 0xA6};
 
-  static const uint8 stosd[2] = { 0xF3, 0xAB };
-  static const uint8 stosw[3] = { 0xF3, 0x66, 0xAB };
-  static const uint8 stosb[2] = { 0xF3, 0xAA };
+  static const uint8_t stosd[2] = {0xF3, 0xAB};
+  static const uint8_t stosw[3] = {0xF3, 0x66, 0xAB};
+  static const uint8_t stosb[2] = {0xF3, 0xAA};
 
   EXPECT_TRUE(AddInstructionFromBuffer(movsd, sizeof(movsd)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsw, sizeof(movsw)));
@@ -827,10 +827,10 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
   EXPECT_TRUE(AddInstructionFromBuffer(stosb, sizeof(stosb)));
 
   // Keep number of instrumentable instructions.
-  uint32 count_instructions = basic_block_->instructions().size();
+  uint32_t count_instructions = basic_block_->instructions().size();
 
   // Keep track of the basic block size before Asan transform.
-  uint32 basic_block_size = basic_block_->instructions().size();
+  uint32_t basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   InitHooksRefs();
@@ -843,7 +843,7 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
   EXPECT_TRUE(bb_transform.instrumentation_happened());
 
   // Each instrumentable instructions implies 1 new instructions.
-  uint32 expected_basic_block_size = count_instructions + basic_block_size;
+  uint32_t expected_basic_block_size = count_instructions + basic_block_size;
 
   // Validate basic block size.
   ASSERT_EQ(basic_block_->instructions().size(), expected_basic_block_size);
@@ -854,7 +854,7 @@ TEST_F(AsanTransformTest, DryRunInstrumentable) {
   bb_asm_->mov(assm::eax, block_graph::Operand(assm::ecx));
 
   // Keep track of the basic block size before Asan transform.
-  uint32 basic_block_size = basic_block_->instructions().size();
+  uint32_t basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   // Note that InitHooksRefs() is not needed for a dry run.
@@ -879,7 +879,7 @@ TEST_F(AsanTransformTest, DryRunNonInstrumentable) {
   bb_asm_->xchg(assm::eax, assm::ecx);
 
   // Keep track of the basic block size before Asan transform.
-  uint32 basic_block_size = basic_block_->instructions().size();
+  uint32_t basic_block_size = basic_block_->instructions().size();
 
   // Instrument this basic block.
   // Note that InitHooksRefs() is not needed for a dry run.

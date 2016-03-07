@@ -54,9 +54,9 @@ TEST_F(ShadowTest, PoisonUnpoisonAccess) {
   for (size_t count = 0; count < 100; ++count) {
     // Use a random 8-byte aligned end address.
     const size_t size = base::RandInt(1, 16384);
-    const uint8* end_addr =
-        reinterpret_cast<const uint8*>(base::RandInt(65536, 10*1024*1024) * 8);
-    const uint8* start_addr = end_addr - size;
+    const uint8_t* end_addr = reinterpret_cast<const uint8_t*>(
+        base::RandInt(65536, 10 * 1024 * 1024) * 8);
+    const uint8_t* start_addr = end_addr - size;
 
     for (size_t i = 0; i < size; ++i)
       EXPECT_TRUE(test_shadow.IsAccessible(start_addr + i));
@@ -69,7 +69,7 @@ TEST_F(ShadowTest, PoisonUnpoisonAccess) {
 
     const size_t aligned_size = ::common::AlignUp(size,
                                                   kShadowRatio);
-    const uint8* aligned_start_addr = end_addr - aligned_size;
+    const uint8_t* aligned_start_addr = end_addr - aligned_size;
     test_shadow.Unpoison(aligned_start_addr, aligned_size);
     for (size_t i = 0; i < size; ++i)
       EXPECT_TRUE(test_shadow.IsAccessible(start_addr + i));
@@ -104,12 +104,11 @@ TEST_F(ShadowTest, SetUpAndTearDown) {
 
 TEST_F(ShadowTest, GetNullTerminatedArraySize) {
   const size_t kArrayLength = 100;
-  const uint8 kMarkerValue = 0xAA;
+  const uint8_t kMarkerValue = 0xAA;
 
-  uint8 test_array[kArrayLength];
-  uint8* aligned_test_array = reinterpret_cast<uint8*>(
-      ::common::AlignUp(reinterpret_cast<size_t>(test_array),
-                        kShadowRatio));
+  uint8_t test_array[kArrayLength];
+  uint8_t* aligned_test_array = reinterpret_cast<uint8_t*>(
+      ::common::AlignUp(reinterpret_cast<size_t>(test_array), kShadowRatio));
   size_t aligned_array_length = ::common::AlignDown(kArrayLength -
       (aligned_test_array - test_array), kShadowRatio);
 
@@ -127,32 +126,32 @@ TEST_F(ShadowTest, GetNullTerminatedArraySize) {
     // GetNullTerminatedArraySize function with a 1-byte template argument. This
     // simulates the use of this function for a null terminated string.
     aligned_test_array[sizes_to_test[i] - 1] = 0;
-    EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8>(
+    EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8_t>(
         aligned_test_array, 0U, &size));
     EXPECT_EQ(sizes_to_test[i], size);
 
-    if (sizes_to_test[i] % sizeof(uint16) == 0) {
+    if (sizes_to_test[i] % sizeof(uint16_t) == 0) {
       // Call the GetNullTerminatedArraySize with a 2-byte template argument.
       // As there is only one null byte at the end of the array we expect the
       // function to return false.
-      EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint16>(
+      EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint16_t>(
           aligned_test_array, 0U, &size));
       EXPECT_EQ(sizes_to_test[i], size);
       // Put a second null byte at the end of the array and call the function
       // again, this time we expect the function to succeed.
-      aligned_test_array[sizes_to_test[i] - sizeof(uint16)] = 0;
-      EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint16>(
+      aligned_test_array[sizes_to_test[i] - sizeof(uint16_t)] = 0;
+      EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint16_t>(
           aligned_test_array, 0U, &size));
       EXPECT_EQ(sizes_to_test[i], size);
-      aligned_test_array[sizes_to_test[i] - sizeof(uint16)] = kMarkerValue;
+      aligned_test_array[sizes_to_test[i] - sizeof(uint16_t)] = kMarkerValue;
     }
     aligned_test_array[sizes_to_test[i] - 1] = kMarkerValue;
 
     aligned_test_array[sizes_to_test[i]] = kMarkerValue;
-    EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint8>(
+    EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint8_t>(
         aligned_test_array, 0U, &size));
     EXPECT_EQ(sizes_to_test[i], size);
-    EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8>(
+    EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8_t>(
         aligned_test_array, sizes_to_test[i], &size));
 
     test_shadow.Poison(
@@ -169,20 +168,20 @@ TEST_F(ShadowTest, MarkAsFreed) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
                               l1.block_size + 2 * kShadowRatio, 30, 30, &l0));
 
-  uint8* data = new uint8[l0.block_size];
+  uint8_t* data = new uint8_t[l0.block_size];
 
-  uint8* d0 = data;
+  uint8_t* d0 = data;
   BlockInfo i0 = {};
   BlockInitialize(l0, d0, false, &i0);
   test_shadow.PoisonAllocatedBlock(i0);
 
-  uint8* d1 = i0.RawBody() + kShadowRatio;
+  uint8_t* d1 = i0.RawBody() + kShadowRatio;
   BlockInfo i1 = {};
   BlockInitialize(l1, d1, true, &i1);
   test_shadow.PoisonAllocatedBlock(i1);
 
   test_shadow.MarkAsFreed(i0.body, i0.body_size);
-  for (uint8* p = i0.RawBlock(); p < i0.RawBlock() + i0.block_size; ++p) {
+  for (uint8_t* p = i0.RawBlock(); p < i0.RawBlock() + i0.block_size; ++p) {
     if (p >= i0.RawBlock() && p < i0.RawBody()) {
       EXPECT_TRUE(test_shadow.IsLeftRedzone(p));
     } else if (p >= i0.RawBody() &&
@@ -213,7 +212,7 @@ TEST_F(ShadowTest, PoisonAllocatedBlock) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 15, 22, 0, &layout));
 
-  uint8* data = new uint8[layout.block_size];
+  uint8_t* data = new uint8_t[layout.block_size];
   BlockInfo info = {};
   BlockInitialize(layout, data, false, &info);
 
@@ -235,7 +234,7 @@ TEST_F(ShadowTest, PoisonAllocatedBlock) {
   EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 7 * 8),
             kHeapBlockEndMarker);
 
-  uint8* cursor = info.RawHeader();
+  uint8_t* cursor = info.RawHeader();
   for (; cursor < info.RawBody(); ++cursor)
     EXPECT_FALSE(test_shadow.IsAccessible(cursor));
   for (; cursor < info.RawBody() + info.body_size; ++cursor)
@@ -330,12 +329,12 @@ TEST_F(ShadowTest, ScanRightPerfTest) {
   // The end of the outer block.
   test_shadow.shadow_[offset + length - 1] = kHeapBlockEndMarker;
 
-  uint64 tnet = 0;
+  uint64_t tnet = 0;
   for (size_t i = 0; i < 100; ++i) {
     size_t l = 0;
-    uint64 t0 = ::__rdtsc();
+    uint64_t t0 = ::__rdtsc();
     test_shadow.ScanRightForBracketingBlockEnd(0, offset + 1, &l);
-    uint64 t1 = ::__rdtsc();
+    uint64_t t1 = ::__rdtsc();
     tnet += t1 - t0;
   }
   testing::EmitMetric("Syzygy.Asan.Shadow.ScanRightForBracketingBlockEnd",
@@ -352,13 +351,13 @@ TEST_F(ShadowTest, IsLeftOrRightRedzone) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0,
                               &layout));
 
-  scoped_ptr<uint8> data(new uint8[layout.block_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   BlockInfo info = {};
   BlockInitialize(layout, data.get(), false, &info);
 
   test_shadow.PoisonAllocatedBlock(info);
-  uint8* block = reinterpret_cast<uint8*>(info.header);
-  uint8* cursor = block;
+  uint8_t* block = reinterpret_cast<uint8_t*>(info.header);
+  uint8_t* cursor = block;
 
   for (; cursor < info.RawBody(); ++cursor) {
     EXPECT_TRUE(test_shadow.IsLeftRedzone(cursor));
@@ -384,7 +383,7 @@ void TestBlockInfoFromShadow(Shadow* shadow,
   ASSERT_TRUE(shadow != nullptr);
   ASSERT_LE(nested.block_size, outer.body_size);
 
-  uint8* data = new uint8[outer.block_size];
+  uint8_t* data = new uint8_t[outer.block_size];
 
   // Try recovering the block from every position within it when no nested
   // block exists. Expect finding a nested block to fail.
@@ -405,14 +404,14 @@ void TestBlockInfoFromShadow(Shadow* shadow,
   // Place a nested block and try the recovery from every position again.
   size_t padding = ::common::AlignDown(info.body_size - nested.block_size,
                                        kShadowRatio * 2);
-  uint8* nested_begin = info.RawBody() + padding / 2;
-  uint8* nested_end = nested_begin + nested.block_size;
+  uint8_t* nested_begin = info.RawBody() + padding / 2;
+  uint8_t* nested_end = nested_begin + nested.block_size;
   BlockInfo nested_info = {};
   BlockInitialize(nested, nested_begin, true, &nested_info);
   nested_info.header->is_nested = true;
   shadow->PoisonAllocatedBlock(nested_info);
   for (size_t i = 0; i < info.block_size; ++i) {
-    uint8* pos = info.RawBlock() + i;
+    uint8_t* pos = info.RawBlock() + i;
     EXPECT_TRUE(shadow->BlockInfoFromShadow(pos, &info_recovered));
 
     BlockInfo parent_info = {};
@@ -467,7 +466,7 @@ TEST_F(ShadowTest, IsBeginningOfBlockBody) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
 
   size_t data_size = l.block_size;
-  scoped_ptr<uint8> data(new uint8[data_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[data_size]);
 
   BlockInfo block_info = {};
   BlockInitialize(l, data.get(), false, &block_info);
@@ -491,7 +490,7 @@ TEST_F(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 0, 0, 0, &l));
 
   size_t data_size = l.block_size;
-  scoped_ptr<uint8> data(new uint8[data_size]);
+  scoped_ptr<uint8_t> data(new uint8_t[data_size]);
 
   BlockInfo block_info = {};
   BlockInitialize(l, data.get(), false, &block_info);
@@ -511,15 +510,15 @@ TEST_F(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
 }
 
 TEST_F(ShadowTest, MarkAsFreedPerfTest) {
-  std::vector<uint8> buf;
+  std::vector<uint8_t> buf;
   buf.resize(10 * 1024 * 1024, 0);
 
-  uint64 tnet = 0;
+  uint64_t tnet = 0;
   for (size_t i = 0; i < 1000; ++i) {
     test_shadow.Unpoison(buf.data(), buf.size());
-    uint64 t0 = ::__rdtsc();
+    uint64_t t0 = ::__rdtsc();
     test_shadow.MarkAsFreed(buf.data(), buf.size());
-    uint64 t1 = ::__rdtsc();
+    uint64_t t1 = ::__rdtsc();
     tnet += t1 - t0;
     test_shadow.Unpoison(buf.data(), buf.size());
   }
@@ -528,7 +527,7 @@ TEST_F(ShadowTest, MarkAsFreedPerfTest) {
 
 TEST_F(ShadowTest, PageBits) {
   // Set an individual page.
-  const uint8* addr = reinterpret_cast<const uint8*>(16 * 4096);
+  const uint8_t* addr = reinterpret_cast<const uint8_t*>(16 * 4096);
   EXPECT_FALSE(test_shadow.PageIsProtected(addr));
   test_shadow.MarkPageProtected(addr);
   EXPECT_TRUE(test_shadow.PageIsProtected(addr));
@@ -540,7 +539,7 @@ TEST_F(ShadowTest, PageBits) {
   EXPECT_FALSE(test_shadow.PageIsProtected(addr));
 
   // Set a range of pages at once.
-  const uint8* addr2 = addr + 4096;
+  const uint8_t* addr2 = addr + 4096;
   EXPECT_FALSE(test_shadow.PageIsProtected(addr - 4096));
   EXPECT_FALSE(test_shadow.PageIsProtected(addr));
   EXPECT_FALSE(test_shadow.PageIsProtected(addr2));
@@ -582,10 +581,10 @@ TEST_F(ShadowWalkerTest, WalksNonNestedBlocks) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
 
   size_t data_size = l.block_size * 3 + kShadowRatio;
-  uint8* data = new uint8[data_size];
-  uint8* data0 = data;
-  uint8* data1 = data0 + l.block_size + kShadowRatio;
-  uint8* data2 = data1 + l.block_size;
+  uint8_t* data = new uint8_t[data_size];
+  uint8_t* data0 = data;
+  uint8_t* data1 = data0 + l.block_size + kShadowRatio;
+  uint8_t* data2 = data1 + l.block_size;
 
   BlockInfo i0 = {}, i1 = {}, i2 = {};
   BlockInitialize(l, data0, false, &i0);
@@ -647,12 +646,12 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
 
   size_t data_size = b0.block_size + b1.block_size + kShadowRatio +
       b2.block_size;
-  uint8* data = new uint8[data_size];
+  uint8_t* data = new uint8_t[data_size];
 
   // Initialize the depth 0 blocks.
-  uint8* d0 = data;
-  uint8* d1 = d0 + b0.block_size;
-  uint8* d2 = d1 + b1.block_size + kShadowRatio;
+  uint8_t* d0 = data;
+  uint8_t* d1 = d0 + b0.block_size;
+  uint8_t* d2 = d1 + b1.block_size + kShadowRatio;
   BlockInfo i0 = {}, i1 = {}, i2 = {};
   BlockInitialize(b0, d0, false, &i0);
   BlockInitialize(b1, d1, false, &i1);
@@ -662,9 +661,9 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   test_shadow.PoisonAllocatedBlock(i2);
 
   // Initialize depth 1 blocks.
-  uint8* d00 = i0.RawBody();
-  uint8* d01 = d00 + b00.block_size + kShadowRatio;
-  uint8* d10 = i1.RawBody();
+  uint8_t* d00 = i0.RawBody();
+  uint8_t* d01 = d00 + b00.block_size + kShadowRatio;
+  uint8_t* d10 = i1.RawBody();
   BlockInfo i00 = {}, i01 = {}, i10 = {};
   BlockInitialize(b00, d00, true, &i00);
   BlockInitialize(b01, d01, true, &i01);
@@ -674,7 +673,7 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
   test_shadow.PoisonAllocatedBlock(i10);
 
   // Initialize depth 2 blocks.
-  uint8* d100 = i10.RawBody();
+  uint8_t* d100 = i10.RawBody();
   BlockInfo i100 = {};
   BlockInitialize(b100, d100, true, &i100);
   test_shadow.PoisonAllocatedBlock(i100);

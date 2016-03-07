@@ -25,7 +25,6 @@
 #include <string>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/common/assertions.h"
 
@@ -35,7 +34,7 @@ namespace common {
 
 // The type used by stack IDs. This must be compatible with that used by
 // the StackCaptureCache.
-typedef uint32 AsanStackId;
+typedef uint32_t AsanStackId;
 
 static const size_t kAsanParametersReserved1Bits = 20;
 
@@ -52,36 +51,36 @@ struct AsanParameters {
   // The overall size of the structure. This should include the total size of
   // any variable sized data included at the end of this structure as laid out
   // in an image.
-  uint32 size;
+  uint32_t size;
   // The version number of this structure.
-  uint32 version;
+  uint32_t version;
 
   // The parameters should not change in size or offset. This structure should
   // be strictly added to, keeping it backwards compatible.
 
   // HeapProxy: The maximum size the quarantine may grow to, in bytes.
-  uint32 quarantine_size;
+  uint32_t quarantine_size;
   // StackCaptureCache: The number of allocations between reports of the stack
   // trace cache compression ratio. A value of zero means no reports are
   // generated.
-  uint32 reporting_period;
+  uint32_t reporting_period;
   // StackCaptureCache: The number of bottom frames to skip on a stack trace.
-  uint32 bottom_frames_to_skip;
+  uint32_t bottom_frames_to_skip;
   // StackCapture: The max number of frames for a stack trace.
-  uint32 max_num_frames;
+  uint32_t max_num_frames;
   // HeapProxy: The size of the padding added to every memory block trailer.
-  uint32 trailer_padding_size;
+  uint32_t trailer_padding_size;
   // AsanRuntime: The stack ids we ignore, as a null terminated list. Set
   // this to NULL if there are no stack ids specified.
   AsanStackId* ignored_stack_ids;
   // HeapProxy: The maximum size of any single block that may be admitted to
   // the quarantine.
-  uint32 quarantine_block_size;
+  uint32_t quarantine_block_size;
 
   // Bitfield of boolean values. When this bitfield is full add an entirely new
   // one at the end of the structure.
   union {
-    uint32 bitfield1;
+    uint32_t bitfield1;
     struct {
       // AsanLogger: If true, we should generate a minidump whenever an error is
       // detected.
@@ -130,14 +129,14 @@ struct AsanParameters {
   float allocation_guard_rate;
 
   // ZebraBlockHeap: The size of the ZebraBlockHeap.
-  uint32 zebra_block_heap_size;
+  uint32_t zebra_block_heap_size;
 
   // ZebraBlockHeap: The ratio of the memory used for the quarantine.
   float zebra_block_heap_quarantine_ratio;
 
   // LargeBlockHeap: The minimum size of allocations that will be passed to
   // the large block heap.
-  uint32 large_allocation_threshold;
+  uint32_t large_allocation_threshold;
 
   // The rate at which blocks will have their contents flood-filled upon entry
   // to the quarantine. When this occurs it encourages non-instrumented read-
@@ -156,7 +155,7 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 60);
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32 kAsanParametersVersion = 14;
+const uint32_t kAsanParametersVersion = 14;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
@@ -173,7 +172,7 @@ static_assert(kAsanParametersReserved1Bits == 20 &&
 // encounters are used. After that it may override some of them with environment
 // variable configuration.
 extern const char kAsanParametersSectionName[];
-extern const uint32 kAsanParametersSectionCharacteristics;
+extern const uint32_t kAsanParametersSectionCharacteristics;
 
 #pragma pack(pop)
 
@@ -201,7 +200,7 @@ class FlatAsanParameters {
 
   // @name Accessors.
   // @{
-  const std::vector<uint8>& data() const { return data_; }
+  const std::vector<uint8_t>& data() const { return data_; }
   const AsanParameters& params() const {
     return *reinterpret_cast<const AsanParameters*>(data_.data());
   }
@@ -212,22 +211,22 @@ class FlatAsanParameters {
 
  protected:
   // The data backing the Asan parameters.
-  std::vector<uint8> data_;
+  std::vector<uint8_t> data_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(FlatAsanParameters);
 };
 
 // Default values of HeapProxy parameters
-extern const uint32 kDefaultQuarantineSize;
-extern const uint32 kDefaultQuarantineBlockSize;
-extern const uint32 kDefaultTrailerPaddingSize;
+extern const uint32_t kDefaultQuarantineSize;
+extern const uint32_t kDefaultQuarantineBlockSize;
+extern const uint32_t kDefaultTrailerPaddingSize;
 extern const float kDefaultAllocationGuardRate;
 // Default values of StackCaptureCache parameters.
-extern const uint32 kDefaultReportingPeriod;
-extern const uint32 kDefaultMaxNumFrames;
+extern const uint32_t kDefaultReportingPeriod;
+extern const uint32_t kDefaultMaxNumFrames;
 // Default values of StackCapture parameters.
-extern const uint32 kDefaultBottomFramesToSkip;
+extern const uint32_t kDefaultBottomFramesToSkip;
 // Default values of AsanRuntime parameters.
 extern const bool kDefaultExitOnFailure;
 extern const bool kDefaultCheckHeapOnFailure;
@@ -238,7 +237,7 @@ extern const bool kDefaultReportInvalidAccesses;
 extern const bool kDefaultMiniDumpOnFailure;
 extern const bool kDefaultLogAsText;
 // Default values of ZebraBlockHeap parameters.
-extern const uint32 kDefaultZebraBlockHeapSize;
+extern const uint32_t kDefaultZebraBlockHeapSize;
 extern const float kDefaultZebraBlockHeapQuarantineRatio;
 // Default values of the BlockHeapManager parameters.
 extern const bool kDefaultEnableZebraBlockHeap;

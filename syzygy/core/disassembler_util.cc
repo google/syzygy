@@ -163,8 +163,10 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
   return ret;
 }
 
-bool DecodeOneInstruction(
-    uint32 address, const uint8* buffer, size_t length, _DInst* instruction) {
+bool DecodeOneInstruction(uint32_t address,
+                          const uint8_t* buffer,
+                          size_t length,
+                          _DInst* instruction) {
   DCHECK(buffer != NULL);
   DCHECK(instruction != NULL);
 
@@ -195,8 +197,9 @@ bool DecodeOneInstruction(
   return true;
 }
 
-bool DecodeOneInstruction(
-    const uint8* buffer, size_t length, _DInst* instruction) {
+bool DecodeOneInstruction(const uint8_t* buffer,
+                          size_t length,
+                          _DInst* instruction) {
   DCHECK(buffer != NULL);
   DCHECK(instruction != NULL);
   if (!DecodeOneInstruction(0x10000000, buffer, length, instruction))
@@ -350,7 +353,7 @@ _RegisterType GetRegisterType(RegisterId reg_id) {
   return kRegisterTypesById[reg_id];
 }
 
-RegisterId GetRegisterId(uint32 distorm_reg_type) {
+RegisterId GetRegisterId(uint32_t distorm_reg_type) {
   switch (distorm_reg_type) {
     // 8-bit registers.
     case R_AL: return assm::kRegisterAl;
@@ -386,7 +389,7 @@ RegisterId GetRegisterId(uint32 distorm_reg_type) {
   }
 }
 
-const Register& GetRegister(uint32 distorm_reg_type) {
+const Register& GetRegister(uint32_t distorm_reg_type) {
   return Register::Get(GetRegisterId(distorm_reg_type));
 }
 

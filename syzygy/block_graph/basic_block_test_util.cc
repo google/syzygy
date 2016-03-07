@@ -38,16 +38,17 @@ namespace {
 using block_graph::BlockGraph;
 
 #define POINTER_DIFF(x, y) \
-    (reinterpret_cast<const uint8*>(x) - reinterpret_cast<const uint8*>(y))
-const int32 kAssemblyFuncSize = POINTER_DIFF(assembly_func_end, assembly_func);
-const int32 kCaseTableOffset = POINTER_DIFF(case_table, assembly_func);
-const int32 kJumpTableOffset = POINTER_DIFF(jump_table, assembly_func);
-const int32 kCase0Offset = POINTER_DIFF(case_0, assembly_func);
-const int32 kCase1Offset = POINTER_DIFF(case_1, assembly_func);
-const int32 kCaseDefaultOffset = POINTER_DIFF(case_default, assembly_func);
-const int32 kInterruptOffset = POINTER_DIFF(interrupt_label, assembly_func);
-const int32 kUnreachableOffset = POINTER_DIFF(unreachable_label,
-                                              assembly_func);
+  (reinterpret_cast<const uint8_t*>(x) - reinterpret_cast<const uint8_t*>(y))
+const int32_t kAssemblyFuncSize =
+    POINTER_DIFF(assembly_func_end, assembly_func);
+const int32_t kCaseTableOffset = POINTER_DIFF(case_table, assembly_func);
+const int32_t kJumpTableOffset = POINTER_DIFF(jump_table, assembly_func);
+const int32_t kCase0Offset = POINTER_DIFF(case_0, assembly_func);
+const int32_t kCase1Offset = POINTER_DIFF(case_1, assembly_func);
+const int32_t kCaseDefaultOffset = POINTER_DIFF(case_default, assembly_func);
+const int32_t kInterruptOffset = POINTER_DIFF(interrupt_label, assembly_func);
+const int32_t kUnreachableOffset =
+    POINTER_DIFF(unreachable_label, assembly_func);
 #undef POINTER_DIFF
 
 const BlockGraph::LabelAttributes kCaseTableAttributes =
@@ -98,7 +99,7 @@ void BasicBlockTest::InitBlockGraph() {
                                          kAssemblyFuncSize,
                                          "assembly_func_");
   ASSERT_TRUE(assembly_func_ != NULL);
-  assembly_func_->SetData(reinterpret_cast<const uint8*>(assembly_func),
+  assembly_func_->SetData(reinterpret_cast<const uint8_t*>(assembly_func),
                           kAssemblyFuncSize);
   assembly_func_->set_attributes(BlockGraph::BUILT_BY_SYZYGY);
   assembly_func_->set_section(text_section_->id());

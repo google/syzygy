@@ -44,8 +44,8 @@ struct ModuleIdentityComparator {
 };
 
 // Type definitions for the basic block entry count data.
-typedef int32 EntryCountType;
-typedef int32 BasicBlockOffset;
+typedef int32_t EntryCountType;
+typedef int32_t BasicBlockOffset;
 // An entry count map maps from the relative virtual address of the first
 // instruction or data byte in the basic block, to its entry count.
 typedef std::map<BasicBlockOffset, EntryCountType> EntryCountMap;
@@ -59,10 +59,10 @@ typedef std::pair<RelativeAddress, size_t> IndexedFrequencyOffset;
 typedef std::map<IndexedFrequencyOffset, EntryCountType> IndexedFrequencyMap;
 // The information kept for each module.
 struct IndexedFrequencyInformation {
-  uint32 num_entries;
-  uint32 num_columns;
+  uint32_t num_entries;
+  uint32_t num_columns;
   common::IndexedFrequencyData::DataType data_type;
-  uint8 frequency_size;
+  uint8_t frequency_size;
   IndexedFrequencyMap frequency_map;
 };
 
@@ -131,9 +131,9 @@ bool IsValidFrequencySize(size_t size);
 
 // @returns the frequency value contained in @p data for the basic_block given
 //     by @p bb_id.
-uint32 GetFrequency(const TraceIndexedFrequencyData* data,
-                    size_t bb_id,
-                    size_t column);
+uint32_t GetFrequency(const TraceIndexedFrequencyData* data,
+                      size_t bb_id,
+                      size_t column);
 
 }  // namespace basic_block_util
 }  // namespace grinder

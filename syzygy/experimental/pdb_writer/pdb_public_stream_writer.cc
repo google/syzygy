@@ -28,19 +28,19 @@ namespace pdb {
 namespace {
 
 // The value we've observed for the |unknown| field of the public stream header.
-const uint32 kPublicStreamUnknownValue = UINT32_MAX;
+const uint32_t kPublicStreamUnknownValue = UINT32_MAX;
 
 // The value we've observed for the |unknown| field of PublicStreamSymbolOffset.
-const uint32 kPublicStreamSymbolOffsetUnknownValue = 1;
+const uint32_t kPublicStreamSymbolOffsetUnknownValue = 1;
 
 // The size of the bit set found in the public stream, in bits. The size is
 // constant even when there is more than 4096 public symbols defined in the PDB.
-const uint32 kPublicStreamHashTableBitSetSize = 512 * 8;
+const uint32_t kPublicStreamHashTableBitSetSize = 512 * 8;
 
 // Number by which indexes of public symbols are multiplied before being written
 // in the hash table of the public stream.
 // TODO(fdoray): Determine whether it corresponds to the size of a known struct.
-const uint32 kPublicStreamHashTableIndexMultiplier = 12;
+const uint32_t kPublicStreamHashTableIndexMultiplier = 12;
 
 // Contains the address of a symbol with the offset at which it has been written
 // in the symbol record stream. Is used to generate the sorted table of symbols
@@ -50,7 +50,7 @@ struct SymbolWithRecordOffset {
   core::SectionOffsetAddress address;
 
   // Offset of the symbol in the symbol record stream.
-  uint32 record_offset;
+  uint32_t record_offset;
 
   bool operator<(const SymbolWithRecordOffset& other) const {
     return address < other.address;
@@ -83,7 +83,7 @@ bool WritePublicStreamHashTable(const SymbolVector& symbols,
     symbols::ImageSymbol* public_symbol =
         reinterpret_cast<symbols::ImageSymbol*>(symbols[i].get());
 
-    uint16 bucket =
+    uint16_t bucket =
         HashString(public_symbol->name()) % kPublicStreamHashTableBitSetSize;
 
     if (!bits.IsSet(bucket)) {

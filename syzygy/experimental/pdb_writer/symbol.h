@@ -21,7 +21,6 @@
 #include <windows.h>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/compiler_specific.h"
 #include "base/memory/scoped_ptr.h"
 #include "syzygy/pdb/pdb_decl.h"

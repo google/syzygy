@@ -27,19 +27,19 @@ namespace pdb {
 // composed of length and type fields, followed by some data.
 struct SymbolRecord {
   size_t start_position;  // Positioned after the length and type fields.
-  uint16 len;  // Length of data.
-  uint16 type;
+  uint16_t len;  // Length of data.
+  uint16_t type;
 };
 typedef std::vector<SymbolRecord> SymbolRecordVector;
 
 // Stores the basic information for a type info record.
 struct TypeInfoRecord {
   size_t start_position;
-  uint16 len;
-  uint16 type;
+  uint16_t len;
+  uint16_t type;
 };
 // Map with the type number as a key and the TypeInfoRecord as a value.
-typedef std::map<uint32, TypeInfoRecord> TypeInfoRecordMap;
+typedef std::map<uint32_t, TypeInfoRecord> TypeInfoRecordMap;
 
 }  // namespace pdb
 

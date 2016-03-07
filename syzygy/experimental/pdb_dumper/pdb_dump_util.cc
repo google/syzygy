@@ -24,8 +24,8 @@ namespace cci = Microsoft_Cci_Pdb;
 // Dumps an unknown block of data in hexdump mode.
 bool DumpUnknownBlock(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
   DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
 
@@ -36,7 +36,7 @@ bool DumpUnknownBlock(FILE* out,
   static_assert(kColumnCount % kGroupSize == 0,
                 "kGroupSize must be a divisor of kColumnCount.");
 
-  uint8 buffer[kColumnCount];
+  uint8_t buffer[kColumnCount];
   size_t bytes_read = 0;
   while (bytes_read < len) {
     size_t bytes_to_read = len - bytes_read;
@@ -80,14 +80,17 @@ bool DumpUnknownBlock(FILE* out,
   return true;
 }
 
-void DumpTabs(FILE* out, uint8 indent_level) {
+void DumpTabs(FILE* out, uint8_t indent_level) {
   DCHECK(out != NULL);
-  for (uint8 i = 0; i < indent_level;  ++i) {
+  for (uint8_t i = 0; i < indent_level; ++i) {
     ::fprintf(out, "  ");
   }
 }
 
-void DumpIndentedText(FILE* out, uint8 indent_level, const char* format, ...) {
+void DumpIndentedText(FILE* out,
+                      uint8_t indent_level,
+                      const char* format,
+                      ...) {
   DCHECK(out != NULL);
   DCHECK(format != NULL);
   DumpTabs(out, indent_level);

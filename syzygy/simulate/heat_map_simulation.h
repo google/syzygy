@@ -51,11 +51,11 @@ class HeatMapSimulation : public SimulationEventHandler {
   typedef block_graph::BlockGraph::Block Block;
   typedef time_t TimeSliceId;
   typedef std::map<TimeSliceId, TimeSlice> TimeMemoryMap;
-  typedef uint32 MemorySliceId;
+  typedef uint32_t MemorySliceId;
 
   // The default time and memory slice sizes.
-  static const uint32 kDefaultTimeSliceSize = 1;
-  static const uint32 kDefaultMemorySliceSize = 0x8000;
+  static const uint32_t kDefaultTimeSliceSize = 1;
+  static const uint32_t kDefaultMemorySliceSize = 0x8000;
 
   // Construct a new HeatMapSimulation instance.
   HeatMapSimulation();
@@ -63,8 +63,8 @@ class HeatMapSimulation : public SimulationEventHandler {
   // @name Accessors.
   // @{
   const TimeMemoryMap& time_memory_map() const { return time_memory_map_; }
-  uint32 time_slice_usecs() const { return time_slice_usecs_; }
-  uint32 memory_slice_bytes() const { return memory_slice_bytes_; }
+  uint32_t time_slice_usecs() const { return time_slice_usecs_; }
+  uint32_t memory_slice_bytes() const { return memory_slice_bytes_; }
   TimeSliceId max_time_slice_usecs() const { return max_time_slice_usecs_; }
   MemorySliceId max_memory_slice_bytes() const {
     return max_memory_slice_bytes_;
@@ -75,13 +75,13 @@ class HeatMapSimulation : public SimulationEventHandler {
   // @{
   // Set the size of time slices used in the heat map.
   // @param time_slice_usecs The size used, in microseconds.
-  void set_time_slice_usecs(uint32 time_slice_usecs) {
+  void set_time_slice_usecs(uint32_t time_slice_usecs) {
     DCHECK_LT(0u, time_slice_usecs);
     time_slice_usecs_ = time_slice_usecs;
   }
   // Set the size of the memory slices used in the heat map.
   // @param memory_slice_bytes The size used, in bytes.
-  void set_memory_slice_bytes(uint32 memory_slice_bytes) {
+  void set_memory_slice_bytes(uint32_t memory_slice_bytes) {
     DCHECK_LT(0u, memory_slice_bytes);
     memory_slice_bytes_ = memory_slice_bytes;
   }
@@ -179,10 +179,10 @@ class HeatMapSimulation : public SimulationEventHandler {
 
  protected:
   // The size of each time block on the heat map, in microseconds.
-  uint32 time_slice_usecs_;
+  uint32_t time_slice_usecs_;
 
   // The size of each memory block on the heat map, in bytes.
-  uint32 memory_slice_bytes_;
+  uint32_t memory_slice_bytes_;
 
   // A map which contains the density of each pair of time and memory slices.
   // TODO(fixman): If there aren't many possible relative times,
@@ -210,7 +210,7 @@ class HeatMapSimulation::TimeSlice {
 
   struct MemorySlice {
     FunctionMap functions;
-    uint32 total;
+    uint32_t total;
 
     MemorySlice() : total(0) {
     }
@@ -226,7 +226,7 @@ class HeatMapSimulation::TimeSlice {
   // @param num_bytes The value to be added, in bytes.
   void AddSlice(MemorySliceId slice,
                 const base::StringPiece& name,
-                uint32 num_bytes) {
+                uint32_t num_bytes) {
     slices_[slice].functions[name.as_string()] += num_bytes;
     slices_[slice].total += num_bytes;
     total_ += num_bytes;
@@ -235,7 +235,7 @@ class HeatMapSimulation::TimeSlice {
   // @name Accessors.
   // @{
   const MemorySliceMap& slices() const { return slices_; }
-  uint32 total() const { return total_; }
+  uint32_t total() const { return total_; }
   // @}
 
   // Serialize a FunctionMap to a JSON file, sorted by bytes occupied by
@@ -252,7 +252,7 @@ class HeatMapSimulation::TimeSlice {
   MemorySliceMap slices_;
 
   // The total number of blocks that were called at this time.
-  uint32 total_;
+  uint32_t total_;
 };
 
 }  // namespace simulate

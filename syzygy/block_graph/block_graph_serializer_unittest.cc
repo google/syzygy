@@ -167,7 +167,7 @@ class BlockGraphSerializerTest : public ::testing::Test {
     // We use the source range to determine which block gets which data, as the
     // name is not always present.
     size_t data_size = 0;
-    const uint8* data = NULL;
+    const uint8_t* data = NULL;
     switch (block->source_ranges().range_pairs()[0].second.start().value()) {
       case 0:
         data = kCode1Data;
@@ -261,8 +261,8 @@ class BlockGraphSerializerTest : public ::testing::Test {
     EXPECT_LE(0, data_index);
     EXPECT_GT(4, data_index);
 
-    static const uint8* kData[] = {
-        kCode1Data, kCode2Data, kData1Data, kRdata1Data };
+    static const uint8_t* kData[] = {
+        kCode1Data, kCode2Data, kData1Data, kRdata1Data};
     block->SetData(kData[data_index], size);
 
     return true;
@@ -323,28 +323,28 @@ class BlockGraphSerializerTest : public ::testing::Test {
   BlockGraph bg_;
 
   // Streams and archives.
-  std::vector<uint8> v_;
+  std::vector<uint8_t> v_;
   scoped_ptr<core::OutStream> os_;
   scoped_ptr<core::InStream> is_;
   scoped_ptr<core::OutArchive> oa_;
   scoped_ptr<core::InArchive> ia_;
 
-  static const uint8 kCode1Data[16];
-  static const uint8 kCode2Data[16];
-  static const uint8 kData1Data[16];
-  static const uint8 kRdata1Data[16];
+  static const uint8_t kCode1Data[16];
+  static const uint8_t kCode2Data[16];
+  static const uint8_t kData1Data[16];
+  static const uint8_t kRdata1Data[16];
 
   size_t block_data_loaded_by_callback_;
 };
 
-const uint8 BlockGraphSerializerTest::kCode1Data[16] = {
-     1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16 };
-const uint8 BlockGraphSerializerTest::kCode2Data[16] = {
-    20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10,  9,  8,  7,  6,  5 };
-const uint8 BlockGraphSerializerTest::kData1Data[16] = {
-    10, 30, 45, 63, 20, 23, 67, 20, 32, 40, 50, 10, 15, 10, 18, 19 };
-const uint8 BlockGraphSerializerTest::kRdata1Data[16] = {
-    28, 28, 29, 30, 56, 28, 23, 78, 19, 99, 10, 10, 23, 54, 54, 12 };
+const uint8_t BlockGraphSerializerTest::kCode1Data[16] =
+    {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+const uint8_t BlockGraphSerializerTest::kCode2Data[16] =
+    {20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5};
+const uint8_t BlockGraphSerializerTest::kData1Data[16] =
+    {10, 30, 45, 63, 20, 23, 67, 20, 32, 40, 50, 10, 15, 10, 18, 19};
+const uint8_t BlockGraphSerializerTest::kRdata1Data[16] =
+    {28, 28, 29, 30, 56, 28, 23, 78, 19, 99, 10, 10, 23, 54, 54, 12};
 
 }  // namespace
 
@@ -418,17 +418,27 @@ TEST_F(BlockGraphSerializerTest, HasAnyAttributes) {
 }
 
 TEST_F(BlockGraphSerializerTest, VariableLengthUint32Encoding) {
-  const uint32 kTestValues[] = {
+  const uint32_t kTestValues[] = {
       // 5-bit values (< 32) that map to 1 byte.
-      1, 27, 31,
+      1,
+      27,
+      31,
       // 13-bit values (< 8,192) that map to 2 bytes.
-      32, 1034, 8191,
+      32,
+      1034,
+      8191,
       // 21-bit values (< 2,097,152) that map to 3 bytes.
-      8192, 1023847, 2097151,
+      8192,
+      1023847,
+      2097151,
       // 29-bit values (< 536,870,912) that map to 4 bytes.
-      2097152, 38274285, 536870911,
+      2097152,
+      38274285,
+      536870911,
       // 32-bit values (< 4,294,967,296) that map to 5 bytes.
-      536870912, 1610612736, 4294967295 };
+      536870912,
+      1610612736,
+      4294967295};
 
   for (size_t i = 0; i < arraysize(kTestValues); ++i) {
     InitOutArchive();
@@ -436,7 +446,7 @@ TEST_F(BlockGraphSerializerTest, VariableLengthUint32Encoding) {
     ASSERT_EQ((i / 3) + 1, v_.size());
 
     InitInArchive();
-    uint32 value = 0;
+    uint32_t value = 0;
     ASSERT_TRUE(s_.LoadUint32(&value, ia_.get()));
 
     ASSERT_EQ(kTestValues[i], value);
@@ -444,29 +454,39 @@ TEST_F(BlockGraphSerializerTest, VariableLengthUint32Encoding) {
 }
 
 TEST_F(BlockGraphSerializerTest, VariableLengthInt32Encoding) {
-  const int32 kTestValues[] = {
+  const int32_t kTestValues[] = {
       // 4-bit values (< 16) that map to 1 byte.
-      1, 9, 15,
+      1,
+      9,
+      15,
       // 12-bit values (< 4,096) that map to 2 bytes.
-      16, 1034, 4095,
+      16,
+      1034,
+      4095,
       // 20-bit values (< 1,048,576) that map to 3 bytes.
-      4096, 815632, 1048575,
+      4096,
+      815632,
+      1048575,
       // 28-bit values (< 268,435,456) that map to 4 bytes.
-      1048576, 38274285, 268435455,
+      1048576,
+      38274285,
+      268435455,
       // 31-bit values (< 2,147,483,648) that map to 5 bytes.
-      268435456, 805306368, 2147483647 };
+      268435456,
+      805306368,
+      2147483647};
 
   for (size_t i = 0; i < arraysize(kTestValues); ++i) {
     // We try the value in a negative and positive format.
-    for (int32 j = -1; j <= 1; j += 2) {
-      int32 expected_value = kTestValues[i] * j;
+    for (int32_t j = -1; j <= 1; j += 2) {
+      int32_t expected_value = kTestValues[i] * j;
 
       InitOutArchive();
       ASSERT_TRUE(s_.SaveInt32(expected_value, oa_.get()));
       ASSERT_EQ((i / 3) + 1, v_.size());
 
       InitInArchive();
-      int32 value = 0;
+      int32_t value = 0;
       ASSERT_TRUE(s_.LoadInt32(&value, ia_.get()));
 
       ASSERT_EQ(expected_value, value);

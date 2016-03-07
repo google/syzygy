@@ -41,8 +41,8 @@ class ModuleLayerAccessor {
   // @param timestamp the module's timestamp.
   // @param path the module's path.
   void AddModuleRecord(const AddressRange& range,
-                       const uint32 checksum,
-                       const uint32 timestamp,
+                       const uint32_t checksum,
+                       const uint32_t timestamp,
                        const std::wstring& path);
 
   // Retrieves the signature of the module instance containing @p va.

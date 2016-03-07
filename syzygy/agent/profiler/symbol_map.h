@@ -16,7 +16,7 @@
 #define SYZYGY_AGENT_PROFILER_SYMBOL_MAP_H_
 
 #include "base/atomicops.h"
-#include "base/basictypes.h"
+
 #include "base/memory/ref_counted.h"
 #include "base/strings/string_piece.h"
 #include "base/synchronization/lock.h"
@@ -55,7 +55,7 @@ class SymbolMap {
   scoped_refptr<Symbol> FindSymbol(const void* addr);
 
  protected:
-  typedef core::AddressSpace<const uint8*, size_t, scoped_refptr<Symbol>>
+  typedef core::AddressSpace<const uint8_t*, size_t, scoped_refptr<Symbol>>
       SymbolAddressSpace;
   typedef SymbolAddressSpace::Range Range;
 
@@ -83,8 +83,10 @@ class SymbolMap::Symbol : public base::RefCountedThreadSafe<Symbol> {
   // @{
   const std::string& name() const { return name_; }
   bool invalid() const { return address_ == NULL; }
-  int32 id() const { return id_; }
-  int32 move_count() const { return base::subtle::Acquire_Load(&move_count_); }
+  int32_t id() const { return id_; }
+  int32_t move_count() const {
+    return base::subtle::Acquire_Load(&move_count_);
+  }
   const void* address() const { return address_; }
   // @}
 

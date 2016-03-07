@@ -167,8 +167,9 @@ void IndexedFrequencyDataGrinder::UpdateBasicBlockFrequencyData(
         EntryCountType& value = bb_entries[
             std::make_pair(RelativeAddress(offs), column)];
         if (amount < 0) {
-          // We need to detect uint32 to int32 overflow because JSON file output
-          // int32 and basic block agent use an uint32 counter.
+          // We need to detect uint32_t to int32_t overflow because JSON file
+          // output
+          // int32_t and basic block agent use an uint32_t counter.
           value = std::numeric_limits<EntryCountType>::max();
         } else {
           value += std::min(

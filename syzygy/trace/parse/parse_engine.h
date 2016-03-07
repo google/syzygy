@@ -76,7 +76,7 @@ class ParseEngine {
   // @param addr An address in the memory space of the process.
   //
   // @returns NULL if no such module exists; otherwise, a pointer to the module.
-  const ModuleInformation* GetModuleInformation(uint32 process_id,
+  const ModuleInformation* GetModuleInformation(uint32_t process_id,
                                                 AbsoluteAddress64 addr) const;
 
  protected:

@@ -15,7 +15,7 @@
 #ifndef SYZYGY_CORE_RANDOM_NUMBER_GENERATOR_H_
 #define SYZYGY_CORE_RANDOM_NUMBER_GENERATOR_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
 
 namespace core {
 
@@ -23,13 +23,13 @@ namespace core {
 // See: http://en.wikipedia.org/wiki/Linear_congruential_generator.
 class RandomNumberGenerator {
  public:
-  explicit RandomNumberGenerator(uint32 seed);
+  explicit RandomNumberGenerator(uint32_t seed);
 
   // Makes the random number generator callable (with the given modulus).
-  uint32 operator()(uint32 n);
+  uint32_t operator()(uint32_t n);
 
  private:
-  uint32 seed_;
+  uint32_t seed_;
 };
 
 }  // namespace core

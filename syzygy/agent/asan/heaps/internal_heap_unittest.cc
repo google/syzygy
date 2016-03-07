@@ -97,18 +97,18 @@ TEST(InternalHeapTest, NotificationsWorkWithNotifyingHeap) {
 TEST(InternalHeapTest, HeaderIsAllocated) {
   memory_notifiers::NullMemoryNotifier null_notifier;
   testing::MockHeap mock_heap;
-  uint8 dummy_allocation[16] = {};
+  uint8_t dummy_allocation[16] = {};
 
   EXPECT_CALL(mock_heap, GetHeapFeatures()).Times(1).WillOnce(Return(0));
   InternalHeap h(&null_notifier, &mock_heap);
 
   void* header = dummy_allocation;
-  void* expected_alloc = dummy_allocation + sizeof(uint32);
+  void* expected_alloc = dummy_allocation + sizeof(uint32_t);
 
   EXPECT_CALL(mock_heap, Allocate(16)).Times(1).WillOnce(Return(header));
   void* alloc = h.Allocate(8);
   EXPECT_EQ(expected_alloc, alloc);
-  EXPECT_EQ(16, *reinterpret_cast<uint32*>(dummy_allocation));
+  EXPECT_EQ(16, *reinterpret_cast<uint32_t*>(dummy_allocation));
 
   EXPECT_CALL(mock_heap, Free(header)).Times(1).WillOnce(Return(true));
   EXPECT_TRUE(h.Free(alloc));

@@ -94,7 +94,7 @@ class TestMappedBuffer : public MappedBuffer {
  public:
   explicit TestMappedBuffer(Buffer* buffer) : MappedBuffer(buffer) { }
   Buffer* buffer() const { return buffer_; }
-  uint8* base() const { return base_; }
+  uint8_t* base() const { return base_; }
 };
 
 }  // namespace
@@ -120,8 +120,8 @@ TEST_F(MappedBufferTest, MapAndUnmap) {
   EXPECT_TRUE(mb.data() != NULL);
   EXPECT_EQ(mb.base(), mb.data());
   EXPECT_TRUE(mb.IsMapped());
-  uint8* base = mb.base();
-  uint8* data = mb.data();
+  uint8_t* base = mb.base();
+  uint8_t* data = mb.data();
 
   // Do a no-op map.
   EXPECT_TRUE(mb.Map());
@@ -154,7 +154,7 @@ TEST_F(MappedBufferTest, AlignmentCalculationIsCorrect) {
 TEST_F(MappedBufferTest, MappedViewIsReaped) {
   MEMORY_BASIC_INFORMATION info = {};
   SIZE_T ret = 0;
-  uint8* base = NULL;
+  uint8_t* base = NULL;
 
   {
     TestMappedBuffer mb(b1);

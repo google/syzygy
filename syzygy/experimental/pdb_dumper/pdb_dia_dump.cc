@@ -48,7 +48,7 @@ const char* GetSymTagName(enum SymTagEnum sym_tag) {
 }
 
 void DumpProperty(FILE* out,
-                  uint8 indent_level,
+                  uint8_t indent_level,
                   const char* name,
                   DWORD value,
                   HRESULT hr) {
@@ -161,7 +161,7 @@ bool PdbDiaDumpApp::DumpSymbols(IDiaSession* session) {
   return true;
 }
 
-bool PdbDiaDumpApp::DumpSymbol(uint8 indent_level, IDiaSymbol* symbol) {
+bool PdbDiaDumpApp::DumpSymbol(uint8_t indent_level, IDiaSymbol* symbol) {
   // Get the symbol's id, name and sym tag.
   uint32_t index_id;
   CHECK(pe::GetSymIndexId(symbol, &index_id));
@@ -283,7 +283,7 @@ bool PdbDiaDumpApp::DumpAllFrameData(IDiaSession* session) {
   return success;
 }
 
-bool PdbDiaDumpApp::DumpFrameData(uint8 indent_level,
+bool PdbDiaDumpApp::DumpFrameData(uint8_t indent_level,
                                   IDiaFrameData* frame_data) {
   bool success = true;
 

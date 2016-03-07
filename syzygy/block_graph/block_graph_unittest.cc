@@ -77,14 +77,14 @@ class BlockTest: public testing::Test {
   static const BlockGraph::BlockType kBlockType = BlockGraph::CODE_BLOCK;
   static const size_t kBlockSize = 0x20;
   static const char* kBlockName;
-  static const uint8 kTestData[];
+  static const uint8_t kTestData[];
 
   BlockGraph image_;
   BlockGraph::Block* block_;
 };
 
 const char* BlockTest::kBlockName = "block";
-const uint8 BlockTest::kTestData[] = "who's your daddy?";
+const uint8_t BlockTest::kTestData[] = "who's your daddy?";
 
 TEST(ReferenceTest, Initialization) {
   BlockGraph block_graph;
@@ -254,18 +254,18 @@ TEST_F(BlockTest, Accessors) {
 
 TEST_F(BlockTest, AllocateData) {
   // Test AllocateData.
-  uint8* data = block_->AllocateData(block_->size());
+  uint8_t* data = block_->AllocateData(block_->size());
   ASSERT_TRUE(block_->owns_data());
   ASSERT_EQ(block_->size(), block_->data_size());
   ASSERT_EQ(data, block_->data());
 
-  static const uint8 zeros[kBlockSize] = {};
+  static const uint8_t zeros[kBlockSize] = {};
   ASSERT_EQ(0, memcmp(&zeros[0], data, block_->size()));
 }
 
 TEST_F(BlockTest, CopyData) {
   // Test CopyData.
-  uint8* data = block_->CopyData(sizeof(kTestData), kTestData);
+  uint8_t* data = block_->CopyData(sizeof(kTestData), kTestData);
   ASSERT_TRUE(block_->owns_data());
   ASSERT_EQ(sizeof(kTestData), block_->data_size());
   ASSERT_EQ(data, block_->data());
@@ -277,7 +277,7 @@ TEST_F(BlockTest, ResizeData) {
   block_->SetData(kTestData, sizeof(kTestData));
 
   // Shrinking the data should not take ownership.
-  const uint8* data = block_->ResizeData(sizeof(kTestData) / 2);
+  const uint8_t* data = block_->ResizeData(sizeof(kTestData) / 2);
   ASSERT_TRUE(data != NULL);
   ASSERT_TRUE(data == kTestData);
   ASSERT_FALSE(block_->owns_data());
@@ -290,7 +290,7 @@ TEST_F(BlockTest, ResizeData) {
   // The head of the data should be identical to the input.
   ASSERT_EQ(0, memcmp(data, kTestData, sizeof(kTestData) / 2));
   // And the tail should be zeros.
-  static const uint8 kZeros[sizeof(kTestData) - sizeof(kTestData) / 2] = {};
+  static const uint8_t kZeros[sizeof(kTestData) - sizeof(kTestData) / 2] = {};
   ASSERT_EQ(0, memcmp(data + sizeof(kTestData) / 2, kZeros, sizeof(kZeros)));
 
   // Now grow it from non-owned.
@@ -311,7 +311,7 @@ TEST_F(BlockTest, GetMutableData) {
   block_->SetData(kTestData, sizeof(kTestData));
 
   // Getting a mutable pointer should copy the data to heap.
-  uint8* data = block_->GetMutableData();
+  uint8_t* data = block_->GetMutableData();
   ASSERT_TRUE(data != NULL);
   ASSERT_TRUE(data != kTestData);
   ASSERT_TRUE(block_->owns_data());
@@ -918,7 +918,7 @@ TEST(BlockGraphTest, RemoveSection) {
 
 TEST(BlockGraphTest, CopyBlock) {
   BlockGraph image;
-  uint8 kTestData[] = {3, 1, 4, 1, 5, 9};
+  uint8_t kTestData[] = {3, 1, 4, 1, 5, 9};
 
   // Add some blocks to the image.
   BlockGraph::Block* b1 = image.AddBlock(BlockGraph::CODE_BLOCK, 0x20, "b1");

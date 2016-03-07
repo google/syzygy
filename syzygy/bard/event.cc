@@ -76,7 +76,7 @@ bool EventInterface::Save(const EventInterface* event,
 scoped_ptr<EventInterface> EventInterface::Load(core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
-  uint16 type = 0;
+  uint16_t type = 0;
   if (!in_archive->Load(&type))
     return false;
 

@@ -81,7 +81,7 @@ struct PageAllocatorObject {
   typedef PageAllocatorObject<kObjectSize> Self;
 
   union {
-    uint8 object_data[kObjectSize];
+    uint8_t object_data[kObjectSize];
     Self* next_free;
   };
 };
@@ -137,7 +137,7 @@ struct PageAllocatorPage {
       Object objects[kObjectsPerPage];
       Self* prev_page;
     };
-    uint8 unused[kPageSize];
+    uint8_t unused[kPageSize];
   };
 };
 
@@ -351,9 +351,8 @@ WasOnceAllocated(const void* object, size_t count) {
       return false;
 
     // Determine if it's aligned as expected.
-    size_t offset =
-        reinterpret_cast<const uint8*>(object) -
-        reinterpret_cast<const uint8*>(page);
+    size_t offset = reinterpret_cast<const uint8_t*>(object) -
+                    reinterpret_cast<const uint8_t*>(page);
     if ((offset % sizeof(Object)) != 0)
       return false;
 

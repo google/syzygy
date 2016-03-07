@@ -22,7 +22,6 @@
 #include <windows.h>
 #include <string>
 
-#include "base/basictypes.h"
 #include "base/files/file_path.h"
 #include "base/win/scoped_handle.h"
 
@@ -57,7 +56,7 @@ struct ProcessInfo {
 
   // Retrieves all the relevant process info concerning @p pid, returning
   // true on success.
-  bool Initialize(uint32 pid);
+  bool Initialize(uint32_t pid);
 
   // Return this ProcessInfo struct to the state it had just following
   // construction.
@@ -67,7 +66,7 @@ struct ProcessInfo {
   base::win::ScopedHandle process_handle;
 
   // The process ID;
-  uint32 process_id;
+  uint32_t process_id;
 
   // The full path to the executable for the process.
   base::FilePath executable_path;
@@ -86,16 +85,16 @@ struct ProcessInfo {
   MEMORYSTATUSEX memory_status;
 
   // The base address at which the executable image is currently loaded.
-  uint32 exe_base_address;
+  uint32_t exe_base_address;
 
   // The size of the executable image loaded at exe_base_address.
-  uint32 exe_image_size;
+  uint32_t exe_image_size;
 
   // The checksum of the executable, taken from the NT headers.
-  uint32 exe_checksum;
+  uint32_t exe_checksum;
 
   // The time/date stamp of the executable, taken from the NT headers.
-  uint32 exe_time_date_stamp;
+  uint32_t exe_time_date_stamp;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ProcessInfo);

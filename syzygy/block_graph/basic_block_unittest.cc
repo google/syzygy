@@ -59,7 +59,7 @@ class BasicBlockTest: public testing::Test {
   // @returns FC_CND_BRANCH on conditional branch opcodes; FC_UNC_BRANCH on
   //     unconditional branch opcodes; or FC_NONE if the opcode is not a
   //     branch.
-  static uint8 BranchToType(uint16 opcode) {
+  static uint8_t BranchToType(uint16_t opcode) {
     switch (opcode) {
       // Unconditional branch instructions.
       case I_JMP:
@@ -99,7 +99,7 @@ class BasicBlockTest: public testing::Test {
 
   // Helper function to create a RET instruction.
   Instruction CreateRet() {
-    static const uint8 data[] = { 0xC3 };
+    static const uint8_t data[] = {0xC3};
     Instruction temp;
     EXPECT_TRUE(Instruction::FromBuffer(data, sizeof(data), &temp));
     EXPECT_TRUE(temp.IsReturn());
@@ -108,7 +108,7 @@ class BasicBlockTest: public testing::Test {
 
   // Helper function to create a CALL instruction.
   Instruction CreateCall(BasicBlockReference ref) {
-    static const uint8 data[] = { 0xE8, 0x00, 0x00, 0x00, 0x00 };
+    static const uint8_t data[] = {0xE8, 0x00, 0x00, 0x00, 0x00};
     Instruction call_inst;
     EXPECT_TRUE(Instruction::FromBuffer(data, sizeof(data), &call_inst));
     EXPECT_TRUE(call_inst.IsCall());
@@ -121,7 +121,7 @@ class BasicBlockTest: public testing::Test {
   }
 
   // Helper function to create a successor branch.
-  Successor CreateBranch(uint16 opcode, Successor::Offset target) {
+  Successor CreateBranch(uint16_t opcode, Successor::Offset target) {
     BasicBlockReference ref(BlockGraph::PC_RELATIVE_REF,
                             1,  // Size is immaterial in successors.
                             macro_block_,
@@ -137,7 +137,7 @@ class BasicBlockTest: public testing::Test {
   static const char kBlockName[];
   static const BasicBlock::Offset kBlockOffset;
   static const BasicBlock::Size kBlockSize;
-  static const uint8 kBlockData[];
+  static const uint8_t kBlockData[];
   static const size_t kRefSize;
   static const Successor::Offset kOffset1;
   static const Successor::Offset kOffset2;
@@ -159,7 +159,7 @@ const BlockGraph::BlockType BasicBlockTest::kMacroBlockType =
 const char BasicBlockTest::kBlockName[] = "test block";
 const BasicBlock::Offset BasicBlockTest::kBlockOffset = 0;
 const BasicBlock::Size BasicBlockTest::kBlockSize = 32;
-const uint8 BasicBlockTest::kBlockData[BasicBlockTest::kBlockSize] = {};
+const uint8_t BasicBlockTest::kBlockData[BasicBlockTest::kBlockSize] = {};
 const size_t BasicBlockTest::kRefSize = BlockGraph::Reference::kMaximumSize;
 const Successor::Offset BasicBlockTest::kOffset1(kBlockSize / 3);
 const Successor::Offset BasicBlockTest::kOffset2(kBlockSize / 2);
@@ -439,10 +439,10 @@ TEST_F(BasicBlockTest, InvertConditionalBranchOpcode) {
   // we'll use to drive the opcode inversion unit-test.
   struct OpcodeInversion {
     // The original opcode.
-    uint16 original;
+    uint16_t original;
 
     // The inverted opcode. It will be zero (0) if the opcode isn't invertible.
-    uint16 inverted;
+    uint16_t inverted;
   };
 
   static const OpcodeInversion kOpcodeInversionTable[] = {
@@ -472,7 +472,7 @@ TEST_F(BasicBlockTest, InvertConditionalBranchOpcode) {
   // Walk through the table validating that the InvertConditionalBranchOpcode()
   // function returns the same inversion results.
   for (int i = 0; i < arraysize(kOpcodeInversionTable); ++i) {
-    uint16 opcode = kOpcodeInversionTable[i].original;
+    uint16_t opcode = kOpcodeInversionTable[i].original;
     bool should_pass = kOpcodeInversionTable[i].inverted != 0;
     EXPECT_EQ(should_pass,
               Instruction::InvertConditionalBranchOpcode(&opcode));
@@ -557,7 +557,7 @@ TEST_F(SuccessorTest, LabelsAndTags) {
 
 TEST_F(SuccessorTest, OpCodeToCondition) {
   struct TableEntry {
-    uint16 op_code;
+    uint16_t op_code;
     Successor::Condition condition;
   };
 
@@ -643,12 +643,12 @@ void TestInstructionCopy(const Instruction& input) {
   EXPECT_EQ(input.size(), copy.size());
 }
 
-const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
+const uint8_t kCallRelative[] = {0xE8, 0xDE, 0xAD, 0xBE, 0xEF};
 
 }  // namespace
 
 TEST_F(InstructionTest, ConstructionFromData) {
-  const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
+  const uint8_t kCallRelative[] = {0xE8, 0xDE, 0xAD, 0xBE, 0xEF};
   Instruction call;
   ASSERT_TRUE(
       Instruction::FromBuffer(kCallRelative, arraysize(kCallRelative), &call));
@@ -666,7 +666,7 @@ TEST_F(InstructionTest, ConstructionFromData) {
 }
 
 TEST_F(InstructionTest, Copy) {
-  const uint8 kCallRelative[] = { 0xE8, 0xDE, 0xAD, 0xBE, 0xEF };
+  const uint8_t kCallRelative[] = {0xE8, 0xDE, 0xAD, 0xBE, 0xEF};
   Instruction call;
   ASSERT_TRUE(
       Instruction::FromBuffer(kCallRelative, arraysize(kCallRelative), &call));
@@ -729,7 +729,7 @@ TEST_F(InstructionTest, CallsNonReturningFunction) {
   BlockGraph::Block* function_pointer =
       block_graph.AddBlock(BlockGraph::DATA_BLOCK,
           BlockGraph::Reference::kMaximumSize, "ptr");
-  const uint8 kCallIndirect[] = { 0xFF, 0x15, 0xDE, 0xAD, 0xBE, 0xEF };
+  const uint8_t kCallIndirect[] = {0xFF, 0x15, 0xDE, 0xAD, 0xBE, 0xEF};
   Instruction call_indirect;
   ASSERT_TRUE(Instruction::FromBuffer(kCallIndirect,
                                       sizeof(kCallIndirect),

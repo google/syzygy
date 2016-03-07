@@ -225,9 +225,9 @@ bool IsValidFrequencySize(size_t size) {
 }
 
 // TODO(sebmarchand): Move this to indexed_frequency_util.
-uint32 GetFrequency(const TraceIndexedFrequencyData* data,
-                    size_t bb_id,
-                    size_t column) {
+uint32_t GetFrequency(const TraceIndexedFrequencyData* data,
+                      size_t bb_id,
+                      size_t column) {
   DCHECK(data != NULL);
   DCHECK(IsValidFrequencySize(data->frequency_size));
   DCHECK_LT(bb_id, data->num_entries);
@@ -242,9 +242,9 @@ uint32 GetFrequency(const TraceIndexedFrequencyData* data,
     case 1:
       return data->frequency_data[offset];
     case 2:
-      return reinterpret_cast<const uint16*>(data->frequency_data)[offset];
+      return reinterpret_cast<const uint16_t*>(data->frequency_data)[offset];
     case 4:
-      return reinterpret_cast<const uint32*>(data->frequency_data)[offset];
+      return reinterpret_cast<const uint32_t*>(data->frequency_data)[offset];
   }
 
   NOTREACHED();

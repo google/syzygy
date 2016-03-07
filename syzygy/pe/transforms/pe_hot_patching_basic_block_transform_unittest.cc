@@ -46,19 +46,19 @@ public:
 namespace {
 
 // _asm INC EAX (1-byte instruction)
-const uint8 kCodeIncEax[] = { 0x40 };
+const uint8_t kCodeIncEax[] = {0x40};
 
 // _asm INC AX (2-byte instruction)
-const uint8 kCodeIncAx[] = { 0x66, 0x40 };
+const uint8_t kCodeIncAx[] = {0x66, 0x40};
 
 // _asm 3-byte NOP (3-byte instruction)
-const uint8 kCodeThreeByteNop[] = { 0x66, 0x66, 0x90 };
+const uint8_t kCodeThreeByteNop[] = {0x66, 0x66, 0x90};
 
 // _asm RET (1-byte instruction)
-const uint8 kCodeRet[] = { 0xC3 };
+const uint8_t kCodeRet[] = {0xC3};
 
 // _asm JMP 0 (2-byte instruction)
-const uint8 kCodeTwoByteEndlessLoop[] = { 0xEB, 0xFE };
+const uint8_t kCodeTwoByteEndlessLoop[] = {0xEB, 0xFE};
 
 }  // namespace
 
@@ -154,7 +154,7 @@ protected:
 
     // Backup old data.
     size_t block_old_size = block->data_size();
-    std::vector<uint8> block_old_data(block_old_size);
+    std::vector<uint8_t> block_old_data(block_old_size);
     ::memcpy(block_old_data.data(), block->data(), block_old_size);
 
     // Insert the two-byte NOP.

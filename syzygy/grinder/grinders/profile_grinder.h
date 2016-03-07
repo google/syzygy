@@ -25,7 +25,7 @@
 namespace grinder {
 namespace grinders {
 
-typedef uint32 RVA;
+typedef uint32_t RVA;
 
 // A worker class to sink profile trace events and output the aggregate data in
 // KCacheGrind-compatible format.
@@ -91,7 +91,7 @@ class ProfileGrinder : public GrinderInterface {
                             DWORD thread_id,
                             const base::StringPiece& thread_name) override;
   virtual void OnDynamicSymbol(DWORD process_id,
-                               uint32 symbol_id,
+                               uint32_t symbol_id,
                                const base::StringPiece& symbol_name) override;
   // @}
 
@@ -154,7 +154,7 @@ class ProfileGrinder : public GrinderInterface {
                           size_t* line);
 
   // Converts an absolute address to an RVA.
-  void ConvertToModuleRVA(uint32 process_id,
+  void ConvertToModuleRVA(uint32_t process_id,
                           trace::parser::AbsoluteAddress64 addr,
                           CodeLocation* rva);
 
@@ -202,10 +202,10 @@ struct ProfileGrinder::PartData {
   std::string thread_name_;
 
   // The process ID for this part.
-  uint32 process_id_;
+  uint32_t process_id_;
 
   // The thread ID for this part.
-  uint32 thread_id_;
+  uint32_t thread_id_;
 
   // Stores the invocation nodes, aka the functions.
   InvocationNodeMap nodes_;
@@ -233,7 +233,7 @@ class ProfileGrinder::CodeLocation {
 
   // Set to a symbol location with @p process_id, @p symbol_id and
   // @p symbol_offset.
-  void Set(uint32 process_id, uint32 symbol_id, size_t symbol_offset);
+  void Set(uint32_t process_id, uint32_t symbol_id, size_t symbol_offset);
   // Set to a module/rva location with @p module and @p rva.
   void Set(const pe::ModuleInformation* module, RVA rva);
 
@@ -248,8 +248,8 @@ class ProfileGrinder::CodeLocation {
   bool is_symbol() const { return is_symbol_; }
 
   // @name Only valid when is_symbol() == true.
-  uint32 process_id() const { return process_id_; }
-  uint32 symbol_id() const { return symbol_id_; }
+  uint32_t process_id() const { return process_id_; }
+  uint32_t symbol_id() const { return symbol_id_; }
   size_t symbol_offset() const { return symbol_offset_; }
 
   // @name Only valid when is_symbol() == false.
@@ -272,12 +272,12 @@ class ProfileGrinder::CodeLocation {
 
  private:
   union {
-    uint32 process_id_;
+    uint32_t process_id_;
     const pe::ModuleInformation* module_;
   };
   union {
     RVA rva_;
-    uint32 symbol_id_;
+    uint32_t symbol_id_;
   };
   size_t symbol_offset_;
   bool is_symbol_;
@@ -296,10 +296,10 @@ struct ProfileGrinder::Metrics {
   Metrics() : num_calls(0), cycles_min(0), cycles_max(0), cycles_sum(0) {
   }
 
-  uint64 num_calls;
-  uint64 cycles_min;
-  uint64 cycles_max;
-  uint64 cycles_sum;
+  uint64_t num_calls;
+  uint64_t cycles_min;
+  uint64_t cycles_max;
+  uint64_t cycles_sum;
 };
 
 // An invocation node represents a function.

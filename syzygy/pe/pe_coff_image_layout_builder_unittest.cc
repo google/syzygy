@@ -74,7 +74,7 @@ TEST_F(PECoffImageLayoutBuilderTest, AddSection) {
   memset(b1->GetMutableData(), 0xCC, 0x1000);
   memset(b2->GetMutableData(), 0xCC, 0x1000);
 
-  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  const uint32_t kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
   EXPECT_TRUE(builder.LayoutBlock(b1));
   EXPECT_TRUE(builder.CloseSection());
@@ -117,7 +117,7 @@ TEST_F(PECoffImageLayoutBuilderTest, Alignment) {
   memset(b1->GetMutableData(), 0xCC, 0x1000);
   memset(b2->GetMutableData(), 0xCC, 0x1000);
 
-  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  const uint32_t kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
   EXPECT_TRUE(builder.LayoutBlock(b1));
   EXPECT_TRUE(builder.CloseSection());
@@ -166,7 +166,7 @@ TEST_F(PECoffImageLayoutBuilderTest, Padding) {
   memset(b2->GetMutableData(), 0xCC, 0x1000);
   memset(b3->GetMutableData(), 0xCC, 0x100);
 
-  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  const uint32_t kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
   EXPECT_TRUE(builder.LayoutBlock(b1));
   EXPECT_TRUE(builder.LayoutBlock(b3));
@@ -218,7 +218,7 @@ TEST_F(PECoffImageLayoutBuilderTest, BlockPadding) {
   b2->set_padding_before(kBlockPadding);
   b3->set_padding_before(kBlockPadding);
 
-  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  const uint32_t kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
   EXPECT_TRUE(builder.LayoutBlock(b1));
   EXPECT_TRUE(builder.LayoutBlock(b2));
@@ -281,7 +281,7 @@ TEST_F(PECoffImageLayoutBuilderTest, PaddingAndBlockPadding) {
   b2->set_padding_before(kBlockPaddingSmall);
   b4->set_padding_before(kBlockPaddingBig);
 
-  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  const uint32_t kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
   EXPECT_TRUE(builder.LayoutBlock(b1));
   EXPECT_TRUE(builder.LayoutBlock(b2));
@@ -334,7 +334,7 @@ TEST_F(PECoffImageLayoutBuilderTest, Align) {
     blocks.push_back(block);
   }
 
-  const uint32 kCharacteristics = IMAGE_SCN_CNT_CODE;
+  const uint32_t kCharacteristics = IMAGE_SCN_CNT_CODE;
   EXPECT_TRUE(builder.OpenSection("foo", kCharacteristics));
   for (BlockGraph::Block* block : blocks) {
     EXPECT_TRUE(builder.LayoutBlock(block));

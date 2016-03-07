@@ -17,7 +17,6 @@
 
 #include <stdio.h>
 
-#include "base/basictypes.h"
 #include "base/memory/ref_counted.h"
 #include "syzygy/msf/msf_decl.h"
 #include "syzygy/msf/msf_stream.h"
@@ -64,7 +63,7 @@ class MsfFileStreamImpl : public MsfStreamImpl<T> {
   // @param page_size the size of the pages, in bytes.
   MsfFileStreamImpl(RefCountedFILE* file,
                     size_t length,
-                    const uint32* pages,
+                    const uint32_t* pages,
                     size_t page_size);
 
   // MsfStreamImpl implementation.
@@ -76,7 +75,7 @@ class MsfFileStreamImpl : public MsfStreamImpl<T> {
 
   // Read @p count bytes from @p offset byte offset from page @p page_num and
   // store them in @p dest.
-  bool ReadFromPage(void* dest, uint32 page_num, size_t offset, size_t count);
+  bool ReadFromPage(void* dest, uint32_t page_num, size_t offset, size_t count);
 
  private:
   // The handle to the open MSF file. This is reference counted so ownership of

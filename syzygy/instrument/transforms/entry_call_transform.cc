@@ -348,7 +348,7 @@ bool EntryCallTransform::PostBlockGraphIteration(
   marker->set_section(thunk_section->id());
 
   // Provide the marker function with valid code.
-  static const uint8 kRet[] = { 0xC3 };
+  static const uint8_t kRet[] = {0xC3};
   marker->SetData(kRet, sizeof(kRet));
 
   return true;

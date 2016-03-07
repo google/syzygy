@@ -30,7 +30,6 @@
 #ifndef SYZYGY_BLOCK_GRAPH_ANALYSIS_MEMORY_ACCESS_ANALYSIS_H_
 #define SYZYGY_BLOCK_GRAPH_ANALYSIS_MEMORY_ACCESS_ANALYSIS_H_
 
-#include "base/basictypes.h"
 #include "syzygy/block_graph/basic_block.h"
 #include "syzygy/block_graph/basic_block_assembler.h"
 #include "syzygy/block_graph/basic_block_subgraph.h"

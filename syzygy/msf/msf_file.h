@@ -45,7 +45,7 @@ class MsfFileImpl {
   // Accesses the nth stream.
   // @param index the index of the nth stream.
   // @returns a pointer to the stream, NULL if it does not exist.
-  scoped_refptr<MsfStreamImpl<T>> GetStream(uint32 index) const;
+  scoped_refptr<MsfStreamImpl<T>> GetStream(uint32_t index) const;
 
   // Adds a new stream to this MSF file, returning the index of the newly
   // generated stream.
@@ -60,14 +60,14 @@ class MsfFileImpl {
   // @param msf_stream a pointer to the heap allocated stream to be placed at
   //     the given position. This may be NULL, which is equivalent to erasing
   //     the given stream.
-  void ReplaceStream(uint32 index, MsfStreamImpl<T>* msf_stream);
+  void ReplaceStream(uint32_t index, MsfStreamImpl<T>* msf_stream);
 
   // Sets the nth stream. Overwrites an existing stream if there is one.
   // @param index the index of the stream.
   // @param msf_stream a pointer to the heap allocated stream to be placed at
   //     the given position. This may be NULL, which is equivalent to erasing
   //     the given stream.
-  void SetStream(uint32 index, MsfStreamImpl<T>* msf_stream);
+  void SetStream(uint32_t index, MsfStreamImpl<T>* msf_stream);
 
   // Returns the number of streams in the MSF file. There are streams with
   // IDs 0 through StreamCount() - 1.

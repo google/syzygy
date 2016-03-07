@@ -144,7 +144,7 @@ bool TraceFileWriter::WriteHeader(const ProcessInfo& process_info) {
   }
 
   // Allocate an initial buffer to which to write the trace file header.
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
   buffer.reserve(32 * 1024);
 
   // Skip past the fixed sized portion of the header and populate the variable

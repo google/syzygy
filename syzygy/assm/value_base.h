@@ -32,12 +32,12 @@ template <class ReferenceType, class SubclassType>
 class ValueBase {
  public:
   ValueBase();
-  ValueBase(uint32 value, ValueSize size);
-  ValueBase(uint32 value, ValueSize size, ReferenceType imm_ref);
+  ValueBase(uint32_t value, ValueSize size);
+  ValueBase(uint32_t value, ValueSize size, ReferenceType imm_ref);
 
   // @name Accessors.
   // @{
-  uint32 value() const { return value_; }
+  uint32_t value() const { return value_; }
   const ReferenceType& reference() const { return reference_; }
   ValueSize size() const { return size_; }
   // @}
@@ -46,7 +46,7 @@ class ValueBase {
   bool operator==(const ValueBase& rhs) const;
 
  private:
-  uint32 value_;
+  uint32_t value_;
   ReferenceType reference_;
   ValueSize size_;
 };
@@ -59,11 +59,9 @@ class ImmediateBase
 
   ImmediateBase() {
   }
-  ImmediateBase(uint32 value, ValueSize size) : Super(value, size) {
-  }
-  ImmediateBase(uint32 value, ValueSize size, ReferenceType imm_ref)
-      : Super(value, size, imm_ref) {
-  }
+  ImmediateBase(uint32_t value, ValueSize size) : Super(value, size) {}
+  ImmediateBase(uint32_t value, ValueSize size, ReferenceType imm_ref)
+      : Super(value, size, imm_ref) {}
 };
 
 template <class ReferenceType>
@@ -74,11 +72,9 @@ class DisplacementBase
 
   DisplacementBase() {
   }
-  DisplacementBase(uint32 value, ValueSize size) : Super(value, size) {
-  }
-  DisplacementBase(uint32 value, ValueSize size, ReferenceType imm_ref)
-      : Super(value, size, imm_ref) {
-  }
+  DisplacementBase(uint32_t value, ValueSize size) : Super(value, size) {}
+  DisplacementBase(uint32_t value, ValueSize size, ReferenceType imm_ref)
+      : Super(value, size, imm_ref) {}
 };
 
 template <class ReferenceType, class SubclassType>
@@ -87,13 +83,15 @@ ValueBase<ReferenceType, SubclassType>::ValueBase()
 }
 
 template <class ReferenceType, class SubclassType>
-ValueBase<ReferenceType, SubclassType>::ValueBase(uint32 value, ValueSize size)
+ValueBase<ReferenceType, SubclassType>::ValueBase(uint32_t value,
+                                                  ValueSize size)
     : value_(value), reference_(), size_(size) {
 }
 
 template <class ReferenceType, class SubclassType>
-ValueBase<ReferenceType, SubclassType>::ValueBase(
-    uint32 value, ValueSize size, ReferenceType value_ref)
+ValueBase<ReferenceType, SubclassType>::ValueBase(uint32_t value,
+                                                  ValueSize size,
+                                                  ReferenceType value_ref)
     : value_(value), reference_(value_ref), size_(size) {
   // We can't have a 16-bit value *and* a reference, as there are no
   // addressing modes that accept 16-bit input.

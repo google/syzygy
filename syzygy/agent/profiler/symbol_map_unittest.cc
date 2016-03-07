@@ -29,8 +29,8 @@ class TestingSymbolMap : public SymbolMap {
   typedef SymbolMap::SymbolAddressSpace SymbolAddressSpace;
 };
 
-const uint8* ToPtr(intptr_t number) {
-  return reinterpret_cast<const uint8*>(number);
+const uint8_t* ToPtr(intptr_t number) {
+  return reinterpret_cast<const uint8_t*>(number);
 }
 
 class SymbolMapTest : public testing::Test {
@@ -65,7 +65,7 @@ TEST_F(SymbolMapTest, AddSymbol) {
 }
 
 TEST_F(SymbolMapTest, EnsureHasId) {
-  const uint8* const kStart = ToPtr(0x1023);
+  const uint8_t* const kStart = ToPtr(0x1023);
 
   // Insert a symbol.
   symbol_map_.AddSymbol(kStart, 0x22, "foo");
@@ -77,7 +77,7 @@ TEST_F(SymbolMapTest, EnsureHasId) {
 
   // Assign it one.
   EXPECT_TRUE(symbol->EnsureHasId());
-  uint32 id = symbol->id();
+  uint32_t id = symbol->id();
   EXPECT_NE(0U, id);
   EXPECT_EQ(kStart, symbol->address());
 
@@ -116,7 +116,7 @@ TEST_F(SymbolMapTest, AddMoveSymbol) {
 }
 
 TEST_F(SymbolMapTest, FindSymbol) {
-  const uint8* const kStart = ToPtr(0x1023);
+  const uint8_t* const kStart = ToPtr(0x1023);
   ASSERT_TRUE(symbol_map_.FindSymbol(kStart) == NULL);
 
   symbol_map_.AddSymbol(kStart, 0x22, "foo");
@@ -147,7 +147,7 @@ TEST_F(SymbolMapTest, SymbolLifeCycle) {
 
   // Assign an ID to the symbol.
   EXPECT_TRUE(symbol->EnsureHasId());
-  uint32 id = symbol->id();
+  uint32_t id = symbol->id();
   EXPECT_NE(0U, id);
 
   // We should only return true on first assigning an id to the symbol.

@@ -490,7 +490,7 @@ TEST_F(BasicBlockDecomposerTest, ContainsJECXZ) {
   //   RET
   // The JECXZ instruction has a PC-relative reference at byte 1 to
   // byte 3.
-  const uint8 kAssembly[] = { 0xE3, 0x01, 0x49, 0xC3 };
+  const uint8_t kAssembly[] = {0xE3, 0x01, 0x49, 0xC3};
   jecxz->CopyData(arraysize(kAssembly), kAssembly);
   jecxz->SetReference(1,
       BlockGraph::Reference(BlockGraph::PC_RELATIVE_REF, 1, jecxz, 3, 3));

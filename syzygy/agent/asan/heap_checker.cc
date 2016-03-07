@@ -40,17 +40,16 @@ bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
   // TODO(sebmarchand): Iterates over the heap slabs once we have switched to
   //     a new memory allocator.
   GetCorruptRangesInSlab(
-      reinterpret_cast<const uint8*>(Shadow::kAddressLowerBound),
-      shadow_->memory_size() - Shadow::kAddressLowerBound - 1,
-      corrupt_ranges);
+      reinterpret_cast<const uint8_t*>(Shadow::kAddressLowerBound),
+      shadow_->memory_size() - Shadow::kAddressLowerBound - 1, corrupt_ranges);
 
   return !corrupt_ranges->empty();
 }
 
-void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
+void HeapChecker::GetCorruptRangesInSlab(const uint8_t* lower_bound,
                                          size_t length,
                                          CorruptRangesVector* corrupt_ranges) {
-  DCHECK_NE(static_cast<const uint8*>(nullptr), lower_bound);
+  DCHECK_NE(static_cast<const uint8_t*>(nullptr), lower_bound);
   DCHECK_NE(0U, length);
   DCHECK_NE(static_cast<CorruptRangesVector*>(nullptr), corrupt_ranges);
 
@@ -90,10 +89,11 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8* lower_bound,
       DCHECK_NE(reinterpret_cast<AsanCorruptBlockRange*>(nullptr),
                 current_corrupt_range);
       current_corrupt_range->block_count++;
-      const uint8* current_block_end = block_info.RawHeader() +
-          block_info.block_size;
-      current_corrupt_range->length = current_block_end -
-          reinterpret_cast<const uint8*>(current_corrupt_range->address);
+      const uint8_t* current_block_end =
+          block_info.RawHeader() + block_info.block_size;
+      current_corrupt_range->length =
+          current_block_end -
+          reinterpret_cast<const uint8_t*>(current_corrupt_range->address);
     }
   }
 }

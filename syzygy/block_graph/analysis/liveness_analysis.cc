@@ -200,7 +200,8 @@ void LivenessAnalysis::Analyze(const BasicBlockSubGraph* subgraph) {
   }
 }
 
-RegisterMask LivenessAnalysis::StateHelper::RegisterToRegisterMask(uint8 reg) {
+RegisterMask LivenessAnalysis::StateHelper::RegisterToRegisterMask(
+    uint8_t reg) {
   LivenessAnalysis::StateHelper::RegisterBits mask =
       LivenessAnalysis::StateHelper::REGBITS_NONE;
   switch (reg) {

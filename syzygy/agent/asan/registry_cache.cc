@@ -233,7 +233,7 @@ void RegistryCache::CleanUpVersion(base::win::RegKey* base_key,
   // Iterate over the values, get the time (corresponds to the name) and store
   // in a map for potential deletion.
   for (RegValueIter iter(base_key->Handle(), L""); iter.Valid(); ++iter) {
-    int64 TimeInternalValue;
+    int64_t TimeInternalValue;
     // If the time is not valid or if the value size is wrong, set its time to
     // a really old one to force its deletion.
     if (base::StringToInt64(iter.Name(), &TimeInternalValue) &&

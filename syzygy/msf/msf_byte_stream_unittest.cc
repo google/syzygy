@@ -56,7 +56,7 @@ class TestMsfStream : public MsfStream {
 }  // namespace
 
 TEST(MsfByteStreamTest, InitFromByteArray) {
-  uint8 data[] = {1, 2, 3, 4, 5, 6, 7, 8};
+  uint8_t data[] = {1, 2, 3, 4, 5, 6, 7, 8};
 
   scoped_refptr<MsfByteStream> stream(new MsfByteStream());
   EXPECT_TRUE(stream->Init(data, arraysize(data)));
@@ -64,7 +64,7 @@ TEST(MsfByteStreamTest, InitFromByteArray) {
   EXPECT_TRUE(stream->data() != NULL);
 
   for (size_t i = 0; i < stream->length(); ++i) {
-    uint8 num = 0;
+    uint8_t num = 0;
     EXPECT_TRUE(stream->Read(&num, 1));
     EXPECT_EQ(data[i], num);
   }
@@ -79,14 +79,14 @@ TEST(MsfByteStreamTest, InitFromMsfStream) {
   EXPECT_TRUE(stream->data() != NULL);
 
   for (size_t i = 0; i < stream->length(); ++i) {
-    uint8 num = 0;
+    uint8_t num = 0;
     EXPECT_TRUE(stream->Read(&num, 1));
     EXPECT_EQ(0xFF, num);
   }
 }
 
 TEST(MsfByteStreamTest, InitFromMsfStreamPart) {
-  uint8 data[] = {0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+  uint8_t data[] = {0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8};
   scoped_refptr<MsfByteStream> test_stream(new MsfByteStream());
   EXPECT_TRUE(test_stream->Init(data, arraysize(data)));
 
@@ -97,7 +97,7 @@ TEST(MsfByteStreamTest, InitFromMsfStreamPart) {
   EXPECT_TRUE(stream->data() != NULL);
 
   for (size_t i = 0; i < stream->length(); ++i) {
-    uint8 num = 0;
+    uint8_t num = 0;
     EXPECT_TRUE(stream->Read(&num, 1));
     EXPECT_EQ(data[i + 2], num);
   }
@@ -112,7 +112,7 @@ TEST(MsfByteStreamTest, ReadBytes) {
 
   int total_bytes = 0;
   while (true) {
-    uint8 buffer[4];
+    uint8_t buffer[4];
     size_t bytes_read = 0;
     EXPECT_TRUE(stream->ReadBytes(buffer, sizeof(buffer), &bytes_read));
     if (bytes_read == 0)

@@ -95,16 +95,16 @@ class BasicBlockEntry {
       IndexedFrequencyData* module_data);
 
   // Called from _branch_enter_slotX.
-  template<int S>
-  static inline void __fastcall BranchEnterHookSlot(uint32 index);
+  template <int S>
+  static inline void __fastcall BranchEnterHookSlot(uint32_t index);
 
   // Called from _branch_enter_buffered_slotX.
-  template<int S>
-  static inline void __fastcall BranchEnterBufferedHookSlot(uint32 index);
+  template <int S>
+  static inline void __fastcall BranchEnterBufferedHookSlot(uint32_t index);
 
   // Called from _branch_exit_slotX.
-  template<int S>
-  static inline void __fastcall BranchExitHookSlot(uint32 index);
+  template <int S>
+  static inline void __fastcall BranchExitHookSlot(uint32_t index);
 
   // Called from _indirect_penter_dllmain.
   static void WINAPI DllMainEntryHook(DllMainEntryFrame* entry_frame);
@@ -160,7 +160,7 @@ class BasicBlockEntry {
   static ThreadState* GetThreadStateSlot();
 
   // Registered thread local specific slot.
-  uint32 registered_slots_;
+  uint32_t registered_slots_;
 
   // The RPC session we're logging to/through.
   trace::client::RpcSession session_;

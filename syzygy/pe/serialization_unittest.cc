@@ -126,7 +126,7 @@ class SerializationTest : public testing::PELibUnitTest {
   ImageLayout image_layout_;
 
   // Streams and archives.
-  std::vector<uint8> v_;
+  std::vector<uint8_t> v_;
   scoped_ptr<core::OutStream> os_;
   scoped_ptr<core::InStream> is_;
   scoped_ptr<core::OutArchive> oa_;

@@ -16,8 +16,9 @@
 #ifndef SYZYGY_CORE_DISASSEMBLER_H_
 #define SYZYGY_CORE_DISASSEMBLER_H_
 
+#include <stdint.h>
 #include <set>
-#include "base/basictypes.h"
+
 #include "base/callback.h"
 #include "syzygy/core/address.h"
 #include "syzygy/core/address_space.h"
@@ -28,7 +29,7 @@ namespace core {
 class Disassembler {
  public:
   typedef std::set<AbsoluteAddress> AddressSet;
-  typedef core::AddressSpace<AbsoluteAddress, size_t, uint8> VisitedSpace;
+  typedef core::AddressSpace<AbsoluteAddress, size_t, uint8_t> VisitedSpace;
 
   enum CallbackDirective {
     // Indicates that the disassembler should continue.
@@ -80,12 +81,12 @@ class Disassembler {
     kControlFlowContinues,
   };
 
-  Disassembler(const uint8* code,
+  Disassembler(const uint8_t* code,
                size_t code_size,
                AbsoluteAddress code_addr,
                const InstructionCallback& on_instruction);
 
-  Disassembler(const uint8* code,
+  Disassembler(const uint8_t* code,
                size_t code_size,
                AbsoluteAddress code_addr,
                const AddressSet& entry_points,
@@ -107,7 +108,7 @@ class Disassembler {
 
   // @name Accessors.
   // @{
-  const uint8* code() const { return code_; }
+  const uint8_t* code() const { return code_; }
   size_t code_size() const { return code_size_; }
   const AbsoluteAddress code_addr() const { return code_addr_; }
   const AddressSet& unvisited() const { return unvisited_; }
@@ -165,7 +166,7 @@ class Disassembler {
   bool IsInBlock(AbsoluteAddress addr) const;
 
   // The code we refer to.
-  const uint8* code_;
+  const uint8_t* code_;
   const size_t code_size_;
 
   // The original address of the first byte of code_.

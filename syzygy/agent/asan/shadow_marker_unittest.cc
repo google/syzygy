@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/asan/shadow_marker.h"
 
+#include "base/macros.h"
 #include "gtest/gtest.h"
 
 namespace agent {

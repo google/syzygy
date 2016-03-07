@@ -98,7 +98,7 @@ int SwapImportApp::SwapImports() {
 
   // Read the entire input into memory.
   VLOG(1) << "Reading \"" << input_image_.value() << "\" into memory.";
-  int64 image_size = 0;
+  int64_t image_size = 0;
   if (!base::GetFileSize(input_image_, &image_size)) {
     LOG(ERROR) << "Failed to get image size: " << input_image_.value();
     return 1;

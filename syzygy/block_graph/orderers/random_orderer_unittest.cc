@@ -100,7 +100,7 @@ TEST_F(RandomOrdererTest, Shuffle) {
   // consecutive seed values.
 
   size_t shuffled = 0;
-  for (uint32 i = 0; i < 5; ++i) {
+  for (uint32_t i = 0; i < 5; ++i) {
     OrderedBlockGraph obg(&block_graph_);
 
     // Get the original order.

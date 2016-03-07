@@ -43,21 +43,21 @@ typedef BasicBlock::Instructions Instructions;
 // _asm pop ebp
 // _asm xor eax, eax
 // _asm ret
-const uint8 kPrologEpilog[] = { 0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3 };
+const uint8_t kPrologEpilog[] = {0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3};
 
-const uint8 kTwicePrologEpilog[] =
-    { 0x55, 0x8B, 0xEC, 0x5D, 0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3 };
+const uint8_t kTwicePrologEpilog[] =
+    {0x55, 0x8B, 0xEC, 0x5D, 0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3};
 
 // _asm ret
-const uint8 kRet[] = { 0xC3 };
+const uint8_t kRet[] = {0xC3};
 
 // _asm xor eax, eax
 // _asm ret
-const uint8 kRet0[] = { 0x33, 0xC0, 0xC3 };
+const uint8_t kRet0[] = {0x33, 0xC0, 0xC3};
 
 // _asm mov ecx, ecx
 // _asm ret
-const uint8 kMovIdentity[] = { 0x8B, 0xC9, 0xC3 };
+const uint8_t kMovIdentity[] = {0x8B, 0xC9, 0xC3};
 
 enum TransformKind {
   ktransformBlock,
@@ -72,7 +72,7 @@ class PeepholeTransformTest : public testing::Test {
         block_(NULL) {
   }
 
-  void TransformBlock(TransformKind kind, const uint8* data, size_t length);
+  void TransformBlock(TransformKind kind, const uint8_t* data, size_t length);
 
  protected:
   pe::PETransformPolicy policy_;
@@ -85,9 +85,9 @@ class PeepholeTransformTest : public testing::Test {
 };
 
 void PeepholeTransformTest::TransformBlock(TransformKind kind,
-                                           const uint8* data,
+                                           const uint8_t* data,
                                            size_t length) {
-  DCHECK_NE(reinterpret_cast<const uint8*>(NULL), data);
+  DCHECK_NE(reinterpret_cast<const uint8_t*>(NULL), data);
 
   // Create a dummy block.
   block_ = block_graph_.AddBlock(BlockGraph::CODE_BLOCK, length, "test");
@@ -161,15 +161,30 @@ TEST_F(PeepholeTransformTest, RemoveDeadCodeSubgraph) {
   // _asm xor edx, edx
   // _asm cmp edx, 0
   // _asm ret
-  const uint8 kSource[] = { 0xB8, 0x04, 0x00, 0x00, 0x00, 0x3B, 0xC2, 0x83,
-      0xFA, 0x00, 0x42, 0x33, 0xD2, 0x83, 0xFA, 0x00, 0xC3 };
+  const uint8_t kSource[] = {0xB8,
+                             0x04,
+                             0x00,
+                             0x00,
+                             0x00,
+                             0x3B,
+                             0xC2,
+                             0x83,
+                             0xFA,
+                             0x00,
+                             0x42,
+                             0x33,
+                             0xD2,
+                             0x83,
+                             0xFA,
+                             0x00,
+                             0xC3};
 
   // _asm mov eax, 4
   // _asm xor edx, edx
   // _asm cmp edx, 0
   // _asm ret
-  const uint8 kResult[] = { 0xB8, 0x04, 0x00, 0x00, 0x00, 0x33, 0xD2, 0x83,
-      0xFA, 0x00, 0xC3 };
+  const uint8_t kResult[] = {
+      0xB8, 0x04, 0x00, 0x00, 0x00, 0x33, 0xD2, 0x83, 0xFA, 0x00, 0xC3};
 
   ASSERT_NO_FATAL_FAILURE(
       TransformBlock(ktransformBlock, kSource, sizeof(kSource)));
@@ -181,7 +196,7 @@ TEST_F(PeepholeTransformTest, RemoveDeadCodeSubgraphWithStackManipulation) {
   // _asm pop ecx
   // _asm xor ecx, ecx
   // _asm ret
-  const uint8 kSource[] = { 0x6A, 0x01, 0x59, 0x33, 0xC9, 0xC3 };
+  const uint8_t kSource[] = {0x6A, 0x01, 0x59, 0x33, 0xC9, 0xC3};
 
   ASSERT_NO_FATAL_FAILURE(
       TransformBlock(ktransformBlock, kSource, sizeof(kSource)));
@@ -194,7 +209,7 @@ TEST_F(PeepholeTransformTest, RemoveDeadCodeSubgraphWith8BitRegister) {
   // _asm inc al
   // _asm xor eax, eax
   // _asm ret
-  const uint8 kSource[] = { 0xFE, 0xC0, 0x33, 0xC0, 0xC3 };
+  const uint8_t kSource[] = {0xFE, 0xC0, 0x33, 0xC0, 0xC3};
 
   ASSERT_NO_FATAL_FAILURE(
       TransformBlock(ktransformBlock, kSource, sizeof(kSource)));

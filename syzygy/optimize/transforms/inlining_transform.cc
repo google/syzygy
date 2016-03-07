@@ -102,21 +102,21 @@ const size_t kHugeBlockSize = 0xFFFFFFFF;
 // disassembling them.
 
 // ret
-const uint8 kEmptyBody1[] = { 0xC3 };
+const uint8_t kEmptyBody1[] = {0xC3};
 
 // push %ebp
 // mov %ebp, %esp
 // pop %ebp
 // ret
-const uint8 kEmptyBody2[] = { 0x55, 0x8B, 0xEC, 0x5D, 0xC3 };
+const uint8_t kEmptyBody2[] = {0x55, 0x8B, 0xEC, 0x5D, 0xC3};
 
 // push %ebp
 // mov %ebp, %esp
 // mov %eax, [%ebp + 0x4]
 // pop %ebp
 // ret
-const uint8 kGetProgramCounter[] = {
-    0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x04, 0x5D, 0xC3 };
+const uint8_t kGetProgramCounter[] =
+    {0x55, 0x8B, 0xEC, 0x8B, 0x45, 0x04, 0x5D, 0xC3};
 
 // Match a call instruction to a direct callee (i.e. no indirect calls).
 bool MatchDirectCall(const Instruction& instr, BlockGraph::Block** callee) {
@@ -146,7 +146,7 @@ bool MatchDirectCall(const Instruction& instr, BlockGraph::Block** callee) {
 }
 
 bool MatchRawBytes(BlockGraph::Block* callee,
-                   const uint8* bytes,
+                   const uint8_t* bytes,
                    size_t length) {
   if (callee->size() != length ||
       ::memcmp(callee->data(), bytes, length) != 0) {

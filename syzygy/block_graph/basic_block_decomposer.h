@@ -27,7 +27,6 @@
 #include <set>
 #include <string>
 
-#include "base/basictypes.h"
 #include "base/callback.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/block_graph/basic_block.h"

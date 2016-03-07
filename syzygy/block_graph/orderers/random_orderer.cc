@@ -26,7 +26,7 @@ RandomOrderer::RandomOrderer(bool default_shuffle_section)
       rng_(static_cast<uint32>(time(NULL))) {
 }
 
-RandomOrderer::RandomOrderer(bool default_shuffle_section, uint32 seed)
+RandomOrderer::RandomOrderer(bool default_shuffle_section, uint32_t seed)
     : default_shuffle_section_(default_shuffle_section), rng_(seed) {
 }
 

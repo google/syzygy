@@ -49,8 +49,9 @@ class TestPdbWriter : public PdbWriter {
 
 class TestPdbStream : public PdbStream {
  public:
-  TestPdbStream(uint32 length, uint32 mask) : PdbStream(length), data_(length) {
-    uint32* data = reinterpret_cast<uint32*>(data_.data());
+  TestPdbStream(uint32_t length, uint32_t mask)
+      : PdbStream(length), data_(length) {
+    uint32_t* data = reinterpret_cast<uint32_t*>(data_.data());
 
     // Just to make sure the data is non-repeating (so we can distinguish if it
     // has been correctly written or not) fill it with integers encoding their
@@ -75,10 +76,10 @@ class TestPdbStream : public PdbStream {
     return true;
   }
 
-  const std::vector<uint8> data() const { return data_; }
+  const std::vector<uint8_t> data() const { return data_; }
 
  private:
-  std::vector<uint8> data_;
+  std::vector<uint8_t> data_;
 };
 
 }  // namespace
@@ -94,7 +95,7 @@ TEST(PdbWriterTest, PdbStrCompatible) {
   // We need at least 8 MB of data in the DLL to ensure that the free page map
   // requires a second page. We manually add data to it until we get to that
   // point.
-  int64 test_dll_msf_length = 0;
+  int64_t test_dll_msf_length = 0;
   ASSERT_TRUE(base::GetFileSize(test_dll_msf, &test_dll_msf_length));
   while (test_dll_msf_length < 9 * 1024 * 1024) {
     file.AppendStream(new TestPdbStream(1024 * 1024, file.StreamCount()));

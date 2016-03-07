@@ -26,8 +26,8 @@ namespace {
 void AlignRange(const void** address, size_t* size) {
   DCHECK_NE(reinterpret_cast<void**>(nullptr), address);
   DCHECK_NE(reinterpret_cast<size_t*>(nullptr), size);
-  const uint8* start = reinterpret_cast<const uint8*>(*address);
-  const uint8* end = start + *size;
+  const uint8_t* start = reinterpret_cast<const uint8_t*>(*address);
+  const uint8_t* end = start + *size;
   start = ::common::AlignDown(start, kShadowRatio);
   end = ::common::AlignUp(end, kShadowRatio);
   *address = start;

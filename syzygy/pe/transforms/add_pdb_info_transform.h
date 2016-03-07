@@ -45,10 +45,9 @@ class AddPdbInfoTransform
   // @param pdb_age the age of the PDB file to link to.
   // @param pdb_guid the GUID of the PDB file to link to.
   AddPdbInfoTransform(const base::FilePath& pdb_path,
-                      uint32 pdb_age,
+                      uint32_t pdb_age,
                       const GUID& pdb_guid)
-      : pdb_path_(pdb_path), pdb_age_(pdb_age), pdb_guid_(pdb_guid) {
-  }
+      : pdb_path_(pdb_path), pdb_age_(pdb_age), pdb_guid_(pdb_guid) {}
 
   // Adds or finds the debug data directory of the given type.
   //
@@ -66,7 +65,7 @@ class AddPdbInfoTransform
 
  private:
   base::FilePath pdb_path_;
-  uint32 pdb_age_;
+  uint32_t pdb_age_;
   GUID pdb_guid_;
 
   DISALLOW_COPY_AND_ASSIGN(AddPdbInfoTransform);

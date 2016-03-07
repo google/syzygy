@@ -26,11 +26,11 @@ namespace {
 // The value we've observed for the |flags| field of the Dbi Header.
 // The value 1 also works.
 // TODO(fdoray): Figure out what this means.
-const uint16 kDbiGeneratedFlags = 2;
+const uint16_t kDbiGeneratedFlags = 2;
 
 }  // namespace
 
-bool WriteDebugInfoStream(uint32 pdb_age,
+bool WriteDebugInfoStream(uint32_t pdb_age,
                           size_t symbol_record_stream_index,
                           size_t public_stream_index,
                           size_t section_header_stream_index,
@@ -75,14 +75,14 @@ bool WriteDebugInfoStream(uint32 pdb_age,
 
   // Write an empty Section Map header.
   // The number of section map structure seems to be written twice.
-  uint16 section_map_count = 0;
+  uint16_t section_map_count = 0;
 
   if (!stream->Write(section_map_count) || !stream->Write(section_map_count))
     return false;
 
   // Write an empty File info header.
-  uint16 file_info_blocks_count = 0;
-  uint16 file_info_offsets_count = 0;
+  uint16_t file_info_blocks_count = 0;
+  uint16_t file_info_offsets_count = 0;
 
   if (!stream->Write(file_info_blocks_count) ||
       !stream->Write(file_info_offsets_count)) {
@@ -93,7 +93,7 @@ bool WriteDebugInfoStream(uint32 pdb_age,
   size_t ec_info_offset = stream->pos();
   if (!WriteStringTable(StringTable(), stream))
     return false;
-  uint32 ec_info_size = stream->pos() - ec_info_offset;
+  uint32_t ec_info_size = stream->pos() - ec_info_offset;
 
   // Write the Dbg Header.
   DbiDbgHeader dbg_header = {};

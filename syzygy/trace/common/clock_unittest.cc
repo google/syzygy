@@ -54,9 +54,9 @@ TEST(GetTscTimerInfoTest, WorksAsExpected) {
 TEST(GetTicksTest, WorksAsExpected) {
   // This will busy loop until the counter advances, or until we perform
   // 2^32 iterations. The counter should definitely have advanced by then.
-  uint64 t1 = GetTicks();
-  uint64 t2 = t1;
-  uint32 count = 0;
+  uint64_t t1 = GetTicks();
+  uint64_t t2 = t1;
+  uint32_t count = 0;
   while (t2 == t1 && ++count != 0)
     t2 = GetTicks();
 }
@@ -64,9 +64,9 @@ TEST(GetTicksTest, WorksAsExpected) {
 TEST(GetTscTest, WorksAsExpected) {
   // This will busy loop until the counter advances, or until we perform
   // 2^32 iterations. The counter should definitely have advanced by then.
-  uint64 t1 = GetTsc();
-  uint64 t2 = t1;
-  uint32 count = 0;
+  uint64_t t1 = GetTsc();
+  uint64_t t2 = t1;
+  uint32_t count = 0;
   while (t2 == t1 && ++count != 0)
     t2 = GetTsc();
 }

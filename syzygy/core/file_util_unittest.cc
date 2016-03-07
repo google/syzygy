@@ -133,10 +133,10 @@ TEST(GuessFileTypeTest, GuessFromInMemoryBuffer) {
   // Read a file into memory.
   base::FilePath path = testing::GetSrcRelativePath(
       testing::kExampleCoffImportDefinition);
-  int64 file_size = 0;
+  int64_t file_size = 0;
   ASSERT_TRUE(base::GetFileSize(path, &file_size));
   size_t length = static_cast<size_t>(file_size);
-  std::vector<uint8> buffer(length);
+  std::vector<uint8_t> buffer(length);
   ASSERT_TRUE(base::ReadFile(
       path, reinterpret_cast<char*>(buffer.data()), buffer.size()));
 

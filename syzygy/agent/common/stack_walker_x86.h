@@ -62,7 +62,6 @@
 #ifndef SYZYGY_AGENT_COMMON_STACK_WALKER_X86_H_
 #define SYZYGY_AGENT_COMMON_STACK_WALKER_X86_H_
 
-#include "base/basictypes.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {

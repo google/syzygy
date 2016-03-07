@@ -28,14 +28,14 @@ enum Mod {
 // for arithmetic instructions with this register as the destination.
 static const RegisterCode kAccumulatorCode = Register::Code(kRegisterEax);
 
-const uint8 kTwoByteOpCodePrefix = 0x0F;
+const uint8_t kTwoByteOpCodePrefix = 0x0F;
 // Prefix group 2 (segment selection).
-const uint8 kFsSegmentPrefix = 0x64;
+const uint8_t kFsSegmentPrefix = 0x64;
 // Prefix group 3 (operand size override).
-const uint8 kOperandSizePrefix = 0x66;
+const uint8_t kOperandSizePrefix = 0x66;
 
 // Some opcodes that are used repeatedly.
-const uint8 kNopOpCode = 0x1F;
+const uint8_t kNopOpCode = 0x1F;
 
 const size_t kShortBranchOpcodeSize = 1;
 const size_t kShortBranchSize = kShortBranchOpcodeSize + 1;

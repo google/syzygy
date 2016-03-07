@@ -22,13 +22,13 @@ namespace block_graph {
 TEST(BlockHash, HashAndCompare) {
   BlockGraph block_graph;
   const size_t kBlockSize = 0x20;
-  const uint8 kMagicValue = 0xAB;
+  const uint8_t kMagicValue = 0xAB;
 
   BlockGraph::Block* code_block_1 = block_graph.AddBlock(BlockGraph::CODE_BLOCK,
                                                          kBlockSize,
                                                          "code block");
 
-  EXPECT_NE(reinterpret_cast<uint8*>(NULL),
+  EXPECT_NE(reinterpret_cast<uint8_t*>(NULL),
             code_block_1->ResizeData(kBlockSize));
 
   ::memset(code_block_1->GetMutableData(), kMagicValue, kBlockSize);
@@ -37,7 +37,8 @@ TEST(BlockHash, HashAndCompare) {
   BlockGraph::Block* test_block = block_graph.AddBlock(BlockGraph::DATA_BLOCK,
                                                        kBlockSize,
                                                        "test block");
-  EXPECT_NE(reinterpret_cast<uint8*>(NULL), test_block->ResizeData(kBlockSize));
+  EXPECT_NE(reinterpret_cast<uint8_t*>(NULL),
+            test_block->ResizeData(kBlockSize));
   ::memset(test_block->GetMutableData(), kMagicValue, kBlockSize);
 
   // The blocks don't have the same type, they should have a different hash.
@@ -76,7 +77,7 @@ TEST(BlockHash, HashAndCompare) {
 
   // Alter the data in |test_block| (outside of the reference) and make sure
   // that this results in a different hash.
-  test_block->GetMutableData()[0] = static_cast<uint8>(~kMagicValue);
+  test_block->GetMutableData()[0] = static_cast<uint8_t>(~kMagicValue);
   EXPECT_NE(0, code_block_1_hash.Compare(BlockHash(test_block)));
   test_block->GetMutableData()[0] = kMagicValue;
   EXPECT_EQ(0, code_block_1_hash.Compare(BlockHash(test_block)));
@@ -84,7 +85,7 @@ TEST(BlockHash, HashAndCompare) {
   // Alter the data in |test_block| in the reference and make sure that this
   // doesn't alter the hash.
   test_block->GetMutableData()[kReferenceOffset] =
-      static_cast<uint8>(~kMagicValue);
+      static_cast<uint8_t>(~kMagicValue);
   EXPECT_EQ(0, code_block_1_hash.Compare(BlockHash(test_block)));
   test_block->GetMutableData()[kReferenceOffset] = kMagicValue;
 

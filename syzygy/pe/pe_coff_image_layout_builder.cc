@@ -45,7 +45,7 @@ void PECoffImageLayoutBuilder::Init(size_t section_alignment,
 }
 
 bool PECoffImageLayoutBuilder::OpenSection(const char* name,
-                                           uint32 characteristics) {
+                                           uint32_t characteristics) {
   DCHECK(name != NULL);
 
   // If we're already in a section, close it.

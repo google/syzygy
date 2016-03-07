@@ -85,7 +85,7 @@ class HotPatchingWriter {
   size_t virtual_memory_size_;
 
   // The pointer to the current position in the virtual memory.
-  uint8* virtual_memory_cursor_;
+  uint8_t* virtual_memory_cursor_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(HotPatchingWriter);

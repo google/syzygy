@@ -19,6 +19,8 @@
 #error This file is only meant to be included from buffer_parser.h.
 #endif
 
+#include <stddef.h>
+
 #include "syzygy/common/align.h"
 
 namespace common {
@@ -29,7 +31,7 @@ namespace detail {
 template <typename DataType>
 struct GetAlignment {
   struct Helper {
-    uint8 foo;
+    uint8_t foo;
     DataType bar;
   };
   static const size_t kAlignment = offsetof(Helper, bar);

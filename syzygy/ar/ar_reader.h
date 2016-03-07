@@ -180,10 +180,10 @@ class ArReader {
   base::ScopedFILE file_;
 
   // Data regarding the archive.
-  uint64 length_;
-  uint64 offset_;  // The cursor in the archive's byte stream.
+  uint64_t length_;
+  uint64_t offset_;  // The cursor in the archive's byte stream.
   size_t index_;  // The index of the archive member the cursor points at.
-  uint64 start_of_object_files_;
+  uint64_t start_of_object_files_;
 
   // Parsed header information.
   SymbolIndexMap symbols_;

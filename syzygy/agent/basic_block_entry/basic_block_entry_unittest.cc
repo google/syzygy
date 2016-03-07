@@ -48,17 +48,17 @@ using trace::parser::Parser;
 const wchar_t kBasicBlockEntryClientDll[] = L"basic_block_entry_client.dll";
 
 // The number of columns we'll work with for these tests.
-const uint32 kNumColumns = 1;
-const uint32 kNumBranchColumns = 3;
+const uint32_t kNumColumns = 1;
+const uint32_t kNumBranchColumns = 3;
 
 // The number of basic blocks we'll work with for these tests.
-const uint32 kNumBasicBlocks = 2;
+const uint32_t kNumBasicBlocks = 2;
 
 // The number of threads used for parallel tests.
-const uint32 kNumThreads = 8;
+const uint32_t kNumThreads = 8;
 
 // Number of iterations done by each thread.
-const uint32 kNumThreadIteration = 4 * BasicBlockEntry::kBufferSize;
+const uint32_t kNumThreadIteration = 4 * BasicBlockEntry::kBufferSize;
 
 // The module defining this lib/executable.
 const HMODULE kThisModule = reinterpret_cast<HMODULE>(&__ImageBase);
@@ -73,7 +73,7 @@ MATCHER_P3(FrequencyDataMatches, module, values_count, bb_freqs, "") {
   if (arg->module_base_addr != module)
     return false;
 
-  if (arg->frequency_size != sizeof(uint32))
+  if (arg->frequency_size != sizeof(uint32_t))
     return false;
 
   if (arg->num_entries * arg->num_columns != values_count)
@@ -304,7 +304,7 @@ class BasicBlockEntryTest : public testing::Test {
     DllMainThunk(kThisModule, reason, NULL);
   }
 
-  void SimulateBasicBlockEntry(uint32 basic_block_id) {
+  void SimulateBasicBlockEntry(uint32_t basic_block_id) {
     __asm {
       push basic_block_id
       push offset module_data_
@@ -312,7 +312,7 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
-  void SimulateBranchEnter(uint32 basic_block_id) {
+  void SimulateBranchEnter(uint32_t basic_block_id) {
     __asm {
       push basic_block_id
       push offset module_data_
@@ -320,7 +320,7 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
-  void SimulateBranchEnterBuffered(uint32 basic_block_id) {
+  void SimulateBranchEnterBuffered(uint32_t basic_block_id) {
     __asm {
       push basic_block_id
       push offset module_data_
@@ -335,21 +335,21 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
-  void SimulateBranchEnterSlot(uint32 basic_block_id) {
+  void SimulateBranchEnterSlot(uint32_t basic_block_id) {
     __asm {
       push basic_block_id
       call basic_block_enter_s1_stub_
     }
   }
 
-  void SimulateBranchEnterBufferedSlot(uint32 basic_block_id) {
+  void SimulateBranchEnterBufferedSlot(uint32_t basic_block_id) {
     __asm {
       push basic_block_id
       call basic_block_enter_buffered_s1_stub_
     }
   }
 
-  void SimulateBranchExit(uint32 basic_block_id) {
+  void SimulateBranchExit(uint32_t basic_block_id) {
     __asm {
       push basic_block_id
       push offset module_data_
@@ -357,7 +357,7 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
-  void SimulateBranchExitSlot(uint32 basic_block_id) {
+  void SimulateBranchExitSlot(uint32_t basic_block_id) {
     __asm {
       push basic_block_id
       call basic_block_exit_s1_stub_
@@ -373,7 +373,7 @@ class BasicBlockEntryTest : public testing::Test {
     }
   }
 
-  void SimulateThreadStep(InstrumentationMode mode, uint32 basic_block_id) {
+  void SimulateThreadStep(InstrumentationMode mode, uint32_t basic_block_id) {
     switch (mode) {
       case kBasicBlockEntryInstrumentation:
         SimulateBasicBlockEntry(basic_block_id);
@@ -409,8 +409,8 @@ class BasicBlockEntryTest : public testing::Test {
     SimulateThreadFunction(mode);
 
     // Simulate the thread loop.
-    for (uint32 i = 0; i < kNumThreadIteration; ++i) {
-      for (uint32 j = 0; j < kNumBasicBlocks; ++j)
+    for (uint32_t i = 0; i < kNumThreadIteration; ++i) {
+      for (uint32_t j = 0; j < kNumBasicBlocks; ++j)
         SimulateThreadStep(mode, j);
     }
 
@@ -451,11 +451,11 @@ class BasicBlockEntryTest : public testing::Test {
     Shutdown(main_mode);
 
     // Validate all events have been committed.
-    const uint32* frequency_data =
-        reinterpret_cast<uint32*>(common_data_->frequency_data);
-    uint32 num_columns = common_data_->num_columns;
+    const uint32_t* frequency_data =
+        reinterpret_cast<uint32_t*>(common_data_->frequency_data);
+    uint32_t num_columns = common_data_->num_columns;
 
-    const uint32 expected_frequency = kNumThreads * kNumThreadIteration;
+    const uint32_t expected_frequency = kNumThreads * kNumThreadIteration;
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       EXPECT_EQ(expected_frequency, frequency_data[i * num_columns]);
     }
@@ -479,9 +479,9 @@ class BasicBlockEntryTest : public testing::Test {
     SimulateThreadFunction(mode);
 
     // Keep a pointer to raw counters.
-    const uint32* frequency_data =
-        reinterpret_cast<uint32*>(common_data_->frequency_data);
-    uint32 num_columns = common_data_->num_columns;
+    const uint32_t* frequency_data =
+        reinterpret_cast<uint32_t*>(common_data_->frequency_data);
+    uint32_t num_columns = common_data_->num_columns;
 
     // Validate no events have been committed.
     for (size_t i = 0; i < num_columns; ++i) {
@@ -490,8 +490,8 @@ class BasicBlockEntryTest : public testing::Test {
 
     // Simulate a sequential execution.
     for (size_t i = 0; i < kNumThreads; ++i) {
-      for (uint32 j = 0; j < kNumThreadIteration; ++j) {
-        for (uint32 k = 0; k < kNumBasicBlocks; ++k)
+      for (uint32_t j = 0; j < kNumThreadIteration; ++j) {
+        for (uint32_t k = 0; k < kNumBasicBlocks; ++k)
           SimulateThreadStep(mode, k);
       }
     }
@@ -500,7 +500,7 @@ class BasicBlockEntryTest : public testing::Test {
     Shutdown(main_mode);
 
     // Validate all events have been committed.
-    const uint32 expected_frequency = kNumThreads * kNumThreadIteration;
+    const uint32_t expected_frequency = kNumThreads * kNumThreadIteration;
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       EXPECT_EQ(expected_frequency, frequency_data[i * num_columns]);
     }
@@ -529,8 +529,8 @@ class BasicBlockEntryTest : public testing::Test {
 
   // This will be a stand-in for the (usually statically allocated) fall-back
   // frequency to which module_data_.frequency_data will point.
-  static uint32 default_frequency_data_[kNumBasicBlocks];
-  static uint32 default_branch_data_[kNumBranchColumns * kNumBasicBlocks];
+  static uint32_t default_frequency_data_[kNumBasicBlocks];
+  static uint32_t default_branch_data_[kNumBranchColumns * kNumBasicBlocks];
 
   // The basic-block entry entrance hook.
   static FARPROC basic_block_enter_stub_;
@@ -592,8 +592,8 @@ BOOL __declspec(naked) __cdecl BasicBlockEntryTest::ExeMainThunk() {
 BasicBlockEntry::ThreadLocalIndexedFrequencyData
     BasicBlockEntryTest::module_data_ = {};
 BasicBlockEntry::IndexedFrequencyData* BasicBlockEntryTest::common_data_ = NULL;
-uint32 BasicBlockEntryTest::default_frequency_data_[] = {};
-uint32 BasicBlockEntryTest::default_branch_data_[] = {};
+uint32_t BasicBlockEntryTest::default_frequency_data_[] = {};
+uint32_t BasicBlockEntryTest::default_branch_data_[] = {};
 FARPROC BasicBlockEntryTest::basic_block_enter_stub_ = NULL;
 FARPROC BasicBlockEntryTest::basic_block_enter_buffered_stub_ = NULL;
 FARPROC BasicBlockEntryTest::basic_block_enter_s1_stub_ = NULL;
@@ -703,7 +703,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedDllBasicBlockEvents) {
   DWORD process_id = ::GetCurrentProcessId();
   DWORD thread_id = ::GetCurrentThreadId();
 
-  static const uint32 kExpectedFrequencyData[kNumBasicBlocks] = { 3, 1 };
+  static const uint32_t kExpectedFrequencyData[kNumBasicBlocks] = {3, 1};
 
   // Set up expectations for what should be in the trace.
   EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
@@ -764,7 +764,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBasicBlockEvents) {
   DWORD process_id = ::GetCurrentProcessId();
   DWORD thread_id = ::GetCurrentThreadId();
 
-  static const uint32 kExpectedFrequencyData[kNumBasicBlocks] = { 3, 1 };
+  static const uint32_t kExpectedFrequencyData[kNumBasicBlocks] = {3, 1};
 
   // Set up expectations for what should be in the trace.
   EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
@@ -842,8 +842,9 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
   DWORD process_id = ::GetCurrentProcessId();
   DWORD thread_id = ::GetCurrentThreadId();
 
-  static const uint32 kExpectedBranchData[kNumBranchColumns * kNumBasicBlocks] =
-      { 9, 5, 2, 8, 2, 2 };
+  static const uint32_t
+      kExpectedBranchData[kNumBranchColumns * kNumBasicBlocks] = {
+          9, 5, 2, 8, 2, 2};
 
   // Set up expectations for what should be in the trace.
   EXPECT_CALL(handler_, OnProcessStarted(_, process_id, _));
@@ -851,7 +852,7 @@ TEST_F(BasicBlockEntryTest, SingleThreadedExeBranchEvents) {
                                         process_id,
                                         thread_id,
                                         ModuleAtAddress(self)));
-  const uint32 kNumData = kNumBranchColumns * kNumBasicBlocks;
+  const uint32_t kNumData = kNumBranchColumns * kNumBasicBlocks;
   EXPECT_CALL(handler_, OnIndexedFrequency(
       _,
       process_id,
@@ -881,8 +882,8 @@ TEST_F(BasicBlockEntryTest, BranchWithBufferingEvents) {
   ASSERT_NE(default_branch_data_, common_data_->frequency_data);
 
   // Keep a pointer to raw counters.
-  uint32* frequency_data =
-      reinterpret_cast<uint32*>(common_data_->frequency_data);
+  uint32_t* frequency_data =
+      reinterpret_cast<uint32_t*>(common_data_->frequency_data);
 
   // Validate no events have been committed.
   for (size_t i = 0; i < kNumBranchColumns; ++i) {
@@ -902,14 +903,14 @@ TEST_F(BasicBlockEntryTest, BranchWithBufferingEvents) {
   EXPECT_EQ(1U, frequency_data[1 * kNumBranchColumns]);
 
   // Force a flush.
-  uint32 old_count = frequency_data[0];
+  uint32_t old_count = frequency_data[0];
   for (int i = 0; i < kBigEnoughToCauseAFlush; ++i) {
     SimulateBranchEnterBuffered(0);
     SimulateBranchExit(0);
   }
 
   // Expect to have increasing values.
-  uint32 new_count = frequency_data[0];
+  uint32_t new_count = frequency_data[0];
   EXPECT_LT(old_count, new_count);
 
   ASSERT_NO_FATAL_FAILURE(StopService());

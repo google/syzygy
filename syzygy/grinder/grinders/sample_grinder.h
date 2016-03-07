@@ -195,8 +195,8 @@ class SampleGrinder : public GrinderInterface {
 
 struct SampleGrinder::ModuleKey {
   size_t module_size;
-  uint32 module_checksum;
-  uint32 module_time_date_stamp;
+  uint32_t module_checksum;
+  uint32_t module_time_date_stamp;
 
   bool operator<(const ModuleKey& rhs) const;
 };
@@ -205,7 +205,7 @@ struct SampleGrinder::ModuleData {
   ModuleData::ModuleData() : bucket_size(0) {}
 
   base::FilePath module_path;
-  uint32 bucket_size;
+  uint32_t bucket_size;
   core::RelativeAddress bucket_start;
   std::vector<double> buckets;
 };

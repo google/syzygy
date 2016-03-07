@@ -88,13 +88,13 @@ TEST(AddressTest, AlignUp) {
 }
 
 TEST(AddressTest, GetAlignment) {
-  const uint32 max_alignment = 0x80000000;
+  const uint32_t max_alignment = 0x80000000;
 
   const RelativeAddress zero(0);
   EXPECT_EQ(max_alignment, zero.GetAlignment());
   const RelativeAddress one(1);
 
-  for (uint32 i = 1; i < max_alignment; i <<= 1) {
+  for (uint32_t i = 1; i < max_alignment; i <<= 1) {
     RelativeAddress address(i);
     EXPECT_EQ(i, address.GetAlignment());
   }

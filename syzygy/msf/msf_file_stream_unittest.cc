@@ -30,7 +30,7 @@ class TestMsfFileStream : public MsfFileStream {
  public:
   TestMsfFileStream(RefCountedFILE* file,
                     size_t length,
-                    const uint32* pages,
+                    const uint32_t* pages,
                     size_t page_size)
       : MsfFileStream(file, length, pages, page_size) {}
 
@@ -63,7 +63,7 @@ TEST_F(MsfFileStreamTest, Constructor) {
 
 TEST_F(MsfFileStreamTest, ReadFromPage) {
   struct TestCase {
-    uint32 page_num;
+    uint32_t page_num;
     size_t offset;
     size_t count;
     char* expected;
@@ -86,7 +86,7 @@ TEST_F(MsfFileStreamTest, ReadFromPage) {
       new TestMsfFileStream(file_.get(), sizeof(MsfHeader), pages, page_size));
 
   char buffer[4] = {0};
-  for (uint32 i = 0; i < arraysize(test_cases); ++i) {
+  for (uint32_t i = 0; i < arraysize(test_cases); ++i) {
     TestCase test_case = test_cases[i];
     EXPECT_TRUE(stream->ReadFromPage(&buffer, test_case.page_num,
                                      test_case.offset, test_case.count));
@@ -107,7 +107,7 @@ TEST_F(MsfFileStreamTest, ReadBytes) {
     scoped_refptr<TestMsfFileStream> stream(new TestMsfFileStream(
         file_.get(), sizeof(MsfHeader), pages, page_size));
 
-    for (uint32 j = 0; j < arraysize(test_cases); ++j) {
+    for (uint32_t j = 0; j < arraysize(test_cases); ++j) {
       char* test_case = test_cases[j];
       size_t len = strlen(test_case);
       size_t bytes_read = 0;

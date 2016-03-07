@@ -27,10 +27,10 @@
 #ifndef SYZYGY_CORE_STRING_TABLE_H_
 #define SYZYGY_CORE_STRING_TABLE_H_
 
+#include <stdint.h>
 #include <set>
 #include <string>
 
-#include "base/basictypes.h"
 #include "base/strings/string_piece.h"
 
 namespace core {

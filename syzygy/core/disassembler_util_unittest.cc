@@ -14,7 +14,6 @@
 
 #include "syzygy/core/disassembler_util.h"
 
-#include "base/basictypes.h"
 #include "base/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -25,7 +24,7 @@ namespace core {
 namespace {
 
 // Decompose a block of code using distorm wrapper.
-_DecodeResult DecomposeCode(const uint8* code_data,
+_DecodeResult DecomposeCode(const uint8_t* code_data,
                             size_t length,
                             _DInst result[],
                             const unsigned int max_results,
@@ -40,7 +39,7 @@ _DecodeResult DecomposeCode(const uint8* code_data,
 }
 
 // Decompose a block of code using distorm directly.
-_DecodeResult RawDecomposeCode(const uint8* code_data,
+_DecodeResult RawDecomposeCode(const uint8_t* code_data,
                                size_t length,
                                _DInst result[],
                                const unsigned int max_results,
@@ -54,7 +53,7 @@ _DecodeResult RawDecomposeCode(const uint8* code_data,
   return distorm_decompose(&code, result, max_results, result_count);
 }
 
-_DInst DecodeBuffer(const uint8* buffer, size_t length) {
+_DInst DecodeBuffer(const uint8_t* buffer, size_t length) {
   _DInst inst = {};
   EXPECT_TRUE(DecodeOneInstruction(buffer, length, &inst));
   EXPECT_EQ(length, inst.size);
@@ -63,32 +62,32 @@ _DInst DecodeBuffer(const uint8* buffer, size_t length) {
 
 // One of the AVX instructions that is currently not supported by distorm.
 // vxorps ymm0, ymm0, ymm0
-const uint8 kVxorps[] = { 0xC5, 0xFC, 0x57, 0xC0 };
+const uint8_t kVxorps[] = {0xC5, 0xFC, 0x57, 0xC0};
 
 // Instructions for which distorm indicates a size of 0 for the destination
 // operand size.
-const uint8 kFxsave[] = { 0x0F, 0xAE, 0x00 };
-const uint8 kFxrstor[] = { 0x0F, 0xAE, 0x08 };
+const uint8_t kFxsave[] = {0x0F, 0xAE, 0x00};
+const uint8_t kFxrstor[] = {0x0F, 0xAE, 0x08};
 
 // FPU instructions for which distorm had some decoding issues in the past.
 // fnstcw m16
-const uint8 kFnstcw[] = { 0xD9, 0x7D, 0xEA };
+const uint8_t kFnstcw[] = {0xD9, 0x7D, 0xEA};
 // fldcw m16
-const uint8 kFldcw[] = { 0xD9, 0x6D, 0xE4 };
+const uint8_t kFldcw[] = {0xD9, 0x6D, 0xE4};
 
 // Instructions for which distorm do not activated the write flag.
 // fst qword ptr [0A374E8h]
-const uint8 kFst[] = { 0xDD, 0x15, 0xE8, 0x74, 0xA3, 0x00 };
+const uint8_t kFst[] = {0xDD, 0x15, 0xE8, 0x74, 0xA3, 0x00};
 // fstp qword ptr [0A374E8h]
-const uint8 kFstp[] = { 0xDD, 0x1D, 0xE8, 0x74, 0xA3, 0x00 };
+const uint8_t kFstp[] = {0xDD, 0x1D, 0xE8, 0x74, 0xA3, 0x00};
 // fist qword ptr [0A374E8h]
-const uint8 kFist[] = { 0xDB, 0x15, 0xE0, 0x74, 0xA3, 0x00 };
+const uint8_t kFist[] = {0xDB, 0x15, 0xE0, 0x74, 0xA3, 0x00};
 // fistp qword ptr [0A374E8h]
-const uint8 kFistp[] = { 0xDB, 0x1D, 0xE0, 0x74, 0xA3, 0x00 };
+const uint8_t kFistp[] = {0xDB, 0x1D, 0xE0, 0x74, 0xA3, 0x00};
 
 // Nop Instruction byte sequences.
-const uint8 kNop2Mov[] = { 0x8B, 0xFF };
-const uint8 kNop3Lea[] = { 0x8D, 0x49, 0x00 };
+const uint8_t kNop2Mov[] = {0x8B, 0xFF};
+const uint8_t kNop3Lea[] = {0x8D, 0x49, 0x00};
 // The recommended NOP sequences.
 using testing::kNop1;
 using testing::kNop2;
@@ -103,29 +102,29 @@ using testing::kNop10;
 using testing::kNop11;
 
 // Call instruction.
-const uint8 kCall[] = { 0xE8, 0xCA, 0xFE, 0xBA, 0xBE };
+const uint8_t kCall[] = {0xE8, 0xCA, 0xFE, 0xBA, 0xBE};
 
 // Control Flow byte sequences (note that the JMP is indirect).
-const uint8 kJmp[] = { 0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE };
-const uint8 kRet[] = { 0xC3 };
-const uint8 kRetN[] = { 0xC2, 0x08, 0x00 };
-const uint8 kJe[] = { 0x74, 0xCA };
-const uint8 kSysEnter[] = { 0x0F, 0x34 };
-const uint8 kSysExit[] = { 0x0F, 0x35 };
+const uint8_t kJmp[] = {0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE};
+const uint8_t kRet[] = {0xC3};
+const uint8_t kRetN[] = {0xC2, 0x08, 0x00};
+const uint8_t kJe[] = {0x74, 0xCA};
+const uint8_t kSysEnter[] = {0x0F, 0x34};
+const uint8_t kSysExit[] = {0x0F, 0x35};
 
 // Interrupts.
-const uint8 kInt2[] = { 0xCD, 0x02 };
-const uint8 kInt3[] = { 0xCC };
+const uint8_t kInt2[] = {0xCD, 0x02};
+const uint8_t kInt3[] = {0xCC};
 
 // Improperly handled 3-byte VEX encoded instructions.
-const uint8 kVpermq[] = { 0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44 };
-const uint8 kVpermd[] = { 0xC4, 0xE2, 0x4D, 0x36, 0xC0 };
-const uint8 kVbroadcasti128[] = { 0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0 };
-const uint8 kVinserti128[] = { 0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01 };
-const uint8 kVpbroadcastb[] = { 0xC4, 0xE2, 0x79, 0x78, 0xC0 };
-const uint8 kVextracti128[] = { 0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01};
+const uint8_t kVpermq[] = {0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44};
+const uint8_t kVpermd[] = {0xC4, 0xE2, 0x4D, 0x36, 0xC0};
+const uint8_t kVbroadcasti128[] = {0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0};
+const uint8_t kVinserti128[] = {0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01};
+const uint8_t kVpbroadcastb[] = {0xC4, 0xE2, 0x79, 0x78, 0xC0};
+const uint8_t kVextracti128[] = {0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01};
 
-void TestBadlyDecodedInstruction(const uint8* code, size_t code_length) {
+void TestBadlyDecodedInstruction(const uint8_t* code, size_t code_length) {
   _DInst inst[1] = {};
   unsigned int inst_count = 0;
   _DecodeResult result = RawDecomposeCode(

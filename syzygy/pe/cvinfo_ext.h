@@ -17,9 +17,9 @@
 #ifndef SYZYGY_PE_CVINFO_EXT_H_
 #define SYZYGY_PE_CVINFO_EXT_H_
 
+#include <stdint.h>
 #include <windows.h>
 
-#include "base/basictypes.h"
 #include "syzygy/common/assertions.h"
 #include "third_party/cci/files/cvinfo.h"
 
@@ -27,41 +27,41 @@ namespace Microsoft_Cci_Pdb {
 
 // CodeView2 symbols. These are superseded in CodeView4 symbol streams.
 // Taken from the Visual C++ 5.0 Symbolic Debug Information Specification.
-const uint16 S_COMPILE_CV2 = 0x0001;  // Compile flags symbol.
-const uint16 S_SSEARCH = 0x0005;  // Start search.
-const uint16 S_SKIP = 0x0007;  // Skip - Reserve symbol space.
-const uint16 S_CVRESERVE = 0x0008;  // Reserved for CodeView internal use.
-const uint16 S_OBJNAME_CV2 = 0x0009;  // Name of object file.
-const uint16 S_ENDARG = 0x000A;  // End of arguments in function symbols.
-const uint16 S_COBOLUDT_CV2 = 0x000B;  // Microfocus COBOL user-defined type.
-const uint16 S_MANYREG_CV2 = 0x000C;  // Many register symbol.
-const uint16 S_RETURN = 0x000D;  // Function return description.
-const uint16 S_ENTRYTHIS = 0x000E;  // Description of this pointer at entry.
+const uint16_t S_COMPILE_CV2 = 0x0001;  // Compile flags symbol.
+const uint16_t S_SSEARCH = 0x0005;  // Start search.
+const uint16_t S_SKIP = 0x0007;  // Skip - Reserve symbol space.
+const uint16_t S_CVRESERVE = 0x0008;  // Reserved for CodeView internal use.
+const uint16_t S_OBJNAME_CV2 = 0x0009;  // Name of object file.
+const uint16_t S_ENDARG = 0x000A;  // End of arguments in function symbols.
+const uint16_t S_COBOLUDT_CV2 = 0x000B;  // Microfocus COBOL user-defined type.
+const uint16_t S_MANYREG_CV2 = 0x000C;  // Many register symbol.
+const uint16_t S_RETURN = 0x000D;  // Function return description.
+const uint16_t S_ENTRYTHIS = 0x000E;  // Description of this pointer at entry.
 
 // Symbols that are not in the enum in the cv_info file.
-const uint16 S_COMPILE3 = 0x113C;  // Replacement for S_COMPILE2.
-const uint16 S_MSTOOLENV_V3 = 0x113D;  // Environment block split off from
+const uint16_t S_COMPILE3 = 0x113C;  // Replacement for S_COMPILE2.
+const uint16_t S_MSTOOLENV_V3 = 0x113D;  // Environment block split off from
                                        // S_COMPILE2.
-const uint16 S_LOCAL_VS2013 = 0x113E;  // Defines a local symbol in optimized
+const uint16_t S_LOCAL_VS2013 = 0x113E;  // Defines a local symbol in optimized
                                        // code.
 
 // Ranges for en-registered symbol.
-const uint16 S_DEFRANGE_REGISTER = 0x1141;
+const uint16_t S_DEFRANGE_REGISTER = 0x1141;
 // Range for stack symbol.
-const uint16 S_DEFRANGE_FRAMEPOINTER_REL = 0x1142;
+const uint16_t S_DEFRANGE_FRAMEPOINTER_REL = 0x1142;
 // Ranges for en-registered field of symbol.
-const uint16 S_DEFRANGE_SUBFIELD_REGISTER = 0x1143;
+const uint16_t S_DEFRANGE_SUBFIELD_REGISTER = 0x1143;
 // Range for stack symbol span valid full scope of function body, gap might
 // apply. Provides the frame pointer offset for the S_LOCAL_VS2013 variables.
-const uint16 S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE = 0x1144;
+const uint16_t S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE = 0x1144;
 // Range for symbol address as register + offset.
-const uint16 S_DEFRANGE_REGISTER_REL = 0x1145;
+const uint16_t S_DEFRANGE_REGISTER_REL = 0x1145;
 
 // Since VS2013 it seems that the compiler isn't emitting the same value as
 // those in cvinfo.h for the S_GPROC32 and S_LPROC32 types, the following 2
 // values should be used instead.
-const uint16 S_LPROC32_VS2013 = 0x1146;
-const uint16 S_GPROC32_VS2013 = 0x1147;
+const uint16_t S_LPROC32_VS2013 = 0x1146;
+const uint16_t S_GPROC32_VS2013 = 0x1147;
 }  // namespace Microsoft_Cci_Pdb
 
 // This macro enables the easy construction of switch statements over the
@@ -70,7 +70,7 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
 // used to represent this symbol.
 // NOTE: All _ST suffixed symbols are identical to those symbols without the
 //       _ST suffix. However, the trailing string they contain is encoded as
-//       uint16 length prefixed string, versus a zero-terminated string.
+//       uint16_t length prefixed string, versus a zero-terminated string.
 // NOTE: This overrides the association from S_FRAMECOOKIE to the FrameCookie
 //       struct (associating FrameCookieSym instead) as observed data does not
 //       match the cvinfo struct.
@@ -443,10 +443,10 @@ const uint16 S_GPROC32_VS2013 = 0x1147;
     decl(T_WCHAR, wchar_t, 2) \
     decl(T_INT1, int8_t, 1) \
     decl(T_UINT1, uint8_t, 1) \
-    decl(T_SHORT, int16_t, 2) \
-    decl(T_USHORT, uint16_t, 2) \
-    decl(T_INT2, int16_t, 2) \
-    decl(T_UINT2, uint16_t, 2) \
+    decl(T_SHORT, int16_t _t, 2) \
+    decl(T_USHORT, uint16_t _t, 2) \
+    decl(T_INT2, int16_t _t, 2) \
+    decl(T_UINT2, uint16_t _t, 2) \
     decl(T_LONG, int32_t, 4) \
     decl(T_ULONG, uint32_t, 4) \
     decl(T_INT4, int32_t, 4) \
@@ -503,16 +503,16 @@ union LeafMemberAttributeField {
     protected_access = 2,
     public_access = 3,
   };
-  uint16 raw;
+  uint16_t raw;
   struct {
-    uint16 access      : 2;  // Of type AccessProtection.
-    uint16 mprop       : 3;  // Of type CV_methodprop.
-    uint16 pseudo      : 1;
-    uint16 noinherit   : 1;
-    uint16 noconstruct : 1;
-    uint16 compgenx    : 1;
-    uint16 sealed      : 1;
-    uint16 unused      : 6;
+    uint16_t access      : 2;  // Of type AccessProtection.
+    uint16_t mprop       : 3;  // Of type CV_methodprop.
+    uint16_t pseudo      : 1;
+    uint16_t noinherit   : 1;
+    uint16_t noconstruct : 1;
+    uint16_t compgenx    : 1;
+    uint16_t sealed      : 1;
+    uint16_t unused      : 6;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -521,19 +521,19 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(LeafMemberAttributeField, 2);
 
 // This structure represent a bitfield for a leaf property field.
 union LeafPropertyField {
-  uint16 raw;
+  uint16_t raw;
   struct {
-    uint16 packed : 1;
-    uint16 ctor : 1;
-    uint16 ovlops : 1;
-    uint16 isnested : 1;
-    uint16 cnested : 1;
-    uint16 opassign : 1;
-    uint16 opcast : 1;
-    uint16 fwdref : 1;
-    uint16 scoped : 1;
-    uint16 decorated_name_present : 1;
-    uint16 reserved : 6;
+    uint16_t packed : 1;
+    uint16_t ctor : 1;
+    uint16_t ovlops : 1;
+    uint16_t isnested : 1;
+    uint16_t cnested : 1;
+    uint16_t opassign : 1;
+    uint16_t opcast : 1;
+    uint16_t fwdref : 1;
+    uint16_t scoped : 1;
+    uint16_t decorated_name_present : 1;
+    uint16_t reserved : 6;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -542,16 +542,16 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(LeafPropertyField, 2);
 
 // This structure represent a bitfield for a leaf pointer attribute.
 union LeafPointerAttribute {
-  uint32 raw;
+  uint32_t raw;
   struct {
-    uint32 ptrtype : 5;  // Of type CV_ptrtype.
-    uint32 ptrmode : 3;  // Of type CV_ptrmode.
-    uint32 isflat32 : 1;
-    uint32 isvolatile : 1;
-    uint32 isconst : 1;
-    uint32 isunaligned : 1;
-    uint32 isrestrict : 1;
-    uint32 reserved : 19;
+    uint32_t ptrtype : 5;  // Of type CV_ptrtype.
+    uint32_t ptrmode : 3;  // Of type CV_ptrmode.
+    uint32_t isflat32 : 1;
+    uint32_t isvolatile : 1;
+    uint32_t isconst : 1;
+    uint32_t isunaligned : 1;
+    uint32_t isrestrict : 1;
+    uint32_t reserved : 19;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -560,12 +560,12 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(LeafPointerAttribute, 4);
 
 // This structure represent a bitfield for a leaf modifier attribute.
 union LeafModifierAttribute {
-  uint16 raw;
+  uint16_t raw;
   struct {
-    uint16 mod_const : 1;
-    uint16 mod_volatile : 1;
-    uint16 mod_unaligned : 1;
-    uint16 reserved : 13;
+    uint16_t mod_const : 1;
+    uint16_t mod_volatile : 1;
+    uint16_t mod_unaligned : 1;
+    uint16_t reserved : 13;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -575,29 +575,29 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(LeafModifierAttribute, 2);
 // This defines flags used in compiland details. See COMPILANDSYM_FLAGS for
 // detail.
 union CompileSymFlags {
-  uint32 raw;
+  uint32_t raw;
   struct {
     // Language index. See CV_CFL_LANG.
-    uint16 iLanguage : 8;
+    uint16_t iLanguage : 8;
     // Compiled with edit and continue support.
-    uint16 fEC : 1;
+    uint16_t fEC : 1;
     // Not compiled with debug info.
-    uint16 fNoDbgInfo : 1;
+    uint16_t fNoDbgInfo : 1;
     // Compiled with LTCG.
-    uint16 fLTCG : 1;
+    uint16_t fLTCG : 1;
     // Compiled with -Bzalign.
-    uint16 fNoDataAlign : 1;
+    uint16_t fNoDataAlign : 1;
     // Managed code/data present.
-    uint16 fManagedPresent : 1;
+    uint16_t fManagedPresent : 1;
     // Compiled with /GS.
-    uint16 fSecurityChecks : 1;
+    uint16_t fSecurityChecks : 1;
     // Compiled with /hotpatch.
-    uint16 fHotPatch : 1;
+    uint16_t fHotPatch : 1;
     // Converted with CVTCIL.
-    uint16 fCVTCIL : 1;
+    uint16_t fCVTCIL : 1;
     // MSIL netmodule
-    uint16 fMSILModule : 1;
-    uint16 reserved : 15;
+    uint16_t fMSILModule : 1;
+    uint16_t reserved : 15;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -607,35 +607,35 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSymFlags, 4);
 // Altough S_FRAMECOOKIE is supposed to use the cvinfo FrameCookie struct, in
 // practice we observe a different struct.
 struct FrameCookieSym {
-  uint32 off;
-  uint16 reg;
-  uint16 cookietype;
+  uint32_t off;
+  uint16_t reg;
+  uint16_t cookietype;
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(FrameCookieSym, 8);
 
 // This is a new compiland details symbol type seen in MSVS 2010 and later.
 struct CompileSym2 {
-  // uint16 reclen;  // Record length.
-  // uint16 rectyp;  // S_COMPILE3.
+  // uint16_t reclen;  // Record length.
+  // uint16_t rectyp;  // S_COMPILE3.
   CompileSymFlags flags;
   // Target processor. See CV_CPU_TYPE_e enum.
-  uint16 machine;
+  uint16_t machine;
   // Front-end major version number.
-  uint16 verFEMajor;
+  uint16_t verFEMajor;
   // Front-end minor version number.
-  uint16 verFEMinor;
+  uint16_t verFEMinor;
   // Front-end build version number.
-  uint16 verFEBuild;
+  uint16_t verFEBuild;
   // Front-end revision number.
-  uint16 verFERevision;
+  uint16_t verFERevision;
   // Back-end major version number.
-  uint16 verMajor;
+  uint16_t verMajor;
   // Back-end minor version number.
-  uint16 verMinor;
+  uint16_t verMinor;
   // Back-end build version number.
-  uint16 verBuild;
+  uint16_t verBuild;
   // Back-end revision number.
-  uint16 verRevision;
+  uint16_t verRevision;
   // Zero-terminated compiler version string. This is followed by zero or more
   // zero-terminated strings 'verArgs'. The whole list is terminated by an
   // empty verArg string (a double-zero).
@@ -645,8 +645,8 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSym2, 23);
 
 // This is a new compiland details symbol type seen in MSVS 2010 and later.
 struct MSToolEnvV3 {
-  // uint16 reclen;  // Record length.
-  // uint16 rectyp;  // S_MSTOOLENV_V3.
+  // uint16_t reclen;  // Record length.
+  // uint16_t rectyp;  // S_MSTOOLENV_V3.
   char leading_zero;
   // An array of key-value pairs, encoded as null terminated strings.
   char key_values[1];
@@ -655,41 +655,41 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(MSToolEnvV3, 2);
 
 // Length prefixed string.
 struct LPString {
-  uint8 length;
-  uint8 string[1];
+  uint8_t length;
+  uint8_t string[1];
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(LPString, 2);
 
 // Symbols seen in CodeView2 symbol streams.
 struct CompileSymCV2 {
   // Machine type. See CV_CPU_TYPE_e enum.
-  uint8 machine;
+  uint8_t machine;
   union {
     // Raw flags.
-    uint8 flags[3];
+    uint8_t flags[3];
     // Parsed flags.
     struct {
       // Language index. See CV_CFL_LANG.
-      uint8 language : 8;
-      uint8 pcode_present : 1;
+      uint8_t language : 8;
+      uint8_t pcode_present : 1;
       // 0: ???
       // 1: ANSI C floating point rules.
       // 2-3: Reserved.
-      uint8 float_precision : 2;
+      uint8_t float_precision : 2;
       // 0: Hardware processor.
       // 1: Emulator.
       // 2: Altmath.
       // 3: Reserved.
-      uint8 float_package : 2;
+      uint8_t float_package : 2;
       // 0: Near.
       // 1: Far.
       // 2: Huge.
       // 3-7: Reserved.
-      uint8 ambient_data : 3;
-      uint8 ambient_code : 3;
+      uint8_t ambient_data : 3;
+      uint8_t ambient_code : 3;
       // Compiled for 32-bit addresses.
-      uint8 mode32 : 1;
-      uint8 reserved : 4;
+      uint8_t mode32 : 1;
+      uint8_t reserved : 4;
     };
   };
   // Length-prefixed version string.
@@ -699,20 +699,20 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(CompileSymCV2, 6);
 
 // This defines flags used for local variables. See CV_LVARFLAGS for detail.
 union LocalVarFlags {
-  uint16 raw;
+  uint16_t raw;
   struct {
-    uint16 fIsParam : 1;
-    uint16 fAddrTaken : 1;
-    uint16 fCompGenx : 1;
-    uint16 fIsAggregate : 1;
-    uint16 fIsAggregated : 1;
-    uint16 fIsAliased : 1;
-    uint16 fIsAlias : 1;
-    uint16 fIsRetValue : 1;      // represents a function return value
-    uint16 fIsOptimizedOut : 1;  // variable has no lifetimes
-    uint16 fIsEnregGlob : 1;     // variable is an enregistered global
-    uint16 fIsEnregStat : 1;     // variable is an enregistered static
-    uint16 reserved : 5;
+    uint16_t fIsParam : 1;
+    uint16_t fAddrTaken : 1;
+    uint16_t fCompGenx : 1;
+    uint16_t fIsAggregate : 1;
+    uint16_t fIsAggregated : 1;
+    uint16_t fIsAliased : 1;
+    uint16_t fIsAlias : 1;
+    uint16_t fIsRetValue : 1;      // represents a function return value
+    uint16_t fIsOptimizedOut : 1;  // variable has no lifetimes
+    uint16_t fIsEnregGlob : 1;     // variable is an enregistered global
+    uint16_t fIsEnregStat : 1;     // variable is an enregistered static
+    uint16_t reserved : 5;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -721,34 +721,34 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(LocalVarFlags, 2);
 
 // New symbol used for local symbols.
 struct LocalSym2013 {
-  uint32 typind;        // (type index) type index
+  uint32_t typind;        // (type index) type index
   LocalVarFlags flags;  // local var flags
-  uint8 name[1];        // Name of this symbol.
+  uint8_t name[1];        // Name of this symbol.
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym2013, 7);
 
 // Represents an address range, used for optimized code debug info.
 struct CvLvarAddrRange {
-  uint32 offStart;
-  uint16 isectStart;
-  uint16 cbRange;  // Length.
+  uint32_t offStart;
+  uint16_t isectStart;
+  uint16_t cbRange;  // Length.
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(CvLvarAddrRange, 8);
 
 // Represents the holes in overall address range, all address is pre-bbt.
 // It is for compress and reduce the amount of relocations need.
 struct CvLvarAddrGap {
-  uint16 gapStartOffset;  // Relative offset from beginning of live range.
-  uint16 cbRange;  // Length of gap.
+  uint16_t gapStartOffset;  // Relative offset from beginning of live range.
+  uint16_t cbRange;  // Length of gap.
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(CvLvarAddrGap, 4);
 
 // Attributes of a variable's range.
 union CvRangeAttr {
-  uint16 raw;
+  uint16_t raw;
   struct {
-    uint16 maybe : 1;     // May have no user name on one of control flow path.
-    uint16 padding : 15;  // Padding for future use.
+    uint16_t maybe : 1;  // May have no user name on one of control flow path.
+    uint16_t padding : 15;  // Padding for future use.
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -757,7 +757,7 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(CvRangeAttr, 2);
 
 // A live range of en-registed variable.
 struct DefrangeSymRegister {
-  uint16 reg;             // Register to hold the value of the symbol
+  uint16_t reg;             // Register to hold the value of the symbol
   CvRangeAttr attr;       // Attribute of the register range.
   CvLvarAddrRange range;  // Range of addresses where this program is valid.
   CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
@@ -766,7 +766,7 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(DefrangeSymRegister, 16);
 
 // A live range of frame variable.
 struct DefRangeSymFramePointerRel {
-  int32 offFramePointer;  // Offset to frame pointer.
+  int32_t offFramePointer;  // Offset to frame pointer.
   CvLvarAddrRange range;   // Range of addresses where this program is valid.
   CvLvarAddrGap gaps[1];   // The value is not available in following gaps.
 };
@@ -774,10 +774,10 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(DefRangeSymFramePointerRel, 16);
 
 // Ranges for en-registered field of symbol.
 struct DefRangeSymSubfieldRegister {
-  uint16 reg;             // Register to hold the value of the symbol
+  uint16_t reg;             // Register to hold the value of the symbol
   CvRangeAttr attr;       // Attribute of the register range.
-  uint32 offParent : 12;  // Offset in parent variable.
-  uint32 padding : 20;    // Padding for future use.
+  uint32_t offParent : 12;  // Offset in parent variable.
+  uint32_t padding : 20;    // Padding for future use.
   CvLvarAddrRange range;  // Range of addresses where this program is valid.
   CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
 };
@@ -791,11 +791,11 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(FPOffs2013, 4);
 
 // Range for symbol address as register + offset.
 struct DefRangeSymRegisterRel {
-  uint16 baseReg;  // Register to hold the base pointer of the symbol.
-  uint16 spilledUdtMember : 1;  // Spilled member for s.i.
-  uint16 padding : 3;           // Padding for future use.
-  uint16 offsetParent : 12;     // Offset in parent variable.
-  int32 offBasePointer;        // Offset to register.
+  uint16_t baseReg;  // Register to hold the base pointer of the symbol.
+  uint16_t spilledUdtMember : 1;  // Spilled member for s.i.
+  uint16_t padding : 3;           // Padding for future use.
+  uint16_t offsetParent : 12;     // Offset in parent variable.
+  int32_t offBasePointer;        // Offset to register.
   CvLvarAddrRange range;  // Range of addresses where this program is valid.
   CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
 };
@@ -803,15 +803,15 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(DefRangeSymRegisterRel, 20);
 
 // Defines flags used for export symbols, see EXPORTSYM_FLAGS.
 union ExportVarFlags {
-  uint16 raw;
+  uint16_t raw;
   struct {
-    uint16 fConstant : 1;
-    uint16 fData : 1;
-    uint16 fPrivate : 1;
-    uint16 fNoName : 1;
-    uint16 fOrdinal : 1;
-    uint16 fForwarder : 1;
-    uint16 reserved : 10;
+    uint16_t fConstant : 1;
+    uint16_t fData : 1;
+    uint16_t fPrivate : 1;
+    uint16_t fNoName : 1;
+    uint16_t fOrdinal : 1;
+    uint16_t fForwarder : 1;
+    uint16_t reserved : 10;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be
@@ -820,21 +820,21 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(ExportVarFlags, 2);
 
 // Defines flags used for fram proc symbols, see FRAMEPROCSYM_FLAGS.
 union FrameProcSymFlags {
-  uint16 raw;
+  uint16_t raw;
   struct {
-    uint16 fHasAlloca : 1;
-    uint16 fHasSetJmp : 1;
-    uint16 fHasLongJmp : 1;
-    uint16 fHasInlAsm : 1;
-    uint16 fHasEH : 1;
-    uint16 fInlSpec : 1;
-    uint16 fHasSEH : 1;
-    uint16 fNaked : 1;
-    uint16 fSecurityChecks : 1;
-    uint16 fAsyncEH : 1;
-    uint16 fGSNoStackOrdering : 1;
-    uint16 fWasInlined : 1;
-    uint16 reserved : 4;
+    uint16_t fHasAlloca : 1;
+    uint16_t fHasSetJmp : 1;
+    uint16_t fHasLongJmp : 1;
+    uint16_t fHasInlAsm : 1;
+    uint16_t fHasEH : 1;
+    uint16_t fInlSpec : 1;
+    uint16_t fHasSEH : 1;
+    uint16_t fNaked : 1;
+    uint16_t fSecurityChecks : 1;
+    uint16_t fAsyncEH : 1;
+    uint16_t fGSNoStackOrdering : 1;
+    uint16_t fWasInlined : 1;
+    uint16_t reserved : 4;
   };
 };
 // We coerce a stream of bytes to this structure, so we require it to be

@@ -130,10 +130,10 @@ bool BasicBlockReorderingTransform::FlattenStructuralTreeToAnOrder(
   return reducible;
 }
 
-uint64 BasicBlockReorderingTransform::EvaluateCost(
+uint64_t BasicBlockReorderingTransform::EvaluateCost(
     const BasicBlockOrdering& order,
     const SubGraphProfile& profile) {
-  uint64 accumulate = 0;
+  uint64_t accumulate = 0;
 
   // For each basic block, accumulate the number of taken jumps.
   BasicBlockOrdering::const_iterator it = order.begin();
@@ -260,7 +260,7 @@ bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
   }
 
   // Compute the number of jumps taken for the original ordering.
-  uint64 original_cost = EvaluateCost(original_order, *subgraph_profile);
+  uint64_t original_cost = EvaluateCost(original_order, *subgraph_profile);
   if (original_cost == 0)
     return true;
 
@@ -270,7 +270,7 @@ bool BasicBlockReorderingTransform::TransformBasicBlockSubGraph(
                                                   &flatten_order);
   if (reducible) {
     // Compute the number of jumps taken for the optimized ordering.
-    uint64 flatten_cost = EvaluateCost(flatten_order, *subgraph_profile);
+    uint64_t flatten_cost = EvaluateCost(flatten_order, *subgraph_profile);
 
     // If the new basic block layout is better than the previous one, commit it.
     if (flatten_cost < original_cost)

@@ -52,7 +52,7 @@ TEST(FilterableTest, Accessors)  {
 TEST(FilterableTest, IsFiltered) {
   Filterable f;
 
-  const uint8 data[10] = {};
+  const uint8_t data[10] = {};
 
   BlockGraph block_graph;
   BasicBlockSubGraph subgraph;

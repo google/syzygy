@@ -42,8 +42,8 @@ void EnsureMsfContentsAreIdentical(
 
     CHECK_EQ(stream->length(), stream_read->length());
 
-    std::vector<uint8> data;
-    std::vector<uint8> data_read;
+    std::vector<uint8_t> data;
+    std::vector<uint8_t> data_read;
     CHECK(stream->Seek(0));
     CHECK(stream_read->Seek(0));
     CHECK(stream->Read(&data, stream->length()));

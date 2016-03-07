@@ -53,12 +53,12 @@ class MappedBuffer {
   bool IsMapped() const { return data_ != NULL; }
 
   // Returns a pointer to the mapped buffer data.
-  uint8* data() const { return data_; }
+  uint8_t* data() const { return data_; }
 
  protected:
   Buffer* buffer_;
-  uint8* base_;
-  uint8* data_;
+  uint8_t* base_;
+  uint8_t* data_;
 };
 
 }  // namespace service

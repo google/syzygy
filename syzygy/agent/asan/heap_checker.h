@@ -57,7 +57,7 @@ class HeapChecker {
   // @param length The length of this slab.
   // @param corrupt_ranges Will receive the information about the corrupt ranges
   //     in this slab.
-  void GetCorruptRangesInSlab(const uint8* lower_bound,
+  void GetCorruptRangesInSlab(const uint8_t* lower_bound,
                               size_t length,
                               CorruptRangesVector* corrupt_ranges);
 

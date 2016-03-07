@@ -41,7 +41,7 @@ class MockAddNamedStreamMutator
 
   bool AddFooStream(const PdbFile& pdb_file) {
     scoped_refptr<PdbByteStream> stream(new PdbByteStream());
-    EXPECT_TRUE(stream->Init(reinterpret_cast<const uint8*>(kMutatorName),
+    EXPECT_TRUE(stream->Init(reinterpret_cast<const uint8_t*>(kMutatorName),
                              ::strlen(kMutatorName)));
     added_stream_ = stream;
     EXPECT_TRUE(SetNamedStream("foo", stream.get()));

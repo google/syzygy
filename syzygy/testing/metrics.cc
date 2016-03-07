@@ -127,7 +127,7 @@ bool OpenForExclusiveWrite(const base::FilePath& path,
 // threshold. Returns true on success, false otherwise.
 bool DeleteFileIfTooLarge(const base::FilePath& path, size_t max_size) {
   // Get the file size in a retry loop.
-  int64 file_size = 0;
+  int64_t file_size = 0;
   DWORD wait = 1;
   bool got_size = false;
   for (size_t retries = 0; retries <= 10; ++retries) {
@@ -252,12 +252,12 @@ void EmitMetric(const base::StringPiece& name, const std::string& value) {
 
 }  // namespace
 
-void EmitMetric(const base::StringPiece& name, int64 value) {
+void EmitMetric(const base::StringPiece& name, int64_t value) {
   std::string s = base::StringPrintf("%lld", value);
   EmitMetric(name, s);
 }
 
-void EmitMetric(const base::StringPiece& name, uint64 value) {
+void EmitMetric(const base::StringPiece& name, uint64_t value) {
   std::string s = base::StringPrintf("%llu", value);
   EmitMetric(name, s);
 }

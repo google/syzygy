@@ -31,7 +31,7 @@ void memxor(void* dst, const void* src, size_t num_bytes) {
 
 bool GetNamedValueUnsigned(const refinery::TypedData& data,
                            base::StringPiece16 field_name,
-                           uint64* value) {
+                           uint64_t* value) {
   DCHECK(value);
   refinery::TypedData field;
   if (!data.GetNamedField(field_name, &field) ||
@@ -73,13 +73,13 @@ bool SegmentEntryWalker::Initialize(refinery::BitSource* bit_source,
   // Check the EncodeFlagMask, and store Encoding if appropriate. This is used
   // to XOR all _HEAP_ENTRY fields in the heap.
   if (has_flags) {
-    uint64 value = 0;
+    uint64_t value = 0;
     if (!encode_flag_mask.GetUnsignedValue(&value)) {
       LOG(ERROR) << "Unable to get heap flags mask.";
       return false;
     }
     // From observation of some heaps.
-    const uint64 kEncodingEnabled = 0x00100000;
+    const uint64_t kEncodingEnabled = 0x00100000;
     if (value & kEncodingEnabled) {
       encoding_.resize(encoding.type()->size());
       if (!heap_bit_source_->GetAll(encoding.GetRange(), &encoding_.at(0)))

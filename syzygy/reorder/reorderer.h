@@ -41,8 +41,8 @@ class JSONFileWriter;
 
 namespace reorder {
 
-typedef uint64 AbsoluteAddress64;
-typedef uint64 Size64;
+typedef uint64_t AbsoluteAddress64;
+typedef uint64_t Size64;
 
 // This class can consume a set of call-trace logs captured for a PE image
 // while driving an OrderGenerator instance to produce an ordering file.
@@ -64,7 +64,7 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
     kFlagReorderCode = 1 << 0,
     kFlagReorderData = 1 << 1,
   };
-  typedef uint32 Flags;
+  typedef uint32_t Flags;
 
   // Construct a new reorder instance.
   // @param module_path The path of the module dll.
@@ -312,15 +312,17 @@ class Reorderer::OrderGenerator {
 
   // The derived class may implement this callback, which indicates when a
   // process invoking the instrumented module was started.
-  virtual bool OnProcessStarted(uint32 process_id,
-                                const UniqueTime& time) { return true; }
+  virtual bool OnProcessStarted(uint32_t process_id, const UniqueTime& time) {
+    return true;
+  }
 
   // The derived class may implement this callback, which provides
   // information on the end of processes invoking the instrumented module.
   // Processes whose lifespan exceed the logging period will not receive
   // OnProcessEnded events.
-  virtual bool OnProcessEnded(uint32 process_id,
-                              const UniqueTime& time) { return true; }
+  virtual bool OnProcessEnded(uint32_t process_id, const UniqueTime& time) {
+    return true;
+  }
 
   // The derived class shall implement this callback, which receives
   // TRACE_ENTRY events for the module that is being reordered. Returns true
@@ -328,8 +330,8 @@ class Reorderer::OrderGenerator {
   // will be processed.
   virtual bool OnCodeBlockEntry(const BlockGraph::Block* block,
                                 RelativeAddress address,
-                                uint32 process_id,
-                                uint32 thread_id,
+                                uint32_t process_id,
+                                uint32_t thread_id,
                                 const UniqueTime& time) = 0;
 
   // The derived class shall implement this function, which actually produces

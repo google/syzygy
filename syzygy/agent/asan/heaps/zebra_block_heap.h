@@ -96,7 +96,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // @name HeapInterface functions.
   // @{
   virtual HeapType GetHeapType() const;
-  virtual uint32 GetHeapFeatures() const;
+  virtual uint32_t GetHeapFeatures() const;
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);
   virtual bool IsAllocated(const void* alloc);
@@ -166,13 +166,13 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // Gives the addres of the given slab.
   // @param index 0-based index of the slab.
   // @returns The address of the slab, or NULL if the index is invalid.
-  uint8* GetSlabAddress(size_t index);
+  uint8_t* GetSlabAddress(size_t index);
 
   // Defines an invalid slab index.
   static const size_t kInvalidSlabIndex = SIZE_MAX;
 
   // Heap memory address.
-  uint8* heap_address_;
+  uint8_t* heap_address_;
 
   // The heap size in bytes.
   size_t heap_size_;

@@ -62,7 +62,7 @@ class ParseEngineRpc : public ParseEngine {
   // @return true on success.
   bool ConsumeSegmentEvents(const TraceFileHeader& file_header,
                             const TraceFileSegmentHeader& segment_header,
-                            uint8* buffer,
+                            uint8_t* buffer,
                             size_t buffer_length);
 
   // The set of trace files to consume when ConsumeAllEvents() is called.

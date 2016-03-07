@@ -42,7 +42,7 @@ bool CoffFileWriter::WriteImage(const base::FilePath& path) {
   // Write every range in order. In a COFF file, block graph relative
   // addresses match file offsets, so writing out the file can simply be
   // done in address order, with appropriate padding.
-  std::vector<uint8> padding;
+  std::vector<uint8_t> padding;
   RelativeAddress cursor(0);
   BlockGraph::AddressSpace::RangeMapConstIter it =
       image_layout_->blocks.begin();
@@ -70,7 +70,7 @@ bool CoffFileWriter::WriteImage(const base::FilePath& path) {
 
     // Write the contents of the block.
     DCHECK(block != NULL);
-    const uint8* data = block->data();
+    const uint8_t* data = block->data();
     size_t data_size = block->data_size();
     if (std::fwrite(data, sizeof(*data), data_size, file.get()) != data_size) {
       LOG(ERROR) << "Unable to write contents of block \""

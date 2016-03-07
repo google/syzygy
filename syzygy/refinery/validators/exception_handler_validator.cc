@@ -79,7 +79,7 @@ void AddViolation(ValidationReport* report,
 }
 
 void AddNoChainViolation(StackRecordPtr stack, ValidationReport* report) {
-  const uint32 thread_id = stack->data().thread_info().thread_id();
+  const uint32_t thread_id = stack->data().thread_info().thread_id();
   std::string description = base::StringPrintf(
       "Thread %d has no exception registration record.", thread_id);
   AddViolation(report, VIOLATION_NO_EXCEPTION_REGISTRATION_RECORD, description);
@@ -88,7 +88,7 @@ void AddNoChainViolation(StackRecordPtr stack, ValidationReport* report) {
 void AddChainOutsideStackViolation(Address record_address,
                                    StackRecordPtr stack,
                                    ValidationReport* report) {
-  const uint32 thread_id = stack->data().thread_info().thread_id();
+  const uint32_t thread_id = stack->data().thread_info().thread_id();
   std::string description = base::StringPrintf(
       "Exception registration record not in stack (thread %d, record at %lld)",
       thread_id, record_address);
@@ -100,7 +100,7 @@ void AddChainAddressDecreaseViolation(Address record_addr,
                                       Address next_addr,
                                       StackRecordPtr stack,
                                       ValidationReport* report) {
-  const uint32 thread_id = stack->data().thread_info().thread_id();
+  const uint32_t thread_id = stack->data().thread_info().thread_id();
   std::string description = base::StringPrintf(
       "Exception chain address decrease (thread %d: record at %lld points to "
       "%lld).",

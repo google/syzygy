@@ -42,7 +42,7 @@ typedef NTSTATUS (NTAPI *FuncPtrNtQueryInformationProcess)(
     PDWORD ReturnLength);
 
 // Helper function to get the basic process info for pid/handle.
-bool GetPBI(uint32 pid, HANDLE handle, PROCESS_BASIC_INFORMATION* pbi) {
+bool GetPBI(uint32_t pid, HANDLE handle, PROCESS_BASIC_INFORMATION* pbi) {
   DCHECK(pbi != NULL);
 
   HMODULE ntdll = GetModuleHandle(L"ntdll.dll");
@@ -85,14 +85,13 @@ bool ReadEnvironmentString(HANDLE handle,
 
   environment->clear();
 
-  std::vector<uint8> vector(page_size);
-  uint8* buffer = &vector.at(0);
+  std::vector<uint8_t> vector(page_size);
+  uint8_t* buffer = &vector.at(0);
   const wchar_t* wbuffer = reinterpret_cast<const wchar_t*>(buffer);
-  const uint8* remote_cursor =
-      reinterpret_cast<const uint8*>(remote_env_string);
-  const uint8* next_page = reinterpret_cast<const uint8*>(
-      common::AlignUp(reinterpret_cast<size_t>(remote_cursor),
-                      page_size));
+  const uint8_t* remote_cursor =
+      reinterpret_cast<const uint8_t*>(remote_env_string);
+  const uint8_t* next_page = reinterpret_cast<const uint8_t*>(
+      common::AlignUp(reinterpret_cast<size_t>(remote_cursor), page_size));
 
   size_t nulls_in_a_row = 0;
   while (true) {
@@ -147,7 +146,7 @@ bool ReadEnvironmentString(HANDLE handle,
 // Note that there are other ways to retrieve the exe path, but since this
 // function will already be spelunking in the same area (to get the command
 // line) we just get the exe path while we're there.
-bool GetProcessStrings(uint32 pid,
+bool GetProcessStrings(uint32_t pid,
                        HANDLE handle,
                        size_t page_size,
                        base::FilePath* exe_path,
@@ -167,8 +166,8 @@ bool GetProcessStrings(uint32 pid,
   //     the querying process; otherwise, the following won't work.
 
   // Setup the variables that we'll use later.
-  uint8* peb_base_address = reinterpret_cast<uint8*>(pbi.PebBaseAddress);
-  uint8* user_proc_params = NULL;
+  uint8_t* peb_base_address = reinterpret_cast<uint8_t*>(pbi.PebBaseAddress);
+  uint8_t* user_proc_params = NULL;
   UNICODE_STRING string_value[2] = {};
 
   // Get the address of the process parameters.
@@ -243,8 +242,9 @@ bool GetProcessStrings(uint32 pid,
 }
 
 // Gets the NT headers of the running process.
-bool GetProcessNtHeaders(
-    uint32 pid, HANDLE handle, IMAGE_NT_HEADERS* nt_headers) {
+bool GetProcessNtHeaders(uint32_t pid,
+                         HANDLE handle,
+                         IMAGE_NT_HEADERS* nt_headers) {
   DCHECK(nt_headers != NULL);
   HMODULE module = 0;
   DWORD dummy = 0;
@@ -267,11 +267,11 @@ bool GetProcessNtHeaders(
     return false;
   }
 
-  uint8* base_addr = reinterpret_cast<uint8*>(info.lpBaseOfDll);
+  uint8_t* base_addr = reinterpret_cast<uint8_t*>(info.lpBaseOfDll);
 
   // Get the DOS header.
   IMAGE_DOS_HEADER dos_header;
-  uint8* addr_to_read = base_addr;
+  uint8_t* addr_to_read = base_addr;
   SIZE_T bytes_to_read = sizeof(IMAGE_DOS_HEADER);
   SIZE_T bytes_read = 0;
   if (!::ReadProcessMemory(handle, addr_to_read, &dos_header, bytes_to_read,
@@ -330,7 +330,7 @@ void ProcessInfo::Reset() {
   exe_time_date_stamp = 0;
 }
 
-bool ProcessInfo::Initialize(uint32 pid) {
+bool ProcessInfo::Initialize(uint32_t pid) {
   // TODO(chrisha): This whole mechanism is racy by its very nature, as it
   //     reads memory from a remote process that is running, and which may be
   //     changing the things being read. In practice this has not proved to be

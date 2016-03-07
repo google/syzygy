@@ -103,8 +103,8 @@ BOOL CALLBACK FindPeFileCallback(PCTSTR path, PVOID context) {
 bool FindFile(const base::FilePath& file_path,
               const base::StringPiece16& search_paths,
               const void* id,
-              uint32 data,
-              uint32 flags,
+              uint32_t data,
+              uint32_t flags,
               PFINDFILEINPATHCALLBACKW callback,
               void* callback_context,
               base::FilePath* found_file) {

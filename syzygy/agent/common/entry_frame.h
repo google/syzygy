@@ -16,7 +16,6 @@
 #ifndef SYZYGY_AGENT_COMMON_ENTRY_FRAME_H_
 #define SYZYGY_AGENT_COMMON_ENTRY_FRAME_H_
 
-#include "base/basictypes.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
 namespace agent {

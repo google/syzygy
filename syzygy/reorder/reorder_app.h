@@ -67,7 +67,7 @@ class ReorderApp : public application::AppImplBase {
   base::FilePath output_file_path_;
   base::FilePath bb_entry_count_file_path_;
   FilePathVector trace_file_paths_;
-  uint32 seed_;
+  uint32_t seed_;
   bool pretty_print_;
   Reorderer::Flags flags_;
   // @}

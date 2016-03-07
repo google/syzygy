@@ -16,9 +16,9 @@
 #define SYZYGY_TRACE_COMMON_CLOCK_H_
 
 #include <intrin.h>
+#include <stdint.h>
 #include <windows.h>
 
-#include "base/basictypes.h"
 #include "syzygy/common/assertions.h"
 
 namespace trace {
@@ -32,9 +32,9 @@ namespace common {
 //     from disk.
 struct TimerInfo {
   // The frequency of this timer, in counts per second.
-  uint64 frequency;
+  uint64_t frequency;
   // The resolution of this timer, in counts.
-  uint64 resolution;
+  uint64_t resolution;
 };
 COMPILE_ASSERT_IS_POD(TimerInfo);
 
@@ -45,10 +45,12 @@ void GetTickTimerInfo(TimerInfo* timer_info);
 void GetTscTimerInfo(TimerInfo* timer_info);
 
 // @returns the current value of the ticks timer.
-uint64 GetTicks();
+uint64_t GetTicks();
 
 // @returns the current value of the TSC register using RDTSC.
-inline uint64 GetTsc() { return ::__rdtsc(); }
+inline uint64_t GetTsc() {
+  return ::__rdtsc();
+}
 
 // Given a file time, a reference time and TimerInfo, convert the given
 // timer value to the corresponding file time. This can fail if the timer
@@ -61,8 +63,8 @@ inline uint64 GetTsc() { return ::__rdtsc(); }
 // @returns true on success, false otherwise.
 bool TimerToFileTime(const FILETIME& file_time_ref,
                      const TimerInfo& timer_info,
-                     const uint64& timer_ref,
-                     const uint64& timer_value,
+                     const uint64_t& timer_ref,
+                     const uint64_t& timer_value,
                      FILETIME* file_time);
 
 // Information about the system clock and various timers.
@@ -71,8 +73,8 @@ bool TimerToFileTime(const FILETIME& file_time_ref,
 struct ClockInfo {
   // Reference times. Used for converting between time formats.
   FILETIME file_time;
-  uint64 ticks_reference;
-  uint64 tsc_reference;
+  uint64_t ticks_reference;
+  uint64_t tsc_reference;
 
   // Information about the timers at our disposal.
   TimerInfo ticks_info;
@@ -98,10 +100,10 @@ void GetClockInfo(ClockInfo* clock_info);
 // @param file_time The file time to be populated.
 // @returns true on success, false otherwise.
 bool TicksToFileTime(const ClockInfo& clock_info,
-                     uint64 ticks,
+                     uint64_t ticks,
                      FILETIME* file_time);
 bool TscToFileTime(const ClockInfo& clock_info,
-                   uint64 tsc,
+                   uint64_t tsc,
                    FILETIME* file_time);
 
 }  // namespace common

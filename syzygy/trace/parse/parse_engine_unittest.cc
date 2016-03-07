@@ -194,8 +194,9 @@ class ParseEngineUnitTest
       void(base::Time time, DWORD process_id, DWORD thread_id,
            const base::StringPiece& thread_name));
   MOCK_METHOD3(OnDynamicSymbol,
-      void(DWORD process_id, uint32 symbol_id,
-           const base::StringPiece& symbol_name));
+               void(DWORD process_id,
+                    uint32_t symbol_id,
+                    const base::StringPiece& symbol_name));
   MOCK_METHOD3(OnSampleData,
                void(base::Time time,
                     DWORD process_id,
@@ -456,8 +457,8 @@ TEST_F(ParseEngineUnitTest, FunctionExitEvents) {
 }
 
 TEST_F(ParseEngineUnitTest, BatchFunctionEntry) {
-  uint8 raw_data[sizeof(TraceBatchEnterData) +
-                     4 * sizeof(TraceEnterEventData)] = {};
+  uint8_t raw_data[sizeof(TraceBatchEnterData) +
+                   4 * sizeof(TraceEnterEventData)] = {};
   TraceBatchEnterData& event_data =
      *reinterpret_cast<TraceBatchEnterData*>(&raw_data);
   event_data.thread_id = kThreadId;
@@ -615,7 +616,7 @@ TEST_F(ParseEngineUnitTest, IndexedFrequency) {
 
 TEST_F(ParseEngineUnitTest, DynamicSymbol) {
   static const char kSymbolName[] = "aDynamicSymbol";
-  const uint32 kSymbolId = 0x17459A;
+  const uint32_t kSymbolId = 0x17459A;
   char data[FIELD_OFFSET(TraceDynamicSymbol, symbol_name) +
             sizeof(kSymbolName)];
   TraceDynamicSymbol* symbol = reinterpret_cast<TraceDynamicSymbol*>(data);
@@ -638,7 +639,7 @@ TEST_F(ParseEngineUnitTest, DynamicSymbol) {
 }
 
 TEST_F(ParseEngineUnitTest, SampleData) {
-  const uint32 kBucketCount = 42;
+  const uint32_t kBucketCount = 42;
   char buffer[FIELD_OFFSET(TraceSampleData, buckets) +
               kBucketCount * sizeof(uint32)] = {};
   TraceSampleData* data = reinterpret_cast<TraceSampleData*>(buffer);
@@ -715,13 +716,25 @@ TEST_F(ParseEngineUnitTest, StackTrace) {
 }
 
 TEST_F(ParseEngineUnitTest, DetailedFunctionCall) {
-  const uint8 kDummyArguments[] = {
-      0x02, 0x00, 0x00, 0x00,  // 2 aguments
-      0x04, 0x00, 0x00, 0x00,  // Argument 0 length 4.
-      0x01, 0x00, 0x00, 0x00,  // Argument 1 length 1.
-      0xDE, 0xAD, 0xBE, 0xEF,  // Argument 0: 0xDEADBEEF.
-      'A'                      // Argument 1: 'A'
-      };
+  const uint8_t kDummyArguments[] = {
+      0x02,
+      0x00,
+      0x00,
+      0x00,  // 2 aguments
+      0x04,
+      0x00,
+      0x00,
+      0x00,  // Argument 0 length 4.
+      0x01,
+      0x00,
+      0x00,
+      0x00,  // Argument 1 length 1.
+      0xDE,
+      0xAD,
+      0xBE,
+      0xEF,  // Argument 0: 0xDEADBEEF.
+      'A'    // Argument 1: 'A'
+  };
   char buffer[FIELD_OFFSET(TraceDetailedFunctionCall, argument_data) +
       arraysize(kDummyArguments)] = {};
   TraceDetailedFunctionCall* data =

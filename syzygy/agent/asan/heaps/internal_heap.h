@@ -31,7 +31,7 @@ namespace heaps {
 // as being for internal use. This incurs a small amount of memory overhead
 // per allocation to store the original size of the allocation. This heap
 // does *not* return allocations that are kShadowRatio aligned. Rather, it
-// returns allocations that sizeof(uint32) % kShadowRatio aligned, due to the
+// returns allocations that sizeof(uint32_t) % kShadowRatio aligned, due to the
 // extra incurred header. This is not an issue as the allocations are only
 // for internal use and no shadow memory notations will be applied to them.
 class InternalHeap : public HeapInterface {
@@ -49,7 +49,7 @@ class InternalHeap : public HeapInterface {
   // @name HeapInterface functions.
   // @{
   virtual HeapType GetHeapType() const;
-  virtual uint32 GetHeapFeatures() const;
+  virtual uint32_t GetHeapFeatures() const;
   virtual void* Allocate(size_t bytes);
   virtual bool Free(void* alloc);
   virtual bool IsAllocated(const void* alloc);

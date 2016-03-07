@@ -19,7 +19,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 #include "syzygy/pdb/pdb_data_types.h"
 #include "syzygy/pdb/pdb_decl.h"
 
@@ -30,7 +29,7 @@ namespace pdb {
 void DumpSymbolRecords(FILE* out,
                        PdbStream* stream,
                        const SymbolRecordVector& sym_record_vector,
-                       uint8 indent_level);
+                       uint8_t indent_level);
 
 }  // namespace pdb
 

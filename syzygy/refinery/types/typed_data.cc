@@ -177,7 +177,7 @@ bool TypedData::GetSignedValue(int64_t* value) const {
   DCHECK(IsPrimitiveType());
   DCHECK(bit_source_);
 
-  int64 ret = 0;
+  int64_t ret = 0;
   switch (type_->size()) {
     case sizeof(int8_t): {
       int8_t v8 = 0;
@@ -243,7 +243,7 @@ bool TypedData::GetUnsignedValue(uint64_t* value) const {
   DCHECK(IsPrimitiveType());
   DCHECK(bit_source_);
 
-  uint64 ret = 0;
+  uint64_t ret = 0;
   switch (type_->size()) {
     case sizeof(uint8_t): {
       uint8_t v8 = 0;

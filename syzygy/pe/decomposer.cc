@@ -88,7 +88,7 @@ const char kJumpTable[] = "<jump-table>";
 const char kCaseTable[] = "<case-table>";
 
 // The MS linker pads between code blocks with int3s.
-static const uint8 kInt3 = 0xCC;
+static const uint8_t kInt3 = 0xCC;
 static const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
 // Some helper functions for testing ranges.
@@ -336,7 +336,7 @@ bool GetFixupDestinationAndType(const PEFile& image_file,
 
   // Get the destination displacement from the actual image itself. We only see
   // fixups for 32-bit references.
-  uint32 data = 0;
+  uint32_t data = 0;
   if (!image_file.ReadImage(src_addr, &data, sizeof(data))) {
     LOG(ERROR) << "Unable to read image data for fixup with source address "
                << "at" << src_addr << ".";
@@ -596,12 +596,12 @@ scoped_refptr<pdb::PdbStream> GetLinkerSymbolStream(
 // Parses a symbol from a PDB symbol stream. The @p buffer is populated with the
 // data and upon success this returns the symbol directly cast onto the
 // @p buffer data. On failure this returns NULL.
-template<typename SymbolType>
-const SymbolType* ParseSymbol(uint16 symbol_length,
+template <typename SymbolType>
+const SymbolType* ParseSymbol(uint16_t symbol_length,
                               pdb::PdbStream* stream,
-                              std::vector<uint8>* buffer) {
+                              std::vector<uint8_t>* buffer) {
   DCHECK_NE(reinterpret_cast<pdb::PdbStream*>(NULL), stream);
-  DCHECK_NE(reinterpret_cast<std::vector<uint8>*>(NULL), buffer);
+  DCHECK_NE(reinterpret_cast<std::vector<uint8_t>*>(NULL), buffer);
 
   buffer->clear();
 
@@ -620,10 +620,10 @@ const SymbolType* ParseSymbol(uint16 symbol_length,
 
 // If the given run of bytes consists of a single value repeated, returns that
 // value. Otherwise, returns -1.
-int RepeatedValue(const uint8* data, size_t size) {
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), data);
-  const uint8* data_end = data + size;
-  uint8 value = *(data++);
+int RepeatedValue(const uint8_t* data, size_t size) {
+  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), data);
+  const uint8_t* data_end = data + size;
+  uint8_t value = *(data++);
   for (; data < data_end; ++data) {
     if (*data != value)
       return -1;
@@ -721,7 +721,7 @@ bool AlignCodeBlocks(ImageLayout* image_layout) {
     // least twice the alignment; this is used as a simple filter to avoid
     // adding alignment where unnecessary.
     if (block->attributes() & BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER) {
-      uint32 align = std::min(16u, block_it->first.start().GetAlignment());
+      uint32_t align = std::min(16u, block_it->first.start().GetAlignment());
       if (align >= 8 && block->size() >= 2 * align) {
         VLOG(1) << "Preserving alignment of " << BlockInfo(block) << " as "
                 << align << ".";
@@ -746,12 +746,12 @@ bool AlignCodeBlocks(ImageLayout* image_layout) {
   return true;
 }
 
-void GuessDataBlockAlignment(uint32 max_alignment,
+void GuessDataBlockAlignment(uint32_t max_alignment,
                              RelativeAddress block_rva,
                              Block* block) {
   DCHECK_NE(static_cast<Block*>(NULL), block);
   DCHECK_EQ(BlockGraph::DATA_BLOCK, block->type());
-  uint32 alignment = block_rva.GetAlignment();
+  uint32_t alignment = block_rva.GetAlignment();
   // Cap the alignment.
   if (alignment > max_alignment)
     alignment = max_alignment;
@@ -762,7 +762,8 @@ void GuessDataBlockAlignments(const PEFile& pe_file,
                               ImageLayout* image_layout) {
   DCHECK_NE(static_cast<ImageLayout*>(NULL), image_layout);
 
-  uint32 max_alignment = pe_file.nt_headers()->OptionalHeader.SectionAlignment;
+  uint32_t max_alignment =
+      pe_file.nt_headers()->OptionalHeader.SectionAlignment;
 
   BlockGraph::AddressSpace::RangeMapConstIter it = image_layout->blocks.begin();
   for (; it != image_layout->blocks.end(); ++it) {
@@ -895,7 +896,7 @@ bool Decomposer::LoadBlockGraphFromPdbStream(
       byte_stream->data(), byte_stream->data() + byte_stream->length()));
 
   // Read the header.
-  uint32 stream_version = 0;
+  uint32_t stream_version = 0;
   unsigned char compressed = 0;
   if (!pdb_in_stream->Read(sizeof(stream_version),
                            reinterpret_cast<core::Byte*>(&stream_version)) ||
@@ -1489,16 +1490,16 @@ bool Decomposer::ProcessSymbols(IDiaSymbol* root) {
 }
 
 bool Decomposer::VisitLinkerSymbol(VisitLinkerSymbolContext* context,
-                                      uint16 symbol_length,
-                                      uint16 symbol_type,
-                                      pdb::PdbStream* stream) {
+                                   uint16_t symbol_length,
+                                   uint16_t symbol_type,
+                                   pdb::PdbStream* stream) {
   DCHECK_NE(reinterpret_cast<VisitLinkerSymbolContext*>(NULL), context);
   DCHECK_NE(reinterpret_cast<pdb::PdbStream*>(NULL), stream);
 
   if (symbol_type != cci::S_COFFGROUP)
     return true;
 
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
   const cci::CoffGroupSym* coffgroup =
       ParseSymbol<cci::CoffGroupSym>(symbol_length, stream, &buffer);
   if (coffgroup == NULL)
@@ -2056,7 +2057,7 @@ Block* Decomposer::CreateBlock(BlockType type,
   }
   block->set_section(section);
 
-  const uint8* data = image_file_.GetImageData(address, size);
+  const uint8_t* data = image_file_.GetImageData(address, size);
   if (data != NULL)
     block->SetData(data, size);
 
@@ -2099,7 +2100,7 @@ Block* Decomposer::CreateBlockOrFindCoveringPeBlock(
       }
 
       // Update the data in the extended block.
-      const uint8* data = image_file_.GetImageData(addr, size);
+      const uint8_t* data = image_file_.GetImageData(addr, size);
       block->SetData(data, size);
       return block;
     }

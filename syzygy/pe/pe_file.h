@@ -214,8 +214,8 @@ class PEFileBase : public PECoffFile<PEAddressSpaceTraits> {
   // @see pe::PECoffFile @{
   bool ReadImage(AbsoluteAddress addr, void* data, size_t len) const;
   bool ReadImageString(AbsoluteAddress addr, std::string* str) const;
-  const uint8* GetImageData(AbsoluteAddress addr, size_t len) const;
-  uint8* GetImageData(AbsoluteAddress addr, size_t len);
+  const uint8_t* GetImageData(AbsoluteAddress addr, size_t len) const;
+  uint8_t* GetImageData(AbsoluteAddress addr, size_t len);
   bool Contains(AbsoluteAddress addr, size_t len) const;
   size_t GetSectionIndex(AbsoluteAddress addr, size_t len) const;
   const IMAGE_SECTION_HEADER* GetSectionHeader(AbsoluteAddress addr,
@@ -282,14 +282,13 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::Signature {
   Signature(const base::StringPiece16& path,
             AbsoluteAddress base_address,
             size_t module_size,
-            uint32 module_checksum,
-            uint32 module_time_date_stamp)
-    : path(path.begin(), path.end()),
-      base_address(base_address),
-      module_size(module_size),
-      module_checksum(module_checksum),
-      module_time_date_stamp(module_time_date_stamp) {
-  }
+            uint32_t module_checksum,
+            uint32_t module_time_date_stamp)
+      : path(path.begin(), path.end()),
+        base_address(base_address),
+        module_size(module_size),
+        module_checksum(module_checksum),
+        module_time_date_stamp(module_time_date_stamp) {}
 
   // Copy constructor.
   // @param rhs Object to copy.
@@ -318,10 +317,10 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::Signature {
   size_t module_size;
 
   // A 32-bit checksum of the module file.
-  uint32 module_checksum;
+  uint32_t module_checksum;
 
   // The on-disk modification time of the module file.
-  uint32 module_time_date_stamp;
+  uint32_t module_time_date_stamp;
   // @}
 
   // Compare the specified signature with this one. Signatures are
@@ -375,7 +374,7 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::ExportInfo {
   std::string forward;
 
   // The export ordinal.
-  uint16 ordinal;
+  uint16_t ordinal;
 };
 
 // A structure exposing information about a single import.
@@ -386,11 +385,8 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::ImportInfo {
   // @param h the ordinal hint.
   // @param o the function ordinal.
   // @param n the function name.
-  ImportInfo(uint16 h, uint16 o, const char* n)
-      : hint(h),
-        ordinal(o),
-        function(n) {
-  }
+  ImportInfo(uint16_t h, uint16_t o, const char* n)
+      : hint(h), ordinal(o), function(n) {}
 
   // Construct an ImportInfo structure for a named function with no
   // ordinal information.
@@ -406,10 +402,8 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::ImportInfo {
   // ordinal.
   //
   // @param function_ordinal the function ordinal.
-  explicit ImportInfo(uint16 function_ordinal)
-      : hint(0),
-        ordinal(function_ordinal) {
-  }
+  explicit ImportInfo(uint16_t function_ordinal)
+      : hint(0), ordinal(function_ordinal) {}
 
   // Construct a default all-zero ImportInfo structure.
   ImportInfo() : hint(0), ordinal(0) {
@@ -425,10 +419,10 @@ struct PEFileBase<ImageNtHeaders, MagicValidation>::ImportInfo {
   }
 
   // The loader ordinal hint for this import.
-  uint16 hint;
+  uint16_t hint;
 
   // The ordinal of the function if the function field is empty.
-  uint16 ordinal;
+  uint16_t ordinal;
 
   // The name of the function, or the empty string for imports by
   // ordinal.

@@ -38,7 +38,7 @@
 //   in_archive.Load(&object);
 //
 // Serialization of primitive types (bool, char, wchar_t, float, double,
-// int8/16/32/64, uint8/16/32/64), C-arrays of serializable types, and STL
+// int8_t/16/32/64, uint8_t/16/32/64), C-arrays of serializable types, and STL
 // containers (map, set, vector, basic_string, pair) of serializable types is
 // supported by default. Support can be added for further types by extending
 // the serialization system directly.
@@ -102,6 +102,7 @@
 #ifndef SYZYGY_CORE_SERIALIZATION_H_
 #define SYZYGY_CORE_SERIALIZATION_H_
 
+#include <stdint.h>
 #include <iterator>
 #include <map>
 #include <set>
@@ -109,13 +110,12 @@
 #include <utility>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/memory/scoped_ptr.h"
 
 namespace core {
 
-typedef uint8 Byte;
+typedef uint8_t Byte;
 typedef std::vector<Byte> ByteVector;
 
 namespace internal {
@@ -333,14 +333,14 @@ class NativeBinaryOutArchive {
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(wchar_t);
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(float);
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(double);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int8);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int16);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int32);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int64);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint8);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint16);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint32);
-  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint64);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int8_t);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int16_t);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int32_t);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(int64_t);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint8_t);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint16_t);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint32_t);
+  NATIVE_BINARY_OUT_ARCHIVE_SAVE(uint64_t);
   NATIVE_BINARY_OUT_ARCHIVE_SAVE(unsigned long);
 #undef NATIVE_BINARY_OUT_ARCHIVE_SAVE
 
@@ -382,14 +382,14 @@ class NativeBinaryInArchive {
   NATIVE_BINARY_IN_ARCHIVE_LOAD(wchar_t);
   NATIVE_BINARY_IN_ARCHIVE_LOAD(float);
   NATIVE_BINARY_IN_ARCHIVE_LOAD(double);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(int8);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(int16);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(int32);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(int64);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint8);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint16);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint32);
-  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint64);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(int8_t);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(int16_t);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(int32_t);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(int64_t);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint8_t);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint16_t);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint32_t);
+  NATIVE_BINARY_IN_ARCHIVE_LOAD(uint64_t);
   NATIVE_BINARY_IN_ARCHIVE_LOAD(unsigned long);
 #undef NATIVE_BINARY_IN_ARCHIVE_LOAD
 

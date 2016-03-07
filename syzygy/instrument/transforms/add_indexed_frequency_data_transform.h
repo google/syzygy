@@ -42,9 +42,9 @@ class AddIndexedFrequencyDataTransform
   // @param indexed_frequency_data_size The size of the indexed_frequency_data
   //     structure or extended version. Instrumenters may add fields after the
   //     common part of the indexed_frequency_data structure.
-  AddIndexedFrequencyDataTransform(uint32 agent_id,
+  AddIndexedFrequencyDataTransform(uint32_t agent_id,
                                    const base::StringPiece& freq_name,
-                                   uint32 version,
+                                   uint32_t version,
                                    IndexedFrequencyData::DataType data_type,
                                    size_t indexed_frequency_data_size);
 
@@ -68,16 +68,16 @@ class AddIndexedFrequencyDataTransform
   // @param num_entries The number of frequency counters to allocate.
   // @param frequency_size The size (in bytes) of each frequency counter. This
   //     must be 1, 2 or 4.
-  bool ConfigureFrequencyDataBuffer(uint32 num_entries,
-                                    uint32 num_columns,
-                                    uint8 frequency_size);
+  bool ConfigureFrequencyDataBuffer(uint32_t num_entries,
+                                    uint32_t num_columns,
+                                    uint8_t frequency_size);
 
   // The transform name.
   static const char kTransformName[];
 
  protected:
   // The agent id to embed into the IndexFrequencyData instance.
-  uint32 agent_id_;
+  uint32_t agent_id_;
 
   // The statically allocated frequency data block that is added by the
   // transform. This becomes non-NULL after a successful application of the
@@ -97,7 +97,7 @@ class AddIndexedFrequencyDataTransform
   std::string freq_name_;
 
   // Version of the data structure.
-  uint32 version_;
+  uint32_t version_;
 
   // The type of the data in the IndexFrequencyData instance.
   IndexedFrequencyData::DataType data_type_;

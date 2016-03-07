@@ -85,7 +85,7 @@ enum FileType {
 // @param file_type Will be populated with the type of the file.
 // @returns true on success, false on failure. On success sets @p file_type.
 bool GuessFileType(const base::FilePath& path, FileType* file_type);
-bool GuessFileType(const uint8* contents, size_t length, FileType* file_type);
+bool GuessFileType(const uint8_t* contents, size_t length, FileType* file_type);
 // @}
 
 }  // namespace core

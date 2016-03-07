@@ -42,7 +42,7 @@ class TestPECoffFile : public PECoffFile<AddressSpaceTraits> {
     FileOffsetAddress file_header_start(0);
     if (has_pe_headers) {
       // Read NT header position at 0x3C according to the spec.
-      uint32 nt_header_pos = 0;
+      uint32_t nt_header_pos = 0;
       if (!ReadAt(0x3C, &nt_header_pos, sizeof(nt_header_pos)))
         return false;
 
@@ -181,8 +181,8 @@ TEST_F(PECoffFileTest, ReadFileHeader) {
   EXPECT_TRUE(memcmp(static_cast<void*>(&header),
                      static_cast<const void*>(coff_image_file_.file_header()),
                      sizeof(header)) == 0);
-  uint8* ptr = coff_image_file_.GetImageData(coff_image_file_.header_address(),
-                                             sizeof(header));
+  uint8_t* ptr = coff_image_file_.GetImageData(
+      coff_image_file_.header_address(), sizeof(header));
   ASSERT_TRUE(ptr != NULL);
   EXPECT_TRUE(memcmp(static_cast<void*>(&header),
                      static_cast<void*>(ptr),

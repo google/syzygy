@@ -39,7 +39,7 @@ typedef BlockGraph::Reference Reference;
 
 // Some handy constants.
 const size_t kDataSize = 32;
-const uint8 kData[kDataSize] = {0};
+const uint8_t kData[kDataSize] = {0};
 
 // A derived class to expose protected members for unit-testing.
 class TestBasicBlockSubGraph : public BasicBlockSubGraph {
@@ -179,7 +179,7 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
   BlockGraph::Block* external_block =
       block_graph.AddBlock(BlockGraph::CODE_BLOCK, 0, "dummy");
   BasicBlockSubGraph subgraph;
-  static const uint8 kData[Reference::kMaximumSize] = { 0 };
+  static const uint8_t kData[Reference::kMaximumSize] = {0};
 
   // Create basic-blocks.
   BasicCodeBlock* bb1 = subgraph.AddBasicCodeBlock("bb1");
@@ -195,8 +195,8 @@ TEST(BasicBlockSubGraphTest, GetReachabilityMap) {
   ASSERT_FALSE(data == NULL);
 
   // Setup references.
-  static const uint8 kJmp[] = { 0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE };
-  static const uint8 kRet[] = { 0xC3 };
+  static const uint8_t kJmp[] = {0xFF, 0x24, 0x8D, 0xCA, 0xFE, 0xBA, 0xBE};
+  static const uint8_t kRet[] = {0xC3};
   Instruction jmp;
   ASSERT_TRUE(Instruction::FromBuffer(kJmp, sizeof(kJmp), &jmp));
   Instruction ret;

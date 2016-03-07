@@ -23,11 +23,11 @@ namespace internal {
 
 // Overloaded function that calls the appropriate block data accessor depending
 // on whether or not the block is const.
-inline uint8* GetBlockData(BlockPtr block) {
+inline uint8_t* GetBlockData(BlockPtr block) {
   DCHECK(block != NULL);
   return block->GetMutableData();
 }
-inline const uint8* GetBlockData(ConstBlockPtr block) {
+inline const uint8_t* GetBlockData(ConstBlockPtr block) {
   DCHECK(block != NULL);
   return block->data();
 }
@@ -272,7 +272,7 @@ class TypedBlockImpl {
   // @returns the offset of value within the referenced block.
   template <typename TIn>
   Offset OffsetOf(TIn& value) const {
-    const uint8* value_address = reinterpret_cast<const uint8*>(&value);
+    const uint8_t* value_address = reinterpret_cast<const uint8_t*>(&value);
     Offset offs = value_address - block_->data();
     DCHECK(InBlock(offs, sizeof(value)));
     return offs;

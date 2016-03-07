@@ -15,8 +15,8 @@
 #include "syzygy/integration_tests/integration_tests_dll.h"
 
 #include <windows.h>  // NOLINT
+#include <stdint.h>
 
-#include "base/basictypes.h"
 #include "syzygy/integration_tests/asan_check_tests.h"
 #include "syzygy/integration_tests/asan_interceptors_tests.h"
 #include "syzygy/integration_tests/asan_page_protection_tests.h"

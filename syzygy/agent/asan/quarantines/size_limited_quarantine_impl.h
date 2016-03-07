@@ -34,7 +34,7 @@ bool SizeLimitedQuarantineImpl<OT, SFT>::Push(
     return false;
 
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
-  size_count_.Increment(static_cast<int32>(size), 1);
+  size_count_.Increment(static_cast<int32_t>(size), 1);
 
   return true;
 }
@@ -58,7 +58,7 @@ bool SizeLimitedQuarantineImpl<OT, SFT>::Pop(
 
   size_t size = size_functor_(*object);
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
-  size_count_.Increment(-static_cast<int32>(size), -1);
+  size_count_.Increment(-static_cast<int32_t>(size), -1);
 
   return true;
 }
@@ -74,14 +74,14 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
   // setting the size and count to zero could introduce inconsistency, as they
   // may not yet reflect the contributions of some of the elements returned by
   // EmptyImpl.
-  int32 net_size = 0;
+  int32_t net_size = 0;
   for (size_t i = 0; i < objects->size(); ++i) {
     size_t size = size_functor_(objects->at(i));
     net_size += size;
   }
 
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
-  size_count_.Increment(-net_size, -static_cast<int32>(objects->size()));
+  size_count_.Increment(-net_size, -static_cast<int32_t>(objects->size()));
 }
 
 template<typename OT, typename SFT>

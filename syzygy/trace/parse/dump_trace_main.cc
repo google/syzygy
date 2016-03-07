@@ -36,7 +36,7 @@ using trace::parser::Parser;
 using trace::parser::ParseEventHandler;
 using trace::parser::ModuleInformation;
 
-const char* GetIndexedDataTypeStr(uint8 data_type) {
+const char* GetIndexedDataTypeStr(uint8_t data_type) {
   const char* ret = NULL;
   switch (data_type) {
     case common::IndexedFrequencyData::BASIC_BLOCK_ENTRY:
@@ -349,7 +349,7 @@ class TraceFileDumper : public ParseEventHandler {
   }
 
   virtual void OnDynamicSymbol(DWORD process_id,
-                               uint32 symbol_id,
+                               uint32_t symbol_id,
                                const base::StringPiece& symbol_name) override {
     ::fprintf(file_, "OnDynamicSymbol: process-id=%d;\n"
               "    symbol_id=%d\n"
@@ -362,8 +362,8 @@ class TraceFileDumper : public ParseEventHandler {
                             const TraceSampleData* data) override {
     DCHECK(data != NULL);
 
-    uint64 samples = 0;
-    for (uint32 i = 0; i < data->bucket_count; ++i)
+    uint64_t samples = 0;
+    for (uint32_t i = 0; i < data->bucket_count; ++i)
       samples += data->buckets[i];
 
     ::fprintf(file_,
@@ -448,9 +448,9 @@ class TraceFileDumper : public ParseEventHandler {
       ::fprintf(file_, "    function_name='%s';\n", it->second.c_str());
 
     // Output the arguments summary info.
-    const uint32* argument_lengths = reinterpret_cast<const uint32*>(
-        data->argument_data);
-    uint32 argument_count = 0;
+    const uint32_t* argument_lengths =
+        reinterpret_cast<const uint32_t*>(data->argument_data);
+    uint32_t argument_count = 0;
     if (data->argument_data_size > 0) {
       argument_count = *argument_lengths;
       argument_lengths++;
@@ -458,10 +458,10 @@ class TraceFileDumper : public ParseEventHandler {
     ::fprintf(file_, "    argument_data_size=%d; argument_count=%d\n",
               data->argument_data_size, argument_count);
 
-    const uint8* argument_data = reinterpret_cast<const uint8*>(
-        argument_lengths + argument_count);
-    const uint8* argument_data_end = data->argument_data +
-        data->argument_data_size;
+    const uint8_t* argument_data =
+        reinterpret_cast<const uint8_t*>(argument_lengths + argument_count);
+    const uint8_t* argument_data_end =
+        data->argument_data + data->argument_data_size;
     for (size_t i = 0; i < argument_count; ++i) {
       ::fprintf(file_, "    argument[%d]:", i);
       for (size_t j = 0; j < argument_lengths[i]; ++j) {

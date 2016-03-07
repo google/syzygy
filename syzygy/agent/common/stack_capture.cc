@@ -76,7 +76,7 @@ void StackCapture::InitFromBuffer(const void* const* frames,
   DCHECK_LT(0U, num_frames);
 
   // Determine how many frames we can actually store.
-  num_frames_ = std::min<uint8>(num_frames, max_num_frames_);
+  num_frames_ = std::min<uint8_t>(num_frames, max_num_frames_);
 
   ::memcpy(frames_, frames, num_frames_ * sizeof(*frames_));
 
@@ -88,7 +88,7 @@ void StackCapture::InitFromExistingStack(const StackCapture& stack_capture) {
   DCHECK_LT(0U, stack_capture.num_frames());
 
   // Determine how many frames we can actually store.
-  num_frames_ = std::min<uint8>(stack_capture.num_frames(), max_num_frames_);
+  num_frames_ = std::min<uint8_t>(stack_capture.num_frames(), max_num_frames_);
 
   ::memcpy(frames_, stack_capture.frames(), num_frames_ * sizeof(*frames_));
 
@@ -108,7 +108,7 @@ void __declspec(noinline) StackCapture::InitFromStack() {
 
   if (bottom_frames_to_skip_) {
     num_frames_ -=
-        std::min(static_cast<uint8>(bottom_frames_to_skip_), num_frames_);
+        std::min(static_cast<uint8_t>(bottom_frames_to_skip_), num_frames_);
     ComputeAbsoluteStackId();
   }
 }
@@ -182,7 +182,7 @@ bool StackCapture::HashCompare::operator()(
 void StackCapture::ComputeAbsoluteStackId() {
   absolute_stack_id_ = StartStackId();
 
-  for (uint8 i = 0; i < num_frames_; ++i)
+  for (uint8_t i = 0; i < num_frames_; ++i)
     absolute_stack_id_ = UpdateStackId(absolute_stack_id_, frames_[i]);
 
   absolute_stack_id_ = FinalizeStackId(absolute_stack_id_, num_frames_);

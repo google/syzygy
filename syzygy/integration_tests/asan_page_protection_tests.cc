@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <windows.h>
 
-#include "base/basictypes.h"
 #include "syzygy/integration_tests/asan_interceptors_tests.h"
 
 namespace testing {

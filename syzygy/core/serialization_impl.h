@@ -45,7 +45,8 @@ template<typename T> struct TypesAreEqual<T, T> {
 // This tests that a given type is a signed or unsigned 1-byte type.
 template<typename T> struct IsByteLike {
   enum {
-    Value = (TypesAreEqual<T, int8>::Value || TypesAreEqual<T, uint8>::Value) &&
+    Value =
+        (TypesAreEqual<T, int8_t>::Value || TypesAreEqual<T, uint8_t>::Value) &&
         (sizeof(T) == 1)
   };
 };

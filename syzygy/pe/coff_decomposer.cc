@@ -943,7 +943,7 @@ Block* CoffDecomposer::CreateBlock(BlockType type,
     DCHECK(pushed);
   }
 
-  const uint8* data = image_file_.GetImageData(addr, size);
+  const uint8_t* data = image_file_.GetImageData(addr, size);
   if (data != NULL)
     block->SetData(data, size);
 
@@ -977,7 +977,7 @@ bool CoffDecomposer::CreateReference(FileOffsetAddress src_addr,
         if (!ReadRelocationValue<uint16>(source, src_offset, &extra_offset))
           return false;
         break;
-      case sizeof(uint8):
+      case sizeof(uint8_t):
         // TODO(chrisha): This is really a special 7-bit relocation; we do
         // not touch these, for now.
         break;

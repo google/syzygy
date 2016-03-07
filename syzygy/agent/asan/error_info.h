@@ -116,15 +116,15 @@ struct AsanBlockInfo {
   // The free stack trace.
   void* free_stack[agent::common::StackCapture::kMaxNumFrames];
   // The size of the allocation stack trace.
-  uint8 alloc_stack_size;
+  uint8_t alloc_stack_size;
   // The size of the free stack trace.
-  uint8 free_stack_size;
+  uint8_t free_stack_size;
   // The type of heap that made the allocation.
   HeapType heap_type;
   // The time since this block has been freed. This would be equal to zero if
   // the block is still allocated.
   // TODO(chrisha): We actually keep track of this in ticks. Rename this?
-  uint32 milliseconds_since_free;
+  uint32_t milliseconds_since_free;
 };
 
 struct AsanCorruptBlockRange {

@@ -17,7 +17,6 @@
 #include <set>
 #include <utility>
 
-#include "base/basictypes.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
@@ -82,31 +81,31 @@ typedef DummyMemoryNotifier::MemoryRange MemoryRange;
 TEST(MemoryNotifierAllocatorTest, ConstructorsWorkAsExpected) {
   DummyMemoryNotifier n;
 
-  MemoryNotifierAllocator<uint32> a1(&n);
+  MemoryNotifierAllocator<uint32_t> a1(&n);
   EXPECT_EQ(&n, a1.memory_notifier());
 
-  MemoryNotifierAllocator<uint32> a2(a1);
+  MemoryNotifierAllocator<uint32_t> a2(a1);
   EXPECT_EQ(&n, a2.memory_notifier());
 
-  MemoryNotifierAllocator<uint16> a3(a1);
+  MemoryNotifierAllocator<uint16_t> a3(a1);
   EXPECT_EQ(&n, a3.memory_notifier());
 }
 
 TEST(MemoryNotifierAllocatorTest, NotifiesInternalUse) {
   DummyMemoryNotifier n;
-  MemoryNotifierAllocator<uint32> a1(&n);
-  MemoryNotifierAllocator<uint16> a2(a1);
+  MemoryNotifierAllocator<uint32_t> a1(&n);
+  MemoryNotifierAllocator<uint16_t> a2(a1);
 
   EXPECT_EQ(0u, n.internal_.size());
   EXPECT_EQ(0u, n.future_.size());
 
-  uint32* ui32 = a1.allocate(10);
+  uint32_t* ui32 = a1.allocate(10);
   EXPECT_EQ(1u, n.internal_.size());
   EXPECT_EQ(0u, n.future_.size());
   EXPECT_THAT(n.internal_,
               testing::UnorderedElementsAre(MemoryRange(ui32, 40)));
 
-  uint16* ui16 = a2.allocate(8);
+  uint16_t* ui16 = a2.allocate(8);
   EXPECT_EQ(2u, n.internal_.size());
   EXPECT_EQ(0u, n.future_.size());
   EXPECT_THAT(n.internal_,
@@ -126,19 +125,18 @@ TEST(MemoryNotifierAllocatorTest, NotifiesInternalUse) {
 
 TEST(MemoryNotifierAllocatorTest, StlContainerStressTest) {
   DummyMemoryNotifier n;
-  typedef std::set<uint32,
-                   std::less<uint32>,
-                   MemoryNotifierAllocator<uint32>> DummySet;
-  MemoryNotifierAllocator<uint32> a(&n);
+  typedef std::set<uint32_t, std::less<uint32_t>,
+                   MemoryNotifierAllocator<uint32_t>> DummySet;
+  MemoryNotifierAllocator<uint32_t> a(&n);
   DummySet s(a);
 
   for (size_t i = 0; i < 10000; ++i) {
-    uint32 j = ::rand() % 2000;
+    uint32_t j = ::rand() % 2000;
     s.insert(j);
   }
 
   for (size_t i = 0; i < 1500; ++i) {
-    uint32 j = ::rand() % 2000;
+    uint32_t j = ::rand() % 2000;
     s.erase(j);
   }
 
@@ -147,33 +145,32 @@ TEST(MemoryNotifierAllocatorTest, StlContainerStressTest) {
 
 TEST(HeapAllocatorTest, Allocate) {
   testing::MockHeap h;
-  HeapAllocator<uint32> a(&h);
-  EXPECT_CALL(h, Allocate(sizeof(uint32)));
+  HeapAllocator<uint32_t> a(&h);
+  EXPECT_CALL(h, Allocate(sizeof(uint32_t)));
   a.allocate(1, NULL);
 }
 
 TEST(HeapAllocatorTest, Deallocate) {
   testing::MockHeap h;
-  HeapAllocator<uint32> a(&h);
+  HeapAllocator<uint32_t> a(&h);
   EXPECT_CALL(h, Free(reinterpret_cast<void*>(0x12345678)));
-  a.deallocate(reinterpret_cast<uint32*>(0x12345678), 1);
+  a.deallocate(reinterpret_cast<uint32_t*>(0x12345678), 1);
 }
 
 TEST(HeapAllocatorTest, StlContainerStressTest) {
   testing::DummyHeap h;
-  typedef std::set<uint32,
-                   std::less<uint32>,
-                   HeapAllocator<uint32>> DummySet;
-  HeapAllocator<uint32> a(&h);
+  typedef std::set<uint32_t, std::less<uint32_t>, HeapAllocator<uint32_t>>
+      DummySet;
+  HeapAllocator<uint32_t> a(&h);
   DummySet s(a);
 
   for (size_t i = 0; i < 10000; ++i) {
-    uint32 j = ::rand() % 2000;
+    uint32_t j = ::rand() % 2000;
     s.insert(j);
   }
 
   for (size_t i = 0; i < 1500; ++i) {
-    uint32 j = ::rand() % 2000;
+    uint32_t j = ::rand() % 2000;
     s.erase(j);
   }
 

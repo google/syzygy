@@ -46,13 +46,13 @@ class QuarantineSizeCount {
   }
 
   // @returns the size.
-  int32 size() const {
+  int32_t size() const {
     lock_.AssertAcquired();
     return size_;
   }
 
   // @returns the count.
-  int32 count() const {
+  int32_t count() const {
     lock_.AssertAcquired();
     return count_;
   }
@@ -60,7 +60,7 @@ class QuarantineSizeCount {
   // Increments the size and count (accepts negative values for decrementing).
   // @param size_delta The delta by which the size is incremented.
   // @param count_delta The delta by which the count is incremented.
-  void Increment(int32 size_delta, int32 count_delta) {
+  void Increment(int32_t size_delta, int32_t count_delta) {
     lock_.AssertAcquired();
     size_ += size_delta;
     count_ += count_delta;
@@ -68,9 +68,9 @@ class QuarantineSizeCount {
 
  private:
   // The current size of the quarantine.
-  int32 size_;
+  int32_t size_;
   // The number of elements in the quarantine.
-  int32 count_;
+  int32_t count_;
   // Single lock that's used for both |size_| and |count_|.
   base::Lock lock_;
 };

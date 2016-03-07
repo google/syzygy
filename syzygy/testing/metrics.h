@@ -39,8 +39,8 @@ namespace testing {
 // If neither are present the metric will simply be emitted via logging.
 // @param name The name of the metric.
 // @param value The value of the metric.
-void EmitMetric(const base::StringPiece& name, int64 value);
-void EmitMetric(const base::StringPiece& name, uint64 value);
+void EmitMetric(const base::StringPiece& name, int64_t value);
+void EmitMetric(const base::StringPiece& name, uint64_t value);
 void EmitMetric(const base::StringPiece& name, double value);
 
 }  // namespace testing

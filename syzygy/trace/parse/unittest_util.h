@@ -72,7 +72,7 @@ class MockParseEventHandler : public trace::parser::ParseEventHandler {
                     const TraceIndexedFrequencyData* data));
   MOCK_METHOD3(OnDynamicSymbol,
                void(DWORD process_id,
-                    uint32 symbol_id,
+                    uint32_t symbol_id,
                     const base::StringPiece& symbol_name));
   MOCK_METHOD3(OnSampleData,
                void(base::Time time,

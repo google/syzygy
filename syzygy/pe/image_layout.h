@@ -23,7 +23,6 @@
 #include <string>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address_space.h"
 
@@ -48,7 +47,7 @@ struct ImageLayout {
     // image's FileAlignment value.
     size_t data_size;
     // The section characteristics, a bitmask of IMAGE_SCN_* values.
-    uint32 characteristics;
+    uint32_t characteristics;
   };
 
   // Creates an empty image layout on the supplied block graph.

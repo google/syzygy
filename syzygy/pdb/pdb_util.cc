@@ -30,7 +30,7 @@ namespace {
 // Gets the index at position @p index_offset of the DBI DBG header. If invalid,
 // adds a new stream to the PDB and updates the index to point to it. If a valid
 // stream already exists, replaces it with the new @p stream.
-// @param index_offset the offset of the int16 stream index within the DBI DBG
+// @param index_offset the offset of the int16_t stream index within the DBI DBG
 //     header.
 // @param stream the stream to be associated with the given DBI DBG entry.
 // @param pdb_file the PDB file to be updated.
@@ -56,8 +56,8 @@ bool SetDbiDbgStream(size_t index_offset,
   }
 
   // Get the stream index at the provided offset.
-  uint32 dbi_dbg_offset = GetDbiDbgHeaderOffset(dbi_header);
-  int16 existing_index = -1;
+  uint32_t dbi_dbg_offset = GetDbiDbgHeaderOffset(dbi_header);
+  int16_t existing_index = -1;
   if (!dbi_reader->Seek(dbi_dbg_offset + index_offset) ||
       !dbi_reader->Read(&existing_index, 1)) {
     LOG(ERROR) << "Failed to read stream index at offset " << dbi_dbg_offset
@@ -66,7 +66,7 @@ bool SetDbiDbgStream(size_t index_offset,
   }
 
   // If the stream is an invalid index, we create a new one.
-  int16 new_index = existing_index;
+  int16_t new_index = existing_index;
   if (existing_index < 0 ||
       existing_index >= static_cast<int16>(pdb_file->StreamCount())) {
     new_index = static_cast<int16>(pdb_file->AppendStream(stream));
@@ -94,7 +94,7 @@ bool SetOmapStream(size_t dbi_dbg_index_offset,
 
   scoped_refptr<PdbByteStream> stream = new PdbByteStream();
   if (!omap_list.empty()) {
-    if (!stream->Init(reinterpret_cast<const uint8*>(&omap_list.at(0)),
+    if (!stream->Init(reinterpret_cast<const uint8_t*>(&omap_list.at(0)),
                       omap_list.size() * sizeof(OMAP))) {
       LOG(ERROR) << "Failed to initialize OMAP stream.";
       return false;
@@ -141,10 +141,9 @@ size_t SetNamedStreamsHashTableBit(
 // order of this object.
 struct NamedStreamInfo {
   NamedStreamInfo(NameStreamMap::const_iterator it,
-                  uint32 offset,
-                  uint32 bucket)
-      : it(it), offset(offset), bucket(bucket) {
-  }
+                  uint32_t offset,
+                  uint32_t bucket)
+      : it(it), offset(offset), bucket(bucket) {}
 
   bool operator<(const NamedStreamInfo& rhs) const {
     return bucket < rhs.bucket;
@@ -153,17 +152,17 @@ struct NamedStreamInfo {
   // An iterator into the (name, stream_id) map.
   NameStreamMap::const_iterator it;
   // The offset of the name in the string table.
-  uint32 offset;
+  uint32_t offset;
   // The bucket that this name occupies in the hash map, after collision
   // resolution. This is the sort key.
-  uint32 bucket;
+  uint32_t bucket;
 };
 
 }  // namespace
 
 bool PdbBitSet::Read(PdbStream* stream) {
   DCHECK(stream != NULL);
-  uint32 size = 0;
+  uint32_t size = 0;
   if (!stream->Read(&size, 1)) {
     LOG(ERROR) << "Failed to read bitset size.";
     return false;
@@ -229,19 +228,19 @@ bool PdbBitSet::IsEmpty() const {
   return bits_.empty();
 }
 
-uint16 HashString(const base::StringPiece& string) {
+uint16_t HashString(const base::StringPiece& string) {
   size_t length = string.size();
   const char* data = string.data();
 
-  uint32 hash = 0;
+  uint32_t hash = 0;
   while (length >= 4) {
-    hash ^= *reinterpret_cast<const uint32*>(data);
+    hash ^= *reinterpret_cast<const uint32_t*>(data);
     data += 4;
     length -= 4;
   }
 
   if (length >= 2) {
-    hash ^= *reinterpret_cast<const uint16*>(data);
+    hash ^= *reinterpret_cast<const uint16_t*>(data);
     data += 2;
     length -= 2;
   }
@@ -287,8 +286,8 @@ bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out) {
   return read;
 }
 
-uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
-  uint32 offset = sizeof(DbiHeader);
+uint32_t GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
+  uint32_t offset = sizeof(DbiHeader);
   offset += dbi_header.gp_modi_size;
   offset += dbi_header.section_contribution_size;
   offset += dbi_header.section_map_size;
@@ -298,7 +297,7 @@ uint32 GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
   return offset;
 }
 
-bool EnsureStreamWritable(uint32 index, PdbFile* pdb_file) {
+bool EnsureStreamWritable(uint32_t index, PdbFile* pdb_file) {
   DCHECK(pdb_file != NULL);
 
   // Bail if the index is to a non-existent stream.
@@ -493,7 +492,7 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
     return false;
   }
 
-  uint32 string_len = 0;
+  uint32_t string_len = 0;
   if (!pdb_stream->Read(&string_len, 1)) {
     LOG(ERROR) << "Unable to read string table length.";
     return false;
@@ -516,8 +515,8 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
   // Next there's a pair of integers. The first one of those is the number of
   // items in the string->id mapping. The purpose of the second one is not
   // clear, but has been observed as larger or equal to the first one.
-  uint32 size = 0;
-  uint32 max = 0;
+  uint32_t size = 0;
+  uint32_t max = 0;
   if (!pdb_stream->Read(&size, 1) || !pdb_stream->Read(&max, 1)) {
     LOG(ERROR) << "Unable to read name pdb_stream size/max";
     return false;
@@ -551,8 +550,8 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
 
   // Read the mapping proper, this is simply a run of {string offset, id} pairs.
   for (size_t i = 0; i < size; ++i) {
-    uint32 str_offs = 0;
-    uint32 stream_no = 0;
+    uint32_t str_offs = 0;
+    uint32_t stream_no = 0;
     // Read the offset and pdb_stream number.
     if (!pdb_stream->Read(&str_offs, 1) || !pdb_stream->Read(&stream_no, 1)) {
       LOG(ERROR) << "Unable to read pdb_stream data.";
@@ -612,8 +611,8 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   }
 
   // Calculate the hash table entry count and size.
-  uint32 string_count = name_stream_map.size();
-  uint32 table_size = GetNamedStreamsHashTableSize(string_count);
+  uint32_t string_count = name_stream_map.size();
+  uint32_t table_size = GetNamedStreamsHashTableSize(string_count);
 
   // Initialize the 'used' bitset.
   PdbBitSet used;
@@ -624,10 +623,10 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   // the stream names.
   std::vector<NamedStreamInfo> name_infos;
   name_infos.reserve(string_count);
-  uint32 string_length = 0;
+  uint32_t string_length = 0;
   NameStreamMap::const_iterator name_it = name_stream_map.begin();
   for (; name_it != name_stream_map.end(); ++name_it) {
-    uint16 hash = HashString(name_it->first);
+    uint16_t hash = HashString(name_it->first);
     size_t bucket = hash % table_size;
     bucket = SetNamedStreamsHashTableBit(bucket, table_size, &used);
     name_infos.push_back(NamedStreamInfo(name_it, 0, bucket));
@@ -702,8 +701,8 @@ bool ReadStringTable(PdbStream* stream,
   DCHECK(table_name != NULL);
   DCHECK(string_map != NULL);
 
-  uint32 string_table_signature = 0;
-  uint32 string_table_version = 0;
+  uint32_t string_table_signature = 0;
+  uint32_t string_table_version = 0;
 
   if (!stream->Seek(table_start) ||
       !stream->Read(&string_table_signature, 1) ||
@@ -761,7 +760,7 @@ bool ReadStringTable(PdbStream* stream,
     string_map->insert(std::make_pair(string_offset, temp_string));
   }
 
-  uint32 string_count = 0;
+  uint32_t string_count = 0;
   // Sometimes the string_count field matches the number of non-empty strings
   // in the string_map and sometimes it doesn't.
   // TODO(sebmarchand) : understand what's this value once the compiland streams

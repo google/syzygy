@@ -69,8 +69,8 @@ bool DataAndReferencesEqual(const BlockGraph::Block& b1,
   Iterator it2 = b2.references().begin();
   Iterator end1 = b1.references().lower_bound(b1.data_size());
 
-  const uint8* d1 = b1.data();
-  const uint8* d2 = b2.data();
+  const uint8_t* d1 = b1.data();
+  const uint8_t* d2 = b2.data();
   BlockGraph::Offset i = 0;
   BlockGraph::Offset data_size = b1.data_size();
 
@@ -243,7 +243,7 @@ bool GenerateTestBlockGraph(block_graph::BlockGraph* image) {
   b3->SetLabel(0x0C, "label3", BlockGraph::CODE_LABEL);
   b3->SetLabel(0x10, "label4", BlockGraph::DATA_LABEL);
 
-  uint8* b1_data = b1->AllocateData(b1->size());
+  uint8_t* b1_data = b1->AllocateData(b1->size());
   for (size_t i = 0; i < b1->size(); ++i) {
     b1_data[i] = 0;
   }

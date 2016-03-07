@@ -65,12 +65,12 @@ struct InvocationValue {
   // This invocation entry's caller's dynamic symbol, if any.
   scoped_refptr<SymbolMap::Symbol> caller_symbol;
   // The last observed move count for caller_symbol.
-  int32 caller_move_count;
+  int32_t caller_move_count;
 
   // This invocation entry's callee's dynamic symbol, if any.
   scoped_refptr<SymbolMap::Symbol> function_symbol;
   // The last observed move count for function_symbol.
-  int32 function_move_count;
+  int32_t function_move_count;
 
   // Points to the trace buffer entry for the respective function.
   InvocationInfo* info;
@@ -310,12 +310,12 @@ class Profiler::ThreadState
   // Processes a single function entry.
   void OnFunctionEntry(EntryFrame* entry_frame,
                        FuncAddr function,
-                       uint64 cycles);
+                       uint64_t cycles);
 
   // Processes a single V8 function entry.
   void OnV8FunctionEntry(FuncAddr function,
                          RetAddr* return_address_location,
-                         uint64 cycles);
+                         uint64_t cycles);
 
   // @name Callback notification implementation.
   // @{
@@ -324,18 +324,16 @@ class Profiler::ThreadState
   // @}
 
   // Function exit hook.
-  void OnFunctionExit(const ThunkData* data, uint64 cycles_exit);
+  void OnFunctionExit(const ThunkData* data, uint64_t cycles_exit);
 
   trace::client::TraceFileSegment* segment() { return &segment_; }
 
  private:
   friend class Profiler;
 
-  void RecordInvocation(RetAddr caller,
-                        FuncAddr function,
-                        uint64 cycles);
+  void RecordInvocation(RetAddr caller, FuncAddr function, uint64_t cycles);
 
-  void UpdateOverhead(uint64 entry_cycles);
+  void UpdateOverhead(uint64_t entry_cycles);
   InvocationInfo* AllocateInvocationInfo();
   void ClearCache();
   bool FlushSegment();
@@ -347,7 +345,7 @@ class Profiler::ThreadState
   // inside the profiler. We then subtract the profiler's overhead from the
   // wall clock cycle timer on each measurement. This results in a timer that
   // measures time exclusive of profiling overhead.
-  uint64 cycles_overhead_;
+  uint64_t cycles_overhead_;
 
   // The invocations we've recorded in our buffer.
   InvocationMap invocations_;
@@ -459,7 +457,7 @@ void Profiler::ThreadState::LogSymbol(SymbolMap::Symbol* symbol) {
 
 void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
                                             FuncAddr function,
-                                            uint64 cycles) {
+                                            uint64_t cycles) {
   if (profiler_->session_.IsDisabled())
     return;
 
@@ -479,7 +477,7 @@ void Profiler::ThreadState::OnFunctionEntry(EntryFrame* entry_frame,
 
 void Profiler::ThreadState::OnV8FunctionEntry(FuncAddr function,
                                               RetAddr* return_address_location,
-                                              uint64 cycles) {
+                                              uint64_t cycles) {
   if (profiler_->session_.IsDisabled())
     return;
 
@@ -503,9 +501,10 @@ void Profiler::ThreadState::OnV8FunctionEntry(FuncAddr function,
 }
 
 void Profiler::ThreadState::OnFunctionExit(const ThunkData* data,
-                                           uint64 cycles_exit) {
+                                           uint64_t cycles_exit) {
   // Calculate the number of cycles in the invocation, exclusive our overhead.
-  uint64 cycles_executed = cycles_exit - cycles_overhead_ - data->cycles_entry;
+  uint64_t cycles_executed =
+      cycles_exit - cycles_overhead_ - data->cycles_entry;
 
   // See if the return address resolves to a thunk, which indicates
   // tail recursion or tail call elimination. In that case we record the
@@ -535,7 +534,7 @@ void Profiler::ThreadState::OnPageRemoved(const void* page) {
 
 void Profiler::ThreadState::RecordInvocation(RetAddr caller,
                                              FuncAddr function,
-                                             uint64 duration_cycles) {
+                                             uint64_t duration_cycles) {
   // See whether we've already recorded an entry for this function.
   InvocationKey key(caller, function);
   InvocationMap::iterator it = invocations_.find(key);
@@ -631,8 +630,9 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
 
       info->caller_symbol_id = caller_symbol->id();
       info->flags |= kCallerIsSymbol;
-      info->caller_offset = reinterpret_cast<const uint8*>(caller) -
-          reinterpret_cast<const uint8*>(caller_symbol->address());
+      info->caller_offset =
+          reinterpret_cast<const uint8_t*>(caller) -
+          reinterpret_cast<const uint8_t*>(caller_symbol->address());
     }
 
     info->num_calls = 1;
@@ -640,7 +640,7 @@ void Profiler::ThreadState::RecordInvocation(RetAddr caller,
   }
 }
 
-void Profiler::ThreadState::UpdateOverhead(uint64 entry_cycles) {
+void Profiler::ThreadState::UpdateOverhead(uint64_t entry_cycles) {
   // TODO(siggi): Measure the fixed overhead on setup,
   //     then add it on every update.
   cycles_overhead_ += (__rdtsc() - entry_cycles);
@@ -726,7 +726,7 @@ RetAddr* Profiler::ResolveReturnAddressLocation(RetAddr* pc_location) {
 
 void Profiler::OnModuleEntry(EntryFrame* entry_frame,
                              FuncAddr function,
-                             uint64 cycles) {
+                             uint64_t cycles) {
   // The function invoked has a DllMain-like signature.
   // Get the module and reason from its invocation record.
   HMODULE module = reinterpret_cast<HMODULE>(entry_frame->args[0]);
@@ -911,7 +911,7 @@ void Profiler::FreeThreadState() {
 
 void WINAPI Profiler::DllMainEntryHook(EntryFrame* entry_frame,
                                        FuncAddr function,
-                                       uint64 cycles) {
+                                       uint64_t cycles) {
   ScopedLastErrorKeeper keep_last_error;
 
   instance_.OnModuleEntry(entry_frame, function, cycles);
@@ -919,7 +919,7 @@ void WINAPI Profiler::DllMainEntryHook(EntryFrame* entry_frame,
 
 void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
                                         FuncAddr function,
-                                        uint64 cycles) {
+                                        uint64_t cycles) {
   ScopedLastErrorKeeper keep_last_error;
 
   ThreadState* data = instance_.GetOrAllocateThreadState();
@@ -930,7 +930,7 @@ void WINAPI Profiler::FunctionEntryHook(EntryFrame* entry_frame,
 
 void WINAPI Profiler::OnV8FunctionEntry(FuncAddr function,
                                         RetAddr* return_addr_location,
-                                        uint64 cycles) {
+                                        uint64_t cycles) {
   ScopedLastErrorKeeper keep_last_error;
 
   ThreadState* data = instance_.GetOrAllocateThreadState();

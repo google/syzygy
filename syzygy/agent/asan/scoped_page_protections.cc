@@ -33,9 +33,9 @@ bool ScopedPageProtections::EnsureContainingPagesWritable(void* addr,
                                                           size_t size) {
   // Ensure the entire space of pages covered by the provided range is
   // writable.
-  uint8* cursor = reinterpret_cast<uint8*>(addr);
-  uint8* page_begin = common::AlignDown(cursor, GetPageSize());
-  uint8* page_end = common::AlignUp(cursor + size, GetPageSize());
+  uint8_t* cursor = reinterpret_cast<uint8_t*>(addr);
+  uint8_t* page_begin = common::AlignDown(cursor, GetPageSize());
+  uint8_t* page_end = common::AlignUp(cursor + size, GetPageSize());
   while (page_begin < page_end) {
     if (!EnsurePageWritable(page_begin))
       return false;

@@ -75,7 +75,7 @@ const char kUsageFormatStr[] =
     "    * The --exclude-bb-padding option is only effective if\n"
     "      --basic-blocks is specified.\n";
 
-bool ParseUInt32(const std::wstring& value_str, uint32* out_value) {
+bool ParseUInt32(const std::wstring& value_str, uint32_t* out_value) {
   DCHECK(out_value != NULL);
   unsigned temp;
   if (!base::StringToUint(value_str, &temp))

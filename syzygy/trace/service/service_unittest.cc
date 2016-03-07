@@ -175,11 +175,10 @@ class CallTraceServiceTest : public testing::Test {
 
     HANDLE mem_handle =
         reinterpret_cast<HANDLE>(segment->buffer_info.shared_memory_handle);
-    uint8*& base_ptr = base_ptr_map_[mem_handle];
+    uint8_t*& base_ptr = base_ptr_map_[mem_handle];
     if (base_ptr == NULL) {
-      base_ptr = reinterpret_cast<uint8*>(
-          ::MapViewOfFile(mem_handle, FILE_MAP_WRITE, 0, 0,
-                          segment->buffer_info.mapping_size));
+      base_ptr = reinterpret_cast<uint8_t*>(::MapViewOfFile(
+          mem_handle, FILE_MAP_WRITE, 0, 0, segment->buffer_info.mapping_size));
     }
     ASSERT_TRUE(base_ptr != NULL);
 
@@ -361,14 +360,14 @@ class CallTraceServiceTest : public testing::Test {
 
   // A map to track the base pointers for the buffers returned from the call
   // trace service.
-  typedef std::map<HANDLE, uint8*> BasePtrMap;
+  typedef std::map<HANDLE, uint8_t*> BasePtrMap;
   BasePtrMap base_ptr_map_;
 };
 
 template<typename T1, typename T2>
 inline ptrdiff_t RawPtrDiff(const T1* p1, const T2* p2) {
-  const uint8* const u1 = reinterpret_cast<const uint8*>(p1);
-  const uint8* const u2 = reinterpret_cast<const uint8*>(p2);
+  const uint8_t* const u1 = reinterpret_cast<const uint8_t*>(p1);
+  const uint8_t* const u2 = reinterpret_cast<const uint8_t*>(p2);
   return u1 - u2;
 }
 

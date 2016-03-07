@@ -42,8 +42,8 @@ bool ReadSymbolRecord(PdbStream* stream,
   // Process each symbol present in the stream. For now we only save their
   // starting positions, their lengths and their types to be able to dump them.
   while (stream->pos() < stream_end) {
-    uint16 len = 0;
-    uint16 symbol_type = 0;
+    uint16_t len = 0;
+    uint16_t symbol_type = 0;
     if (!stream->Read(&len, 1)) {
       LOG(ERROR) << "Unable to read a symbol record length.";
       return false;
@@ -81,7 +81,7 @@ bool VisitSymbols(VisitSymbolsCallback callback,
   }
 
   if (has_header) {
-    uint32 stream_type = 0;
+    uint32_t stream_type = 0;
     if (!symbols->Read(&stream_type, 1)) {
       LOG(ERROR) << "Unable to read symbol stream type.";
       return false;
@@ -96,7 +96,7 @@ bool VisitSymbols(VisitSymbolsCallback callback,
   // Read the symbols from the linker symbol stream. We try to read at least
   // one symbol without checking the stream position.
   while (symbols->pos() < symbol_table_end) {
-    uint16 symbol_length = 0;
+    uint16_t symbol_length = 0;
     if (!symbols->Read(&symbol_length, 1)) {
       LOG(ERROR) << "Unable to read symbol length from symbol stream.";
       return false;
@@ -119,7 +119,7 @@ bool VisitSymbols(VisitSymbolsCallback callback,
     // to be used for seeking later.
     size_t symbol_end = symbols->pos() + symbol_length;
 
-    uint16 symbol_type = 0;
+    uint16_t symbol_type = 0;
     if (!symbols->Read(&symbol_type, 1)) {
       LOG(ERROR) << "Failed to read symbol type from symbol stream.";
       return false;

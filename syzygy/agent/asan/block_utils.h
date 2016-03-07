@@ -37,8 +37,10 @@ struct GetTotalBlockSizeFunctor {
 struct GetBlockHashFunctor {
   size_t operator()(const CompactBlockInfo& info) {
     DCHECK_NE(static_cast<BlockHeader*>(nullptr), info.header);
-    const BlockTrailer* trailer = reinterpret_cast<const BlockTrailer*>(
-        reinterpret_cast<const uint8*>(info.header) + info.block_size) - 1;
+    const BlockTrailer* trailer =
+        reinterpret_cast<const BlockTrailer*>(
+            reinterpret_cast<const uint8_t*>(info.header) + info.block_size) -
+        1;
     return trailer->alloc_ticks + reinterpret_cast<size_t>(info.header);
   }
 };

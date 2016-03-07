@@ -27,13 +27,13 @@ const char kDataBuffer[] = {
 size_t kDataBufferSize = sizeof(kDataBuffer);
 
 struct Align8 {
-  uint8_t ui8;
+  uint8_t* ui8;
   uint64_t ui64;
 };
 
 #pragma pack(push, 1)
 struct Align1 {
-  uint8_t ui8;
+  uint8_t* ui8;
   uint64_t ui64;
 };
 #pragma pack(pop)

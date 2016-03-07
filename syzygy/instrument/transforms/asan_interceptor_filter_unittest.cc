@@ -43,7 +43,7 @@ TEST(InterceptorFilterTest, IsFiltered) {
   BlockGraph::Block* block = block_graph.AddBlock(BlockGraph::CODE_BLOCK,
                                                   kBlockSize,
                                                   "test block");
-  EXPECT_NE(reinterpret_cast<uint8*>(NULL), block->ResizeData(kBlockSize));
+  EXPECT_NE(reinterpret_cast<uint8_t*>(NULL), block->ResizeData(kBlockSize));
   ::memset(block->GetMutableData(), 0xAB, kBlockSize);
 
   TestAsanInterceptorFilter filter;

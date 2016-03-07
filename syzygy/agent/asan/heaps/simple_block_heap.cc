@@ -31,7 +31,7 @@ HeapType SimpleBlockHeap::GetHeapType() const {
   return heap_->GetHeapType();
 }
 
-uint32 SimpleBlockHeap::GetHeapFeatures() const {
+uint32_t SimpleBlockHeap::GetHeapFeatures() const {
   return heap_->GetHeapFeatures();
 }
 

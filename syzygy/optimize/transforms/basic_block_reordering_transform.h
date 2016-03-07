@@ -63,8 +63,8 @@ class BasicBlockReorderingTransform : public SubGraphTransformInterface {
       const SubGraphProfile* subgraph_profile,
       BasicBlockOrdering* order);
 
-  static uint64 EvaluateCost(const BasicBlockOrdering& order,
-                             const SubGraphProfile& profile);
+  static uint64_t EvaluateCost(const BasicBlockOrdering& order,
+                               const SubGraphProfile& profile);
 
   static void CommitOrdering(
       const BasicBlockOrdering& order,

@@ -128,9 +128,10 @@ void ReturnThunkFactoryBase::AddPage() {
   using assm::kSize32Bit;
 
   // Initialize the thunks.
-  uint32 start_addr = reinterpret_cast<uint32>(&new_page->thunks[0]);
-  assm::BufferSerializer serializer(reinterpret_cast<uint8*>(new_page->thunks),
-                                    kNumThunksPerPage * sizeof(Thunk));
+  uint32_t start_addr = reinterpret_cast<uint32_t>(&new_page->thunks[0]);
+  assm::BufferSerializer serializer(
+      reinterpret_cast<uint8_t*>(new_page->thunks),
+      kNumThunksPerPage * sizeof(Thunk));
   Assembler assm(start_addr, &serializer);
   for (size_t i = 0; i < kNumThunksPerPage; ++i) {
     DCHECK_EQ(0U, (assm.location() - start_addr) % sizeof(Thunk));
@@ -146,8 +147,8 @@ void ReturnThunkFactoryBase::AddPage() {
                   "Wonky return thunk size.");
 
     // Initialize the thunk itself.
-    assm.push(Immediate(reinterpret_cast<uint32>(&data[i]), kSize32Bit));
-    assm.jmp(Immediate(reinterpret_cast<uint32>(main_func_), kSize32Bit));
+    assm.push(Immediate(reinterpret_cast<uint32_t>(&data[i]), kSize32Bit));
+    assm.jmp(Immediate(reinterpret_cast<uint32_t>(main_func_), kSize32Bit));
   }
 
   first_free_thunk_ = &new_page->thunks[0];

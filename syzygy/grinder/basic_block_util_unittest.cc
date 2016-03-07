@@ -280,11 +280,11 @@ TEST(GrinderBasicBlockUtilTest, IsValidFrequencySize) {
 
 TEST(GrinderBasicBlockUtilTest, GetFrequency) {
   // Counter data we'll test against.
-  static const uint8 kData[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-                                 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB };
+  static const uint8_t kData[] = {
+      0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB};
 
   // A buffer over which we'll overlay a TraceIndexedFrequencyData struct.
-  uint8 buffer[sizeof(TraceIndexedFrequencyData) + sizeof(kData) - 1] = {};
+  uint8_t buffer[sizeof(TraceIndexedFrequencyData) + sizeof(kData) - 1] = {};
   ::memset(buffer, 0, sizeof(buffer));
 
   // A TraceDataBlockFrequencyData structure with the frequency_data populated
@@ -318,11 +318,11 @@ TEST(GrinderBasicBlockUtilTest, GetFrequency) {
 
 TEST(GrinderBasicBlockUtilTest, GetFrequencyWithColumns) {
   // Counter data we'll test against.
-  static const uint8 kData[] = { 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
-                                 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB };
+  static const uint8_t kData[] = {
+      0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA, 0xBB};
 
   // A buffer over which we'll overlay a TraceIndexedFrequencyData struct.
-  uint8 buffer[sizeof(TraceIndexedFrequencyData) + sizeof(kData) - 1] = {};
+  uint8_t buffer[sizeof(TraceIndexedFrequencyData) + sizeof(kData) - 1] = {};
   ::memset(buffer, 0, sizeof(buffer));
 
   // A TraceDataBlockFrequencyData structure with the frequency_data populated

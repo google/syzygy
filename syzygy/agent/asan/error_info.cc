@@ -33,10 +33,11 @@ namespace {
 // @param dst Will receive the stack frames.
 // @param dst_size Will receive the number of frames that has been copied.
 void CopyStackCaptureToArray(const common::StackCapture* stack_capture,
-                             void* dst, uint8* dst_size) {
+                             void* dst,
+                             uint8_t* dst_size) {
   DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_capture);
   DCHECK_NE(static_cast<void*>(nullptr), dst);
-  DCHECK_NE(static_cast<uint8*>(nullptr), dst_size);
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), dst_size);
   ::memcpy(dst,
            stack_capture->frames(),
            stack_capture->num_frames() * sizeof(void*));
@@ -61,20 +62,20 @@ void GetAddressInformation(const Shadow* shadow,
   char* offset_relativity = "";
   switch (bad_access_info->error_type) {
     case HEAP_BUFFER_OVERFLOW: {
-      offset = static_cast<const uint8*>(bad_access_info->location) -
-          block_info.RawBody() - block_info.body_size;
+      offset = static_cast<const uint8_t*>(bad_access_info->location) -
+               block_info.RawBody() - block_info.body_size;
       offset_relativity = "beyond";
       break;
     }
     case HEAP_BUFFER_UNDERFLOW: {
       offset = block_info.RawBody() -
-          static_cast<const uint8*>(bad_access_info->location);
+               static_cast<const uint8_t*>(bad_access_info->location);
       offset_relativity = "before";
       break;
     }
     case USE_AFTER_FREE: {
-      offset = static_cast<const uint8*>(bad_access_info->location) -
-          block_info.RawBody();
+      offset = static_cast<const uint8_t*>(bad_access_info->location) -
+               block_info.RawBody();
       offset_relativity = "inside";
       break;
     }
@@ -314,8 +315,8 @@ void BlockStateToString(BlockState block_state, std::string* str) {
   }
 }
 
-uint64 CastAddress(const void* address) {
-  return static_cast<uint64>(reinterpret_cast<uint32>(address));
+uint64_t CastAddress(const void* address) {
+  return static_cast<uint64_t>(reinterpret_cast<uint32_t>(address));
 }
 
 void PopulateStackTrace(const void* const* frames,

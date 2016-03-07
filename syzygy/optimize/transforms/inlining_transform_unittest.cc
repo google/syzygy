@@ -65,75 +65,88 @@ enum CalleeKind {
   kRecursiveTrampoline,
 };
 
-const uint8 kData[] = { 0x01, 0x02, 0x03, 0x04 };
+const uint8_t kData[] = {0x01, 0x02, 0x03, 0x04};
 
 // _asm ret
-const uint8 kCodeRet[] = { 0xC3 };
+const uint8_t kCodeRet[] = {0xC3};
 
 // _asm push ebp
 // _asm mov ebp, esp
 // _asm pop ebp
 // _asm ret
-const uint8 kCodeEmpty[] = { 0x55, 0x8B, 0xEC, 0x5D, 0xC3 };
+const uint8_t kCodeEmpty[] = {0x55, 0x8B, 0xEC, 0x5D, 0xC3};
 
 // _asm push ebp
 // _asm mov ebp, esp
 // _asm pop ebp
 // _asm xor eax, eax
 // _asm ret
-const uint8 kCodeOptimizeRet0[] = { 0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3 };
+const uint8_t kCodeOptimizeRet0[] = {0x55, 0x8B, 0xEC, 0x5D, 0x33, 0xC0, 0xC3};
 
 // _asm ret8
-const uint8 kCodeRetWithOffset[] = { 0xC2, 0x08, 0x00 };
+const uint8_t kCodeRetWithOffset[] = {0xC2, 0x08, 0x00};
 
 // _asm lea esp, [esp + 8]
-const uint8 kCodeLeaEsp8[] = { 0x8D, 0x64, 0x24, 0x08, 0xC3 };
+const uint8_t kCodeLeaEsp8[] = {0x8D, 0x64, 0x24, 0x08, 0xC3};
 
 // _asm xor eax, eax
 // _asm ret
-const uint8 kCodeRet0[] = { 0x33, 0xC0, 0xC3 };
+const uint8_t kCodeRet0[] = {0x33, 0xC0, 0xC3};
 
 // _asm xor eax, eax
-const uint8 kCodeMov0[] = { 0x33, 0xC0 };
+const uint8_t kCodeMov0[] = {0x33, 0xC0};
 
 // _asm mov eax, 2Ah
 // _asm ret
-const uint8 kCodeRet42[] = { 0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3 };
+const uint8_t kCodeRet42[] = {0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3};
 
 // _asm xor eax, eax
 // _asm mov eax, 2Ah
 // _asm ret
-const uint8 kCodeRetBoth[] = { 0x33, 0xC0, 0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3 };
+const uint8_t kCodeRetBoth[] = {0x33, 0xC0, 0xB8, 0x2A, 0x00, 0x00, 0x00, 0xC3};
 
 // _asm mov eax, esp
 // _asm ret
-const uint8 kCodeMovStack[] = { 0x8B, 0xC4, 0xC3 };
+const uint8_t kCodeMovStack[] = {0x8B, 0xC4, 0xC3};
 
 // _asm ret (16x)
-const uint8 kCodeBig[] = {
-    0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3,
-    0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3, 0xC3 };
+const uint8_t kCodeBig[] = {0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3,
+                            0xC3};
 
 // _asm je  here
 // _asm xor eax, eax
 // here:
 // _asm ret
-const uint8 kCodeJump[] = { 0x74, 0x02, 0x33, 0xC0, 0xC3 };
+const uint8_t kCodeJump[] = {0x74, 0x02, 0x33, 0xC0, 0xC3};
 
 // here:
 // _asm or  eax,eax
 // _asm jne here
 // _asm ret
-const uint8 kCodeSelfJump[] = { 0x0B, 0xC0, 0x75, 0xFC, 0xC3 };
+const uint8_t kCodeSelfJump[] = {0x0B, 0xC0, 0x75, 0xFC, 0xC3};
 
 // _asm call  dword ptr [eax]
 // _asm ret
-const uint8 kCodeIndirectCall[] = { 0xFF, 0x55, 0xF8, 0xC3 };
+const uint8_t kCodeIndirectCall[] = {0xFF, 0x55, 0xF8, 0xC3};
 
 // _asm push 2
 // _asm pop eax
 // _asm ret
-const uint8 kStackCst[] = { 0x6A, 0x02, 0x58, 0xC3 };
+const uint8_t kStackCst[] = {0x6A, 0x02, 0x58, 0xC3};
 
 class TestInliningTransform : public InliningTransform {
  public:
@@ -163,7 +176,7 @@ class InliningTransformTest : public testing::Test {
   }
 
  protected:
-  void AddBlockFromBuffer(const uint8* data,
+  void AddBlockFromBuffer(const uint8_t* data,
                           size_t length,
                           BlockGraph::Block** block);
   void CreateCalleeBlock(CalleeKind kind,
@@ -178,14 +191,14 @@ class InliningTransformTest : public testing::Test {
   BlockGraph::Block* data_;
   BlockGraph::Block* caller_;
   BlockGraph::Block* callee_;
-  std::vector<uint8> original_;
+  std::vector<uint8_t> original_;
   BasicBlockSubGraph callee_subgraph_;
   ImageLayout image_;
   ApplicationProfile profile_;
   SubGraphProfile subgraph_profile_;
 };
 
-void InliningTransformTest::AddBlockFromBuffer(const uint8* data,
+void InliningTransformTest::AddBlockFromBuffer(const uint8_t* data,
                                                size_t length,
                                                BlockGraph::Block** block) {
   DCHECK_NE(reinterpret_cast<BlockGraph::Block**>(NULL), block);
@@ -568,7 +581,7 @@ TEST_F(InliningTransformTest, InlineTrampolineWithInstruction) {
   EXPECT_EQ(dummy, reference.referenced());
 
   // The first instruction must be a push %eax.
-  uint8 kPushEaxOpcode = 0x50;
+  uint8_t kPushEaxOpcode = 0x50;
   EXPECT_EQ(kPushEaxOpcode, caller_->data()[0]);
 }
 

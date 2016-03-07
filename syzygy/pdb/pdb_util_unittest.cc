@@ -157,10 +157,9 @@ class TestPdbStream : public PdbStream {
   TestPdbStream() : PdbStream(0), bytes_(NULL) {
   }
 
-  template<typename T> TestPdbStream(const T& t)
-      : PdbStream(sizeof(T)),
-        bytes_(reinterpret_cast<const uint8*>(&t)) {
-  }
+  template <typename T>
+  explicit TestPdbStream(const T& t)
+      : PdbStream(sizeof(T)), bytes_(reinterpret_cast<const uint8_t*>(&t)) {}
 
   virtual bool ReadBytes(void* dest,
                          size_t count,
@@ -175,7 +174,7 @@ class TestPdbStream : public PdbStream {
   }
 
  private:
-  const uint8* const bytes_;
+  const uint8_t* const bytes_;
 };
 
 // Comparison operator for PdbInfoHeader70 objects.
@@ -220,7 +219,7 @@ TEST(PdbBitSetTest, SimpleMutators) {
 }
 
 TEST(PdbBitSetTest, ReadEmptyBitSet) {
-  const uint32 kSize = 0;
+  const uint32_t kSize = 0;
   scoped_refptr<PdbStream> stream(new TestPdbStream(kSize));
   PdbBitSet bs;
   EXPECT_TRUE(bs.Read(stream.get()));
@@ -229,7 +228,7 @@ TEST(PdbBitSetTest, ReadEmptyBitSet) {
 }
 
 TEST(PdbBitSetTest, ReadSingleDwordBitSet) {
-  const uint32 kData[] = { 1, (1<<0) | (1<<5) | (1<<13) };
+  const uint32_t kData[] = {1, (1 << 0) | (1 << 5) | (1 << 13)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
   PdbBitSet bs;
   EXPECT_TRUE(bs.Read(stream.get()));
@@ -240,7 +239,7 @@ TEST(PdbBitSetTest, ReadSingleDwordBitSet) {
 }
 
 TEST(PdbBitSetTest, ReadMultiDwordBitSet) {
-  const uint32 kData[] = { 2, (1<<0) | (1<<5) | (1<<13), (1<<5) };
+  const uint32_t kData[] = {2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
   PdbBitSet bs;
   EXPECT_TRUE(bs.Read(stream.get()));
@@ -251,7 +250,7 @@ TEST(PdbBitSetTest, ReadMultiDwordBitSet) {
 }
 
 TEST(PdbBitSetTest, WriteEmptyBitSet) {
-  const uint32 kData[] = { 0 };
+  const uint32_t kData[] = {0};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
   PdbBitSet bs;
   EXPECT_TRUE(bs.Read(stream.get()));
@@ -267,7 +266,7 @@ TEST(PdbBitSetTest, WriteEmptyBitSet) {
 }
 
 TEST(PdbBitSetTest, WriteEmptyBitSetWithoutSize) {
-  const uint32 kData[] = { 0 };
+  const uint32_t kData[] = {0};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
   PdbBitSet bs;
   EXPECT_TRUE(bs.Read(stream.get()));
@@ -280,7 +279,7 @@ TEST(PdbBitSetTest, WriteEmptyBitSetWithoutSize) {
 }
 
 TEST(PdbBitSetTest, WriteBitSet) {
-  const uint32 kData[] = { 2, (1<<0) | (1<<5) | (1<<13), (1<<5) };
+  const uint32_t kData[] = {2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
   PdbBitSet bs;
   EXPECT_TRUE(bs.Read(stream.get()));
@@ -296,8 +295,8 @@ TEST(PdbBitSetTest, WriteBitSet) {
 }
 
 TEST(PdbBitSetTest, WriteBitSetWithoutSize) {
-  const uint32 kInputData[] = { 2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5) };
-  const uint32 kExpectedData[] = { (1 << 0) | (1 << 5) | (1 << 13), (1 << 5) };
+  const uint32_t kInputData[] = {2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
+  const uint32_t kExpectedData[] = {(1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kInputData));
   PdbBitSet bs;
   EXPECT_TRUE(bs.Read(stream.get()));
@@ -331,7 +330,7 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
   DbiHeader dbi_header;
   EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
 
-  uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
+  uint32_t offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
   EXPECT_TRUE(dbi_stream->Seek(offset));
@@ -354,7 +353,7 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetOmappedTestDll) {
   DbiHeader dbi_header;
   EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
 
-  uint32 offset = GetDbiDbgHeaderOffset(dbi_header);
+  uint32_t offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
   EXPECT_TRUE(dbi_stream->Seek(offset));
@@ -510,7 +509,7 @@ TEST(SetGuidTest, FailsWhenStreamsDoNotExist) {
 TEST(SetGuidTest, FailsWhenStreamsAreTooShort) {
   PdbFile pdb_file;
 
-  const uint8 kByte = 6;
+  const uint8_t kByte = 6;
   pdb_file.SetStream(kPdbHeaderInfoStream, new TestPdbStream(kByte));
   pdb_file.SetStream(kDbiStream, new TestPdbStream(kSampleDbiHeader));
   EXPECT_FALSE(SetGuid(kSampleGuid, &pdb_file));
@@ -531,9 +530,9 @@ TEST(SetGuidTest, Succeeds) {
   ASSERT_TRUE(stream.get() != NULL);
   ASSERT_EQ(stream->length(), sizeof(PdbInfoHeader70));
 
-  uint32 time1 = static_cast<uint32>(time(NULL));
+  uint32_t time1 = static_cast<uint32>(time(NULL));
   EXPECT_TRUE(SetGuid(kSampleGuid, &pdb_file));
-  uint32 time2 = static_cast<uint32>(time(NULL));
+  uint32_t time2 = static_cast<uint32>(time(NULL));
 
   // Read the new header.
   PdbInfoHeader70 pdb_header = {};
@@ -615,11 +614,11 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
   PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
   ASSERT_TRUE(writer->Write(static_cast<uint32>(9)));  // total string length.
-  uint32 offset1 = writer->pos();
+  uint32_t offset1 = writer->pos();
   ASSERT_TRUE(writer->Write(3, "/a"));  // name 1.
-  uint32 offset2 = writer->pos();
+  uint32_t offset2 = writer->pos();
   ASSERT_TRUE(writer->Write(3, "/b"));  // name 2.
-  uint32 offset3 = writer->pos();
+  uint32_t offset3 = writer->pos();
   ASSERT_TRUE(writer->Write(3, "/c"));  // name 3.
   ASSERT_TRUE(writer->Write(static_cast<uint32>(3)));  // number of names.
   ASSERT_TRUE(writer->Write(static_cast<uint32>(3)));  // size of bitsets.

@@ -63,17 +63,16 @@ namespace profiler {
 // There's a single instance of this class.
 class Profiler {
  public:
-  static void WINAPI DllMainEntryHook(EntryFrame* entry_frame,
-                                      FuncAddr function,
-                                      uint64 cycles);
+  static void WINAPI
+  DllMainEntryHook(EntryFrame* entry_frame, FuncAddr function, uint64_t cycles);
 
   static void WINAPI FunctionEntryHook(EntryFrame* entry_frame,
                                        FuncAddr function,
-                                       uint64 cycles);
+                                       uint64_t cycles);
 
   static void WINAPI OnV8FunctionEntry(FuncAddr function,
                                        RetAddr* return_addr_location,
-                                       uint64 cycles);
+                                       uint64_t cycles);
 
   // Adds a symbol to the dynamic symbol store.
   // @param address the start address of the new symbol.
@@ -112,7 +111,7 @@ class Profiler {
   // Called form DllMainEntryHook.
   void OnModuleEntry(EntryFrame* entry_frame,
                      FuncAddr function,
-                     uint64 cycles);
+                     uint64_t cycles);
 
   // Callbacks from ThreadState.
   void OnPageAdded(const void* page);

@@ -38,7 +38,7 @@ class TestFactory : public ReturnThunkFactoryImpl<TestFactory> {
   MOCK_METHOD1(OnPageAdded, void(const void*));
   MOCK_METHOD1(OnPageRemoved, void(const void*));
   MOCK_METHOD2(OnFunctionExit,
-               void(const ReturnThunkFactoryBase::ThunkData*, uint64));
+               void(const ReturnThunkFactoryBase::ThunkData*, uint64_t));
 
   using ReturnThunkFactoryImpl<TestFactory>::PageFromThunk;
   using ReturnThunkFactoryImpl<TestFactory>::Initialize;

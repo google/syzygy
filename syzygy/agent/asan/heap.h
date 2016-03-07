@@ -91,7 +91,7 @@ class HeapInterface {
   virtual HeapType GetHeapType() const = 0;
 
   // @returns the heap features.
-  virtual uint32 GetHeapFeatures() const = 0;
+  virtual uint32_t GetHeapFeatures() const = 0;
 
   // Allocates memory from the heap. It is valid to request an allocation
   // of size zero, in which case any return address is valid. If @p bytes

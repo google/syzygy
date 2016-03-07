@@ -21,7 +21,7 @@
 
 namespace core {
 
-typedef AddressRange<const uint8*, size_t> PointerRange;
+typedef AddressRange<const uint8_t*, size_t> PointerRange;
 typedef AddressRange<size_t, size_t> IntegerRange;
 
 namespace {

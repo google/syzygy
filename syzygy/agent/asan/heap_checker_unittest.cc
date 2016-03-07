@@ -70,7 +70,7 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
   // Corrupt the data in such a way that we can guarantee no hash collision.
   const size_t kMaxIterations = 10;
   size_t iteration = 0;
-  uint8 original_value = fake_block.block_info.RawBody(0);
+  uint8_t original_value = fake_block.block_info.RawBody(0);
   do {
     fake_block.block_info.RawBody(0)++;
     BlockSetChecksum(fake_block.block_info);
@@ -86,10 +86,9 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
   EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
-      runtime_->shadow(),
-      false,
-      reinterpret_cast<const uint8*>(range_info.address),
-      reinterpret_cast<const uint8*>(range_info.address) + range_info.length);
+      runtime_->shadow(), false,
+      reinterpret_cast<const uint8_t*>(range_info.address),
+      reinterpret_cast<const uint8_t*>(range_info.address) + range_info.length);
   BlockInfo block_info = {};
   EXPECT_TRUE(shadow_walker.Next(&block_info));
   EXPECT_EQ(fake_block.block_info.header, block_info.header);
@@ -121,10 +120,9 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
 
   EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
-      runtime_->shadow(),
-      false,
-      reinterpret_cast<const uint8*>(range_info.address),
-      reinterpret_cast<const uint8*>(range_info.address) + range_info.length);
+      runtime_->shadow(), false,
+      reinterpret_cast<const uint8_t*>(range_info.address),
+      reinterpret_cast<const uint8_t*>(range_info.address) + range_info.length);
   BlockInfo block_info = {};
   EXPECT_TRUE(shadow_walker.Next(&block_info));
   EXPECT_EQ(fake_block.block_info.header, block_info.header);
@@ -143,9 +141,10 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
 
   const size_t kNumberOfBlocks = 4;
   size_t total_alloc_size = block_layout.block_size * kNumberOfBlocks;
-  uint8* global_alloc = reinterpret_cast<uint8*>(::malloc(total_alloc_size));
+  uint8_t* global_alloc =
+      reinterpret_cast<uint8_t*>(::malloc(total_alloc_size));
 
-  uint8* blocks[kNumberOfBlocks];
+  uint8_t* blocks[kNumberOfBlocks];
   BlockHeader* block_headers[kNumberOfBlocks];
 
   for (size_t i = 0; i < kNumberOfBlocks; ++i) {
@@ -176,10 +175,9 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
 
   BlockInfo block_info = {};
   ShadowWalker shadow_walker_1(
-      runtime_->shadow(),
-      false,
-      reinterpret_cast<const uint8*>(corrupt_ranges[0].address),
-      reinterpret_cast<const uint8*>(corrupt_ranges[0].address) +
+      runtime_->shadow(), false,
+      reinterpret_cast<const uint8_t*>(corrupt_ranges[0].address),
+      reinterpret_cast<const uint8_t*>(corrupt_ranges[0].address) +
           corrupt_ranges[0].length);
   EXPECT_TRUE(shadow_walker_1.Next(&block_info));
   EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),
@@ -190,10 +188,9 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   EXPECT_FALSE(shadow_walker_1.Next(&block_info));
 
   ShadowWalker shadow_walker_2(
-      runtime_->shadow(),
-      false,
-      reinterpret_cast<const uint8*>(corrupt_ranges[1].address),
-      reinterpret_cast<const uint8*>(corrupt_ranges[1].address) +
+      runtime_->shadow(), false,
+      reinterpret_cast<const uint8_t*>(corrupt_ranges[1].address),
+      reinterpret_cast<const uint8_t*>(corrupt_ranges[1].address) +
           corrupt_ranges[1].length);
   EXPECT_TRUE(shadow_walker_2.Next(&block_info));
   EXPECT_EQ(reinterpret_cast<const BlockHeader*>(block_info.header),

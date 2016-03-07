@@ -87,7 +87,7 @@ typedef TypedBlock<StringStruct> String;
 static const size_t kDateInThePast = 1;
 
 // Returns true iff opcode should be instrumented.
-bool ShouldInstrumentOpcode(uint16 opcode) {
+bool ShouldInstrumentOpcode(uint16_t opcode) {
   switch (opcode) {
     // LEA does not actually access memory.
     case I_LEA:
@@ -1665,8 +1665,9 @@ bool AsanTransform::PeInjectAsanParameters(
   block_graph::TypedBlock<common::AsanParameters> params;
   CHECK(params.Init(0, params_block));
   if (fparams->ignored_stack_ids != NULL) {
-    size_t offset = reinterpret_cast<const uint8*>(fparams->ignored_stack_ids) -
-        reinterpret_cast<const uint8*>(&fparams.params());
+    size_t offset =
+        reinterpret_cast<const uint8_t*>(fparams->ignored_stack_ids) -
+        reinterpret_cast<const uint8_t*>(&fparams.params());
     CHECK(params.SetReference(BlockGraph::ABSOLUTE_REF,
                               params->ignored_stack_ids,
                               params_block,

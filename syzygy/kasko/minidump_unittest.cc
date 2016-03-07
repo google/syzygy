@@ -171,7 +171,7 @@ TEST_F(MinidumpTest, CustomStream) {
   void* stream = nullptr;
   ULONG stream_length = 0;
   ASSERT_TRUE(::MiniDumpReadDumpStream(
-      const_cast<uint8*>(memory_mapped_file.data()), kCustomStreamType, &dir,
+      const_cast<uint8_t*>(memory_mapped_file.data()), kCustomStreamType, &dir,
       &stream, &stream_length));
 
   // Assert that the custom stream is what we expected.
@@ -201,9 +201,9 @@ TEST_F(MinidumpTest, MinidumpType) {
   // Other approaches (testing the memory ranges included in the dump) were
   // rejected due to the difficulty of deterministically knowing what should and
   // shouldn't be included in the various dump types.
-  int64 small_dump_size = 0;
-  int64 larger_dump_size = 0;
-  int64 full_dump_size = 0;
+  int64_t small_dump_size = 0;
+  int64_t larger_dump_size = 0;
+  int64_t full_dump_size = 0;
 
   ASSERT_TRUE(base::GetFileSize(small_dump_file_path, &small_dump_size));
   ASSERT_TRUE(base::GetFileSize(larger_dump_file_path, &larger_dump_size));

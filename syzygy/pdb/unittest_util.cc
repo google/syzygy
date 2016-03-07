@@ -55,7 +55,7 @@ const wchar_t kInvalidDataPdbTypeInfoStreamPath[] =
     L"syzygy\\pdb\\test_data\\invalid_type_info_data_corrupted.pdb_stream";
 
 scoped_refptr<pdb::PdbFileStream> GetStreamFromFile(base::FilePath file_path) {
-  int64 file_size = 0;
+  int64_t file_size = 0;
   base::GetFileSize(file_path, &file_size);
   size_t pages[] = {0};
 

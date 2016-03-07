@@ -48,12 +48,9 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
   DCHECK_NE(reinterpret_cast<MemoryNotifierInterface*>(NULL), memory_notifier);
 
   // Allocate the chunk of memory directly from the OS.
-  heap_address_ = reinterpret_cast<uint8*>(
-      ::VirtualAlloc(NULL,
-                     heap_size_,
-                     MEM_RESERVE | MEM_COMMIT,
-                     PAGE_READWRITE));
-  CHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
+  heap_address_ = reinterpret_cast<uint8_t*>(::VirtualAlloc(
+      NULL, heap_size_, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
+  CHECK_NE(reinterpret_cast<uint8_t*>(NULL), heap_address_);
   DCHECK(::common::IsAligned(heap_address_, GetPageSize()));
   memory_notifier_->NotifyFutureHeapUse(heap_address_, heap_size_);
 
@@ -67,7 +64,7 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
 }
 
 ZebraBlockHeap::~ZebraBlockHeap() {
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), heap_address_);
+  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), heap_address_);
   CHECK_NE(FALSE, ::VirtualFree(heap_address_, 0, MEM_RELEASE));
   memory_notifier_->NotifyReturnedToOS(heap_address_, heap_size_);
   heap_address_ = NULL;
@@ -77,7 +74,7 @@ HeapType ZebraBlockHeap::GetHeapType() const {
   return kZebraBlockHeap;
 }
 
-uint32 ZebraBlockHeap::GetHeapFeatures() const {
+uint32_t ZebraBlockHeap::GetHeapFeatures() const {
   return kHeapSupportsIsAllocated | kHeapReportsReservations |
       kHeapSupportsGetAllocationSize;
 }
@@ -282,11 +279,11 @@ ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
   size_t slab_index = free_slabs_.front();
   DCHECK_NE(kInvalidSlabIndex, slab_index);
   free_slabs_.pop();
-  uint8* slab_address = GetSlabAddress(slab_index);
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), slab_address);
+  uint8_t* slab_address = GetSlabAddress(slab_index);
+  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), slab_address);
 
   // Push the allocation to the end of the even page.
-  uint8* alloc = slab_address + GetPageSize() - bytes;
+  uint8_t* alloc = slab_address + GetPageSize() - bytes;
   alloc = ::common::AlignDown(alloc, kShadowRatio);
 
   // Update the slab info.
@@ -307,7 +304,7 @@ bool ZebraBlockHeap::QuarantineInvariantIsSatisfied() {
              quarantine_ratio_);
 }
 
-uint8* ZebraBlockHeap::GetSlabAddress(size_t index) {
+uint8_t* ZebraBlockHeap::GetSlabAddress(size_t index) {
   if (index >= slab_count_)
     return NULL;
   return heap_address_ + index * kSlabSize;
@@ -316,7 +313,8 @@ uint8* ZebraBlockHeap::GetSlabAddress(size_t index) {
 size_t ZebraBlockHeap::GetSlabIndex(const void* address) {
   if (address < heap_address_ || address >= heap_address_ + heap_size_)
     return kInvalidSlabIndex;
-  return (reinterpret_cast<const uint8*>(address) - heap_address_) / kSlabSize;
+  return (reinterpret_cast<const uint8_t*>(address) - heap_address_) /
+         kSlabSize;
 }
 
 }  // namespace heaps

@@ -133,8 +133,8 @@ class PECoffFile {
   //     returned pointer.
   // @returns a pointer into the internal buffer for the data, nullptr on
   //     failure.
-  const uint8* GetImageDataByFileOffset(FileOffsetAddress addr,
-                                        SizeType len) const;
+  const uint8_t* GetImageDataByFileOffset(FileOffsetAddress addr,
+                                          SizeType len) const;
 
   // Retrieve a pointer to the internal buffer containing mapped
   // data. The specified range to read must be contained within the
@@ -146,11 +146,11 @@ class PECoffFile {
   // @param len the number of bytes that will be accessed through the
   // returned pointer.
   // @returns a pointer into the internal buffer for the data.
-  const uint8* GetImageData(AddressType addr, SizeType len) const;
+  const uint8_t* GetImageData(AddressType addr, SizeType len) const;
 
   // @copydoc GetImageData(AddressType,SizeType)
   // The resulting buffer is mutable.
-  uint8* GetImageData(AddressType addr, SizeType len);
+  uint8_t* GetImageData(AddressType addr, SizeType len);
 
   // Retrieve a pointer to the internal buffer containing mapped
   // data assumed to be of type @p ItemType.

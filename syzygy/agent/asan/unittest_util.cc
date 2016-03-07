@@ -71,11 +71,11 @@ DWORD AccessViolationFilter(EXCEPTION_POINTERS* e, EXCEPTION_POINTERS** pe) {
 // Tries to access the given address, validating whether or not an
 // access violation occurs.
 bool TestReadAccess(void* address, bool expect_access_violation) {
-  uint8* m = reinterpret_cast<uint8*>(address);
+  uint8_t* m = reinterpret_cast<uint8_t*>(address);
   ULONG_PTR p = reinterpret_cast<ULONG_PTR>(address);
 
   // Try a read.
-  uint8 value = 0;
+  uint8_t value = 0;
   EXCEPTION_POINTERS* e = NULL;
   __try {
     value = m[0];
@@ -103,7 +103,7 @@ bool TestReadAccess(void* address, bool expect_access_violation) {
 // Tries to write at the given address, validating whether or not an
 // access violation occurs.
 bool TestWriteAccess(void* address, bool expect_access_violation) {
-  uint8* m = reinterpret_cast<uint8*>(address);
+  uint8_t* m = reinterpret_cast<uint8_t*>(address);
   ULONG_PTR p = reinterpret_cast<ULONG_PTR>(address);
 
   // Try a write.
@@ -299,8 +299,8 @@ FakeAsanBlock::FakeAsanBlock(Shadow* shadow,
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   // Align the beginning of the buffer to the current granularity. Ensure that
   // there's room to store magic bytes in front of this block.
-  buffer_align_begin = reinterpret_cast<uint8*>(common::AlignUp(
-      reinterpret_cast<size_t>(buffer)+1, alloc_alignment));
+  buffer_align_begin = reinterpret_cast<uint8_t*>(
+      common::AlignUp(reinterpret_cast<size_t>(buffer) + 1, alloc_alignment));
   ::memset(&block_info, 0, sizeof(block_info));
 }
 
@@ -393,20 +393,19 @@ bool FakeAsanBlock::TestBlockMetadata() {
   EXPECT_NE(static_cast<BlockHeader*>(NULL), block_header);
   BlockInfo block_info = {};
   EXPECT_TRUE(BlockInfoFromMemory(block_header, &block_info));
-  const uint8* cursor = buffer_align_begin;
+  const uint8_t* cursor = buffer_align_begin;
   EXPECT_EQ(::GetCurrentThreadId(), block_info.trailer->alloc_tid);
   EXPECT_TRUE(block_header->alloc_stack != NULL);
   EXPECT_EQ(agent::asan::ALLOCATED_BLOCK, block_header->state);
   EXPECT_TRUE(shadow_->IsBlockStartByte(cursor++));
   for (; cursor < block_info.RawBody(); ++cursor)
     EXPECT_TRUE(shadow_->IsLeftRedzone(cursor));
-  const uint8* aligned_trailer_begin = reinterpret_cast<const uint8*>(
-      common::AlignUp(reinterpret_cast<size_t>(block_info.body) +
-          block_info.body_size,
-      agent::asan::kShadowRatio));
-  for (const uint8* pos = aligned_trailer_begin;
-       pos < buffer_align_begin + block_info.block_size;
-       ++pos) {
+  const uint8_t* aligned_trailer_begin =
+      reinterpret_cast<const uint8_t*>(common::AlignUp(
+          reinterpret_cast<size_t>(block_info.body) + block_info.body_size,
+          agent::asan::kShadowRatio));
+  for (const uint8_t* pos = aligned_trailer_begin;
+       pos < buffer_align_begin + block_info.block_size; ++pos) {
     EXPECT_TRUE(shadow_->IsRightRedzone(pos));
   }
 
@@ -749,8 +748,12 @@ void MemoryAccessorTester::AssertMemoryErrorIsDetected(
 }
 
 void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
-    FARPROC access_fn, StringOperationDirection direction,
-    bool expect_error, void* dst, void* src, int32 length,
+    FARPROC access_fn,
+    StringOperationDirection direction,
+    bool expect_error,
+    void* dst,
+    void* src,
+    int32_t length,
     BadAccessKind bad_access_type) {
   DCHECK(dst != NULL);
   DCHECK(src != NULL);

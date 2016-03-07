@@ -17,7 +17,6 @@
 #ifndef SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_SERIALIZER_H_
 #define SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_SERIALIZER_H_
 
-#include "base/basictypes.h"
 #include "base/callback.h"
 #include "syzygy/block_graph/block_graph.h"
 #include "syzygy/core/address.h"
@@ -27,7 +26,7 @@ namespace block_graph {
 // A class for serializing a block-graph.
 class BlockGraphSerializer {
  public:
-  typedef uint32 Attributes;
+  typedef uint32_t Attributes;
   typedef core::InArchive InArchive;
   typedef core::OutArchive OutArchive;
   typedef core::RelativeAddress RelativeAddress;
@@ -208,12 +207,12 @@ class BlockGraphSerializer {
   // pieces, and saving each of these using the following functions.
   bool SaveBlockGraphProperties(const BlockGraph& block_graph,
                                 OutArchive* out_archive) const;
-  bool LoadBlockGraphProperties(uint32 version,
+  bool LoadBlockGraphProperties(uint32_t version,
                                 BlockGraph* block_graph,
                                 InArchive* in_archive) const;
 
   bool SaveBlocks(const BlockGraph& block_graph, OutArchive* out_archive) const;
-  bool LoadBlocks(uint32 version,
+  bool LoadBlocks(uint32_t version,
                   BlockGraph* block_graph,
                   InArchive* in_archive) const;
 
@@ -224,7 +223,7 @@ class BlockGraphSerializer {
 
   bool SaveBlockProperties(const BlockGraph::Block& block,
                            OutArchive* out_archive) const;
-  bool LoadBlockProperties(uint32 version,
+  bool LoadBlockProperties(uint32_t version,
                            BlockGraph::Block* block,
                            InArchive* in_archive) const;
 
@@ -252,10 +251,10 @@ class BlockGraphSerializer {
   // @{
   // Utility functions for loading and saving integer values with a simple
   // variable-length encoding.
-  bool SaveUint32(uint32 value, OutArchive* out_archive) const;
-  bool LoadUint32(uint32* value, InArchive* in_archive) const;
-  bool SaveInt32(int32 value, OutArchive* out_archive) const;
-  bool LoadInt32(int32* value, InArchive* in_archive) const;
+  bool SaveUint32(uint32_t value, OutArchive* out_archive) const;
+  bool LoadUint32(uint32_t* value, InArchive* in_archive) const;
+  bool SaveInt32(int32_t value, OutArchive* out_archive) const;
+  bool LoadInt32(int32_t* value, InArchive* in_archive) const;
   // @}
 
   // The mode in which the serializer is operating for block data.
@@ -271,7 +270,7 @@ class BlockGraphSerializer {
   // A helper function that implements loading of block properties. The
   // separation to two functions avoids duplication of logging on each
   // return false branch.
-  bool LoadBlockPropertiesImpl(uint32 version,
+  bool LoadBlockPropertiesImpl(uint32_t version,
                                BlockGraph::Block* block,
                                InArchive* in_archive) const;
 };

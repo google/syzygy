@@ -97,7 +97,7 @@ TEST_F(TraceFileWriterTest, WriteHeader) {
   ASSERT_TRUE(w.Close());
   EXPECT_TRUE(base::PathExists(trace_path));
 
-  int64 trace_file_size = 0;
+  int64_t trace_file_size = 0;
   ASSERT_TRUE(base::GetFileSize(trace_path, &trace_file_size));
   EXPECT_LT(0, trace_file_size);
   EXPECT_EQ(0, trace_file_size % w.block_size());
@@ -111,7 +111,7 @@ TEST_F(TraceFileWriterTest, WriteRecordFailsTooShort) {
   ASSERT_TRUE(pi.Initialize(::GetCurrentProcessId()));
   ASSERT_TRUE(w.WriteHeader(pi));
 
-  uint8 data[2] = {};
+  uint8_t data[2] = {};
   EXPECT_FALSE(w.WriteRecord(data, sizeof(data)));
 }
 
@@ -135,7 +135,7 @@ TEST_F(TraceFileWriterTest, WriteRecordFailsOverwritten) {
   ASSERT_TRUE(pi.Initialize(::GetCurrentProcessId()));
   ASSERT_TRUE(w.WriteHeader(pi));
 
-  std::vector<uint8> data;
+  std::vector<uint8_t> data;
   data.resize(sizeof(RecordPrefix) + sizeof(TraceFileSegmentHeader) + 1);
   RecordPrefix* record = reinterpret_cast<RecordPrefix*>(data.data());
   TraceFileSegmentHeader* header = reinterpret_cast<TraceFileSegmentHeader*>(
@@ -157,7 +157,7 @@ TEST_F(TraceFileWriterTest, WriteRecordSucceeds) {
   ASSERT_TRUE(pi.Initialize(::GetCurrentProcessId()));
   ASSERT_TRUE(w.WriteHeader(pi));
 
-  std::vector<uint8> data;
+  std::vector<uint8_t> data;
   data.resize(sizeof(RecordPrefix) + sizeof(TraceFileSegmentHeader) + 1);
   RecordPrefix* record = reinterpret_cast<RecordPrefix*>(data.data());
   TraceFileSegmentHeader* header = reinterpret_cast<TraceFileSegmentHeader*>(
@@ -174,7 +174,7 @@ TEST_F(TraceFileWriterTest, WriteRecordSucceeds) {
   ASSERT_TRUE(w.Close());
   EXPECT_TRUE(base::PathExists(trace_path));
 
-  int64 trace_file_size = 0;
+  int64_t trace_file_size = 0;
   ASSERT_TRUE(base::GetFileSize(trace_path, &trace_file_size));
   EXPECT_LT(0, trace_file_size);
   EXPECT_EQ(0, trace_file_size % w.block_size());

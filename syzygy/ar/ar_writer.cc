@@ -82,7 +82,7 @@ bool ShouldAddSymbolToTable(const IMAGE_SYMBOL& symbol, bool* is_weak) {
 //
 // - The first non-weak definition of a symbol wins.
 // - The first weak definition of a symbol with no non-weak definitions wins.
-bool UpdateSymbolTable(uint32 file_index,
+bool UpdateSymbolTable(uint32_t file_index,
                        const base::StringPiece& name,
                        bool is_weak,
                        SymbolIndexMap* symbols,
@@ -147,7 +147,7 @@ bool UpdateSymbolTable(uint32 file_index,
 // to |symbols|. Returns true on success, false otherwise. This contains some
 // code that is similar to what is found in CoffImage or CoffDecomposer, but
 // using those classes is a little overkill for our purposes.
-bool ExtractSymbolsCoff(uint32 file_index,
+bool ExtractSymbolsCoff(uint32_t file_index,
                         const ParsedArFileHeader& header,
                         const DataBuffer& file_contents,
                         SymbolIndexMap* symbols,
@@ -235,7 +235,7 @@ bool ExtractSymbolsCoff(uint32 file_index,
 
 // Extracts the symbol name from the given COFF import definition, adding it to
 // |symbols|. Returns true on success, false otherwise.
-bool ExtractSymbolsImportDef(uint32 file_index,
+bool ExtractSymbolsImportDef(uint32_t file_index,
                              const ParsedArFileHeader& header,
                              const DataBuffer& file_contents,
                              SymbolIndexMap* symbols,
@@ -273,7 +273,7 @@ bool ExtractSymbolsImportDef(uint32 file_index,
 
 // Extracts symbols from the given file. If the file is not of a recognized
 // type, then this does nothing.
-bool ExtractSymbols(uint32 file_index,
+bool ExtractSymbols(uint32_t file_index,
                     const ParsedArFileHeader& header,
                     const DataBuffer& file_contents,
                     SymbolIndexMap* symbols,
@@ -421,7 +421,7 @@ bool WritePrimarySymbolTable(const base::Time& timestamp,
   CHECK(writer.Write<uint32>(base::ByteSwap(symbols.size())));
   for (size_t i = 0; i < syms.size(); ++i) {
     DCHECK_LE(syms[i].first, offsets.size());
-    uint32 offset = offsets[syms[i].first];
+    uint32_t offset = offsets[syms[i].first];
     CHECK(writer.Write<uint32>(base::ByteSwap(offset)));
   }
   for (size_t i = 0; i < syms.size(); ++i) {
@@ -506,11 +506,11 @@ bool WriteNameTable(const base::Time& timestamp,
 
 // Aligns the file cursor to the alignment required by the archive file
 // and returns the aligned cursor position.
-uint32 AlignAndGetPosition(FILE* file) {
+uint32_t AlignAndGetPosition(FILE* file) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), file);
 
-  uint32 pos = ::ftell(file);
-  uint32 aligned_pos = common::AlignUp(pos, kArFileAlignment);
+  uint32_t pos = ::ftell(file);
+  uint32_t aligned_pos = common::AlignUp(pos, kArFileAlignment);
   if (aligned_pos != pos) {
     for (size_t i = 0; i < aligned_pos - pos; ++i)
       ::fputc(0, file);
@@ -526,7 +526,7 @@ ArWriter::ArWriter() {
 
 bool ArWriter::AddFile(const base::StringPiece& filename,
                        const base::Time& timestamp,
-                       uint32 mode,
+                       uint32_t mode,
                        const DataBuffer* contents) {
   DCHECK_NE(reinterpret_cast<DataBuffer*>(NULL), contents);
 
@@ -591,7 +591,7 @@ bool ArWriter::AddFile(const base::FilePath& path) {
   }
 
   base::Time timestamp = base::Time::FromTimeT(stat.st_mtime);
-  uint32 mode = stat.st_mode;
+  uint32_t mode = stat.st_mode;
   if (!AddFile(name, timestamp, mode, buffer.get()))
     return false;
 
@@ -651,10 +651,10 @@ bool ArWriter::Write(const base::FilePath& path) {
   // files.
   FileOffsets offsets(files_.size());
   base::Time timestamp = base::Time::Now();
-  uint32 symbols1_pos = AlignAndGetPosition(file.get());
+  uint32_t symbols1_pos = AlignAndGetPosition(file.get());
   if (!WritePrimarySymbolTable(timestamp, symbols_, offsets, file.get()))
     return false;
-  uint32 symbols2_pos = AlignAndGetPosition(file.get());
+  uint32_t symbols2_pos = AlignAndGetPosition(file.get());
   if (!WriteSecondarySymbolTable(timestamp, symbols_, offsets, file.get()))
     return false;
 

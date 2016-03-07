@@ -174,9 +174,9 @@ class DbiStream {
   //     offset table in the stream.
   // @returns true on success, false otherwise.
   bool ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
-                             uint16 file_blocks_table_size,
+                             uint16_t file_blocks_table_size,
                              size_t file_blocks_table_start,
-                             uint16 offset_table_size,
+                             uint16_t offset_table_size,
                              size_t offset_table_start);
 
   // Serialization of the name table in the file info substream.

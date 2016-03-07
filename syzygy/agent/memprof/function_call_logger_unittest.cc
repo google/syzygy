@@ -47,7 +47,7 @@ class TestRpcSession : public trace::client::RpcSession {
     DCHECK_NE(static_cast<TraceFileSegment*>(nullptr), segment);
     if (closed_)
       return false;
-    auto it = buffers_.insert(buffers_.begin(), std::vector<uint8>());
+    auto it = buffers_.insert(buffers_.begin(), std::vector<uint8_t>());
     it->resize(min_size);
     segment->base_ptr = it->data();
     segment->buffer_info.buffer_offset = 0;
@@ -56,7 +56,7 @@ class TestRpcSession : public trace::client::RpcSession {
     segment->end_ptr = segment->base_ptr + min_size;
     segment->header = reinterpret_cast<TraceFileSegmentHeader*>(
         segment->base_ptr);
-    segment->write_ptr = reinterpret_cast<uint8*>(segment->header + 1);
+    segment->write_ptr = reinterpret_cast<uint8_t*>(segment->header + 1);
     segment->header->thread_id = ::GetCurrentThreadId();
     segment->header->segment_length = 0;
     return true;
@@ -95,7 +95,7 @@ class TestRpcSession : public trace::client::RpcSession {
  private:
   // All generated buffers are kept around so that the contents of flushed
   // buffers can be inspected.
-  std::list<std::vector<uint8>> buffers_;
+  std::list<std::vector<uint8_t>> buffers_;
   bool closed_;
 };
 
@@ -186,7 +186,7 @@ TEST(FunctionCallLoggerTest, TraceStackTrace) {
   EXPECT_EQ(0u, fcl.allocation_infos.size());
 
   fcl.set_stack_trace_tracking(kTrackingEmit);
-  uint32 stack_trace_id = fcl.GetStackTraceId(&fcl.test_segment_);
+  uint32_t stack_trace_id = fcl.GetStackTraceId(&fcl.test_segment_);
   EXPECT_NE(0u, stack_trace_id);
   EXPECT_THAT(fcl.emitted_stack_ids_, testing::ElementsAre(stack_trace_id));
   EXPECT_EQ(1u, fcl.allocation_infos.size());
@@ -252,16 +252,25 @@ TEST(FunctionCallLoggerTest, TraceDetailedFunctionCall) {
   EXPECT_EQ(data1->stack_trace_id, data2->stack_trace_id);
   EXPECT_NE(0ull, data2->timestamp);
   // Number of arguments, size of argument, content of argument.
-  EXPECT_EQ(2 * sizeof(uint32) + sizeof(void*), data2->argument_data_size);
+  EXPECT_EQ(2 * sizeof(uint32_t) + sizeof(void*), data2->argument_data_size);
 
   void* fcl_ptr = &fcl;
-  uint8 ptr[4] = {};
+  uint8_t ptr[4] = {};
   ::memcpy(ptr, &fcl_ptr, sizeof(ptr));
-  const uint8 kExpectedContents[] = {
-      0x01, 0x00, 0x00, 0x00,  // 1 argument...
-      0x04, 0x00, 0x00, 0x00,  // ...of size 4...
-      ptr[0], ptr[1], ptr[2], ptr[3],  // ...pointing to |fcl|.
-      };
+  const uint8_t kExpectedContents[] = {
+      0x01,
+      0x00,
+      0x00,
+      0x00,  // 1 argument...
+      0x04,
+      0x00,
+      0x00,
+      0x00,  // ...of size 4...
+      ptr[0],
+      ptr[1],
+      ptr[2],
+      ptr[3],  // ...pointing to |fcl|.
+  };
   ASSERT_EQ(arraysize(kExpectedContents), data2->argument_data_size);
   EXPECT_EQ(0u, ::memcmp(kExpectedContents, data2->argument_data,
                          data2->argument_data_size));
@@ -303,7 +312,7 @@ TEST(FunctionCallLoggerTest, TraceDetailedFunctionCallSerializeTimestamps) {
     EXPECT_NE(nullptr, info0.record);
     TraceDetailedFunctionCall* data1 =
         reinterpret_cast<TraceDetailedFunctionCall*>(info1.record);
-    EXPECT_EQ(static_cast<uint64>(i), data1->timestamp);
+    EXPECT_EQ(static_cast<uint64_t>(i), data1->timestamp);
   }
 }
 

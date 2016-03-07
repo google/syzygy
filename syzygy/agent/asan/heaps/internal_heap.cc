@@ -23,10 +23,10 @@ namespace heaps {
 namespace {
 
 struct InternalHeapEntry {
-  uint32 size;
+  uint32_t size;
   // Actually of a size such that the whole InternalHeapAlloc is of size
   // |size|.
-  uint8 body[1];
+  uint8_t body[1];
 };
 
 const size_t kBodyOffset = offsetof(InternalHeapEntry, body);
@@ -46,7 +46,7 @@ HeapType InternalHeap::GetHeapType() const {
   return heap_->GetHeapType();
 }
 
-uint32 InternalHeap::GetHeapFeatures() const {
+uint32_t InternalHeap::GetHeapFeatures() const {
   // Endow a wrapped heap with GetAllocationSize support.
   return heap_->GetHeapFeatures() | kHeapSupportsGetAllocationSize |
       kHeapGetAllocationSizeIsUpperBound;
@@ -67,7 +67,7 @@ void* InternalHeap::Allocate(size_t bytes) {
 
 bool InternalHeap::Free(void* alloc) {
   if (alloc != NULL) {
-    uint8* bytes = reinterpret_cast<uint8*>(alloc);
+    uint8_t* bytes = reinterpret_cast<uint8_t*>(alloc);
     InternalHeapEntry* entry = reinterpret_cast<InternalHeapEntry*>(
         bytes - kBodyOffset);
     if (notifying_heap_) {
@@ -89,7 +89,7 @@ bool InternalHeap::Free(void* alloc) {
 
 bool InternalHeap::IsAllocated(const void* alloc) {
   if (alloc != NULL) {
-    const uint32* header = reinterpret_cast<const uint32*>(alloc) - 1;
+    const uint32_t* header = reinterpret_cast<const uint32_t*>(alloc) - 1;
     alloc = header;
   }
   return heap_->IsAllocated(alloc);
@@ -99,7 +99,7 @@ size_t InternalHeap::GetAllocationSize(const void* alloc) {
   if (alloc == NULL)
     return kUnknownSize;
 
-  const uint8* bytes = reinterpret_cast<const uint8*>(alloc);
+  const uint8_t* bytes = reinterpret_cast<const uint8_t*>(alloc);
   const InternalHeapEntry* entry =
       reinterpret_cast<const InternalHeapEntry*>(bytes - kBodyOffset);
   return entry->size;

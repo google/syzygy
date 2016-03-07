@@ -137,10 +137,10 @@ bool FindZeroOrOneSection(const StringPiece& section_name,
 //    @p DataDirEntryType. If this is not possible, returns false.
 // 5. Ensures that the block referred to by the data directory lies within the
 //    section found in step 1.
-template<typename DataDirEntryType>
+template <typename DataDirEntryType>
 bool LayoutSectionAndDataDirEntry(
     const StringPiece& section_name,
-    uint32 section_characteristics,
+    uint32_t section_characteristics,
     size_t data_dir_index,
     const TypedBlock<IMAGE_NT_HEADERS>& nt_headers,
     OrderedBlockGraph* ordered_block_graph) {

@@ -40,7 +40,7 @@ class ImageSymbol : public TypedSymbolImpl {
   // @param name the name of the symbol.
   ImageSymbol(Microsoft_Cci_Pdb::SYM type,
               const core::SectionOffsetAddress& address,
-              uint32 content_type,
+              uint32_t content_type,
               const std::string& name);
 
   // @name Accessors.
@@ -60,7 +60,7 @@ class ImageSymbol : public TypedSymbolImpl {
 
   // Type of the code or data pointed by the symbol. This is either a value from
   // TYPE_ENUM or a type index defined in the PDB type stream.
-  uint32 content_type_;
+  uint32_t content_type_;
 
   // Name of the symbol.
   std::string name_;

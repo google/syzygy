@@ -33,21 +33,21 @@ typedef BlockGraph::Label Label;
 typedef BlockGraph::Reference Reference;
 typedef Block::Referrer Referrer;
 
-const uint8 kEmptyData[32] = { 0 };
+const uint8_t kEmptyData[32] = {0};
 
 // Instructions we'll need in order to build the test subgraph.
-const uint8 kCall[5] = { 0xE8, 0x00, 0x00, 0x00, 0x00  };
+const uint8_t kCall[5] = {0xE8, 0x00, 0x00, 0x00, 0x00};
 
 // The BlockInfo describes the minimal information needed to represent a single
 // basic block within a fake flow-graph. An array of BlockInfos represents the
 // full flow-graph. Fields |succ1| and |succ2| are indexes within the array.
 struct BlockInfo {
-  uint8 size;
-  uint8 succ1;
-  uint8 succ2;
+  uint8_t size;
+  uint8_t succ1;
+  uint8_t succ2;
 };
 
-const uint8 kNoSucc = UINT8_MAX;
+const uint8_t kNoSucc = UINT8_MAX;
 
 // The following flow-graph was produced by fuzzing. It produced a corner case
 // when computing basic block layout.
@@ -66,7 +66,7 @@ const BlockInfo kFixPointBasicBlockLayoutCode[] = {
 class BlockBuilderTest : public testing::BasicBlockTest {
  public:
   static Instruction* AddInstruction(BasicCodeBlock* bb,
-                                     const uint8* buf,
+                                     const uint8_t* buf,
                                      size_t len) {
     CHECK(bb != NULL);
     Instruction tmp;

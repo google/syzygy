@@ -263,7 +263,7 @@ BlockGraph::~BlockGraph() {
 }
 
 BlockGraph::Section* BlockGraph::AddSection(const base::StringPiece& name,
-                                            uint32 characteristics) {
+                                            uint32_t characteristics) {
   Section new_section(next_section_id_++, name, characteristics);
   std::pair<SectionMap::iterator, bool> result = sections_.insert(
       std::make_pair(new_section.id(), new_section));
@@ -294,7 +294,7 @@ const BlockGraph::Section* BlockGraph::FindSection(
 }
 
 BlockGraph::Section* BlockGraph::FindOrAddSection(const base::StringPiece& name,
-                                                  uint32 characteristics) {
+                                                  uint32_t characteristics) {
   Section* section = FindSection(name);
   if (section) {
     section->set_characteristic(characteristics);
@@ -355,7 +355,7 @@ BlockGraph::Block* BlockGraph::CopyBlock(Block* block,
   if (block->data() != nullptr) {
     // If |block| owns data then duplicate; otherwise just add reference.
     if (block->owns_data()) {
-      uint8* data = new_block->CopyData(block->data_size(), block->data());
+      uint8_t* data = new_block->CopyData(block->data_size(), block->data());
       CHECK(data != nullptr);
     } else {
       new_block->SetData(block->data(), block->data_size());
@@ -664,7 +664,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   // of the same type and from the same section as the first block. Merge the
   // data from all the blocks as we go along, as well as the attributes and
   // source ranges.
-  std::vector<uint8> merged_data(end - begin);
+  std::vector<uint8_t> merged_data(end - begin);
   bool have_data = false;
   for (size_t i = 0; i < intersecting.size(); ++i) {
     RelativeAddress addr = intersecting[i].first;
@@ -716,7 +716,7 @@ BlockGraph::Block* BlockGraph::AddressSpace::MergeIntersectingBlocks(
   new_block->set_alignment_offset(alignment_offset);
   new_block->set_attributes(attributes | uniform_attributes);
   if (have_data) {
-    uint8* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
+    uint8_t* data = new_block->CopyData(merged_data.size(), &merged_data.at(0));
     if (data == NULL) {
       LOG(ERROR) << "Unable to copy merged data";
       return NULL;
@@ -936,11 +936,11 @@ void BlockGraph::Block::set_compiland_name(const base::StringPiece& name) {
   compiland_name_ = &interned_name;
 }
 
-uint8* BlockGraph::Block::AllocateRawData(size_t data_size) {
+uint8_t* BlockGraph::Block::AllocateRawData(size_t data_size) {
   DCHECK_GT(data_size, 0u);
   DCHECK_LE(data_size, size_);
 
-  uint8* new_data = new uint8[data_size];
+  uint8_t* new_data = new uint8_t[data_size];
   if (!new_data)
     return NULL;
 
@@ -975,7 +975,7 @@ void BlockGraph::Block::InsertData(Offset offset,
       // Reallocate, shift the old data to the end, and zero out the new data.
       size_t bytes_to_shift = data_size_ - offset;
       ResizeData(data_size_ + size);
-      uint8* new_data = GetMutableData();
+      uint8_t* new_data = GetMutableData();
       memmove(new_data + offset + size, new_data + offset, bytes_to_shift);
       memset(new_data + offset, 0, size);
     }
@@ -1035,7 +1035,7 @@ bool BlockGraph::Block::RemoveData(Offset offset, Size size) {
     // Is there data beyond the section to delete?
     if (static_cast<Size>(offset + size) < data_size_) {
       // Shift tail data to left.
-      uint8* data = GetMutableData();
+      uint8_t* data = GetMutableData();
       size_t bytes_to_shift = data_size_ - offset - size;
       size_t old_data_size = data_size_;
       memmove(data + new_data_size - bytes_to_shift,
@@ -1081,7 +1081,7 @@ bool BlockGraph::Block::InsertOrRemoveData(Offset offset,
   return true;
 }
 
-void BlockGraph::Block::SetData(const uint8* data, size_t data_size) {
+void BlockGraph::Block::SetData(const uint8_t* data, size_t data_size) {
   DCHECK((data_size == 0 && data == NULL) ||
          (data_size != 0 && data != NULL));
   DCHECK(data_size <= size_);
@@ -1094,8 +1094,8 @@ void BlockGraph::Block::SetData(const uint8* data, size_t data_size) {
   data_size_ = data_size;
 }
 
-uint8* BlockGraph::Block::AllocateData(size_t size) {
-  uint8* new_data = AllocateRawData(size);
+uint8_t* BlockGraph::Block::AllocateData(size_t size) {
+  uint8_t* new_data = AllocateRawData(size);
   if (new_data == NULL)
     return NULL;
 
@@ -1103,8 +1103,8 @@ uint8* BlockGraph::Block::AllocateData(size_t size) {
   return new_data;
 }
 
-uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
-  uint8* new_data = AllocateRawData(size);
+uint8_t* BlockGraph::Block::CopyData(size_t size, const void* data) {
+  uint8_t* new_data = AllocateRawData(size);
   if (new_data == NULL)
     return NULL;
 
@@ -1112,7 +1112,7 @@ uint8* BlockGraph::Block::CopyData(size_t size, const void* data) {
   return new_data;
 }
 
-const uint8* BlockGraph::Block::ResizeData(size_t new_size) {
+const uint8_t* BlockGraph::Block::ResizeData(size_t new_size) {
   if (new_size == data_size_)
     return data_;
 
@@ -1121,11 +1121,11 @@ const uint8* BlockGraph::Block::ResizeData(size_t new_size) {
     data_size_ = new_size;
   } else {
     // Either our own data, or it's growing (or both).
-    uint8* new_data = NULL;
+    uint8_t* new_data = NULL;
 
     // If the new size is non-zero we need to reallocate.
     if (new_size > 0) {
-      new_data = new uint8[new_size];
+      new_data = new uint8_t[new_size];
       CHECK(new_data);
 
       // Copy the (head of the) old data.
@@ -1147,13 +1147,13 @@ const uint8* BlockGraph::Block::ResizeData(size_t new_size) {
   return data_;
 }
 
-uint8* BlockGraph::Block::GetMutableData() {
+uint8_t* BlockGraph::Block::GetMutableData() {
   DCHECK_NE(0U, data_size_);
   DCHECK(data_ != NULL);
 
   // Make a copy if we don't already own the data.
   if (!owns_data()) {
-    uint8* new_data = new uint8[data_size_];
+    uint8_t* new_data = new uint8_t[data_size_];
     if (new_data == NULL)
       return NULL;
     memcpy(new_data, data_, data_size_);
@@ -1162,7 +1162,7 @@ uint8* BlockGraph::Block::GetMutableData() {
   }
   DCHECK(owns_data_);
 
-  return const_cast<uint8*>(data_);
+  return const_cast<uint8_t*>(data_);
 }
 
 bool BlockGraph::Block::HasExternalReferrers() const {

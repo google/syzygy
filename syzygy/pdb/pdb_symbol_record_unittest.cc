@@ -118,7 +118,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnInvalidStreamType) {
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolLength) {
   SetUpByteStream();
   writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
-  writer->Write(static_cast<uint8>(1));  // Partial symbol stream length.
+  writer->Write(static_cast<uint8_t>(1));  // Partial symbol stream length.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(

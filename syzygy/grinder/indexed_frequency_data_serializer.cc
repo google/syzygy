@@ -120,7 +120,7 @@ bool OutputFrequencyData(
     for (size_t column = 0; column < num_columns; ++column) {
       IndexedFrequencyMap::const_iterator data =
           frequencies.find(std::make_pair(*key, column));
-      int32 value = 0;
+      int32_t value = 0;
       if (data != frequencies.end())
         value = data->second;
       if (!writer->OutputInteger(value))
@@ -189,10 +189,10 @@ bool ReadFrequencyData(const base::DictionaryValue* dict_value,
 
   // Populate frequency information.
   IndexedFrequencyInformation& frequency_info = result.first->second;
-  int32 info_num_entries = 0;
-  int32 info_num_columns = 0;
+  int32_t info_num_entries = 0;
+  int32_t info_num_columns = 0;
   std::string info_data_type_str;
-  int32 info_frequency_size = 0;
+  int32_t info_frequency_size = 0;
   if (!information_dict->GetInteger(kNumEntriesKey, &info_num_entries) ||
       !information_dict->GetInteger(kNumColumnsKey, &info_num_columns) ||
       !information_dict->GetString(kDataTypeKey, &info_data_type_str) ||
@@ -219,7 +219,7 @@ bool ReadFrequencyData(const base::DictionaryValue* dict_value,
       return false;
 
     // Get the basic block RVA.
-    int32 address = 0;
+    int32_t address = 0;
     if (!entry->GetInteger(0, &address))
       return false;
     if (address < 0) {

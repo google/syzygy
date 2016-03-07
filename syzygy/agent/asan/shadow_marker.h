@@ -18,7 +18,7 @@
 #ifndef SYZYGY_AGENT_ASAN_SHADOW_MARKER_H_
 #define SYZYGY_AGENT_ASAN_SHADOW_MARKER_H_
 
-#include "base/basictypes.h"
+#include <stdint.h>
 
 namespace agent {
 namespace asan {
@@ -145,7 +145,7 @@ namespace asan {
     F(kHeapFreedMarker, 0xFD)
 
 // Any non-accessible marker will have these bits set.
-static const uint8 kHeapNonAccessibleMarkerMask = 0x80;
+static const uint8_t kHeapNonAccessibleMarkerMask = 0x80;
 
 // Generate the enum using the generator. This keeps it such that we only need
 // to maintain a single list.
@@ -159,15 +159,14 @@ enum ShadowMarker {
 // mapped to a NULL string.
 extern const char* kShadowMarkerNames[256];
 
-// A convenience class that automatically accepts either a uint8 or a
+// A convenience class that automatically accepts either a uint8_t or a
 // ShadowMarker enum.
 struct ShadowMarkerValue {
   // These are deliberately left as implicit typecasts.
   ShadowMarkerValue(ShadowMarker marker) : value(marker) {  // NOLINT
   }
-  ShadowMarkerValue(uint8 marker)  // NOLINT
-      : value(static_cast<ShadowMarker>(marker)) {
-  }
+  ShadowMarkerValue(uint8_t marker)  // NOLINT
+      : value(static_cast<ShadowMarker>(marker)) {}
   ShadowMarkerValue(const ShadowMarkerValue& rhs)  // NOLINT
       : value(rhs.value) {
   }
@@ -218,7 +217,7 @@ struct ShadowMarkerHelper {
   // @param marker The shadow marker to query.
   // @returns the extra data encoded in a block start marker.
   // @note This should only be called for block start markers.
-  static uint8 GetBlockStartData(ShadowMarkerValue marker);
+  static uint8_t GetBlockStartData(ShadowMarkerValue marker);
 
   // @param marker The shadow marker to query.
   // @returns true if the marker describes an active block start marker.
@@ -290,7 +289,7 @@ struct ShadowMarkerHelper {
   // @param data The data to be appended to the marker. This can only consist
   //     of 3 bits of data.
   // @returns the generated block start marker.
-  static ShadowMarker BuildBlockStart(bool active, bool nested, uint8 data);
+   static ShadowMarker BuildBlockStart(bool active, bool nested, uint8_t data);
 
   // Builds a block end marker.
   // @param active True if the block is active, false if its historic.

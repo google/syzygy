@@ -36,14 +36,14 @@ class TestChainedBasicBlockTransforms : public ChainedBasicBlockTransforms {
   using ChainedBasicBlockTransforms::transforms_;
 };
 
-const uint8 kData1Data[] =
-    { 1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15, 16 };
+const uint8_t kData1Data[] =
+    {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
 
 // kNop9 + kRet
-const uint8 kCode1Data[] =
-    { 0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC3 };
+const uint8_t kCode1Data[] =
+    {0x66, 0x0F, 0x1F, 0x84, 0x00, 0x00, 0x00, 0x00, 0x00, 0xC3};
 // kRet
-const uint8 kCode2Data[] = { 0xC3 };
+const uint8_t kCode2Data[] = {0xC3};
 
 class ChainedBasicBlockTransformsTest : public testing::Test {
  public:

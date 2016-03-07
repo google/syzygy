@@ -30,7 +30,7 @@ bool GetBlockInfo(const Shadow* shadow,
   DCHECK_NE(static_cast<CompactBlockInfo*>(nullptr), block_info);
 
   // Try reading directly from memory first.
-  const uint8* addr_in_redzone = reinterpret_cast<const uint8*>(body) - 1;
+  const uint8_t* addr_in_redzone = reinterpret_cast<const uint8_t*>(body) - 1;
   if (!shadow->PageIsProtected(addr_in_redzone)) {
     // If this succeeds then we're done. It can fail if the page protections
     // are actually active, or if the header is corrupt. In this case we'll
@@ -65,7 +65,7 @@ void BlockProtectNone(const BlockInfo& block_info, Shadow* shadow) {
     return;
 
   ::common::AutoRecursiveLock lock(block_protect_lock);
-  DCHECK_NE(static_cast<uint8*>(nullptr), block_info.block_pages);
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), block_info.block_pages);
   DWORD old_protection = 0;
   DWORD ret = ::VirtualProtect(block_info.block_pages,
                                block_info.block_pages_size,
@@ -87,7 +87,7 @@ void BlockProtectRedzones(const BlockInfo& block_info, Shadow* shadow) {
   DWORD old_protection = 0;
   DWORD ret = 0;
   if (block_info.left_redzone_pages_size > 0) {
-    DCHECK_NE(static_cast<uint8*>(nullptr), block_info.left_redzone_pages);
+    DCHECK_NE(static_cast<uint8_t*>(nullptr), block_info.left_redzone_pages);
     ret = ::VirtualProtect(block_info.left_redzone_pages,
                            block_info.left_redzone_pages_size,
                            PAGE_NOACCESS, &old_protection);
@@ -98,8 +98,7 @@ void BlockProtectRedzones(const BlockInfo& block_info, Shadow* shadow) {
 
   // Protect the right redzone pages if any.
   if (block_info.right_redzone_pages_size > 0) {
-    DCHECK_NE(static_cast<uint8*>(nullptr),
-              block_info.right_redzone_pages);
+    DCHECK_NE(static_cast<uint8_t*>(nullptr), block_info.right_redzone_pages);
     ret = ::VirtualProtect(block_info.right_redzone_pages,
                            block_info.right_redzone_pages_size,
                            PAGE_NOACCESS, &old_protection);
@@ -115,7 +114,7 @@ void BlockProtectAll(const BlockInfo& block_info, Shadow* shadow) {
     return;
 
   ::common::AutoRecursiveLock lock(block_protect_lock);
-  DCHECK_NE(static_cast<uint8*>(nullptr), block_info.block_pages);
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), block_info.block_pages);
   DWORD old_protection = 0;
   DWORD ret = ::VirtualProtect(block_info.block_pages,
                                block_info.block_pages_size,

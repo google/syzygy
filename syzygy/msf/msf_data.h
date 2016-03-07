@@ -17,7 +17,6 @@
 
 #include <windows.h>
 
-#include "base/basictypes.h"
 #include "syzygy/common/assertions.h"
 #include "syzygy/msf/msf_constants.h"
 
@@ -26,13 +25,13 @@ namespace msf {
 // Multi-Stream Format (MSF) Header
 // See http://code.google.com/p/pdbparser/wiki/MSF_Format
 struct MsfHeader {
-  uint8 magic_string[kMsfHeaderMagicStringSize];
-  uint32 page_size;
-  uint32 free_page_map;
-  uint32 num_pages;
-  uint32 directory_size;
-  uint32 reserved;
-  uint32 root_pages[kMsfMaxDirPages];
+  uint8_t magic_string[kMsfHeaderMagicStringSize];
+  uint32_t page_size;
+  uint32_t free_page_map;
+  uint32_t num_pages;
+  uint32_t directory_size;
+  uint32_t reserved;
+  uint32_t root_pages[kMsfMaxDirPages];
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(MsfHeader, 344);
 

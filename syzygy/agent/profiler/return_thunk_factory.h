@@ -15,7 +15,6 @@
 #ifndef SYZYGY_AGENT_PROFILER_RETURN_THUNK_FACTORY_H_
 #define SYZYGY_AGENT_PROFILER_RETURN_THUNK_FACTORY_H_
 
-#include "base/basictypes.h"
 #include "syzygy/common/assertions.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
 
@@ -60,7 +59,7 @@ class ReturnThunkFactoryBase {
     //   push <address of thunk>
     //   call thunk_main_asm
     // each of which consumes 5 bytes on x86.
-    uint8 instr[10];
+    uint8_t instr[10];
   };
   COMPILE_ASSERT_IS_POD(Thunk);
 
@@ -77,7 +76,7 @@ class ReturnThunkFactoryBase {
     FuncAddr function;
 
     // The time of entry.
-    uint64 cycles_entry;
+    uint64_t cycles_entry;
   };
   COMPILE_ASSERT_IS_POD(ThunkData);
 
@@ -146,7 +145,7 @@ class ReturnThunkFactoryBase {
 
 // The ImplClass must derive from the return factory base, and implement
 // a member function with the following signature:
-// void OnFunctionExit(const ThunkData* data, uint64 cycles);
+// void OnFunctionExit(const ThunkData* data, uint64_t cycles);
 template <typename ImplClass> class ReturnThunkFactoryImpl
     : public ReturnThunkFactoryBase {
  public:
@@ -160,7 +159,7 @@ template <typename ImplClass> class ReturnThunkFactoryImpl
   // ImpClass::OnFunctionExit.
   static void thunk_main_asm();
 
-  static RetAddr WINAPI ThunkMain(ThunkData* thunk, uint64 cycles);
+  static RetAddr WINAPI ThunkMain(ThunkData* thunk, uint64_t cycles);
 };
 
 template <class ImplClass> void __declspec(naked)
@@ -227,8 +226,8 @@ ReturnThunkFactoryImpl<ImplClass>::thunk_main_asm() {
 }
 
 template <class ImplClass>
-RetAddr WINAPI ReturnThunkFactoryImpl<ImplClass>::
-ThunkMain(ThunkData* data, uint64 cycles) {
+RetAddr WINAPI
+ReturnThunkFactoryImpl<ImplClass>::ThunkMain(ThunkData* data, uint64_t cycles) {
   ImplClass* factory = static_cast<ImplClass*>(data->self);
   factory->first_free_thunk_ = data->thunk;
 

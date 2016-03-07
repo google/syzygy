@@ -52,24 +52,24 @@ class AssemblerBase {
   // one of these for serialization.
   class InstructionSerializer {
    public:
-    virtual void AppendInstruction(uint32 location,
-                                   const uint8* bytes,
+    virtual void AppendInstruction(uint32_t location,
+                                   const uint8_t* bytes,
                                    size_t num_bytes,
                                    const ReferenceInfo* refs,
                                    size_t num_refs) = 0;
-    virtual bool FinalizeLabel(uint32 location,
-                               const uint8* bytes,
+    virtual bool FinalizeLabel(uint32_t location,
+                               const uint8_t* bytes,
                                size_t num_bytes) = 0;
   };
 
   // Constructs an assembler that assembles to @p delegate
   // starting at @p location.
-  AssemblerBase(uint32 location, InstructionSerializer* serializer);
+  AssemblerBase(uint32_t location, InstructionSerializer* serializer);
 
   // @name Accessors.
   // @{
-  uint32 location() const { return location_; }
-  void set_location(uint32 location) { location_ = location; }
+  uint32_t location() const { return location_; }
+  void set_location(uint32_t location) { location_ = location; }
   // @}
 
   // Emits one or more NOP instructions, their total length being @p size
@@ -110,7 +110,7 @@ class AssemblerBase {
 
  public:
   void ret();
-  void ret(uint16 n);
+  void ret(uint16_t n);
   // @}
 
   // @name Set flags.
@@ -256,7 +256,7 @@ class AssemblerBase {
 
   // Insert a single data byte, not an instruction.
   // @param b The value of the byte to insert.
-  void data(uint8 b);
+  void data(uint8_t b);
 
  private:
   friend class Label;
@@ -280,10 +280,12 @@ class AssemblerBase {
   void Output(const InstructionBuffer& instr);
 
   // Finalizes the use of an unbound label.
-  bool FinalizeLabel(uint32 location, uint32 destination, RegisterSize size);
+  bool FinalizeLabel(uint32_t location,
+                     uint32_t destination,
+                     RegisterSize size);
 
   // Stores the current location of assembly.
-  uint32 location_;
+  uint32_t location_;
 
   // The delegate we push instructions at.
   InstructionSerializer* serializer_;

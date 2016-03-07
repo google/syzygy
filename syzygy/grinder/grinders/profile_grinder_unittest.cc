@@ -80,7 +80,7 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
     EXPECT_TRUE(grinder.OutputData(output_file.get()));
     output_file.reset();
 
-    int64 cache_grind_file_size = 0;
+    int64_t cache_grind_file_size = 0;
     ASSERT_TRUE(base::GetFileSize(output_path.path(),
                                   &cache_grind_file_size));
     EXPECT_LT(0u, cache_grind_file_size);
@@ -101,8 +101,8 @@ class ProfileGrinderTest : public testing::PELibUnitTest {
                              "Caller");
   }
 
-  static const uint32 kFunctionSymbolId = 0x10;
-  static const uint32 kCallerSymbolId = 0x33;
+  static const uint32_t kFunctionSymbolId = 0x10;
+  static const uint32_t kCallerSymbolId = 0x33;
 
   void IssueSymbolInvocationEvent(TestProfileGrinder* grinder) {
     TraceBatchInvocationInfo batch = {};
@@ -143,7 +143,7 @@ TEST_F(ProfileGrinderTest, CodeLocation) {
   EXPECT_TRUE(loc1 == CodeLocation());
 
   // Change location to a symbol.
-  const uint32 kSymbolId = 0x1345;
+  const uint32_t kSymbolId = 0x1345;
   const size_t kSymbolOffset = 0x13;
   loc1.Set(::GetCurrentProcessId(), kSymbolId, kSymbolOffset);
   EXPECT_TRUE(loc1.is_symbol());

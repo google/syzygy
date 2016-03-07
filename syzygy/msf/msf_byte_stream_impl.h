@@ -45,7 +45,7 @@ class WritableMsfByteStreamImpl : public WritableMsfStreamImpl<T> {
   virtual ~WritableMsfByteStreamImpl();
 
   // common::BufferWriter implementation.
-  uint8* GrowBuffer(size_t size) override;
+  uint8_t* GrowBuffer(size_t size) override;
 
   // A reference counted pointer to the MsfByteStreamImpl we are wrapping.
   scoped_refptr<MsfByteStreamImpl<T>> msf_byte_stream_;
@@ -61,7 +61,7 @@ MsfByteStreamImpl<T>::~MsfByteStreamImpl() {
 }
 
 template <MsfFileType T>
-bool MsfByteStreamImpl<T>::Init(const uint8* data, size_t length) {
+bool MsfByteStreamImpl<T>::Init(const uint8_t* data, size_t length) {
   set_length(length);
   data_.resize(length);
   memcpy(this->data(), data, length);
@@ -158,7 +158,7 @@ WritableMsfByteStreamImpl<T>::~WritableMsfByteStreamImpl() {
 }
 
 template <MsfFileType T>
-uint8* WritableMsfByteStreamImpl<T>::GrowBuffer(size_t size) {
+uint8_t* WritableMsfByteStreamImpl<T>::GrowBuffer(size_t size) {
   DCHECK_GT(size, msf_byte_stream_->data_.size());
   // Resize the vector underlying the MsfByteStreamImpl, and notify the parent
   // MsfStreamImpl object of the new length.

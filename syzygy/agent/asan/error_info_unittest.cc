@@ -219,9 +219,9 @@ TEST_F(AsanErrorInfoTest, ErrorInfoGetBadAccessKind) {
   testing::FakeAsanBlock fake_block(
       runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
-  uint8* heap_underflow_address = fake_block.block_info.RawBody() - 1;
-  uint8* heap_overflow_address = fake_block.block_info.RawBody() +
-      kAllocSize * sizeof(uint8);
+  uint8_t* heap_underflow_address = fake_block.block_info.RawBody() - 1;
+  uint8_t* heap_overflow_address =
+      fake_block.block_info.RawBody() + kAllocSize * sizeof(uint8_t);
   EXPECT_EQ(HEAP_BUFFER_UNDERFLOW,
             ErrorInfoGetBadAccessKind(runtime_->shadow(),
                                       heap_underflow_address,
@@ -288,7 +288,7 @@ TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
       runtime_->shadow(), kShadowRatioLog, runtime_->stack_cache());
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
-  uint32 ticks_before_free = ::GetTickCount();
+  uint32_t ticks_before_free = ::GetTickCount();
   EXPECT_TRUE(fake_block.MarkBlockAsQuarantined());
   ::Sleep(kSleepTime);
   AsanErrorInfo error_info = {};
@@ -299,7 +299,7 @@ TEST_F(AsanErrorInfoTest, GetTimeSinceFree) {
                                                &error_info));
   EXPECT_NE(0U, error_info.block_info.milliseconds_since_free);
 
-  uint32 ticks_delta = ::GetTickCount() - ticks_before_free;
+  uint32_t ticks_delta = ::GetTickCount() - ticks_before_free;
   EXPECT_GT(ticks_delta, 0U);
 
   EXPECT_GE(ticks_delta, error_info.block_info.milliseconds_since_free);

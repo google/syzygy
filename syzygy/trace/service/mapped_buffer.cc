@@ -42,12 +42,8 @@ bool MappedBuffer::Map() {
 
   // Map a view of the shared memory file into this process. We only bring in
   // the portion of the mapping that corresponds to this buffer.
-  base_ = reinterpret_cast<uint8*>(
-      ::MapViewOfFile(pool->handle(),
-                      FILE_MAP_ALL_ACCESS,
-                      0,
-                      start,
-                      end - start));
+  base_ = reinterpret_cast<uint8_t*>(::MapViewOfFile(
+      pool->handle(), FILE_MAP_ALL_ACCESS, 0, start, end - start));
 
   if (base_ == NULL) {
     DWORD error = ::GetLastError();

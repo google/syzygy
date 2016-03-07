@@ -45,8 +45,8 @@ ModuleLayerAccessor::ModuleLayerAccessor(ProcessState* process_state)
 }
 
 void ModuleLayerAccessor::AddModuleRecord(const AddressRange& range,
-                                          const uint32 checksum,
-                                          const uint32 timestamp,
+                                          const uint32_t checksum,
+                                          const uint32_t timestamp,
                                           const std::wstring& path) {
   DCHECK(range.IsValid());
 

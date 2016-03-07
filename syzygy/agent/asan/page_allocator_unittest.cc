@@ -304,7 +304,7 @@ TEST(PageAllocatorTest, MultiAllocsAndFrees) {
 
   // The remainder should now be used.
   a = pa.Allocate(2);
-  void* a_expected = reinterpret_cast<uint8*>(a_orig) + 16 * 8;
+  void* a_expected = reinterpret_cast<uint8_t*>(a_orig) + 16 * 8;
   EXPECT_EQ(a_expected, a);
   EXPECT_EQ(1u, pa.stats().page_count);
   EXPECT_EQ(0u, pa.FreeObjects(0));
@@ -402,27 +402,27 @@ TEST(PageAllocatorTest, MultiSlabsPagesBiggerThanAllGranularity) {
 }
 
 TEST(TypedPageAllocatorTest, SingleEndToEnd) {
-  TypedPageAllocator<uint32, 1, 1000, true> pa;
+  TypedPageAllocator<uint32_t, 1, 1000, true> pa;
   for (size_t i = 0; i < 1600; ++i) {
-    uint32* alloc = pa.Allocate(1);
+    uint32_t* alloc = pa.Allocate(1);
     if ((i % 3) == 0)
       pa.Free(alloc, 1);
   }
 }
 
 TEST(TypedPageAllocatorTest, MultiEndToEnd) {
-  TypedPageAllocator<uint32, 10, 1000, true> pa;
+  TypedPageAllocator<uint32_t, 10, 1000, true> pa;
   for (size_t i = 0; i < 100; ++i) {
     size_t requested = (i % 10) + 1;
     size_t received = 0;
-    uint32* alloc = pa.Allocate(requested, &received);
+    uint32_t* alloc = pa.Allocate(requested, &received);
     if ((i % 3) == 0)
       pa.Free(alloc, received);
   }
 
   for (size_t i = 0; i < 100; ++i) {
     size_t requested = (i % 10) + 1;
-    uint32* alloc = pa.Allocate(requested);
+    uint32_t* alloc = pa.Allocate(requested);
     if ((i % 3) == 0)
       pa.Free(alloc, requested);
   }

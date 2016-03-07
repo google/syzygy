@@ -31,19 +31,19 @@ namespace pdb {
 // @returns true on success, false on error.
 bool DumpUnknownBlock(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level);
+                      uint16_t len,
+                      uint8_t indent_level);
 
 // Output the appropriate level of indentation.
 // @param out The output where the tabs should be dumped.
 // @param indent_level The number of tabs to put.
-void DumpTabs(FILE* out, uint8 indent_level);
+void DumpTabs(FILE* out, uint8_t indent_level);
 
 // Output text with the appropriate level of indentation.
 // @param out The output where the text should be dumped.
 // @param text The text to dump.
 // @param indent_level The number of tabs to put.
-void DumpIndentedText(FILE* out, uint8 indent_level, const char* format, ...);
+void DumpIndentedText(FILE* out, uint8_t indent_level, const char* format, ...);
 
 }  // namespace pdb
 

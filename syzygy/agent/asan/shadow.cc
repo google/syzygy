@@ -31,9 +31,9 @@ static const size_t kPageSize = GetPageSize();
 // Converts an address to a page index and bit mask.
 inline void AddressToPageMask(const void* address,
                               size_t* index,
-                              uint8* mask) {
+                              uint8_t* mask) {
   DCHECK_NE(static_cast<size_t*>(nullptr), index);
-  DCHECK_NE(static_cast<uint8*>(nullptr), mask);
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), mask);
 
   size_t i = reinterpret_cast<uintptr_t>(address) / kPageSize;
   *index = i / 8;
@@ -73,8 +73,8 @@ size_t Shadow::RequiredLength() {
   // Because of the way the interceptors work we only support 2GB or 4GB
   // virtual memory sizes, even if the actual is 3GB (32-bit windows, LAA,
   // and 4GT kernel option enabled).
-  uint64 mem_size = ::common::AlignUp64(mem_status.ullTotalVirtual,
-                                        2UL << 30);  // 2GB.
+  uint64_t mem_size = ::common::AlignUp64(mem_status.ullTotalVirtual,
+                                          2UL << 30);  // 2GB.
 
   return mem_size >> kShadowRatioLog;
 }
@@ -168,10 +168,10 @@ void Shadow::GetPointerAndSize(void const** self, size_t* size) const {
   DCHECK_NE(static_cast<void**>(nullptr), self);
   DCHECK_NE(static_cast<size_t*>(nullptr), size);
   GetPointerAndSizeImpl(self, size);
-  const uint8* begin = ::common::AlignDown(
-      reinterpret_cast<const uint8*>(*self), kShadowRatio);
-  const uint8* end = ::common::AlignUp(
-      reinterpret_cast<const uint8*>(*self) + *size, kShadowRatio);
+  const uint8_t* begin = ::common::AlignDown(
+      reinterpret_cast<const uint8_t*>(*self), kShadowRatio);
+  const uint8_t* end = ::common::AlignUp(
+      reinterpret_cast<const uint8_t*>(*self) + *size, kShadowRatio);
   *self = begin;
   *size = end - begin;
 }
@@ -204,11 +204,11 @@ void Shadow::Init(bool own_memory, void* shadow, size_t length) {
   DCHECK(::common::IsAligned(shadow, kShadowRatio));
 
   own_memory_ = own_memory;
-  shadow_ = reinterpret_cast<uint8*>(shadow);
+  shadow_ = reinterpret_cast<uint8_t*>(shadow);
   length_ = length;
 
   // Initialize the page bits array.
-  uint64 memory_size = static_cast<uint64>(length) << kShadowRatioLog;
+  uint64_t memory_size = static_cast<uint64_t>(length) << kShadowRatioLog;
   DCHECK_EQ(0u, memory_size % kPageSize);
   size_t page_count = memory_size / kPageSize;
   size_t page_bytes = page_count / 8;
@@ -247,7 +247,7 @@ void Shadow::Unpoison(const void* addr, size_t size) {
 
   SetShadowMemory(addr, size, kHeapAddressableMarker);
 
-  uint8 remainder = size & (kShadowRatio - 1);
+  uint8_t remainder = size & (kShadowRatio - 1);
   index >>= kShadowRatioLog;
   size >>= kShadowRatioLog;
   DCHECK_GT(length_, index + size);
@@ -259,25 +259,31 @@ void Shadow::Unpoison(const void* addr, size_t size) {
 
 namespace {
 
-// An array of kFreedMarkers. This is used for constructing uint16, uint32 and
-// uint64 byte variants of kHeapFreedMarker.
-static const uint8 kFreedMarkers[] = {
-    kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker,
-    kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker, kHeapFreedMarker };
-static_assert(sizeof(kFreedMarkers) == sizeof(uint64),
+// An array of kFreedMarkers. This is used for constructing uint16_t, uint32_t
+// and
+// uint64_t byte variants of kHeapFreedMarker.
+static const uint8_t kFreedMarkers[] = {kHeapFreedMarker,
+                                        kHeapFreedMarker,
+                                        kHeapFreedMarker,
+                                        kHeapFreedMarker,
+                                        kHeapFreedMarker,
+                                        kHeapFreedMarker,
+                                        kHeapFreedMarker,
+                                        kHeapFreedMarker};
+static_assert(sizeof(kFreedMarkers) == sizeof(uint64_t),
               "Wrong number of freed markers.");
-static const uint64& kFreedMarker64 =
-    *reinterpret_cast<const uint64*>(kFreedMarkers);
-static const uint32& kFreedMarker32 =
-    *reinterpret_cast<const uint32*>(kFreedMarkers);
-static const uint16& kFreedMarker16 =
-    *reinterpret_cast<const uint16*>(kFreedMarkers);
-static const uint8& kFreedMarker8 =
-    *reinterpret_cast<const uint8*>(kFreedMarkers);
+static const uint64_t& kFreedMarker64 =
+    *reinterpret_cast<const uint64_t*>(kFreedMarkers);
+static const uint32_t& kFreedMarker32 =
+    *reinterpret_cast<const uint32_t*>(kFreedMarkers);
+static const uint16_t& kFreedMarker16 =
+    *reinterpret_cast<const uint16_t*>(kFreedMarkers);
+static const uint8_t& kFreedMarker8 =
+    *reinterpret_cast<const uint8_t*>(kFreedMarkers);
 
 // Marks the given range of shadow bytes as freed, preserving left and right
 // redzone bytes.
-inline void MarkAsFreedImpl8(uint8* cursor, uint8* cursor_end) {
+inline void MarkAsFreedImpl8(uint8_t* cursor, uint8_t* cursor_end) {
   for (; cursor != cursor_end; ++cursor) {
     // Preserve block beginnings/ends/redzones as they were originally.
     // This is necessary to preserve information about nested blocks.
@@ -293,9 +299,9 @@ inline void MarkAsFreedImpl8(uint8* cursor, uint8* cursor_end) {
 
 // Marks the given range of shadow bytes as freed, preserving left and right
 // redzone bytes. |cursor| and |cursor_end| must be 8-byte aligned.
-inline void MarkAsFreedImplAligned64(uint64* cursor, uint64* cursor_end) {
-  DCHECK(::common::IsAligned(cursor, sizeof(uint64)));
-  DCHECK(::common::IsAligned(cursor_end, sizeof(uint64)));
+inline void MarkAsFreedImplAligned64(uint64_t* cursor, uint64_t* cursor_end) {
+  DCHECK(::common::IsAligned(cursor, sizeof(uint64_t)));
+  DCHECK(::common::IsAligned(cursor_end, sizeof(uint64_t)));
 
   for (; cursor != cursor_end; ++cursor) {
     // If the block of shadow memory is entirely green then mark as freed.
@@ -303,20 +309,20 @@ inline void MarkAsFreedImplAligned64(uint64* cursor, uint64* cursor_end) {
     if (*cursor == 0) {
       *cursor = kFreedMarker64;
     } else {
-      MarkAsFreedImpl8(reinterpret_cast<uint8*>(cursor),
-                       reinterpret_cast<uint8*>(cursor + 1));
+      MarkAsFreedImpl8(reinterpret_cast<uint8_t*>(cursor),
+                       reinterpret_cast<uint8_t*>(cursor + 1));
     }
   }
 }
 
-inline void MarkAsFreedImpl64(uint8* cursor, uint8* cursor_end) {
-  if (cursor_end - cursor >= 2 * sizeof(uint64)) {
-    uint8* cursor_aligned = ::common::AlignUp(cursor, sizeof(uint64));
-    uint8* cursor_end_aligned = ::common::AlignDown(cursor_end,
-                                                    sizeof(uint64));
+inline void MarkAsFreedImpl64(uint8_t* cursor, uint8_t* cursor_end) {
+  if (cursor_end - cursor >= 2 * sizeof(uint64_t)) {
+    uint8_t* cursor_aligned = ::common::AlignUp(cursor, sizeof(uint64_t));
+    uint8_t* cursor_end_aligned =
+        ::common::AlignDown(cursor_end, sizeof(uint64_t));
     MarkAsFreedImpl8(cursor, cursor_aligned);
-    MarkAsFreedImplAligned64(reinterpret_cast<uint64*>(cursor_aligned),
-                             reinterpret_cast<uint64*>(cursor_end_aligned));
+    MarkAsFreedImplAligned64(reinterpret_cast<uint64_t*>(cursor_aligned),
+                             reinterpret_cast<uint64_t*>(cursor_end_aligned));
     MarkAsFreedImpl8(cursor_end_aligned, cursor_end);
   } else {
     MarkAsFreedImpl8(cursor, cursor_end);
@@ -336,8 +342,8 @@ void Shadow::MarkAsFreed(const void* addr, size_t size) {
   DCHECK_LE(index, length_);
   DCHECK_LE(index + length, length_);
 
-  uint8* cursor = shadow_ + index;
-  uint8* cursor_end = static_cast<uint8*>(cursor) + length;
+  uint8_t* cursor = shadow_ + index;
+  uint8_t* cursor_end = static_cast<uint8_t*>(cursor) + length;
 
   // This isn't as simple as a memset because we need to preserve left and
   // right redzone padding bytes that may be found in the range.
@@ -351,7 +357,7 @@ bool Shadow::IsAccessible(const void* addr) const {
   index >>= kShadowRatioLog;
 
   DCHECK_GT(length_, index);
-  uint8 shadow = shadow_[index];
+  uint8_t shadow = shadow_[index];
   if (shadow == 0)
     return true;
 
@@ -373,7 +379,7 @@ bool Shadow::IsRightRedzone(const void* address) const {
   index >>= kShadowRatioLog;
 
   DCHECK_GT(length_, index);
-  uint8 marker = shadow_[index];
+  uint8_t marker = shadow_[index];
 
   // If the marker is for accessible memory then some addresses may be part
   // of a right redzone, assuming that the *next* marker in the shadow is for
@@ -399,7 +405,7 @@ bool Shadow::IsBlockStartByte(const void* address) const {
   index >>= kShadowRatioLog;
 
   DCHECK_GT(length_, index);
-  uint8 marker = shadow_[index];
+  uint8_t marker = shadow_[index];
 
   if (start != 0)
     return false;
@@ -409,7 +415,7 @@ bool Shadow::IsBlockStartByte(const void* address) const {
   return true;
 }
 
-const uint8* Shadow::GetShadowMemoryForAddress(const void* addr) const {
+const uint8_t* Shadow::GetShadowMemoryForAddress(const void* addr) const {
   uintptr_t index = reinterpret_cast<uintptr_t>(addr);
   index >>= kShadowRatioLog;
   DCHECK_GE(length_, index);
@@ -442,16 +448,16 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   // Determine the marker byte for the header. This encodes the length of the
   // body of the allocation modulo the shadow ratio, so that the exact length
   // can be inferred from inspecting the shadow memory.
-  uint8 body_size_mod = info.body_size % kShadowRatio;
-  uint8 header_marker = ShadowMarkerHelper::BuildBlockStart(
+  uint8_t body_size_mod = info.body_size % kShadowRatio;
+  uint8_t header_marker = ShadowMarkerHelper::BuildBlockStart(
       true, info.header->is_nested, body_size_mod);
 
   // Determine the marker byte for the trailer.
-  uint8 trailer_marker = ShadowMarkerHelper::BuildBlockEnd(
-      true, info.header->is_nested);
+  uint8_t trailer_marker =
+      ShadowMarkerHelper::BuildBlockEnd(true, info.header->is_nested);
 
   // Poison the header and left padding.
-  uint8* cursor = shadow_ + index;
+  uint8_t* cursor = shadow_ + index;
   ::memset(cursor, header_marker, 1);
   ::memset(cursor + 1, kHeapLeftPaddingMarker, left_redzone_bytes - 1);
   cursor += left_redzone_bytes;
@@ -474,7 +480,7 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
 }
 
 bool Shadow::BlockIsNested(const BlockInfo& info) const {
-  uint8 marker = GetShadowMarkerForAddress(info.header);
+  uint8_t marker = GetShadowMarkerForAddress(info.header);
   DCHECK(ShadowMarkerHelper::IsActiveBlockStart(marker));
   return ShadowMarkerHelper::IsNestedBlockStart(marker);
 }
@@ -518,7 +524,7 @@ bool Shadow::IsBeginningOfBlockBody(const void* addr) const {
   // right redzone.
   if (IsAccessible(addr) || IsRightRedzone(addr) ||
       GetShadowMarkerForAddress(addr) == kHeapFreedMarker) {
-    return IsLeftRedzone(reinterpret_cast<const uint8*>(addr) - 1);
+    return IsLeftRedzone(reinterpret_cast<const uint8_t*>(addr) - 1);
   }
   return false;
 }
@@ -529,14 +535,14 @@ bool Shadow::PageIsProtected(const void* addr) const {
   // be correct. However, consumers of this knowledge have to be robust to
   // getting incorrect data.
   size_t index = 0;
-  uint8 mask = 0;
+  uint8_t mask = 0;
   AddressToPageMask(addr, &index, &mask);
   return (page_bits_[index] & mask) == mask;
 }
 
 void Shadow::MarkPageProtected(const void* addr) {
   size_t index = 0;
-  uint8 mask = 0;
+  uint8_t mask = 0;
   AddressToPageMask(addr, &index, &mask);
 
   base::AutoLock lock(page_bits_lock_);
@@ -545,7 +551,7 @@ void Shadow::MarkPageProtected(const void* addr) {
 
 void Shadow::MarkPageUnprotected(const void* addr) {
   size_t index = 0;
-  uint8 mask = 0;
+  uint8_t mask = 0;
   AddressToPageMask(addr, &index, &mask);
   mask = ~mask;
 
@@ -554,10 +560,10 @@ void Shadow::MarkPageUnprotected(const void* addr) {
 }
 
 void Shadow::MarkPagesProtected(const void* addr, size_t size) {
-  const uint8* page = reinterpret_cast<const uint8*>(addr);
-  const uint8* page_end = page + size;
+  const uint8_t* page = reinterpret_cast<const uint8_t*>(addr);
+  const uint8_t* page_end = page + size;
   size_t index = 0;
-  uint8 mask = 0;
+  uint8_t mask = 0;
 
   base::AutoLock lock(page_bits_lock_);
   while (page < page_end) {
@@ -568,10 +574,10 @@ void Shadow::MarkPagesProtected(const void* addr, size_t size) {
 }
 
 void Shadow::MarkPagesUnprotected(const void* addr, size_t size) {
-  const uint8* page = reinterpret_cast<const uint8*>(addr);
-  const uint8* page_end = page + size;
+  const uint8_t* page = reinterpret_cast<const uint8_t*>(addr);
+  const uint8_t* page_end = page + size;
   size_t index = 0;
-  uint8 mask = 0;
+  uint8_t mask = 0;
 
   base::AutoLock lock(page_bits_lock_);
   while (page < page_end) {
@@ -591,10 +597,10 @@ void Shadow::AppendShadowByteText(const char *prefix,
       prefix,
       reinterpret_cast<void*>(index << kShadowRatioLog));
   char separator = ' ';
-  for (uint32 i = 0; i < kShadowBytesPerLine; i++) {
+  for (uint32_t i = 0; i < kShadowBytesPerLine; i++) {
     if (index + i == bug_index)
       separator = '[';
-    uint8 shadow_value = shadow_[index + i];
+    uint8_t shadow_value = shadow_[index + i];
     base::StringAppendF(
         output, "%c%x%x", separator, shadow_value >> 4, shadow_value & 15);
     if (separator == '[')
@@ -655,7 +661,7 @@ void Shadow::AppendShadowMemoryText(
                       kHeapFreedMarker);
 }
 
-size_t Shadow::GetAllocSize(const uint8* mem) const {
+size_t Shadow::GetAllocSize(const uint8_t* mem) const {
   BlockInfo block_info = {};
   if (!Shadow::BlockInfoFromShadow(mem, &block_info))
     return 0;
@@ -706,8 +712,8 @@ namespace {
 // This handles an unaligned input cursor. It can potentially read up to 7
 // bytes past the end of the cursor, but only up to an 8 byte boundary. Thus
 // this out of bounds access is safe.
-inline const uint8* ScanRightForPotentialHeaderBytes(
-    const uint8* pos, const uint8* end) {
+inline const uint8_t* ScanRightForPotentialHeaderBytes(const uint8_t* pos,
+                                                       const uint8_t* end) {
   DCHECK(::common::IsAligned(end, 8));
 
   // Handle the first few bytes that aren't aligned. If pos == end then
@@ -720,14 +726,14 @@ inline const uint8* ScanRightForPotentialHeaderBytes(
         return pos;
       pos += 1;
     case 2:
-      if (*reinterpret_cast<const uint16*>(pos) != 0 &&
-          *reinterpret_cast<const uint16*>(pos) != kFreedMarker16) {
+      if (*reinterpret_cast<const uint16_t*>(pos) != 0 &&
+          *reinterpret_cast<const uint16_t*>(pos) != kFreedMarker16) {
         return pos;
       }
       pos += 2;
     case 4:
-      if (*reinterpret_cast<const uint32*>(pos) != 0 &&
-          *reinterpret_cast<const uint32*>(pos) != kFreedMarker32) {
+      if (*reinterpret_cast<const uint32_t*>(pos) != 0 &&
+          *reinterpret_cast<const uint32_t*>(pos) != kFreedMarker32) {
         return pos;
       }
       pos += 4;
@@ -738,8 +744,8 @@ inline const uint8* ScanRightForPotentialHeaderBytes(
         return pos;
       pos += 1;
       // Now have alignment of 4.
-      if (*reinterpret_cast<const uint32*>(pos) != 0 &&
-          *reinterpret_cast<const uint32*>(pos) != kFreedMarker32) {
+      if (*reinterpret_cast<const uint32_t*>(pos) != 0 &&
+          *reinterpret_cast<const uint32_t*>(pos) != kFreedMarker32) {
         return pos;
       }
       pos += 4;
@@ -750,8 +756,8 @@ inline const uint8* ScanRightForPotentialHeaderBytes(
         return pos;
       pos += 1;
     case 6:
-      if (*reinterpret_cast<const uint16*>(pos) != 0 &&
-          *reinterpret_cast<const uint16*>(pos) != kFreedMarker16) {
+      if (*reinterpret_cast<const uint16_t*>(pos) != 0 &&
+          *reinterpret_cast<const uint16_t*>(pos) != kFreedMarker16) {
         return pos;
       }
       pos += 2;
@@ -770,8 +776,8 @@ inline const uint8* ScanRightForPotentialHeaderBytes(
 
   // Handle the 8-byte aligned bytes as much as we can.
   while (pos < end) {
-    if (*reinterpret_cast<const uint64*>(pos) != 0 &&
-        *reinterpret_cast<const uint64*>(pos) != kFreedMarker64) {
+    if (*reinterpret_cast<const uint64_t*>(pos) != 0 &&
+        *reinterpret_cast<const uint64_t*>(pos) != kFreedMarker64) {
       return pos;
     }
     pos += 8;
@@ -786,8 +792,8 @@ bool Shadow::ScanRightForBracketingBlockEnd(
     size_t initial_nesting_depth, size_t cursor, size_t* location) const {
   DCHECK_NE(static_cast<size_t*>(NULL), location);
 
-  const uint8* shadow_end = shadow_ + length_;
-  const uint8* pos = shadow_ + cursor;
+  const uint8_t* shadow_end = shadow_ + length_;
+  const uint8_t* pos = shadow_ + cursor;
   int nesting_depth = static_cast<int>(initial_nesting_depth);
   if (ShadowMarkerHelper::IsBlockStart(*pos))
     --nesting_depth;
@@ -841,7 +847,7 @@ bool Shadow::BlockInfoFromShadowImpl(
     return false;
   ++right;
 
-  uint8* block = reinterpret_cast<uint8*>(left * kShadowRatio);
+  uint8_t* block = reinterpret_cast<uint8_t*>(left * kShadowRatio);
   info->header = reinterpret_cast<BlockHeader*>(block);
   info->block_size = (right - left) * kShadowRatio;
 
@@ -860,7 +866,7 @@ bool Shadow::BlockInfoFromShadowImpl(
     --right;
 
   // Calculate the body location and size.
-  uint8* body = reinterpret_cast<uint8*>(left * kShadowRatio);
+  uint8_t* body = reinterpret_cast<uint8_t*>(left * kShadowRatio);
   size_t body_size = (right - left) * kShadowRatio;
   if (body_size_mod > 0) {
     DCHECK_LE(8u, body_size);
@@ -886,9 +892,9 @@ ShadowWalker::ShadowWalker(const Shadow* shadow,
   DCHECK_LE(lower_bound, upper_bound);
 
   lower_bound_ = ::common::AlignDown(
-      reinterpret_cast<const uint8*>(lower_bound), kShadowRatio);
+      reinterpret_cast<const uint8_t*>(lower_bound), kShadowRatio);
   upper_bound_ = ::common::AlignUp(
-      reinterpret_cast<const uint8*>(upper_bound), kShadowRatio);
+      reinterpret_cast<const uint8_t*>(upper_bound), kShadowRatio);
   Reset();
 }
 
@@ -898,7 +904,7 @@ void ShadowWalker::Reset() {
   nesting_depth_ = -1;
   for (cursor_ = lower_bound_; cursor_ != upper_bound_;
        cursor_ += kShadowRatio) {
-    uint8 marker = shadow_->GetShadowMarkerForAddress(cursor_);
+    uint8_t marker = shadow_->GetShadowMarkerForAddress(cursor_);
     if (ShadowMarkerHelper::IsBlockStart(marker) &&
         !ShadowMarkerHelper::IsNestedBlockStart(marker)) {
       break;
@@ -913,7 +919,7 @@ bool ShadowWalker::Next(BlockInfo* info) {
 
   // Iterate until a reportable block is encountered, or the slab is exhausted.
   for (; cursor_ != upper_bound_; cursor_ += kShadowRatio) {
-    uint8 marker = shadow_->GetShadowMarkerForAddress(cursor_);
+    uint8_t marker = shadow_->GetShadowMarkerForAddress(cursor_);
 
     // Update the nesting depth when block end markers are encountered.
     if (ShadowMarkerHelper::IsBlockEnd(marker)) {

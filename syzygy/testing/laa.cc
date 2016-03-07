@@ -29,8 +29,8 @@ size_t GetAddressSpaceSize() {
   // Because of the way the interceptors work we only support 2GB or 4GB
   // virtual memory sizes, even if the actual is 3GB (32-bit windows, LAA,
   // and 4GT kernel option enabled).
-  static const uint64 k1GB = 1UL << 30;
-  uint64 mem_size = ::common::AlignUp64(mem_status.ullTotalVirtual, 2 * k1GB);
+  static const uint64_t k1GB = 1UL << 30;
+  uint64_t mem_size = ::common::AlignUp64(mem_status.ullTotalVirtual, 2 * k1GB);
   mem_size /= k1GB;
   return static_cast<size_t>(mem_size);
 }

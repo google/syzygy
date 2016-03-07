@@ -49,7 +49,7 @@ class NestedHeapTest : public testing::Test {
   // ^buffer                       ^aligned_buffer  ^user_pointer
   static const size_t kBufferSize = kMaxAlignment * 3;
 
-  bool MemoryRangeIsPoisoned(const uint8* address, size_t size) {
+  bool MemoryRangeIsPoisoned(const uint8_t* address, size_t size) {
     EXPECT_TRUE(address != NULL);
     for (size_t i = 0; i < size; ++i) {
       if (Shadow::IsAccessible(address + i))
@@ -58,7 +58,7 @@ class NestedHeapTest : public testing::Test {
     return true;
   }
 
-  bool MemoryRangeIsAccessible(const uint8* address, size_t size) {
+  bool MemoryRangeIsAccessible(const uint8_t* address, size_t size) {
     EXPECT_TRUE(address != NULL);
     for (size_t i = 0; i < size; ++i) {
       if (!Shadow::IsAccessible(address + i))
@@ -70,21 +70,21 @@ class NestedHeapTest : public testing::Test {
   AsanRuntime runtime_;
 
   // The buffers we use internally.
-  uint8 buffer[kBufferSize];
-  uint8 buffer_copy[kBufferSize];
+  uint8_t buffer[kBufferSize];
+  uint8_t buffer_copy[kBufferSize];
 };
 
 }  // namespace
 
 TEST_F(NestedHeapTest, IntegrationTest) {
   const size_t kAllocSize = 100;
-  const uint8 kMagicValue = 0x9C;
+  const uint8_t kMagicValue = 0x9C;
 
   for (size_t alignment = kShadowRatio; alignment <= kMaxAlignment;
        alignment *= 2) {
-    uint8* aligned_buffer = reinterpret_cast<uint8*>(
+    uint8_t* aligned_buffer = reinterpret_cast<uint8_t*>(
         common::AlignUp(reinterpret_cast<size_t>(buffer), alignment));
-    uint8* aligned_buffer_copy = reinterpret_cast<uint8*>(
+    uint8_t* aligned_buffer_copy = reinterpret_cast<uint8_t*>(
         common::AlignUp(reinterpret_cast<size_t>(buffer_copy), alignment));
 
     // The simulated 'allocations' that we use must be a multiple of 8 bytes
@@ -124,15 +124,15 @@ TEST_F(NestedHeapTest, IntegrationTest) {
     EXPECT_NE(reinterpret_cast<void*>(NULL), user_pointer_copy);
 
     for (size_t i = 0; i < kAllocSize; ++i)
-      EXPECT_EQ(kMagicValue, reinterpret_cast<uint8*>(user_pointer_copy)[i]);
+      EXPECT_EQ(kMagicValue, reinterpret_cast<uint8_t*>(user_pointer_copy)[i]);
 
-    size_t header_size = reinterpret_cast<uint8*>(user_pointer_copy)
-        - aligned_buffer_copy;
+    size_t header_size =
+        reinterpret_cast<uint8_t*>(user_pointer_copy) - aligned_buffer_copy;
     EXPECT_TRUE(MemoryRangeIsPoisoned(aligned_buffer_copy, header_size));
-    EXPECT_TRUE(MemoryRangeIsAccessible(reinterpret_cast<uint8*>(user_pointer),
-                                        kAllocSize));
+    EXPECT_TRUE(MemoryRangeIsAccessible(
+        reinterpret_cast<uint8_t*>(user_pointer), kAllocSize));
     EXPECT_TRUE(MemoryRangeIsPoisoned(
-        reinterpret_cast<uint8*>(user_pointer) + kAllocSize,
+        reinterpret_cast<uint8_t*>(user_pointer) + kAllocSize,
         asan_size - kAllocSize - header_size));
 
     asan_QuarantineObject(aligned_buffer);

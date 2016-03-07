@@ -139,13 +139,13 @@ struct MinidumpSpecification::ThreadSpecification {
 };
 
 struct MinidumpSpecification::ExceptionSpecification {
-  explicit ExceptionSpecification(uint32 thread_id);
+  explicit ExceptionSpecification(uint32_t thread_id);
 
-  uint32 thread_id;
-  uint32 exception_code;
-  uint32 exception_flags;
-  uint64 exception_record;
-  uint64 exception_address;
+  uint32_t thread_id;
+  uint32_t exception_code;
+  uint32_t exception_flags;
+  uint64_t exception_record;
+  uint64_t exception_address;
   std::vector<uint64> exception_information;
 
   std::string context_data;  // represents a CONTEXT.
@@ -156,8 +156,8 @@ struct MinidumpSpecification::ModuleSpecification {
 
   refinery::Address addr;
   refinery::Size size;
-  uint32 checksum;
-  uint32 timestamp;
+  uint32_t checksum;
+  uint32_t timestamp;
   std::string name;
 };
 

@@ -16,7 +16,6 @@
 #ifndef SYZYGY_PE_PDB_INFO_H_
 #define SYZYGY_PE_PDB_INFO_H_
 
-#include "base/basictypes.h"
 #include "base/files/file_path.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pe/pe_data.h"
@@ -44,7 +43,7 @@ class PdbInfo {
   bool Init(const base::FilePath& pe_path);
 
   // Accessors.
-  uint32 pdb_age() const { return pdb_age_; }
+  uint32_t pdb_age() const { return pdb_age_; }
   const base::FilePath& pdb_file_name() const { return pdb_file_name_; }
   const GUID& signature() const { return signature_; }
 
@@ -53,7 +52,7 @@ class PdbInfo {
   bool IsConsistent(const pdb::PdbInfoHeader70& pdb_info_header) const;
 
  private:
-  uint32 pdb_age_;
+  uint32_t pdb_age_;
   base::FilePath pdb_file_name_;
   GUID signature_;
 };

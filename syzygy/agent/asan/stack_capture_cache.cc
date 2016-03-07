@@ -88,7 +88,7 @@ bool StackCaptureCache::CachePage::ReturnStackCapture(
 
   metadata_size = ::common::AlignUp(metadata_size, sizeof(void*));
 
-  uint8* stack = reinterpret_cast<uint8*>(stack_capture);
+  uint8_t* stack = reinterpret_cast<uint8_t*>(stack_capture);
   size_t size = stack_capture->Size() + metadata_size;
 
   // If this was the last stack capture provided by this page then the end of
@@ -131,7 +131,7 @@ StackCaptureCache::StackCaptureCache(
   DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger);
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
   DCHECK_LT(0u, max_num_frames);
-  max_num_frames_ = static_cast<uint8>(
+  max_num_frames_ = static_cast<uint8_t>(
       std::min(max_num_frames, common::StackCapture::kMaxNumFrames));
 
   AllocateCachePage();
@@ -308,14 +308,14 @@ bool StackCaptureCache::StackCapturePointerIsValid(
   if (!::common::IsAligned(stack_capture, sizeof(uintptr_t)))
     return false;
 
-  const uint8* stack_capture_addr =
-      reinterpret_cast<const uint8*>(stack_capture);
+  const uint8_t* stack_capture_addr =
+      reinterpret_cast<const uint8_t*>(stack_capture);
 
   // Walk over the allocated pages and see if it lands within any of them.
   base::AutoLock lock(current_page_lock_);
   CachePage* page = current_page_;
   while (page != nullptr) {
-    const uint8* page_end = page->data() + page->bytes_used();
+    const uint8_t* page_end = page->data() + page->bytes_used();
 
     // If the proposed stack capture lands within a page we then check to
     // ensure that it is also internally consistent. This can still fail

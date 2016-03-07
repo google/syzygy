@@ -60,7 +60,7 @@ void DumpTypeInfoStream(FILE* out, TypeInfoEnumerator& type_info_enum) {
 
   // TODO(mopler): Remove this type info record map from the implementation.
   TypeInfoRecordMap type_info_record_map;
-  uint8 indent_level = 1;
+  uint8_t indent_level = 1;
 
   // Dump each symbol contained in the vector.
   while (!type_info_enum.EndOfStream()) {

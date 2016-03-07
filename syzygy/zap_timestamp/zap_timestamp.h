@@ -156,11 +156,10 @@ class ZapTimestamp {
 // Used to keep track of data in the image that is to be changed, and the
 // new values to be written.
 struct ZapTimestamp::PatchData {
-  PatchData(const uint8* data, const base::StringPiece& name)
-      : data(data) {
+  PatchData(const uint8_t* data, const base::StringPiece& name) : data(data) {
     name.CopyToString(&this->name);
   }
-  const uint8* data;
+  const uint8_t* data;
   std::string name;
 };
 

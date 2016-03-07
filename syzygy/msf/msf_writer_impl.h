@@ -28,7 +28,7 @@ namespace detail {
 
 namespace {
 
-const uint32 kZeroBuffer[kMsfPageSize] = {0};
+const uint32_t kZeroBuffer[kMsfPageSize] = {0};
 
 // A byte-based bitmap for keeping track of free pages in an MSF file.
 // TODO(chrisha): Promote this to its own file and unittest it when we make
@@ -37,7 +37,7 @@ class FreePageBitMap {
  public:
   FreePageBitMap() : page_count_(0) {}
 
-  void SetPageCount(uint32 page_count) {
+  void SetPageCount(uint32_t page_count) {
     page_count_ = page_count;
     data_.resize((page_count + 7) / 8);
 
@@ -46,12 +46,12 @@ class FreePageBitMap {
     DCHECK_LE(page_count / 8, data_.size());
   }
 
-  void SetBit(uint32 page_index, bool free) {
+  void SetBit(uint32_t page_index, bool free) {
     DCHECK_LT(page_index, page_count_);
 
-    uint32 byte = page_index / 8;
-    uint32 bit = page_index % 8;
-    uint8 bitmask = 1 << bit;
+    uint32_t byte = page_index / 8;
+    uint32_t bit = page_index % 8;
+    uint8_t bitmask = 1 << bit;
     DCHECK_LT(byte, data_.size());
 
     if (free) {
@@ -61,28 +61,28 @@ class FreePageBitMap {
     }
   }
 
-  void SetFree(uint32 page_index) { SetBit(page_index, true); }
-  void SetUsed(uint32 page_index) { SetBit(page_index, false); }
+  void SetFree(uint32_t page_index) { SetBit(page_index, true); }
+  void SetUsed(uint32_t page_index) { SetBit(page_index, false); }
 
   // TODO(chrisha): Make this an invariant of the class and move the logic
   //     to SetPageCount. This involves both clearing and setting bits in that
   //     case.
   void Finalize() {
-    uint32 bits_left = data_.size() * 8 - page_count_;
+    uint32_t bits_left = data_.size() * 8 - page_count_;
     DCHECK_LE(bits_left, 7u);
 
     // This leaves the top |bits_left| bits set.
-    uint8 bitmask = ~(0xFF >> bits_left);
+    uint8_t bitmask = ~(0xFF >> bits_left);
 
     // Mark any bits as free beyond those specifically allocated.
     data_.back() |= bitmask;
   }
 
-  const std::vector<uint8>& data() const { return data_; }
+  const std::vector<uint8_t>& data() const { return data_; }
 
  private:
-  std::vector<uint8> data_;
-  uint32 page_count_;
+  std::vector<uint8_t> data_;
+  uint32_t page_count_;
 };
 
 // A light-weight wrapper that allows a previously allocated buffer to be read
@@ -107,7 +107,7 @@ class ReadOnlyMsfStream : public MsfStreamImpl<T> {
       result = false;
     }
 
-    ::memcpy(dest, reinterpret_cast<const uint8*>(data_) + pos(),
+    ::memcpy(dest, reinterpret_cast<const uint8_t*>(data_) + pos(),
              bytes_to_read);
     Seek(pos() + bytes_to_read);
 
@@ -130,14 +130,14 @@ class ReadOnlyMsfStream : public MsfStreamImpl<T> {
 //     exiting this routine.
 bool AppendPage(const void* data,
                 std::vector<uint32>* pages_written,
-                uint32* page_count,
+                uint32_t* page_count,
                 FILE* file) {
   DCHECK(data != NULL);
   DCHECK(pages_written != NULL);
   DCHECK(page_count != NULL);
   DCHECK(file != NULL);
 
-  uint32 local_page_count = *page_count;
+  uint32_t local_page_count = *page_count;
 
   // The file is written sequentially, so it will already be pointing to
   // the appropriate spot.
@@ -172,7 +172,7 @@ bool AppendPage(const void* data,
 bool WriteFreePageBitMap(const FreePageBitMap& free, FILE* file) {
   DCHECK(file != NULL);
 
-  const uint8* data = free.data().data();
+  const uint8_t* data = free.data().data();
   size_t bytes_left = free.data().size();
   size_t page_index = 1;
   size_t bytes_to_write = kMsfPageSize;
@@ -204,7 +204,7 @@ bool WriteFreePageBitMap(const FreePageBitMap& free, FILE* file) {
   // free page map with ones (0xFF bytes).
   if (bytes_to_write < kMsfPageSize) {
     // Create a vector of bytes with all the bits set.
-    std::vector<uint8> ones(kMsfPageSize - bytes_to_write, 0xFF);
+    std::vector<uint8_t> ones(kMsfPageSize - bytes_to_write, 0xFF);
     if (::fwrite(ones.data(), 1, ones.size(), file) != ones.size()) {
       LOG(ERROR) << "Failed to pad page " << page_index << " of free page map.";
       return false;
@@ -248,8 +248,8 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
   // Reserve space for the header page, the two free page map pages, and a
   // fourth empty page. The fourth empty page doesn't appear to be strictly
   // necessary but MSF files produced by MS tools always contain it.
-  uint32 page_count = 4;
-  for (uint32 i = 0; i < page_count; ++i) {
+  uint32_t page_count = 4;
+  for (uint32_t i = 0; i < page_count; ++i) {
     if (::fwrite(kZeroBuffer, 1, kMsfPageSize, file_.get()) != kMsfPageSize) {
       LOG(ERROR) << "Failed to allocate preamble page.";
       return false;
@@ -332,7 +332,7 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
 template <MsfFileType T>
 bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
                                     std::vector<uint32>* pages_written,
-                                    uint32* page_count) {
+                                    uint32_t* page_count) {
   DCHECK(stream != NULL);
   DCHECK(pages_written != NULL);
   DCHECK(page_count != NULL);
@@ -343,7 +343,7 @@ bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
 
   // Write the stream page by page.
   stream->Seek(0);
-  uint8 buffer[kMsfPageSize] = {0};
+  uint8_t buffer[kMsfPageSize] = {0};
   size_t bytes_left = stream->length();
   while (bytes_left) {
     size_t bytes_to_read = sizeof(buffer);
@@ -388,7 +388,7 @@ template <MsfFileType T>
 bool MsfWriterImpl<T>::WriteHeader(
     const std::vector<uint32>& root_directory_pages,
     size_t directory_size,
-    uint32 page_count) {
+    uint32_t page_count) {
   VLOG(1) << "Writing MSF Header ...";
 
   MsfHeader header = {0};

@@ -27,9 +27,9 @@ namespace {
 
 union LargeInteger {
   LARGE_INTEGER li;
-  uint64 ui64;
+  uint64_t ui64;
   static_assert(sizeof(LARGE_INTEGER) == sizeof(uint64),
-                "LARGE_INTEGER and uint64 must have the same size.");
+                "LARGE_INTEGER and uint64_t must have the same size.");
 };
 
 typedef ULONGLONG (*GetTickCount64Ptr)();
@@ -89,8 +89,8 @@ bool TimerToFileTime(const FILETIME& file_time_ref,
   if (timer_info.frequency == 0 || timer_info.resolution == 0)
     return false;
 
-  uint64 t = (static_cast<uint64>(file_time_ref.dwHighDateTime) << 32) |
-      file_time_ref.dwLowDateTime;
+  uint64_t t = (static_cast<uint64>(file_time_ref.dwHighDateTime) << 32) |
+               file_time_ref.dwLowDateTime;
 
     // The filetime is expressed in 100ns intervals.
   double cycles_per_100ns = 1.0e-7 * timer_info.frequency;
@@ -107,7 +107,7 @@ bool TimerToFileTime(const FILETIME& file_time_ref,
   return true;
 }
 
-uint64 GetTicks() {
+uint64_t GetTicks() {
   // We can't explicitly invoke GetTickCount64 as it doesn't exist in Windows
   // XP. This would make all of our trace code unable to be run on XP systems.
   const GetTickCount64Ptr kUninitialized =
@@ -150,7 +150,7 @@ void GetClockInfo(ClockInfo* clock_info) {
 }
 
 bool TicksToFileTime(const ClockInfo& clock_info,
-                     uint64 ticks,
+                     uint64_t ticks,
                      FILETIME* file_time) {
   DCHECK(file_time != NULL);
   return TimerToFileTime(clock_info.file_time,
@@ -161,7 +161,7 @@ bool TicksToFileTime(const ClockInfo& clock_info,
 }
 
 bool TscToFileTime(const ClockInfo& clock_info,
-                   uint64 tsc,
+                   uint64_t tsc,
                    FILETIME* file_time) {
   DCHECK(file_time != NULL);
   return TimerToFileTime(clock_info.file_time,

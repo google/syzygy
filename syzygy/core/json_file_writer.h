@@ -18,8 +18,9 @@
 #ifndef SYZYGY_CORE_JSON_FILE_WRITER_H_
 #define SYZYGY_CORE_JSON_FILE_WRITER_H_
 
+#include <stdint.h>
 #include <vector>
-#include "base/basictypes.h"
+
 #include "base/strings/string_piece.h"
 
 // Forward declaration.

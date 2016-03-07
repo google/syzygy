@@ -71,7 +71,7 @@ class TestSamplerApp : public SamplerApp {
 
   // Waits until a module has finished profiling, returning the total number of
   // samples set.
-  uint64 WaitUntilStopProfiling() {
+  uint64_t WaitUntilStopProfiling() {
     base::AutoLock auto_lock(cv_lock_);
     while (stop_profiling_counter_ == 0)
       stop_profiling_.Wait();
@@ -111,7 +111,7 @@ class TestSamplerApp : public SamplerApp {
 
   // This will be set to the total number of samples collected in the last
   // OnStopProfiling event.
-  uint64 on_stop_profiling_sample_count_;  // Under cv_lock_.
+  uint64_t on_stop_profiling_sample_count_;  // Under cv_lock_.
 };
 
 class TestParseEventHandler : public testing::MockParseEventHandler {
@@ -139,7 +139,7 @@ class TestParseEventHandler : public testing::MockParseEventHandler {
 
   // This will be set to the total number of samples seen in the last
   // TraceSampleData buffer seen by TestOnSampleData.
-  uint64 sample_count;
+  uint64_t sample_count;
 };
 
 class SamplerAppTest : public testing::PELibUnitTest {
@@ -449,7 +449,7 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   worker_thread_.Stop();
 
   // We should also have received a profiling stop event.
-  uint32 sample_count = impl_.WaitUntilStopProfiling();
+  uint32_t sample_count = impl_.WaitUntilStopProfiling();
 
   // NOTE: There's no way for us to find out exactly when the sampler has
   //     started, and under high load the system may defer starting the sampler
@@ -464,7 +464,7 @@ TEST_F(SamplerAppTest, SampleSelfPidWhitelist) {
   base::FilePath dmp_path = fe.Next();
   EXPECT_FALSE(dmp_path.empty());
 
-  int64 dmp_size = 0;
+  int64_t dmp_size = 0;
   EXPECT_TRUE(base::GetFileSize(dmp_path, &dmp_size));
   EXPECT_LT(0, dmp_size);
 

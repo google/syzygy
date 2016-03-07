@@ -242,8 +242,9 @@ TEST_F(BranchHookTransformTest, ApplyAgentInstrumentation) {
   EXPECT_EQ(sizeof(ThreadLocalIndexedFrequencyData),
             tx_.frequency_data_block()->data_size());
 
-  uint32 expected_size = frequency_data->num_entries *
-      frequency_data->num_columns * frequency_data->frequency_size;
+  uint32_t expected_size = frequency_data->num_entries *
+                           frequency_data->num_columns *
+                           frequency_data->frequency_size;
   EXPECT_EQ(expected_size, tx_.frequency_data_buffer_block()->size());
 
   // Validate that all basic blocks have been instrumented.

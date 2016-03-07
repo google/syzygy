@@ -70,7 +70,7 @@ bool WriteStreamToPath(PdbStream* pdb_stream,
   VLOG(1) << "Writing " << pdb_stream->length() << " bytes to \""
           << output_file_name.value() << "\".";
 
-  uint8 buffer[4096];
+  uint8_t buffer[4096];
   size_t bytes_read = 0;
   pdb_stream->Seek(0);
   while (bytes_read < pdb_stream->length()) {

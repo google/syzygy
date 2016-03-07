@@ -37,7 +37,7 @@ class StackCapture {
 
   // The type used for reference counting. We use saturation arithmetic, so it
   // will top out at kMaxRefCount.
-  using RefCount = uint16;
+  using RefCount = uint16_t;
   static const RefCount kMaxRefCount = static_cast<RefCount>(-1);
 
   using StackId = ::common::AsanStackId;
@@ -195,11 +195,11 @@ class StackCapture {
   mutable StackId relative_stack_id_;
 
   // The number of valid frames in this stack trace capture, and the maximum
-  // number it can represent. We use uint8s here because we're limited to
+  // number it can represent. We use uint8_ts here because we're limited to
   // kMaxNumFrames by the OS machinery and want this data structure to be as
   // compact as possible.
-  uint8 num_frames_;
-  uint8 max_num_frames_;
+  uint8_t num_frames_;
+  uint8_t max_num_frames_;
 
   // The reference count for this stack capture. We use saturation arithmetic
   // and something that is referenced 2^16 - 1 times will stay at that reference

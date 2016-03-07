@@ -40,7 +40,7 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   // @name Accessors.
   // @{
   size_t len() const { return len_; }
-  const uint8* buf() const { return buf_; }
+  const uint8_t* buf() const { return buf_; }
   size_t num_reference_infos() const { return num_reference_infos_; }
   const ReferenceInfo* reference_infos() const { return reference_infos_; }
   // @}
@@ -49,9 +49,9 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   // @param count The number of operand size prefix bytes to emit.
   void EmitOperandSizePrefix(size_t count);
   // Emit an opcode byte.
-  void EmitOpCodeByte(uint8 opcode);
+  void EmitOpCodeByte(uint8_t opcode);
   // Emit a ModR/M byte with an opcode extension.
-  void EmitModRMByte(Mod mod, uint8 op, RegisterId reg1);
+  void EmitModRMByte(Mod mod, uint8_t op, RegisterId reg1);
   // Emit a ModR/M byte with a destination register.
   void EmitModRMByte(Mod mod, RegisterId reg2, RegisterId reg1);
   // Emit a SIB byte.
@@ -59,7 +59,7 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
                               RegisterId index,
                               RegisterId base);
   // Emit an operand.
-  void EmitOperand(uint8 reg_op, const Operand& op);
+  void EmitOperand(uint8_t reg_op, const Operand& op);
 
   // Emit an 8-bit displacement, with optional reference info.
   void Emit8BitDisplacement(const Displacement& disp);
@@ -73,28 +73,40 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   void Emit32BitImmediate(const Immediate& disp);
 
   // Emit an 8-bit PC-relative value.
-  void Emit8BitPCRelative(uint32 location, const Immediate& imm);
+  void Emit8BitPCRelative(uint32_t location, const Immediate& imm);
 
   // Emit a 32-bit PC-relative value.
-  void Emit32BitPCRelative(uint32 location, const Immediate& imm);
+  void Emit32BitPCRelative(uint32_t location, const Immediate& imm);
 
   // Emit a 16-bit immediate value.
-  void Emit16BitValue(uint16 value);
+  void Emit16BitValue(uint16_t value);
 
   // Emit an arithmetic instruction with various encoding.
-  void EmitArithmeticInstruction(
-      uint8 op, const Register& dst, const Register& src);
-  void EmitArithmeticInstruction(
-      uint8 op, const Register& dst, const Operand& src);
-  void EmitArithmeticInstruction(
-      uint8 op, const Operand& dst, const Register32& src);
-  void EmitArithmeticInstructionToRegister32(uint8 op_eax, uint8 op_8,
-      uint8 op_32, uint8 sub_op, const Register32& dst,
-      const Immediate& src);
-  void EmitArithmeticInstructionToRegister8(uint8 op_eax, uint8 op_8,
-      uint8 sub_op, const Register8& dst, const Immediate& src);
-  void EmitArithmeticInstructionToOperand(uint8 op_8, uint8 op_32,
-      uint8 sub_op, const Operand& dst, const Immediate& src);
+  void EmitArithmeticInstruction(uint8_t op,
+                                 const Register& dst,
+                                 const Register& src);
+  void EmitArithmeticInstruction(uint8_t op,
+                                 const Register& dst,
+                                 const Operand& src);
+  void EmitArithmeticInstruction(uint8_t op,
+                                 const Operand& dst,
+                                 const Register32& src);
+  void EmitArithmeticInstructionToRegister32(uint8_t op_eax,
+                                             uint8_t op_8,
+                                             uint8_t op_32,
+                                             uint8_t sub_op,
+                                             const Register32& dst,
+                                             const Immediate& src);
+  void EmitArithmeticInstructionToRegister8(uint8_t op_eax,
+                                            uint8_t op_8,
+                                            uint8_t sub_op,
+                                            const Register8& dst,
+                                            const Immediate& src);
+  void EmitArithmeticInstructionToOperand(uint8_t op_8,
+                                          uint8_t op_32,
+                                          uint8_t sub_op,
+                                          const Operand& dst,
+                                          const Immediate& src);
 
   // Emit an arithmetic instruction with 3 operands.
   void EmitThreeOperandArithmeticInstructionToRegister32(
@@ -112,13 +124,13 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
                     bool pc_relative);
 
  protected:
-  void EmitByte(uint8 byte);
+  void EmitByte(uint8_t byte);
 
   AssemblerBase* asm_;
   size_t num_reference_infos_;
   ReferenceInfo reference_infos_[2];
   size_t len_;
-  uint8 buf_[kMaxInstructionLength];
+  uint8_t buf_[kMaxInstructionLength];
 };
 
 namespace details {
@@ -168,13 +180,15 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitOperandSizePrefix(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::EmitOpCodeByte(
-    uint8 opcode) {
+    uint8_t opcode) {
   EmitByte(opcode);
 }
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::EmitModRMByte(
-    Mod mod, uint8 reg_op, RegisterId reg1) {
+    Mod mod,
+    uint8_t reg_op,
+    RegisterId reg1) {
   DCHECK_LE(reg_op, 8);
   DCHECK_NE(kRegisterNone, reg1);
   EmitByte((mod << 6) | (reg_op << 3) | Register::Code(reg1));
@@ -199,7 +213,8 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::EmitScaleIndexBaseByte(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::EmitOperand(
-    uint8 reg_op, const Operand& op) {
+    uint8_t reg_op,
+    const Operand& op) {
   DCHECK_GE(8, reg_op);
 
   // The op operand can encode any one of the following things:
@@ -327,7 +342,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitDisplacement(
     const Displacement& disp) {
   AddReference(disp.reference(), kSize32Bit, false);
 
-  uint32 value = disp.value();
+  uint32_t value = disp.value();
   EmitByte(value);
   EmitByte(value >> 8);
   EmitByte(value >> 16);
@@ -339,7 +354,7 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitImmediate(
     const Immediate& imm) {
   AddReference(imm.reference(), kSize32Bit, false);
 
-  uint32 value = imm.value();
+  uint32_t value = imm.value();
   EmitByte(value);
   EmitByte(value >> 8);
   EmitByte(value >> 16);
@@ -348,29 +363,31 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitImmediate(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit8BitPCRelative(
-    uint32 location, const Immediate& imm) {
+    uint32_t location,
+    const Immediate& imm) {
   DCHECK_EQ(kSize8Bit, imm.size());
 
   AddReference(imm.reference(), kSize8Bit, true);
 
   // Turn the absolute imm into a imm relative to the address of
   // the end of the emitted constant.
-  int32 relative_value = imm.value() - (location + len_ + 1);
-  DCHECK_LE(std::numeric_limits<int8>::min(), relative_value);
-  DCHECK_GE(std::numeric_limits<int8>::max(), relative_value);
+  int32_t relative_value = imm.value() - (location + len_ + 1);
+  DCHECK_LE(std::numeric_limits<int8_t>::min(), relative_value);
+  DCHECK_GE(std::numeric_limits<int8_t>::max(), relative_value);
   EmitByte(relative_value);
 }
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitPCRelative(
-    uint32 location, const Immediate& imm) {
+    uint32_t location,
+    const Immediate& imm) {
   DCHECK_EQ(kSize32Bit, imm.size());
 
   AddReference(imm.reference(), kSize32Bit, true);
 
   // Turn the absolute imm into a imm relative to the address of
   // the end of the emitted constant.
-  uint32 relative_value = imm.value() - (location + len_ + 4);
+  uint32_t relative_value = imm.value() - (location + len_ + 4);
   EmitByte(relative_value);
   EmitByte(relative_value >> 8);
   EmitByte(relative_value >> 16);
@@ -379,41 +396,47 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitPCRelative(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::Emit16BitValue(
-    uint16 value) {
+    uint16_t value) {
   EmitByte(value);
   EmitByte(value >> 8);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::InstructionBuffer::
-EmitArithmeticInstruction(
-    uint8 op, const Register& dst, const Register& src) {
+void AssemblerBase<ReferenceType>::InstructionBuffer::EmitArithmeticInstruction(
+    uint8_t op,
+    const Register& dst,
+    const Register& src) {
   DCHECK_EQ(dst.size(), src.size());
   EmitOpCodeByte(op);
   EmitModRMByte(kReg1, dst.id(), src.id());
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::InstructionBuffer::
-EmitArithmeticInstruction(
-    uint8 op, const Register& dst, const Operand& src) {
+void AssemblerBase<ReferenceType>::InstructionBuffer::EmitArithmeticInstruction(
+    uint8_t op,
+    const Register& dst,
+    const Operand& src) {
   EmitOpCodeByte(op);
   EmitOperand(dst.code(), src);
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::InstructionBuffer::
-EmitArithmeticInstruction(
-    uint8 op, const Operand& dst, const Register32& src) {
+void AssemblerBase<ReferenceType>::InstructionBuffer::EmitArithmeticInstruction(
+    uint8_t op,
+    const Operand& dst,
+    const Register32& src) {
   EmitOpCodeByte(op);
   EmitOperand(src.code(), dst);
 }
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
-EmitArithmeticInstructionToRegister32(
-    uint8 op_eax, uint8 op_8, uint8 op_32, uint8 sub_op,
-    const Register32& dst, const Immediate& src) {
+    EmitArithmeticInstructionToRegister32(uint8_t op_eax,
+                                          uint8_t op_8,
+                                          uint8_t op_32,
+                                          uint8_t sub_op,
+                                          const Register32& dst,
+                                          const Immediate& src) {
   if (dst.id() == kRegisterEax && src.size() == kSize32Bit) {
     // Special encoding for EAX.
     EmitOpCodeByte(op_eax);
@@ -431,9 +454,11 @@ EmitArithmeticInstructionToRegister32(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
-EmitArithmeticInstructionToRegister8(
-    uint8 op_eax, uint8 op_8, uint8 sub_op,
-    const Register8& dst, const Immediate& src) {
+    EmitArithmeticInstructionToRegister8(uint8_t op_eax,
+                                         uint8_t op_8,
+                                         uint8_t sub_op,
+                                         const Register8& dst,
+                                         const Immediate& src) {
   DCHECK(src.size() == kSize8Bit);
   if (dst.code() == kAccumulatorCode) {
     // Special encoding for AL/AX/EAX.
@@ -447,9 +472,11 @@ EmitArithmeticInstructionToRegister8(
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
-EmitArithmeticInstructionToOperand(
-    uint8 op_8, uint8 op_32, uint8 sub_op,
-    const Operand& dst, const Immediate& src) {
+    EmitArithmeticInstructionToOperand(uint8_t op_8,
+                                       uint8_t op_32,
+                                       uint8_t sub_op,
+                                       const Operand& dst,
+                                       const Immediate& src) {
   if (src.size() == kSize8Bit) {
     EmitOpCodeByte(op_8);
     EmitOperand(sub_op, dst);
@@ -515,15 +542,15 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::AddReference(
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::InstructionBuffer::EmitByte(uint8 byte) {
+void AssemblerBase<ReferenceType>::InstructionBuffer::EmitByte(uint8_t byte) {
   DCHECK_GT(sizeof(buf_), len_);
   buf_[len_++] = byte;
 }
 
 template <class ReferenceType>
-AssemblerBase<ReferenceType>::AssemblerBase(
-    uint32 location, InstructionSerializer* serializer) :
-        location_(location), serializer_(serializer) {
+AssemblerBase<ReferenceType>::AssemblerBase(uint32_t location,
+                                            InstructionSerializer* serializer)
+    : location_(location), serializer_(serializer) {
   DCHECK(serializer != NULL);
 }
 
@@ -662,9 +689,9 @@ bool AssemblerBase<ReferenceType>::j(ConditionCode cc,
   if (label->bound()) {
     // Check whether the short reach is in range.
     // TODO(siggi): Utility function for this.
-    int32 offs = label->location() - (location() + kShortBranchSize);
-    if (offs > std::numeric_limits<int8>::max() ||
-        offs < std::numeric_limits<int8>::min()) {
+    int32_t offs = label->location() - (location() + kShortBranchSize);
+    if (offs > std::numeric_limits<int8_t>::max() ||
+        offs < std::numeric_limits<int8_t>::min()) {
       // Short is out of range, fail if that's requested.
       if (size == kSize8Bit)
         return false;
@@ -758,7 +785,7 @@ void AssemblerBase<ReferenceType>::ret() {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::ret(uint16 n) {
+void AssemblerBase<ReferenceType>::ret(uint16_t n) {
   InstructionBuffer instr(this);
 
   instr.EmitOpCodeByte(0xC2);
@@ -1419,7 +1446,7 @@ void AssemblerBase<ReferenceType>::nop8(size_t prefix_count) {
 }
 
 template <class ReferenceType>
-void AssemblerBase<ReferenceType>::data(const uint8 b) {
+void AssemblerBase<ReferenceType>::data(const uint8_t b) {
   InstructionBuffer instr(this);
   instr.EmitOpCodeByte(b);
 }
@@ -1436,27 +1463,27 @@ void AssemblerBase<ReferenceType>::Output(const InstructionBuffer& instr) {
 }
 
 template <class ReferenceType>
-bool AssemblerBase<ReferenceType>::FinalizeLabel(
-    uint32 location, uint32 destination, RegisterSize size) {
+bool AssemblerBase<ReferenceType>::FinalizeLabel(uint32_t location,
+                                                 uint32_t destination,
+                                                 RegisterSize size) {
   if (size == kSize8Bit) {
     // Compute the relative value, note that this is computed relative to
     // the end of the PC-relative constant, e.g. from the start of the next
     // instruction.
-    int32 relative_value = destination - (location + 1);
-    if (relative_value < std::numeric_limits<int8>::min() ||
-        relative_value > std::numeric_limits<int8>::max()) {
+    int32_t relative_value = destination - (location + 1);
+    if (relative_value < std::numeric_limits<int8_t>::min() ||
+        relative_value > std::numeric_limits<int8_t>::max()) {
       // Out of bounds...
       return false;
     }
-    uint8 byte = relative_value & 0xFF;
+    uint8_t byte = relative_value & 0xFF;
     return serializer_->FinalizeLabel(location, &byte, sizeof(byte));
   } else {
     DCHECK_EQ(kSize32Bit, size);
-    int32 relative_value = destination - (location + 4);
+    int32_t relative_value = destination - (location + 4);
 
     return serializer_->FinalizeLabel(
-        location,
-        reinterpret_cast<const uint8*>(&relative_value),
+        location, reinterpret_cast<const uint8_t*>(&relative_value),
         sizeof(relative_value));
   }
 }

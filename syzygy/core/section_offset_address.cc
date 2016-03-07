@@ -25,11 +25,11 @@ namespace {
 
 // The minimum alignment of a PE section.
 // See http://msdn.microsoft.com/library/windows/desktop/ms680339.aspx
-const uint32 kPESectionMinAlignment = 512;
+const uint32_t kPESectionMinAlignment = 512;
 
 // Host function for compile asserts.
 void SectionOffsetAddressCompileAsserts() {
-  static_assert(sizeof(SectionOffsetAddress) == 2 * sizeof(uint32),
+  static_assert(sizeof(SectionOffsetAddress) == 2 * sizeof(uint32_t),
                 "SectionOffsetAddress should be 8 bytes.");
 }
 
@@ -37,10 +37,9 @@ void SectionOffsetAddressCompileAsserts() {
 
 const SectionOffsetAddress SectionOffsetAddress::kInvalidAddress(~0U, ~0U);
 
-SectionOffsetAddress::SectionOffset::SectionOffset(
-    uint32 section_id, uint32 offset)
-    : section_id(section_id),
-      offset(offset) {
+SectionOffsetAddress::SectionOffset::SectionOffset(uint32_t section_id,
+                                                   uint32_t offset)
+    : section_id(section_id), offset(offset) {
 }
 
 bool SectionOffsetAddress::SectionOffset::operator<(
@@ -92,7 +91,7 @@ bool SectionOffsetAddress::SectionOffset::operator!=(
 SectionOffsetAddress::SectionOffsetAddress() : value_(0, 0) {
 }
 
-SectionOffsetAddress::SectionOffsetAddress(uint32 section_id, uint32 offset)
+SectionOffsetAddress::SectionOffsetAddress(uint32_t section_id, uint32_t offset)
     : value_(section_id, offset) {
 }
 
@@ -128,11 +127,11 @@ void SectionOffsetAddress::operator=(const SectionOffsetAddress& other) {
   value_ = other.value_;
 }
 
-void SectionOffsetAddress::operator+=(int32 offset) {
+void SectionOffsetAddress::operator+=(int32_t offset) {
   value_.offset += offset;
 }
 
-void SectionOffsetAddress::operator-=(int32 offset) {
+void SectionOffsetAddress::operator-=(int32_t offset) {
   value_.offset -= offset;
 }
 
@@ -163,8 +162,8 @@ bool SectionOffsetAddress::IsAligned(size_t alignment) const {
   return common::IsAligned(offset(), alignment);
 }
 
-uint32 SectionOffsetAddress::GetAlignment() const {
-  uint32 alignment = common::GetAlignment(offset());
+uint32_t SectionOffsetAddress::GetAlignment() const {
+  uint32_t alignment = common::GetAlignment(offset());
   if (alignment > kPESectionMinAlignment)
     return kPESectionMinAlignment;
   return alignment;

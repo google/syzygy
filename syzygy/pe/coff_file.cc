@@ -110,7 +110,7 @@ bool CoffFile::ReadNonSections() {
 
   // Map the string table into our address space.
   FileOffsetAddress strings_start(symbols_start + symbols_size);
-  uint32 strings_size = 0;
+  uint32_t strings_size = 0;
   if (!ReadAt(strings_start.value(), &strings_size, sizeof(strings_size))) {
     LOG(ERROR) << "Unable to read string table size.";
     return false;

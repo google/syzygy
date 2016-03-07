@@ -82,7 +82,7 @@ class ZOutStream : public OutStream {
 
   scoped_ptr<z_stream_s, z_stream_s_close> zstream_;
   OutStream* out_stream_;
-  std::vector<uint8> buffer_;
+  std::vector<uint8_t> buffer_;
 };
 
 // A zlib decompressing in-stream, decompressing the data from the chained
@@ -115,7 +115,7 @@ class ZInStream : public InStream {
 
   scoped_ptr<z_stream_s, z_stream_s_close> zstream_;
   InStream* in_stream_;
-  std::vector<uint8> buffer_;
+  std::vector<uint8_t> buffer_;
 };
 
 }  // namespace core

@@ -26,16 +26,18 @@ const char AddIndexedFrequencyDataTransform::kTransformName[] =
     "AddFrequencyDataTransform";
 
 AddIndexedFrequencyDataTransform::AddIndexedFrequencyDataTransform(
-    uint32 agent_id, const base::StringPiece& freq_name, uint32 version,
+    uint32_t agent_id,
+    const base::StringPiece& freq_name,
+    uint32_t version,
     IndexedFrequencyData::DataType data_type,
     size_t indexed_frequency_data_size)
-        : agent_id_(agent_id),
-          freq_name_(freq_name.begin(), freq_name.end()),
-          version_(version),
-          data_type_(data_type),
-          frequency_data_block_(NULL),
-          frequency_data_block_size_(indexed_frequency_data_size),
-          frequency_data_buffer_block_(NULL) {
+    : agent_id_(agent_id),
+      freq_name_(freq_name.begin(), freq_name.end()),
+      version_(version),
+      data_type_(data_type),
+      frequency_data_block_(NULL),
+      frequency_data_block_size_(indexed_frequency_data_size),
+      frequency_data_buffer_block_(NULL) {
   DCHECK_LE(sizeof(IndexedFrequencyData), indexed_frequency_data_size);
 }
 
@@ -116,9 +118,9 @@ bool AddIndexedFrequencyDataTransform::TransformBlockGraph(
 }
 
 bool AddIndexedFrequencyDataTransform::ConfigureFrequencyDataBuffer(
-    uint32 num_entries,
-    uint32 num_columns,
-    uint8 frequency_size) {
+    uint32_t num_entries,
+    uint32_t num_columns,
+    uint8_t frequency_size) {
   DCHECK_NE(0U, num_entries);
   DCHECK_NE(0U, num_columns);
   DCHECK(frequency_size == 1 || frequency_size == 2 || frequency_size == 4);

@@ -82,7 +82,7 @@ template <typename AddressSpaceTraits>
 bool PECoffFile<AddressSpaceTraits>::ReadCommonHeaders(
     FileOffsetAddress file_header_start) {
   // Test for unsupported object files.
-  const uint16* obj_sig = nullptr;
+  const uint16_t* obj_sig = nullptr;
   if (!parser_.GetCountAt(0, 2, &obj_sig))
     return false;
   if (obj_sig[0] == 0 && obj_sig[1] == 0xFFFF) {
@@ -203,8 +203,9 @@ bool PECoffFile<AddressSpaceTraits>::ReadAt(size_t offset,
 }
 
 template <typename AddressSpaceTraits>
-const uint8* PECoffFile<AddressSpaceTraits>::GetImageData(AddressType addr,
-                                                          SizeType len) const {
+const uint8_t* PECoffFile<AddressSpaceTraits>::GetImageData(
+    AddressType addr,
+    SizeType len) const {
   ImageAddressSpace::Range range(addr, len);
   ImageAddressSpace::RangeMap::const_iterator it(
       address_space_.FindContaining(range));
@@ -214,7 +215,7 @@ const uint8* PECoffFile<AddressSpaceTraits>::GetImageData(AddressType addr,
 
   ptrdiff_t offs = addr - it->first.start();
   DCHECK_GE(offs, 0);
-  const uint8* data = nullptr;
+  const uint8_t* data = nullptr;
   if (!it->second.parser.GetCountAt(offs, len, &data))
     return nullptr;
 
@@ -222,9 +223,9 @@ const uint8* PECoffFile<AddressSpaceTraits>::GetImageData(AddressType addr,
 }
 
 template <typename AddressSpaceTraits>
-uint8* PECoffFile<AddressSpaceTraits>::GetImageData(AddressType addr,
-                                                    SizeType len) {
-  return const_cast<uint8*>(
+uint8_t* PECoffFile<AddressSpaceTraits>::GetImageData(AddressType addr,
+                                                      SizeType len) {
+  return const_cast<uint8_t*>(
       static_cast<const PECoffFile*>(this)->GetImageData(addr, len));
 }
 
@@ -232,7 +233,7 @@ template <typename AddressSpaceTraits>
 template <typename ItemType>
 bool PECoffFile<AddressSpaceTraits>::GetImageData(
     AddressType addr, SizeType len, const ItemType** item_ptr) const {
-  const uint8* ptr = GetImageData(addr, len);
+  const uint8_t* ptr = GetImageData(addr, len);
   if (ptr == nullptr)
     return false;
   *item_ptr = reinterpret_cast<const ItemType*>(ptr);
@@ -243,7 +244,7 @@ template <typename AddressSpaceTraits>
 template <typename ItemType>
 bool PECoffFile<AddressSpaceTraits>::GetImageData(
     AddressType addr, SizeType len, ItemType** item_ptr) {
-  uint8* ptr = GetImageData(addr, len);
+  uint8_t* ptr = GetImageData(addr, len);
   if (ptr == nullptr)
     return false;
   *item_ptr = reinterpret_cast<ItemType*>(ptr);
@@ -255,7 +256,7 @@ bool PECoffFile<AddressSpaceTraits>::ReadImage(AddressType addr,
                                                void* data, SizeType len) const {
   DCHECK(data != nullptr);
   // TODO(chrisha): Make this use BinaryBufferParser::CopyAt when it's ready.
-  const uint8* buf = GetImageData(addr, len);
+  const uint8_t* buf = GetImageData(addr, len);
   if (buf == nullptr)
     return false;
   ::memcpy(data, buf, len);
@@ -287,9 +288,10 @@ bool PECoffFile<AddressSpaceTraits>::ReadImageString(AddressType addr,
 }
 
 template <typename AddressSpaceTraits>
-const uint8* PECoffFile<AddressSpaceTraits>::GetImageDataByFileOffset(
-    FileOffsetAddress addr, SizeType len) const {
-  const uint8* data = nullptr;
+const uint8_t* PECoffFile<AddressSpaceTraits>::GetImageDataByFileOffset(
+    FileOffsetAddress addr,
+    SizeType len) const {
+  const uint8_t* data = nullptr;
   if (!parser_.GetCountAt(addr.value(), len, &data))
     return nullptr;
   return data;

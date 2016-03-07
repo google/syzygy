@@ -64,8 +64,9 @@ ProfileGrinder::CodeLocation::CodeLocation()
     : process_id_(0), symbol_id_(0), symbol_offset_(0), is_symbol_(false) {
 }
 
-void ProfileGrinder::CodeLocation::Set(
-    uint32 process_id, uint32 symbol_id, size_t symbol_offset) {
+void ProfileGrinder::CodeLocation::Set(uint32_t process_id,
+                                       uint32_t symbol_id,
+                                       size_t symbol_offset) {
   is_symbol_ = true;
   process_id_ = process_id;
   symbol_id_ = symbol_id;
@@ -676,7 +677,7 @@ void ProfileGrinder::OnThreadName(base::Time time,
 }
 
 void ProfileGrinder::OnDynamicSymbol(DWORD process_id,
-                                     uint32 symbol_id,
+                                     uint32_t symbol_id,
                                      const base::StringPiece& symbol_name) {
   DynamicSymbolKey key(process_id, symbol_id);
 
@@ -735,7 +736,7 @@ void ProfileGrinder::AggregateEntryToPart(const FunctionLocation& function,
   }
 }
 
-void ProfileGrinder::ConvertToModuleRVA(uint32 process_id,
+void ProfileGrinder::ConvertToModuleRVA(uint32_t process_id,
                                         AbsoluteAddress64 addr,
                                         CodeLocation* rva) {
   DCHECK(rva != NULL);

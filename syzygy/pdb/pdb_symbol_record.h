@@ -20,7 +20,6 @@
 
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/callback.h"
 #include "syzygy/pdb/pdb_data_types.h"
 #include "syzygy/pdb/pdb_stream.h"
@@ -41,8 +40,8 @@ bool ReadSymbolRecord(PdbStream* stream,
 // (indicating that it should terminate). The stream is positioned at the
 // beginning of the symbol data, which is of the provided length, the type
 // having already been read from the stream.
-typedef base::Callback<bool(uint16 /* symbol_length */,
-                            uint16 /* symbol_type */,
+typedef base::Callback<bool(uint16_t /* symbol_length */,
+                            uint16_t /* symbol_type */,
                             PdbStream* /* symbol_stream */)>
     VisitSymbolsCallback;
 

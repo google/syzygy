@@ -42,7 +42,7 @@ class RandomOrderer
   //     to all sections. Individual sections may have their value changed using
   //     SetShuffleSection.
   // @param seed the seed to be used by the random number generator.
-  RandomOrderer(bool default_shuffle_section, uint32 seed);
+  RandomOrderer(bool default_shuffle_section, uint32_t seed);
 
   // Configures whether or not the given section should have its blocks
   // shuffled. This overrides the default value specified in the constructor.

@@ -136,9 +136,9 @@ class BasicBlockAssembler : public assm::AssemblerBase<UntypedReference> {
 
   // Constructs a basic block assembler that inserts new instructions into
   // @p *list at @p where, assuming a starting address of @p location.
-  BasicBlockAssembler(uint32 location,
+  BasicBlockAssembler(uint32_t location,
                       const Instructions::iterator& where,
-                      Instructions *list);
+                      Instructions* list);
 
   // @returns The source range injected into created instructions.
   SourceRange source_range() const { return serializer_.source_range(); }
@@ -177,13 +177,13 @@ class BasicBlockAssembler : public assm::AssemblerBase<UntypedReference> {
     BasicBlockSerializer(const Instructions::iterator& where,
                          Instructions* list);
 
-    void AppendInstruction(uint32 location,
-                           const uint8* bytes,
+    void AppendInstruction(uint32_t location,
+                           const uint8_t* bytes,
                            size_t num_bytes,
                            const ReferenceInfo* refs,
                            size_t num_refs) override;
-    bool FinalizeLabel(uint32 location,
-                       const uint8* bytes,
+    bool FinalizeLabel(uint32_t location,
+                       const uint8_t* bytes,
                        size_t num_bytes) override;
 
     SourceRange source_range() const { return source_range_; }
@@ -219,12 +219,12 @@ BasicBlockAssembler::Immediate Immediate();
 // 8-bit Immediate will be created; otherwise, a 32-bit absolute Immediate will
 // be created.
 // @param value The value to be stored.
-BasicBlockAssembler::Immediate Immediate(uint32 value);
+BasicBlockAssembler::Immediate Immediate(uint32_t value);
 
 // Constructs an absolute Immediate having a specific bit width.
 // @param value The value to be stored.
 // @param size The size of the value.
-BasicBlockAssembler::Immediate Immediate(uint32 value, assm::ValueSize size);
+BasicBlockAssembler::Immediate Immediate(uint32_t value, assm::ValueSize size);
 
 // Constructs a 32-bit direct reference to the basic block @p bb.
 // @param bb The basic block to be referred to.
@@ -258,8 +258,9 @@ BasicBlockAssembler::Immediate Immediate(
 // @param size The size of the Immediate.
 // @param ref The untyped reference backing this Immediate. The reference must
 //     be valid.
-BasicBlockAssembler::Immediate Immediate(
-    uint32 value, ValueSize size, const UntypedReference& ref);
+BasicBlockAssembler::Immediate Immediate(uint32_t value,
+                                         ValueSize size,
+                                         const UntypedReference& ref);
 
 // @}
 
@@ -275,12 +276,12 @@ BasicBlockAssembler::Displacement Displacement();
 // then an 8-bit Displacement will be created; otherwise, a 32-bit absolute
 // Displacement will be created.
 // @param value The value to be stored.
-BasicBlockAssembler::Displacement Displacement(uint32 value);
+BasicBlockAssembler::Displacement Displacement(uint32_t value);
 
 // Constructs an absolute Displacement having a specific bit width.
 // @param value The value to be stored.
 // @param size The size of the Displacement.
-BasicBlockAssembler::Displacement Displacement(uint32 value, ValueSize size);
+BasicBlockAssembler::Displacement Displacement(uint32_t value, ValueSize size);
 
 // Constructs a 32-bit direct reference to the basic block @p bb.
 // @param bb The basic block to be referred to.
@@ -314,8 +315,9 @@ BasicBlockAssembler::Displacement Displacement(BlockGraph::Block* block,
 // @param size The size of the Displacement.
 // @param ref The untyped reference backing this Displacement. The reference
 //     must be valid.
-BasicBlockAssembler::Displacement Displacement(
-    uint32 value, ValueSize size, const UntypedReference& ref);
+BasicBlockAssembler::Displacement Displacement(uint32_t value,
+                                               ValueSize size,
+                                               const UntypedReference& ref);
 
 // @}
 

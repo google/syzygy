@@ -144,7 +144,7 @@ class ReorderAppTest : public testing::PELibUnitTest {
   base::FilePath output_file_path_;
   base::FilePath bb_entry_count_file_path_;
   base::FilePath trace_file_path_;
-  uint32 seed_;
+  uint32_t seed_;
   bool pretty_print_;
   // @}
 

@@ -42,7 +42,7 @@ struct AverageBlockCall {
   // seen, NOT the number of times it was seen called in aggregate.
   size_t call_count;
   // This is only meaningful if call_count == 1.
-  uint32 process_group_id;
+  uint32_t process_group_id;
 
   double AverageOrder() const {
     DCHECK_LT(0U, call_count);
@@ -88,7 +88,7 @@ LinearOrderGenerator::LinearOrderGenerator()
 LinearOrderGenerator::~LinearOrderGenerator() {
 }
 
-bool LinearOrderGenerator::OnProcessStarted(uint32 process_id,
+bool LinearOrderGenerator::OnProcessStarted(uint32_t process_id,
                                             const UniqueTime& time) {
   if (active_process_count_ == 0) {
     if (!CloseProcessGroup())
@@ -100,7 +100,7 @@ bool LinearOrderGenerator::OnProcessStarted(uint32 process_id,
   return true;
 }
 
-bool LinearOrderGenerator::OnProcessEnded(uint32 process_id,
+bool LinearOrderGenerator::OnProcessEnded(uint32_t process_id,
                                           const UniqueTime& time) {
   DCHECK_LT(0U, active_process_count_);
   --active_process_count_;
@@ -109,8 +109,8 @@ bool LinearOrderGenerator::OnProcessEnded(uint32 process_id,
 
 bool LinearOrderGenerator::OnCodeBlockEntry(const BlockGraph::Block* block,
                                             RelativeAddress address,
-                                            uint32 process_id,
-                                            uint32 thread_id,
+                                            uint32_t process_id,
+                                            uint32_t thread_id,
                                             const UniqueTime& time) {
   return TouchBlock(BlockCall(block, process_id, thread_id, time));
 }

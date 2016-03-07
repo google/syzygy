@@ -15,7 +15,7 @@
 
 namespace msf {
 
-const uint8 kMsfHeaderMagicString[kMsfHeaderMagicStringSize] = {
+const uint8_t kMsfHeaderMagicString[kMsfHeaderMagicStringSize] = {
     0x4D, 0x69, 0x63, 0x72, 0x6F,
     0x73, 0x6F, 0x66,  // "Microsof"
     0x74, 0x20, 0x43, 0x2F, 0x43,

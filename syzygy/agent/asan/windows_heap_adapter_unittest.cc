@@ -92,7 +92,7 @@ TEST_F(WindowsHeapAdapterTest, HeapAlloc) {
 
 TEST_F(WindowsHeapAdapterTest, HeapAllocWithZeroMemoryFlag) {
   const size_t kAllocSize = 10;
-  uint8 kDummyBuffer[kAllocSize];
+  uint8_t kDummyBuffer[kAllocSize];
 
   // Fill the array with a non-zero value.
   ::memset(kDummyBuffer, 0xFF, kAllocSize);
@@ -166,8 +166,8 @@ TEST_F(WindowsHeapAdapterTest, HeapReAllocFailOnOOM) {
 TEST_F(WindowsHeapAdapterTest, HeapReallocCopyData) {
   const size_t kAllocSize = 10;
   const size_t kReAllocSize = kAllocSize * 2;
-  uint8 kDummyBuffer1[kAllocSize];
-  uint8 kDummyBuffer2[kReAllocSize];
+  uint8_t kDummyBuffer1[kAllocSize];
+  uint8_t kDummyBuffer2[kReAllocSize];
 
   EXPECT_CALL(mock_heap_manager_, Allocate(kFakeHeapId, kAllocSize)).WillOnce(
       Return(reinterpret_cast<void*>(kDummyBuffer1)));

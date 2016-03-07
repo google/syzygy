@@ -31,8 +31,8 @@ RandomOrderGenerator::~RandomOrderGenerator() {
 
 bool RandomOrderGenerator::OnCodeBlockEntry(const BlockGraph::Block* /*block*/,
                                             RelativeAddress /*address*/,
-                                            uint32 /*process_id*/,
-                                            uint32 /*thread_id*/,
+                                            uint32_t /*process_id*/,
+                                            uint32_t /*thread_id*/,
                                             const UniqueTime& /*time*/) {
   // This is a NOP.
   return true;

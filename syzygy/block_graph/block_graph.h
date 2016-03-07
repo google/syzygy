@@ -30,7 +30,6 @@
 #include <string>
 #include <vector>
 
-#include "base/basictypes.h"
 #include "base/files/file_util.h"
 #include "base/strings/string_piece.h"
 #include "syzygy/common/align.h"
@@ -111,8 +110,8 @@ class BlockGraph {
   typedef size_t BlockId;
   typedef size_t Size;
   typedef ptrdiff_t Offset;
-  typedef uint32 BlockAttributes;
-  typedef uint32 LabelAttributes;
+  typedef uint32_t BlockAttributes;
+  typedef uint32_t LabelAttributes;
 
   // The BlockGraph maintains a list of sections, and each block belongs
   // to one of them. This is the set of information we keep regarding them.
@@ -253,7 +252,7 @@ class BlockGraph {
   // @param name The section name.
   // @param characteristics The section characteristics.
   // @returns the newly created section.
-  Section* AddSection(const base::StringPiece& name, uint32 characteristics);
+  Section* AddSection(const base::StringPiece& name, uint32_t characteristics);
 
   // Finds a section with the given name, returning NULL if no such section
   // exists.
@@ -278,7 +277,7 @@ class BlockGraph {
   // @param characteristics The section characteristics.
   // @returns the new or found section.
   Section* FindOrAddSection(const base::StringPiece& name,
-                            uint32 characteristics);
+                            uint32_t characteristics);
 
   // Removes the given section from the BlockGraph.
   //
@@ -396,7 +395,7 @@ struct BlockGraph::Section {
   // @param id The section id. This must not be kInvalidSectionId.
   // @param name The name of the section. Must not be empty or NULL.
   // @param characteristics The characteristics of the section.
-  Section(SectionId id, const base::StringPiece& name, uint32 characteristics)
+  Section(SectionId id, const base::StringPiece& name, uint32_t characteristics)
       : id_(id), name_(), characteristics_(characteristics) {
     DCHECK_NE(kInvalidSectionId, id);
     DCHECK(name != NULL);
@@ -423,26 +422,26 @@ struct BlockGraph::Section {
   // Get the characteristics of this section.
   //
   // @returns the section characteristics.
-  uint32 characteristics() const { return characteristics_; }
+  uint32_t characteristics() const { return characteristics_; }
 
   // Sets the characteristics for this section.
   //
   // @param characteristics The new characteristics to set.
-  void set_characteristics(uint32 characteristics) {
+  void set_characteristics(uint32_t characteristics) {
     characteristics_ = characteristics;
   }
 
   // Sets a one or more additional characteristics for this section.
   //
   // @param characteristic The new characteristic(s) to set for this section.
-  void set_characteristic(uint32 characteristic) {
+  void set_characteristic(uint32_t characteristic) {
     characteristics_ |= characteristic;
   }
 
   // Clears one or more characteristics for this section.
   //
   // @param characteristic The characteristic(s) to clear for this section.
-  void clear_characteristic(uint32 characteristic) {
+  void clear_characteristic(uint32_t characteristic) {
     characteristics_ &= ~characteristic;
   }
 
@@ -471,7 +470,7 @@ struct BlockGraph::Section {
   // on output.
   std::string name_;
   // The section characteristics, a bitmask of IMAGE_SCN_* values.
-  uint32 characteristics_;
+  uint32_t characteristics_;
 };
 
 // A label denotes the beginning (or end) of a sub-region within a (code)
@@ -725,28 +724,28 @@ class BlockGraph::Block {
   //     The underlying data must outlive this block.
   // @param data_size the size of data, or zero if data == NULL.
   // @pre data_size <= size().
-  void SetData(const uint8* data, size_t data_size);
+  void SetData(const uint8_t* data, size_t data_size);
 
   // Allocates and returns a new data buffer of the given size. The returned
   // data will have been initialized to zero.
   // @pre data_size > 0.
   // @pre data_size <= size().
-  uint8* AllocateData(size_t data_size);
+  uint8_t* AllocateData(size_t data_size);
 
   // Makes a copy of data, returns a pointer to the copy.
   // @pre data_size <= size().
-  uint8* CopyData(size_t data_size, const void* data);
+  uint8_t* CopyData(size_t data_size, const void* data);
 
   // Resizes data to new_size by truncating or zero-extending the current data.
   // @pre new_size <= size().
-  const uint8* ResizeData(size_t new_size);
+  const uint8_t* ResizeData(size_t new_size);
 
   // Returns a mutable copy of the block's data. If the block doesn't own
   // the data on entry, it'll be copied and the copy returned to the caller.
-  uint8* GetMutableData();
+  uint8_t* GetMutableData();
 
   // The data bytes the block refers to.
-  const uint8* data() const { return data_; }
+  const uint8_t* data() const { return data_; }
 
   // The data size may be smaller than the block size (see size()),
   // when the block e.g. refers to data that's all or part
@@ -854,7 +853,7 @@ class BlockGraph::Block {
 
   // Allocates and returns a new data buffer of the given size. The returned
   // data buffer will not have been initialized in any way.
-  uint8* AllocateRawData(size_t size);
+  uint8_t* AllocateRawData(size_t size);
 
   BlockId id_;
   BlockType type_;
@@ -882,7 +881,7 @@ class BlockGraph::Block {
   // If this is false, data_ must be guaranteed to outlive the block.
   bool owns_data_;
   // A pointer to the code or data we represent.
-  const uint8* data_;
+  const uint8_t* data_;
   // Size of the above.
   size_t data_size_;
 };

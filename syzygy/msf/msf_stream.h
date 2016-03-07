@@ -15,7 +15,6 @@
 #ifndef SYZYGY_MSF_MSF_STREAM_H_
 #define SYZYGY_MSF_MSF_STREAM_H_
 
-#include "base/basictypes.h"
 #include "base/logging.h"
 #include "base/memory/ref_counted.h"
 #include "syzygy/common/buffer_writer.h"
@@ -175,7 +174,7 @@ class WritableMsfStreamImpl : public base::RefCounted<WritableMsfStreamImpl<T>>,
   virtual ~WritableMsfStreamImpl() {}
 
   // Forwarded from common::BufferWriter.
-  virtual uint8* GrowBuffer(size_t size) = 0;
+  virtual uint8_t* GrowBuffer(size_t size) = 0;
 };
 
 }  // namespace detail

@@ -46,16 +46,16 @@ using RawArgumentConverters = std::vector<bard::RawArgumentConverter>;
 
 // A templated utility function for parsing a value from a buffer by copying
 // its contents.
-bool ParseUint32(const uint8* end, const uint8** cursor, uint32* value) {
-  DCHECK_NE(static_cast<uint8*>(nullptr), end);
-  DCHECK_NE(static_cast<uint8**>(nullptr), cursor);
-  DCHECK_NE(static_cast<uint8*>(nullptr), *cursor);
+bool ParseUint32(const uint8_t* end, const uint8_t** cursor, uint32_t* value) {
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), end);
+  DCHECK_NE(static_cast<uint8_t**>(nullptr), cursor);
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), *cursor);
   DCHECK_LE(*cursor, end);
-  DCHECK_NE(static_cast<uint32*>(nullptr), value);
+  DCHECK_NE(static_cast<uint32_t*>(nullptr), value);
 
   if (std::distance(*cursor, end) < sizeof(*value))
     return false;
-  *value = *reinterpret_cast<const uint32*>(*cursor);
+  *value = *reinterpret_cast<const uint32_t*>(*cursor);
   *cursor += sizeof(*value);
   return true;
 }

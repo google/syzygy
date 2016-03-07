@@ -37,7 +37,7 @@ using pe::ImageLayout;
 namespace {
 
 template <class Type>
-bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
+bool UpdateReference(size_t start, Type new_value, std::vector<uint8_t>* data) {
   BinaryBufferParser parser(&data->at(0), data->size());
 
   Type* ref_ptr = NULL;
@@ -53,10 +53,10 @@ bool UpdateReference(size_t start, Type new_value, std::vector<uint8>* data) {
 
 // Returns the type of padding byte to use for a given section. Int3s will be
 // used for executable sections, nulls for everything else.
-uint8 GetSectionPaddingByte(const ImageLayout& image_layout,
-                            size_t section_index) {
-  const uint8 kZero = 0;
-  const uint8 kInt3 = 0xCC;
+uint8_t GetSectionPaddingByte(const ImageLayout& image_layout,
+                              size_t section_index) {
+  const uint8_t kZero = 0;
+  const uint8_t kInt3 = 0xCC;
 
   if (section_index == BlockGraph::kInvalidSectionId)
     return kZero;
@@ -334,7 +334,7 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
   DCHECK(!image_layout_.sections.empty());
   size_t last_section_index = image_layout_.sections.size() - 1;
   size_t image_size = section_file_range_map_[last_section_index].end().value();
-  std::vector<uint8> buffer;
+  std::vector<uint8_t> buffer;
   buffer.reserve(image_size);
 
   // Iterate through all blocks in the address space writing them as we go.
@@ -381,7 +381,7 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
 }
 
 void PEFileWriter::FlushSection(size_t section_index,
-                                std::vector<uint8>* buffer) {
+                                std::vector<uint8_t>* buffer) {
   DCHECK(buffer != NULL);
 
   size_t section_file_end =
@@ -393,7 +393,7 @@ void PEFileWriter::FlushSection(size_t section_index,
   if (section_file_end == buffer->size())
     return;
 
-  uint8 padding_byte = GetSectionPaddingByte(image_layout_, section_index);
+  uint8_t padding_byte = GetSectionPaddingByte(image_layout_, section_index);
   buffer->resize(section_file_end, padding_byte);
 
   return;
@@ -402,7 +402,7 @@ void PEFileWriter::FlushSection(size_t section_index,
 bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
                                  size_t section_index,
                                  const BlockGraph::Block* block,
-                                 std::vector<uint8>* buffer) {
+                                 std::vector<uint8_t>* buffer) {
   // This function walks through the data referred by the input block, and
   // patches it to reflect the addresses and offsets of the blocks
   // referenced before writing the block's data to the file.
@@ -419,7 +419,7 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   // padding byte we need to use.
   RelativeAddress section_start(0);
   RelativeAddress section_end(image_layout_.sections[0].addr);
-  uint8 padding_byte = GetSectionPaddingByte(image_layout_, section_index);
+  uint8_t padding_byte = GetSectionPaddingByte(image_layout_, section_index);
   if (section_index != BlockGraph::kInvalidSectionId) {
     const ImageLayout::SectionInfo& section_info =
         image_layout_.sections[section_index];
@@ -514,7 +514,7 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     dst_addr += ref.offset();
 
     // Compute the new value of the reference.
-    uint32 value = 0;
+    uint32_t value = 0;
     switch (ref.type()) {
       case BlockGraph::ABSOLUTE_REF:
         value = image_base.value() + dst_addr.value();
@@ -563,8 +563,8 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     // Now store the new value.
     BlockGraph::Offset ref_offset = file_offs.value() + start;
     switch (ref.size()) {
-      case sizeof(uint8):
-        if (!UpdateReference(ref_offset, static_cast<uint8>(value), buffer))
+      case sizeof(uint8_t):
+        if (!UpdateReference(ref_offset, static_cast<uint8_t>(value), buffer))
           return false;
         break;
 

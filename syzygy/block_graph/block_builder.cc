@@ -495,13 +495,13 @@ bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
 bool MergeContext::InsertNops(Offset offset, Size bytes, Block* new_block) {
   DCHECK_NE(reinterpret_cast<Block*>(NULL), new_block);
 
-  uint8* buffer = new_block->GetMutableData();
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), buffer);
+  uint8_t* buffer = new_block->GetMutableData();
+  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), buffer);
 
   // Use an assembler to insert a proper NOP sequence.
   typedef assm::AssemblerImpl Assembler;
   assm::BufferSerializer serializer(buffer + offset, bytes);
-  uint32 start_addr = reinterpret_cast<uint32>(buffer) + offset;
+  uint32_t start_addr = reinterpret_cast<uint32>(buffer) + offset;
   Assembler assm(start_addr, &serializer);
   assm.nop(bytes);
 
@@ -514,8 +514,8 @@ bool MergeContext::CopyInstructions(
   DCHECK_NE(reinterpret_cast<Block*>(NULL), new_block);
   DCHECK_EQ(BasicBlock::BASIC_CODE_BLOCK, new_block->type());
   // Get the target buffer.
-  uint8* buffer = new_block->GetMutableData();
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), buffer);
+  uint8_t* buffer = new_block->GetMutableData();
+  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), buffer);
 
   // Copy the instruction data and assign each instruction an offset.
   InstructionConstIter it = instructions.begin();
@@ -571,8 +571,8 @@ bool MergeContext::CopyData(const BasicDataBlock* data_block,
   DCHECK_EQ(BasicBlock::BASIC_DATA_BLOCK, data_block->type());
 
   // Get the target buffer.
-  uint8* buffer = new_block->GetMutableData();
-  DCHECK_NE(reinterpret_cast<uint8*>(NULL), buffer);
+  uint8_t* buffer = new_block->GetMutableData();
+  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), buffer);
 
   // Copy the basic-new_block_'s data bytes.
   ::memcpy(buffer + offset, data_block->data(), data_block->size());
@@ -1108,8 +1108,8 @@ Size MergeContext::ComputeRequiredSuccessorSize(
             dest.start_offset - (start_offset + short_size);
 
         // Are we in-bounds for a short reference?
-        if (destination_offset <= std::numeric_limits<int8>::max() &&
-            destination_offset >= std::numeric_limits<int8>::min()) {
+        if (destination_offset <= std::numeric_limits<int8_t>::max() &&
+            destination_offset >= std::numeric_limits<int8_t>::min()) {
           return short_size;
         }
       }

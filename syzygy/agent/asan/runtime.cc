@@ -471,7 +471,7 @@ void AsanDbgPrintContext(const CONTEXT& context) {
   if (!base::debug::BeingDebugged())
     return;
   AsanDbgMessage(L"Caller's context (%p) and stack trace:", &context);
-  AsanDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32>(&context));
+  AsanDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32_t>(&context));
 }
 
 // Returns the maximum allocation size that can be made safely. This leaves
@@ -487,8 +487,8 @@ size_t MaxSafeAllocaSize() {
   void* stack = &mbi;
   if (VirtualQuery(stack, &mbi, sizeof(mbi)) == 0)
     return 0;
-  size_t max_size = reinterpret_cast<uint8*>(stack) -
-                    reinterpret_cast<uint8*>(mbi.AllocationBase);
+  size_t max_size = reinterpret_cast<uint8_t*>(stack) -
+                    reinterpret_cast<uint8_t*>(mbi.AllocationBase);
   max_size -= std::min(max_size, kReservedStack);
   return max_size;
 }
@@ -957,8 +957,8 @@ void AsanRuntime::WriteCorruptHeapInfo(
   range_count = std::min(range_count, corrupt_ranges.size());
 
   // Allocate space for the corrupt range metadata.
-  uint8* cursor = reinterpret_cast<uint8*>(buffer);
-  uint8* buffer_end = cursor + buffer_size;
+  uint8_t* cursor = reinterpret_cast<uint8_t*>(buffer);
+  uint8_t* buffer_end = cursor + buffer_size;
   error_info->corrupt_ranges = reinterpret_cast<AsanCorruptBlockRange*>(cursor);
   cursor += range_count * sizeof(AsanCorruptBlockRange);
   error_info->corrupt_range_count = corrupt_ranges.size();
@@ -986,8 +986,8 @@ void AsanRuntime::WriteCorruptHeapInfo(
     // copy its metadata.
     ShadowWalker shadow_walker(
         shadow(), false,
-        reinterpret_cast<const uint8*>(corrupt_ranges[i].address),
-        reinterpret_cast<const uint8*>(corrupt_ranges[i].address) +
+        reinterpret_cast<const uint8_t*>(corrupt_ranges[i].address),
+        reinterpret_cast<const uint8_t*>(corrupt_ranges[i].address) +
             corrupt_ranges[i].length);
     BlockInfo block_info = {};
     CHECK(shadow_walker.Next(&block_info));
@@ -1101,13 +1101,13 @@ void AsanRuntime::set_allocation_filter_flag(bool value) {
   heap_manager_->set_allocation_filter_flag(value);
 }
 
-void AsanRuntime::AddThreadId(uint32 thread_id) {
+void AsanRuntime::AddThreadId(uint32_t thread_id) {
   DCHECK_NE(0u, thread_id);
   base::AutoLock lock(thread_ids_lock_);
   thread_ids_.insert(thread_id);
 }
 
-bool AsanRuntime::ThreadIdIsValid(uint32 thread_id) {
+bool AsanRuntime::ThreadIdIsValid(uint32_t thread_id) {
   base::AutoLock lock(thread_ids_lock_);
   return thread_ids_.count(thread_id) > 0;
 }

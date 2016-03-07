@@ -237,7 +237,7 @@ void TraceFileSegment::WriteSegmentHeader(SessionHandle session_handle) {
   header->thread_id = ::GetCurrentThreadId();
   header->segment_length = 0;
 
-  write_ptr = reinterpret_cast<uint8*>(header + 1);
+  write_ptr = reinterpret_cast<uint8_t*>(header + 1);
 }
 
 void* TraceFileSegment::AllocateTraceRecordImpl(int record_type,

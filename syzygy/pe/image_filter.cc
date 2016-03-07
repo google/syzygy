@@ -39,7 +39,7 @@ const char kTimeDateStamp[] = "time_date_stamp";
 
 // Outputs |value| as a hex-coded string. Returns true on succes, false on
 // failure.
-bool OutputHexUint32(uint32 value, core::JSONFileWriter* json) {
+bool OutputHexUint32(uint32_t value, core::JSONFileWriter* json) {
   DCHECK(json != NULL);
 
   std::string s;
@@ -57,7 +57,7 @@ bool OutputHexUint32(uint32 value, core::JSONFileWriter* json) {
 
 // Parses a hex-coded value from |string|, placing it in |value|. Returns true
 // on success, false if anything went wront. Logs an error message on failure.
-bool ParseHexUint32(const std::string& string, uint32* value) {
+bool ParseHexUint32(const std::string& string, uint32_t* value) {
   DCHECK(value != NULL);
 
   char* end_ptr = NULL;
@@ -71,12 +71,12 @@ bool ParseHexUint32(const std::string& string, uint32* value) {
   return true;
 }
 
-// Gets a uint32 value from the |dict| entry under |key|. Expects the value to
+// Gets a uint32_t value from the |dict| entry under |key|. Expects the value to
 // be stored as a hex-encoded string, which will be decoded. Returns true on
 // success, false otherwise. Logs an error message on failure.
 bool GetHexUint32(const DictionaryValue& dict,
                   const char* key,
-                  uint32* value) {
+                  uint32_t* value) {
   DCHECK(key != NULL);
   DCHECK(value != NULL);
 
@@ -111,7 +111,7 @@ bool GetInteger(const DictionaryValue& dict, const char* key, int* value) {
 bool LoadSignatureFromJSON(const DictionaryValue& dict, ImageFilter* filter) {
   DCHECK(filter != NULL);
 
-  uint32 base_address = 0;
+  uint32_t base_address = 0;
   int size = 0;
   PEFile::Signature& s = filter->signature;
   if (!GetHexUint32(dict, kBaseAddress, &base_address) ||
@@ -147,7 +147,7 @@ bool LoadRangeFromJSON(const ListValue& range, ImageFilter* filter) {
   DCHECK(length_value != NULL);
 
   std::string address_string;
-  uint32 address = 0;
+  uint32_t address = 0;
   if (!address_value->GetAsString(&address_string) ||
       !ParseHexUint32(address_string, &address)) {
     return false;

@@ -91,7 +91,7 @@ class RpcSession {
   // process. This allows us to avoid mapping a handle twice, as well
   // as letting us know what to clean up on exit. Access to the set
   // of handles must be serialized with a lock.
-  typedef std::map<HANDLE, uint8*> SharedMemoryHandleMap;
+  typedef std::map<HANDLE, uint8_t*> SharedMemoryHandleMap;
   base::Lock shared_memory_lock_;
   SharedMemoryHandleMap shared_memory_handles_;
 

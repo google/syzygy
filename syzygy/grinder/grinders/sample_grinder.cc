@@ -245,7 +245,7 @@ bool RollUpToLines(const HeatMap& heat_map, LineInfo* line_info) {
     d /= min_heat;
 
     // Use saturation arithmetic, and ensure that no value is zero.
-    uint32 ui = 0;
+    uint32_t ui = 0;
     if (d >= std::numeric_limits<uint32>::max()) {
       ui = std::numeric_limits<uint32>::max();
     } else {
@@ -667,7 +667,7 @@ bool SampleGrinder::IncrementModuleData(
       clock_rate;
 
   // Walk through the sample buckets.
-  const uint32* buckets = sample_data->buckets;
+  const uint32_t* buckets = sample_data->buckets;
   std::vector<double>& agg_buckets = module_data->buckets;
   for (size_t i = 0, j = 0; i < sample_data->bucket_count; ++i) {
     // Special case: handle empty buckets explicitly, as they often occur.

@@ -80,8 +80,8 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::DecodeRelocs(
 
     // Walk the entries.
     for (size_t i = 0; i < num_relocs; ++i) {
-      uint8 type = reloc_block[i] >> 12;
-      uint16 offs = reloc_block[i] & 0xFFF;
+      uint8_t type = reloc_block[i] >> 12;
+      uint16_t offs = reloc_block[i] & 0xFFF;
       DCHECK(type == IMAGE_REL_BASED_HIGHLOW ||
               type == IMAGE_REL_BASED_ABSOLUTE);
 
@@ -169,8 +169,8 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::DecodeImports(
         break;
       }
 
-      uint16 hint = 0;
-      uint16 ordinal = 0;
+      uint16_t hint = 0;
+      uint16_t ordinal = 0;
       std::string function_name;
       if (int_thunk.u1.AddressOfData & IMAGE_ORDINAL_FLAG32) {
         // It's an ordinal.
@@ -291,7 +291,7 @@ template <class ImageNtHeaders, DWORD MagicValidation>
 bool PEFileBase<ImageNtHeaders, MagicValidation>::Translate(
     AbsoluteAddress abs, RelativeAddress* rel) const {
   DCHECK_NE(static_cast<RelativeAddress*>(NULL), rel);
-  uint32 rel_addr = AbsToRelDisplacement(abs.value());
+  uint32_t rel_addr = AbsToRelDisplacement(abs.value());
   if (rel_addr >= nt_headers_->OptionalHeader.SizeOfImage)
     return false;
   rel->set_value(rel_addr);
@@ -378,7 +378,7 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::Translate(
   // Calculate the offset of this address and ensure it can be expressed as
   // a section offset (lies in the explicit data part of the section, not the
   // implicit virtual data at the end).
-  uint32 section_offset = relative_address.value() - section->VirtualAddress;
+  uint32_t section_offset = relative_address.value() - section->VirtualAddress;
   if (section_offset >= section->SizeOfRawData)
     return false;
 
@@ -411,8 +411,9 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::ReadImageString(
 }
 
 template <class ImageNtHeaders, DWORD MagicValidation>
-const uint8* PEFileBase<ImageNtHeaders, MagicValidation>::GetImageData(
-    AbsoluteAddress addr, size_t len) const {
+const uint8_t* PEFileBase<ImageNtHeaders, MagicValidation>::GetImageData(
+    AbsoluteAddress addr,
+    size_t len) const {
   RelativeAddress rel;
   if (Translate(addr, &rel))
     return GetImageData(rel, len);
@@ -421,11 +422,12 @@ const uint8* PEFileBase<ImageNtHeaders, MagicValidation>::GetImageData(
 }
 
 template <class ImageNtHeaders, DWORD MagicValidation>
-uint8* PEFileBase<ImageNtHeaders, MagicValidation>::GetImageData(
-    AbsoluteAddress addr, size_t len) {
-  return const_cast<uint8*>(
-      static_cast<const PEFileBase<ImageNtHeaders, MagicValidation>*>
-          (this)->GetImageData(addr, len));
+uint8_t* PEFileBase<ImageNtHeaders, MagicValidation>::GetImageData(
+    AbsoluteAddress addr,
+    size_t len) {
+  return const_cast<uint8_t*>(
+      static_cast<const PEFileBase<ImageNtHeaders, MagicValidation>*>(this)
+          ->GetImageData(addr, len));
 }
 
 template <class ImageNtHeaders, DWORD MagicValidation>

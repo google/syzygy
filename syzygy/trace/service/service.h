@@ -20,7 +20,6 @@
 
 #include <map>
 
-#include "base/basictypes.h"
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
 #include "base/process/process.h"
@@ -95,9 +94,7 @@ class Service {
   //
   // @note TRACE_FLAG_BATCH_ENTER is mutually exclusive with all other flags.
   //     If TRACE_FLAG_BATCH_ENTER is set, all other flags will be ignored.
-  void set_flags(uint32 flags) {
-    flags_ = flags;
-  }
+  void set_flags(uint32_t flags) { flags_ = flags; }
 
   // Set the number of buffers by which to grow a sessions
   // buffer pool.
@@ -302,7 +299,7 @@ class Service {
 
   // Flags informing the client of what trace events the service would like
   // to receive.
-  uint32 flags_;
+  uint32_t flags_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(Service);

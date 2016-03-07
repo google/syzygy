@@ -13,17 +13,17 @@
 // limitations under the License.
 //
 // The string table starts with a header:
-//     uint32 signature: Equal to kPdbStringTableSignature.
-//     uint32 version: Equal to kPdbStringTableVersion.
-//     uint32 size: Size of the string table that follows, in bytes.
+//     uint32_t signature: Equal to kPdbStringTableSignature.
+//     uint32_t version: Equal to kPdbStringTableVersion.
+//     uint32_t size: Size of the string table that follows, in bytes.
 //
 // Then, the null-terminated strings of the table are written, followed by:
-//     uint32 entries_count: Number of strings in the string table.
+//     uint32_t entries_count: Number of strings in the string table.
 //
-// After |entries_count|, the offset of each string is found as an uint32
+// After |entries_count|, the offset of each string is found as an uint32_t //
 // (in bytes and relative to the end of the header). Finally, the table ends
 // with:
-//     uint32 string_count: Number of non-empty strings.
+//     uint32_t string_count: Number of non-empty strings.
 
 #include "syzygy/experimental/pdb_writer/pdb_string_table_writer.h"
 
@@ -49,13 +49,13 @@ bool WriteStringTable(const StringTable& strings, WritablePdbStream* stream) {
   }
 
   // Write the number of strings.
-  uint32 entries_count = strings.size();
+  uint32_t entries_count = strings.size();
   if (!stream->Write(entries_count))
     return false;
 
   // Write the string offsets.
-  uint32 string_offset = 0;
-  uint32 num_non_empty_strings = 0;
+  uint32_t string_offset = 0;
+  uint32_t num_non_empty_strings = 0;
   for (size_t i = 0; i < strings.size(); ++i) {
     if (!stream->Write(string_offset))
       return false;

@@ -132,7 +132,7 @@ class SamplerApp : public application::AppImplBase {
 
   // @name Internal state and calculations.
   // @{
-  uint64 sampling_interval_in_cycles_;
+  uint64_t sampling_interval_in_cycles_;
   // @}
 
   // Only one instance of this class can register for console control messages,
@@ -143,9 +143,9 @@ class SamplerApp : public application::AppImplBase {
 
 // Used for storing a bare minimum signature of a module.
 struct SamplerApp::ModuleSignature {
-  uint32 size;
-  uint32 time_date_stamp;
-  uint32 checksum;
+  uint32_t size;
+  uint32_t time_date_stamp;
+  uint32_t checksum;
 
   // Comparison operator
   bool operator<(const ModuleSignature& rhs) const;

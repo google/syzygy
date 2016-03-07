@@ -47,7 +47,7 @@ namespace {
 using ::trace::parser::Parser;
 using ::trace::parser::ParseEventHandlerImpl;
 
-static const uint32 kConstantInThisModule = 0;
+static const uint32_t kConstantInThisModule = 0;
 
 enum CallEntryType {
   kCallEntry,
@@ -297,7 +297,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
     ASSERT_TRUE(parser.Consume());
 
     // Get the information for this process.
-    uint32 pid = ::GetCurrentProcessId();
+    uint32_t pid = ::GetCurrentProcessId();
     trace::service::ProcessInfo process_info;
     ASSERT_TRUE(process_info.Initialize(pid));
 

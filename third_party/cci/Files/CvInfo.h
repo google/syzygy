@@ -28,16 +28,18 @@
 //  This is a read-only copy of the C++ file converted to C#.
 //
 
+#include <stdint.h>
+
 namespace Microsoft_Cci_Pdb {
 
 // Specify packing to get correct structure layout.
 #pragma pack(push, 1)
 
 typedef unsigned char byte;
-typedef uint16 ushort;
-typedef uint32 uint;
-typedef uint64 ulong;
-typedef int8 sbyte;
+typedef uint16_t ushort;
+typedef uint32_t uint;
+typedef uint64_t ulong;
+typedef int8_t sbyte;
 typedef char string[1];
 typedef GUID Guid;
 static_assert(sizeof(short) == 2, "Size of short must be 2 bytes.");
@@ -1185,7 +1187,7 @@ static_assert(sizeof(int) == 4, "Size of int must be 4 bytes.");
 
   /*internal*/ struct LeafQuad {
     // internal ushort leaf;      // LF_QUAD [TYPTYPE]
-    /*internal*/ int64 val;        // signed 64-bit value
+    /*internal*/ int64_t val;  // signed 64-bit value
   };
 
   //  unsigned quad leaf

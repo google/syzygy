@@ -102,17 +102,17 @@ class PageProtectionHelpersTest : public testing::OnExceptionCallbackTest {
       samples.insert(block_info.right_redzone_pages);
       samples.insert(block_info.right_redzone_pages +
                      block_info.right_redzone_pages_size - 1);
-      uint8* past_end =
+      uint8_t* past_end =
           block_info.right_redzone_pages + block_info.right_redzone_pages_size;
       if (past_end < block_info.RawBlock() + block_info.block_size)
         samples.insert(past_end);
     }
 
-    uint8* left_end =
+    uint8_t* left_end =
         block_info.left_redzone_pages + block_info.left_redzone_pages_size;
-    uint8* right_end =
+    uint8_t* right_end =
         block_info.right_redzone_pages + block_info.right_redzone_pages_size;
-    uint8* block_end = block_info.block_pages + block_info.block_pages_size;
+    uint8_t* block_end = block_info.block_pages + block_info.block_pages_size;
 
     std::set<void*>::const_iterator it = samples.begin();
     for (; it != samples.end(); ++it) {

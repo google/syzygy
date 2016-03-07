@@ -53,11 +53,10 @@ bool RpcSession::MapSegmentBuffer(TraceFileSegment* segment) {
   {
     base::AutoLock scoped_lock(shared_memory_lock_);
 
-    uint8*& base_ptr = shared_memory_handles_[mem_handle];
+    uint8_t*& base_ptr = shared_memory_handles_[mem_handle];
     if (base_ptr == NULL) {
-      base_ptr = reinterpret_cast<uint8*>(
-          ::MapViewOfFile(mem_handle, FILE_MAP_WRITE, 0, 0,
-                          segment->buffer_info.mapping_size));
+      base_ptr = reinterpret_cast<uint8_t*>(::MapViewOfFile(
+          mem_handle, FILE_MAP_WRITE, 0, 0, segment->buffer_info.mapping_size));
       if (base_ptr == NULL) {
         DWORD error = ::GetLastError();
         LOG(ERROR) << "Failed to map view of shared memory: "

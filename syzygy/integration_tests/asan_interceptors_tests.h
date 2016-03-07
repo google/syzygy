@@ -96,7 +96,7 @@ static type AsanMemsetUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   type last_header_val = NonInterceptedRead(ptr - 1);
-  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  uint8_t* underflow_address = reinterpret_cast<uint8_t*>(ptr) - 1;
   TryInvalidCall3(&::memset, static_cast<void*>(underflow_address), 0xFF,
       kArraySize * sizeof(type));
   NonInterceptedWrite(ptr - 1, last_header_val);
@@ -132,7 +132,7 @@ static type AsanMemchrUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  uint8_t* underflow_address = reinterpret_cast<uint8_t*>(ptr) - 1;
   TryInvalidCall3(static_cast<void* (*)(void*, int, size_t)>(&::memchr),
                   static_cast<void*>(underflow_address),
                   0xFF,
@@ -159,7 +159,7 @@ static type AsanMemmoveWriteOverflow() {
   type* ptr = new type[kArraySize];
   type first_trailer_val = NonInterceptedRead(ptr + kArraySize);
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  uint8* dst = reinterpret_cast<uint8*>(ptr) + 1;
+  uint8_t* dst = reinterpret_cast<uint8_t*>(ptr) + 1;
   TryInvalidCall3(&::memmove,
                   static_cast<void*>(dst),
                   static_cast<const void*>(ptr),
@@ -175,7 +175,7 @@ static type AsanMemmoveWriteUnderflow() {
   type* ptr = new type[kArraySize];
   type last_header_val = NonInterceptedRead(ptr - 1);
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  uint8_t* underflow_address = reinterpret_cast<uint8_t*>(ptr) - 1;
   TryInvalidCall3(&::memmove,
                   static_cast<void*>(underflow_address),
                   static_cast<const void*>(ptr),
@@ -190,7 +190,7 @@ static type AsanMemmoveReadOverflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  uint8* src = reinterpret_cast<uint8*>(ptr) + 1;
+  uint8_t* src = reinterpret_cast<uint8_t*>(ptr) + 1;
   TryInvalidCall3(&::memmove,
                   static_cast<void*>(ptr),
                   static_cast<const void*>(src),
@@ -204,7 +204,7 @@ static type AsanMemmoveReadUnderflow() {
   const size_t kArraySize = 10;
   type* ptr = new type[kArraySize];
   ::memset(ptr, 0xAA, kArraySize * sizeof(type));
-  uint8* underflow_address = reinterpret_cast<uint8*>(ptr) - 1;
+  uint8_t* underflow_address = reinterpret_cast<uint8_t*>(ptr) - 1;
   TryInvalidCall3(&memmove,
                   static_cast<void*>(ptr),
                   static_cast<const void*>(underflow_address),
@@ -233,7 +233,7 @@ static type AsanMemcpyWriteOverflow() {
   type* dst = new type[kArraySize];
   type first_trailer_val = NonInterceptedRead(dst + kArraySize);
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  uint8* overflow_dst = reinterpret_cast<uint8*>(dst) + 1;
+  uint8_t* overflow_dst = reinterpret_cast<uint8_t*>(dst) + 1;
   TryInvalidCall3(&::memcpy,
                   static_cast<void*>(overflow_dst),
                   static_cast<const void*>(src),
@@ -251,7 +251,7 @@ static type AsanMemcpyWriteUnderflow() {
   type* dst = new type[kArraySize];
   type last_header_val = NonInterceptedRead(dst - 1);
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  uint8* underflow_dst = reinterpret_cast<uint8*>(dst) - 1;
+  uint8_t* underflow_dst = reinterpret_cast<uint8_t*>(dst) - 1;
   TryInvalidCall3(&::memcpy,
                   static_cast<void*>(underflow_dst),
                   static_cast<const void*>(src),
@@ -268,7 +268,7 @@ static type AsanMemcpyReadOverflow() {
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  uint8* overflow_src = reinterpret_cast<uint8*>(src) + 1;
+  uint8_t* overflow_src = reinterpret_cast<uint8_t*>(src) + 1;
   TryInvalidCall3(&::memcpy,
                   static_cast<void*>(dst),
                   static_cast<const void*>(overflow_src),
@@ -284,7 +284,7 @@ static type AsanMemcpyReadUnderflow() {
   type* src = new type[kArraySize];
   type* dst = new type[kArraySize];
   ::memset(src, 0xAA, kArraySize * sizeof(type));
-  uint8* underflow_src = reinterpret_cast<uint8*>(src) - 1;
+  uint8_t* underflow_src = reinterpret_cast<uint8_t*>(src) - 1;
   TryInvalidCall3(&::memcpy,
                   static_cast<void*>(dst),
                   static_cast<const void*>(underflow_src),

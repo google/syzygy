@@ -14,7 +14,6 @@
 
 #include "syzygy/experimental/pdb_writer/symbol.h"
 
-#include "base/basictypes.h"
 #include "base/logging.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_stream.h"

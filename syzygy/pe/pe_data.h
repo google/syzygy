@@ -17,19 +17,18 @@
 
 #include <windows.h>
 
-#include "base/basictypes.h"
 
 namespace pe {
 
 // This reads 'RSDS' in memory.
-const uint32 kPdb70Signature = 0x53445352;
+const uint32_t kPdb70Signature = 0x53445352;
 
 // This is the structure referenced by the debug directory for
 // CV info where the debug info is in a PDB 7 file.
 struct CvInfoPdb70 {
-  uint32 cv_signature;
+  uint32_t cv_signature;
   GUID signature;
-  uint32 pdb_age;
+  uint32_t pdb_age;
   char pdb_file_name[1];
 };
 

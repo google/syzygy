@@ -132,8 +132,8 @@ TEST(LargeBlockHeapTest, IsAllocated) {
 
   void* a = h.Allocate(100);
   EXPECT_TRUE(h.IsAllocated(a));
-  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) - 1));
-  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8*>(a) + 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8_t*>(a) - 1));
+  EXPECT_FALSE(h.IsAllocated(reinterpret_cast<uint8_t*>(a) + 1));
 
   EXPECT_TRUE(h.Free(a));
   EXPECT_FALSE(h.IsAllocated(a));

@@ -274,7 +274,7 @@ void TwiddlePdbGuidAndPath(BlockGraph::Block* dos_header_block) {
                                      &debug_dir));
 
   // Find the codeview debug directory entry.
-  int32 index = -1;
+  int32_t index = -1;
   for (size_t i = 0; i < debug_dir.ElementCount(); ++i) {
     if (debug_dir[i].Type == IMAGE_DEBUG_TYPE_CODEVIEW) {
       index = i;

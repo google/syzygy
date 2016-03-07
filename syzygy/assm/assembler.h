@@ -30,9 +30,8 @@ namespace assm {
 class AssemblerImpl : public AssemblerBase<const void*> {
  public:
   typedef AssemblerBase<const void*> Super;
-  AssemblerImpl(uint32 location, InstructionSerializer* serializer)
-      : Super(location, serializer) {
-  }
+  AssemblerImpl(uint32_t location, InstructionSerializer* serializer)
+      : Super(location, serializer) {}
 
   // Expose control flow instructions as public.
   using Super::jmp;

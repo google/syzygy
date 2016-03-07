@@ -402,8 +402,8 @@ struct FakeAsanBlock {
   // +--- 0 <= size < 4096 bytes---+---4096 bytes---+--4096 bytes--+
   // ^buffer                       ^aligned_buffer  ^user_pointer
   static const size_t kBufferSize = 3 * kMaxAlignment;
-  static const uint8 kBufferHeaderValue = 0xAE;
-  static const uint8 kBufferTrailerValue = 0xEA;
+  static const uint8_t kBufferHeaderValue = 0xAE;
+  static const uint8_t kBufferTrailerValue = 0xEA;
 
   FakeAsanBlock(Shadow* shadow,
                 size_t alloc_alignment_log,
@@ -429,7 +429,7 @@ struct FakeAsanBlock {
   bool MarkBlockAsQuarantinedFlooded();
 
   // The buffer we use internally.
-  uint8 buffer[kBufferSize];
+  uint8_t buffer[kBufferSize];
 
   // The information about the block once it has been initialized.
   agent::asan::BlockInfo block_info;
@@ -443,7 +443,7 @@ struct FakeAsanBlock {
   size_t buffer_trailer_size;
 
   // The pointers to the different sub-structures in the buffer.
-  uint8* buffer_align_begin;
+  uint8_t* buffer_align_begin;
 
   // Indicate if the buffer has been initialized.
   bool is_initialized;
@@ -482,7 +482,7 @@ class LenientMockHeap : public agent::asan::HeapInterface {
   LenientMockHeap() { }
   virtual ~LenientMockHeap() { }
   MOCK_CONST_METHOD0(GetHeapType, agent::asan::HeapType());
-  MOCK_CONST_METHOD0(GetHeapFeatures, uint32());
+  MOCK_CONST_METHOD0(GetHeapFeatures, uint32_t());
   MOCK_METHOD1(Allocate, void*(size_t));
   MOCK_METHOD1(Free, bool(void*));
   MOCK_METHOD1(IsAllocated, bool(const void*));
@@ -531,10 +531,13 @@ class MemoryAccessorTester {
 
   // Checks that @p access_fn generates @p bad_access_type on access checking
   // for a given @p direction, @p src, @p dst and @p len.
-  void ExpectSpecialMemoryErrorIsDetected(
-      FARPROC access_fn, StringOperationDirection direction,
-      bool expect_error, void* dst, void* src, int32 length,
-      BadAccessKind bad_access_type);
+  void ExpectSpecialMemoryErrorIsDetected(FARPROC access_fn,
+                                          StringOperationDirection direction,
+                                          bool expect_error,
+                                          void* dst,
+                                          void* src,
+                                          int32_t length,
+                                          BadAccessKind bad_access_type);
 
   static void AsanErrorCallback(AsanErrorInfo* error_info);
 
@@ -676,7 +679,7 @@ class DummyHeap : public agent::asan::HeapInterface {
   virtual agent::asan::HeapType GetHeapType() const {
     return agent::asan::kUnknownHeapType;
   }
-  virtual uint32 GetHeapFeatures() const { return 0; }
+  virtual uint32_t GetHeapFeatures() const { return 0; }
   virtual void* Allocate(size_t bytes) { return ::malloc(bytes); }
   virtual bool Free(void* alloc) { ::free(alloc); return true; }
   virtual bool IsAllocated(const void* alloc) { return false; }

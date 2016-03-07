@@ -25,8 +25,8 @@ TEST(AlignTest, IsPowerOfTwo) {
   EXPECT_TRUE(IsPowerOfTwo(4));
   EXPECT_TRUE(IsPowerOfTwo(0x80000000));
   EXPECT_FALSE(IsPowerOfTwo(0x80000001U));
-  EXPECT_TRUE(IsPowerOfTwo(reinterpret_cast<uint16*>(0x40000000U)));
-  EXPECT_FALSE(IsPowerOfTwo(reinterpret_cast<uint16*>(0x40000001U)));
+  EXPECT_TRUE(IsPowerOfTwo(reinterpret_cast<uint16_t*>(0x40000000U)));
+  EXPECT_FALSE(IsPowerOfTwo(reinterpret_cast<uint16_t*>(0x40000001U)));
 }
 
 TEST(AlignTest, AlignUp) {
@@ -68,8 +68,8 @@ TEST(AlignTest, AlignDown) {
   EXPECT_EQ(0x8000000, AlignDown(0x8000000, 0x8000000));
   EXPECT_EQ(0x8000000, AlignDown(0x8000003, 0x8000000));
 
-  EXPECT_EQ(reinterpret_cast<int32*>(0x40000000U),
-            AlignUp(reinterpret_cast<int32*>(0x40000000U), 4));
+  EXPECT_EQ(reinterpret_cast<int32_t*>(0x40000000U),
+            AlignUp(reinterpret_cast<int32_t*>(0x40000000U), 4));
 
   // And non-power of two alignments.
   EXPECT_EQ(0, AlignDown(0, 3));
@@ -83,8 +83,8 @@ TEST(AlignTest, AlignDown) {
   EXPECT_EQ(0x8000123, AlignDown(0x8000123, 0x8000123));
   EXPECT_EQ(0x8000123, AlignDown(0x8000124, 0x8000123));
 
-  EXPECT_EQ(reinterpret_cast<int32*>(0x40000010U),
-            AlignUp(reinterpret_cast<int32*>(0x40000001U), 16));
+  EXPECT_EQ(reinterpret_cast<int32_t*>(0x40000010U),
+            AlignUp(reinterpret_cast<int32_t*>(0x40000001U), 16));
 }
 
 TEST(AlignTest, IsAligned) {
@@ -123,7 +123,7 @@ TEST(AlignTest, GetAlignment) {
   EXPECT_EQ(max_alignment, GetAlignment(0));
 
   // Try power of 2 values.
-  for (uint32 i = 1; i < max_alignment; i <<= 1)
+  for (uint32_t i = 1; i < max_alignment; i <<= 1)
     EXPECT_EQ(i, GetAlignment(i));
 
   EXPECT_EQ(max_alignment, GetAlignment(max_alignment));
@@ -247,12 +247,12 @@ TEST(AlignTest, IsAligned64) {
 }
 
 TEST(AlignTest, GetAlignment64) {
-  const uint64 max_alignment = 1ULL << 63;
+  const uint64_t max_alignment = 1ULL << 63;
 
   EXPECT_EQ(max_alignment, GetAlignment64(0));
 
   // Try power of 2 values.
-  for (uint64 i = 1; i < max_alignment; i <<= 1)
+  for (uint64_t i = 1; i < max_alignment; i <<= 1)
     EXPECT_EQ(i, GetAlignment64(i));
 
   EXPECT_EQ(max_alignment, GetAlignment64(max_alignment));

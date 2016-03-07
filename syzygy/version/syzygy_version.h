@@ -17,8 +17,9 @@
 #ifndef SYZYGY_VERSION_SYZYGY_VERSION_H_
 #define SYZYGY_VERSION_SYZYGY_VERSION_H_
 
+#include <stdint.h>
 #include <string>
-#include "base/basictypes.h"
+
 #include "base/logging.h"
 #include "syzygy/version/version.gen"
 
@@ -28,7 +29,10 @@ class SyzygyVersion {
  public:
   SyzygyVersion();
 
-  SyzygyVersion(uint16 major, uint16 minor, uint16 build, uint16 patch,
+  SyzygyVersion(uint16_t major,
+                uint16_t minor,
+                uint16_t build,
+                uint16_t patch,
                 const char* last_change);
 
   // A comparison operator. If this version is less than @p rhs, returns a value
@@ -51,16 +55,16 @@ class SyzygyVersion {
   // Returns the whole version as a version string.
   std::string GetVersionString() const;
 
-  uint16 major() const { return major_; }
-  uint16 minor() const { return minor_; }
-  uint16 build() const { return build_; }
-  uint16 patch() const { return patch_; }
+  uint16_t major() const { return major_; }
+  uint16_t minor() const { return minor_; }
+  uint16_t build() const { return build_; }
+  uint16_t patch() const { return patch_; }
   const std::string& last_change() const { return last_change_; }
 
-  void set_major(uint16 major) { major_ = major; }
-  void set_minor(uint16 minor) { minor_ = minor; }
-  void set_build(uint16 build) { build_ = build; }
-  void set_patch(uint16 patch) { patch_ = patch; }
+  void set_major(uint16_t major) { major_ = major; }
+  void set_minor(uint16_t minor) { minor_ = minor; }
+  void set_build(uint16_t build) { build_ = build; }
+  void set_patch(uint16_t patch) { patch_ = patch; }
   void set_last_change(const char* last_change) {
     DCHECK(last_change != NULL);
     last_change_ = last_change;
@@ -82,10 +86,10 @@ class SyzygyVersion {
   }
 
  private:
-  uint16 major_;
-  uint16 minor_;
-  uint16 build_;
-  uint16 patch_;
+  uint16_t major_;
+  uint16_t minor_;
+  uint16_t build_;
+  uint16_t patch_;
   std::string last_change_;
 };
 

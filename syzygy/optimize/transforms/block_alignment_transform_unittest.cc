@@ -35,8 +35,8 @@ using optimize::SubGraphProfile;
 using pe::ImageLayout;
 
 // Dummy code body.
-const uint8 kCodeBody1[] = { 0x74, 0x02, 0x33, 0xC0, 0xC3 };
-const uint8 kCodeBody2[] = { 0x0B, 0xC0, 0x75, 0xFC, 0xC3 };
+const uint8_t kCodeBody1[] = {0x74, 0x02, 0x33, 0xC0, 0xC3};
+const uint8_t kCodeBody2[] = {0x0B, 0xC0, 0x75, 0xFC, 0xC3};
 
 class BlockAlignmentTransformTest : public testing::Test {
  public:
