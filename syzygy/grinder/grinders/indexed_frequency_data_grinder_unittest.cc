@@ -173,7 +173,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(data != NULL);
 
     static const size_t kMaxDataSize =
-        kNumColumns * kNumBasicBlocks * sizeof(uint32);
+        kNumColumns * kNumBasicBlocks * sizeof(uint32_t);
     static const size_t kBufferSize =
         sizeof(TraceIndexedFrequencyData) + kMaxDataSize - 1;
 

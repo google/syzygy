@@ -24,7 +24,7 @@
 
 namespace pdb {
 
-typedef std::vector<uint32> SymbolOffsets;
+typedef std::vector<uint32_t> SymbolOffsets;
 
 // Writes a PDB symbol record stream.
 // @param symbols the symbols to write.

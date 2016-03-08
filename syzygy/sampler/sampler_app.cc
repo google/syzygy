@@ -127,7 +127,7 @@ bool ParseSamplingInterval(const base::CommandLine* command_line,
     return false;
   }
 
-  int64_t us = static_cast<int64>(1000000 * d);
+  int64_t us = static_cast<int64_t>(1000000 * d);
   if (us <= 0) {
     LOG(ERROR) << "--" << SamplerApp::kSamplingInterval
                << " must be at least 1us.";
@@ -143,11 +143,11 @@ bool ParseSamplingInterval(const base::CommandLine* command_line,
 // A utility function for converting a time delta to a human readable string.
 const std::string TimeDeltaToString(const base::TimeDelta& td) {
   // Aliases to constants from base::Time (which have overly long names).
-  const int64& kMillisecond = base::Time::kMicrosecondsPerMillisecond;
-  const int64& kSecond = base::Time::kMicrosecondsPerSecond;
-  const int64& kMinute = base::Time::kMicrosecondsPerMinute;
-  const int64& kHour = base::Time::kMicrosecondsPerHour;
-  const int64& kDay = base::Time::kMicrosecondsPerDay;
+  const int64_t& kMillisecond = base::Time::kMicrosecondsPerMillisecond;
+  const int64_t& kSecond = base::Time::kMicrosecondsPerSecond;
+  const int64_t& kMinute = base::Time::kMicrosecondsPerMinute;
+  const int64_t& kHour = base::Time::kMicrosecondsPerHour;
+  const int64_t& kDay = base::Time::kMicrosecondsPerDay;
   int64_t us = td.InMicroseconds();
 
   if (us == 0)

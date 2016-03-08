@@ -32,7 +32,7 @@ class CoverageData {
   struct SourceFileCoverageData;  // Forward declaration.
 
   // A map of line numbers to execution counts.
-  typedef std::map<size_t, uint32> LineExecutionCountMap;
+  typedef std::map<size_t, uint32_t> LineExecutionCountMap;
   // A map of file names to coverage information.
   typedef std::map<std::string, SourceFileCoverageData>
       SourceFileCoverageDataMap;

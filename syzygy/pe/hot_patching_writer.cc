@@ -51,8 +51,8 @@ void FinalizeReferences(BlockGraph::Block* block) {
     uint32_t value = 0;
     switch (ref.type()) {
       case BlockGraph::ABSOLUTE_REF: {
-        value = reinterpret_cast<uint32>(ref.referenced()->data() +
-                                         ref.offset());
+        value =
+            reinterpret_cast<uint32_t>(ref.referenced()->data() + ref.offset());
         break;
       }
       case BlockGraph::PC_RELATIVE_REF: {
@@ -73,12 +73,12 @@ void FinalizeReferences(BlockGraph::Block* block) {
         *reinterpret_cast<uint8_t*>(src_addr) = static_cast<uint8_t>(value);
         break;
       }
-      case sizeof(uint16): {
-        *reinterpret_cast<uint16_t*>(src_addr) = static_cast<uint16>(value);
+      case sizeof(uint16_t): {
+        *reinterpret_cast<uint16_t*>(src_addr) = static_cast<uint16_t>(value);
         break;
       }
-      case sizeof(uint32): {
-        *reinterpret_cast<uint32_t*>(src_addr) = static_cast<uint32>(value);
+      case sizeof(uint32_t): {
+        *reinterpret_cast<uint32_t*>(src_addr) = static_cast<uint32_t>(value);
         break;
       }
       default:

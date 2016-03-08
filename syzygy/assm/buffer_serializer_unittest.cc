@@ -34,7 +34,7 @@ class BufferSerializerTest : public testing::Test {
 
     // Assemble a NOP into the buffer.
     BufferSerializer bs(buffer, kBufferSize);
-    AssemblerImpl asm_(reinterpret_cast<uint32>(&buffer[kOffset]), &bs);
+    AssemblerImpl asm_(reinterpret_cast<uint32_t>(&buffer[kOffset]), &bs);
     asm_.nop(nop_size);
 
     // Should not touch any bytes before offset.

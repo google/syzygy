@@ -71,8 +71,8 @@ class TestMemReplayGrinder : public MemReplayGrinder {
                          DWORD flags,
                          SIZE_T bytes,
                          LPVOID ret) {
-    size_t arg_data_size = 5 * sizeof(uint32) + sizeof(handle) + sizeof(flags) +
-                           sizeof(bytes) + sizeof(ret);
+    size_t arg_data_size = 5 * sizeof(uint32_t) + sizeof(handle) +
+                           sizeof(flags) + sizeof(bytes) + sizeof(ret);
     size_t buffer_size =
         offsetof(TraceDetailedFunctionCall, argument_data) + arg_data_size;
     std::vector<uint8_t> buffer(buffer_size, 0);

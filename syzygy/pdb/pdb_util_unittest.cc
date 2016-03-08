@@ -161,9 +161,7 @@ class TestPdbStream : public PdbStream {
   explicit TestPdbStream(const T& t)
       : PdbStream(sizeof(T)), bytes_(reinterpret_cast<const uint8_t*>(&t)) {}
 
-  virtual bool ReadBytes(void* dest,
-                         size_t count,
-                         size_t* bytes_read) override {
+  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) override {
     if (pos() >= length())
       return false;
     size_t max_count = length() - pos();
@@ -260,7 +258,7 @@ TEST(PdbBitSetTest, WriteEmptyBitSet) {
   EXPECT_TRUE(bs.Write(writer.get(), true));
   EXPECT_EQ(sizeof(kData), reader->length());
 
-  std::vector<uint32> data;
+  std::vector<uint32_t> data;
   EXPECT_TRUE(reader->Read(&data, arraysize(kData)));
   EXPECT_THAT(data, testing::ElementsAreArray(kData));
 }
@@ -289,7 +287,7 @@ TEST(PdbBitSetTest, WriteBitSet) {
   EXPECT_TRUE(bs.Write(writer.get(), true));
   EXPECT_EQ(sizeof(kData), reader->length());
 
-  std::vector<uint32> data;
+  std::vector<uint32_t> data;
   EXPECT_TRUE(reader->Read(&data, arraysize(kData)));
   EXPECT_THAT(data, testing::ElementsAreArray(kData));
 }
@@ -306,7 +304,7 @@ TEST(PdbBitSetTest, WriteBitSetWithoutSize) {
   EXPECT_TRUE(bs.Write(writer.get(), false));
   EXPECT_EQ(sizeof(kExpectedData), reader->length());
 
-  std::vector<uint32> data;
+  std::vector<uint32_t> data;
   EXPECT_TRUE(reader->Read(&data, arraysize(kExpectedData)));
   EXPECT_THAT(data, testing::ElementsAreArray(kExpectedData));
 }
@@ -530,9 +528,9 @@ TEST(SetGuidTest, Succeeds) {
   ASSERT_TRUE(stream.get() != NULL);
   ASSERT_EQ(stream->length(), sizeof(PdbInfoHeader70));
 
-  uint32_t time1 = static_cast<uint32>(time(NULL));
+  uint32_t time1 = static_cast<uint32_t>(time(NULL));
   EXPECT_TRUE(SetGuid(kSampleGuid, &pdb_file));
-  uint32_t time2 = static_cast<uint32>(time(NULL));
+  uint32_t time2 = static_cast<uint32_t>(time(NULL));
 
   // Read the new header.
   PdbInfoHeader70 pdb_header = {};
@@ -595,11 +593,11 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithEmptyNameStreamMap) {
 
   PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // total string length.
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // number of names.
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // size of bitsets.
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // first bitset.
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // second bitset.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(0)));  // total string length.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(0)));  // number of names.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(0)));  // size of bitsets.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(0)));  // first bitset.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(0)));  // second bitset.
 
   NameStreamMap name_stream_map;
   EXPECT_TRUE(
@@ -613,15 +611,15 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
 
   PdbInfoHeader70 pdb_header = {};
   ASSERT_TRUE(writer->Write(pdb_header));
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(9)));  // total string length.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(9)));  // total string length.
   uint32_t offset1 = writer->pos();
   ASSERT_TRUE(writer->Write(3, "/a"));  // name 1.
   uint32_t offset2 = writer->pos();
   ASSERT_TRUE(writer->Write(3, "/b"));  // name 2.
   uint32_t offset3 = writer->pos();
   ASSERT_TRUE(writer->Write(3, "/c"));  // name 3.
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(3)));  // number of names.
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(3)));  // size of bitsets.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(3)));  // number of names.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(3)));  // size of bitsets.
 
   PdbBitSet present;
   present.Resize(3);
@@ -630,14 +628,14 @@ TEST(ReadHeaderInfoStreamTest, ReadStreamWithNameStreamMap) {
   present.Set(2);
   ASSERT_TRUE(present.Write(writer.get(), true));
 
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(0)));  // second bitset.
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(0)));  // second bitset.
 
   ASSERT_TRUE(writer->Write(0));
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(42)));
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(42)));
   ASSERT_TRUE(writer->Write(offset2 - offset1));
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(7)));
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(7)));
   ASSERT_TRUE(writer->Write(offset3 - offset1));
-  ASSERT_TRUE(writer->Write(static_cast<uint32>(95)));
+  ASSERT_TRUE(writer->Write(static_cast<uint32_t>(95)));
 
   NameStreamMap name_stream_map;
   EXPECT_TRUE(

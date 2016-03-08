@@ -113,7 +113,7 @@ bool ParseSecondarySymbolTable(size_t file_size,
   DCHECK_NE(reinterpret_cast<SymbolIndexMap*>(NULL), symbols);
   DCHECK_NE(reinterpret_cast<FileOffsetVector*>(NULL), file_offsets);
 
-  if (length < sizeof(uint32)) {
+  if (length < sizeof(uint32_t)) {
     LOG(ERROR) << "Secondary symbol table contains no file count.";
     return false;
   }
@@ -121,7 +121,7 @@ bool ParseSecondarySymbolTable(size_t file_size,
   // Validate the size of the secondary symbol table.
   const uint32_t* offsets = reinterpret_cast<const uint32_t*>(data) + 1;
   size_t file_count = offsets[-1];
-  if (length < (file_count + 2) * sizeof(uint32)) {
+  if (length < (file_count + 2) * sizeof(uint32_t)) {
     LOG(ERROR) << "Secondary symbol table file offsets are truncated.";
     return false;
   }

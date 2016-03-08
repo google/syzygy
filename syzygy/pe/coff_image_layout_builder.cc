@@ -90,19 +90,19 @@ bool GetCoffRelocationType(BlockGraph::ReferenceType ref_type,
                            uint16_t* coff_reloc_type) {
   switch (ref_type) {
     case BlockGraph::RELOC_ABSOLUTE_REF:
-      DCHECK_EQ(sizeof(uint32), ref_size);
+      DCHECK_EQ(sizeof(uint32_t), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_DIR32;
       return true;
     case BlockGraph::RELOC_RELATIVE_REF:
-      DCHECK_EQ(sizeof(uint32), ref_size);
+      DCHECK_EQ(sizeof(uint32_t), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_DIR32NB;
       return true;
     case BlockGraph::RELOC_SECTION_REF:
-      DCHECK_EQ(sizeof(uint16), ref_size);
+      DCHECK_EQ(sizeof(uint16_t), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_SECTION;
       return true;
     case BlockGraph::RELOC_SECTION_OFFSET_REF:
-      if (ref_size == sizeof(uint32)) {
+      if (ref_size == sizeof(uint32_t)) {
          *coff_reloc_type = IMAGE_REL_I386_SECREL;
       } else {
         DCHECK_EQ(1u, ref_size);
@@ -110,7 +110,7 @@ bool GetCoffRelocationType(BlockGraph::ReferenceType ref_type,
       }
       return true;
     case BlockGraph::RELOC_PC_RELATIVE_REF:
-      DCHECK_EQ(sizeof(uint32), ref_size);
+      DCHECK_EQ(sizeof(uint32_t), ref_size);
       *coff_reloc_type = IMAGE_REL_I386_REL32;
       return true;
     default:
@@ -392,12 +392,12 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
         }
 
         switch (ref.size()) {
-          case sizeof(uint32):
-            if (!WriteReferenceValue<uint32>(ref, ref_it->first, block))
+          case sizeof(uint32_t):
+            if (!WriteReferenceValue<uint32_t>(ref, ref_it->first, block))
               return false;
             break;
-          case sizeof(uint16):
-            if (!WriteReferenceValue<uint16>(ref, ref_it->first, block))
+          case sizeof(uint16_t):
+            if (!WriteReferenceValue<uint16_t>(ref, ref_it->first, block))
               return false;
             break;
           case sizeof(uint8_t):
@@ -522,7 +522,7 @@ bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables(
     switch (it->second.type()) {
       case BlockGraph::SECTION_REF: {
         DCHECK_EQ(2u, it->second.size());
-        TypedBlock<uint16> section_number;
+        TypedBlock<uint16_t> section_number;
         if (!section_number.Init(it->first, symbols_block_)) {
           LOG(ERROR) << "Unable to cast reference.";
           return false;
@@ -541,7 +541,7 @@ bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables(
 
       case BlockGraph::SECTION_OFFSET_REF: {
         DCHECK_EQ(4u, it->second.size());
-        TypedBlock<uint32> value;
+        TypedBlock<uint32_t> value;
         if (!value.Init(it->first, symbols_block_)) {
           LOG(ERROR) << "Unable to cast reference.";
           return false;

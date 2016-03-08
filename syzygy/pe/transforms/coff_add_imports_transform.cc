@@ -131,7 +131,7 @@ bool CoffAddImportsTransform::TransformBlockGraph(
     file_header->NumberOfSymbols = symbols.ElementCount();
 
     // Update string table size.
-    TypedBlock<uint32> strings_size;
+    TypedBlock<uint32_t> strings_size;
     if (!strings_size.Init(0, strings_block)) {
       LOG(ERROR) << "Unable to cast string table size prefix.";
       return false;
@@ -215,7 +215,7 @@ void CoffAddImportsTransform::UpdateModuleReferences(
       continue;
     BlockGraph::Offset import_offset = offset_it->second;
     DCHECK_NE(kInvalidCoffSymbol, import_offset);
-    BlockGraph::Reference ref(BlockGraph::RELOC_ABSOLUTE_REF, sizeof(uint32),
+    BlockGraph::Reference ref(BlockGraph::RELOC_ABSOLUTE_REF, sizeof(uint32_t),
                               symbols_block, import_offset, import_offset);
     UpdateModuleSymbolReference(i, ref, false, module);
   }

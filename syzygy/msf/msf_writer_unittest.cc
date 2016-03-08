@@ -135,7 +135,7 @@ TEST(MsfWriterTest, AppendStream) {
 
   // Test writing a stream that will force allocation of the free page map
   // pages.
-  std::vector<uint32> pages_written;
+  std::vector<uint32_t> pages_written;
   uint32_t page_count = 0;
   EXPECT_TRUE(writer.AppendStream(stream.get(), &pages_written, &page_count));
   writer.file().reset();
@@ -171,7 +171,7 @@ TEST(MsfWriterTest, WriteHeader) {
   writer.file().reset(base::OpenFile(temp_file.path(), "wb"));
   ASSERT_TRUE(writer.file().get() != NULL);
 
-  std::vector<uint32> root_directory_pages(kMsfMaxDirPages + 10, 1);
+  std::vector<uint32_t> root_directory_pages(kMsfMaxDirPages + 10, 1);
 
   // Try to write a root directorty that's too big and expect this to fail.
   EXPECT_FALSE(writer.WriteHeader(root_directory_pages, 67 * 4, 438));

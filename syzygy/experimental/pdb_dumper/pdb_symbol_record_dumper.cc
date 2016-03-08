@@ -32,7 +32,7 @@ namespace {
 
 template <typename SymbolType>
 bool ReadSymbolAndName(PdbStream* stream,
-                       uint16 len,
+                       uint16_t len,
                        SymbolType* symbol_out,
                        std::string* name_out) {
   DCHECK(stream != NULL);
@@ -55,7 +55,7 @@ bool ReadSymbolAndName(PdbStream* stream,
 }
 
 // Return the string value associated with a symbol type.
-const char* SymbolTypeName(uint16 symbol_type) {
+const char* SymbolTypeName(uint16_t symbol_type) {
   switch (symbol_type) {
 // Just return the name of the enum.
 #define SYM_TYPE_NAME(sym_type, unused) \
@@ -70,7 +70,7 @@ const char* SymbolTypeName(uint16 symbol_type) {
 }
 
 void DumpLvarAddrRange(FILE* out,
-                       uint8 indent_level,
+                       uint8_t indent_level,
                        const CvLvarAddrRange& range) {
   DumpIndentedText(out, indent_level, "Range:\n");
   DumpIndentedText(out, indent_level + 1, "offStart: 0x%08X\n", range.offStart);
@@ -80,10 +80,10 @@ void DumpLvarAddrRange(FILE* out,
 
 bool DumpLvarAddrGaps(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   DumpIndentedText(out, indent_level, "Gaps:\n");
-  uint16 bytes_left = len;
+  uint16_t bytes_left = len;
   CvLvarAddrGap gap = {};
   size_t to_read = sizeof(CvLvarAddrGap);
   while (bytes_left >= to_read) {
@@ -109,7 +109,10 @@ bool DumpLvarAddrGaps(FILE* out,
 }
 
 // Dump a symbol record using RefSym2 struct to out.
-bool DumpRefSym2(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
+bool DumpRefSym2(FILE* out,
+                 PdbStream* stream,
+                 uint16_t len,
+                 uint8_t indent_level) {
   cci::RefSym2 symbol_info = {};
   std::string symbol_name;
   if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
@@ -126,8 +129,8 @@ bool DumpRefSym2(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
 // Dump a symbol record using DatasSym32 struct to out.
 bool DumpDatasSym32(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   cci::DatasSym32 symbol_info = {};
   std::string symbol_name;
   if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
@@ -143,8 +146,8 @@ bool DumpDatasSym32(FILE* out,
 
 bool DumpPubSym32(FILE* out,
                   PdbStream* stream,
-                  uint16 len,
-                  uint8 indent_level) {
+                  uint16_t len,
+                  uint8_t indent_level) {
   cci::PubSym32 symbol_info = {};
   std::string symbol_name;
   if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
@@ -168,24 +171,24 @@ bool DumpPubSym32(FILE* out,
 
 bool DumpOemSymbol(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpVpathSym32(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpFrameProcSym(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   cci::FrameProcSym frame_proc_sym = {};
   if (!stream->Read(&frame_proc_sym, 1))
     return false;
@@ -236,8 +239,8 @@ bool DumpFrameProcSym(FILE* out,
 
 bool DumpAnnotationSym(FILE* out,
                        PdbStream* stream,
-                       uint16 len,
-                       uint8 indent_level) {
+                       uint16_t len,
+                       uint8_t indent_level) {
   cci::AnnotationSym symbol_info = {};
 
   size_t to_read = offsetof(cci::AnnotationSym, rgsz);
@@ -267,16 +270,16 @@ bool DumpAnnotationSym(FILE* out,
 
 bool DumpManyTypRef(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpObjNameSym(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
   DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
   cci::ObjNameSym sym = {};
@@ -290,37 +293,40 @@ bool DumpObjNameSym(FILE* out,
 
 bool DumpThunkSym32(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpBlockSym32(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpWithSym32(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpLabelSym32(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
-bool DumpRegSym(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
+bool DumpRegSym(FILE* out,
+                PdbStream* stream,
+                uint16_t len,
+                uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(nullptr), out);
   DCHECK_NE(reinterpret_cast<PdbStream*>(nullptr), stream);
   cci::RegSym sym = {};
@@ -335,8 +341,8 @@ bool DumpRegSym(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
 
 bool DumpConstSym(FILE* out,
                   PdbStream* stream,
-                  uint16 len,
-                  uint8 indent_level) {
+                  uint16_t len,
+                  uint8_t indent_level) {
   size_t to_read = offsetof(cci::ConstSym, name);
   size_t bytes_read = 0;
   cci::ConstSym symbol_info = {};
@@ -372,7 +378,10 @@ bool DumpConstSym(FILE* out,
   return true;
 }
 
-bool DumpUdtSym(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
+bool DumpUdtSym(FILE* out,
+                PdbStream* stream,
+                uint16_t len,
+                uint8_t indent_level) {
   cci::UdtSym symbol_info = {};
   std::string symbol_name;
   if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
@@ -386,16 +395,16 @@ bool DumpUdtSym(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
 
 bool DumpManyRegSym(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpBpRelSym32(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   cci::BpRelSym32 bp_rel_sym = {};
   std::string name;
 
@@ -411,8 +420,8 @@ bool DumpBpRelSym32(FILE* out,
 
 bool DumpProcSym32(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
   DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
   cci::ProcSym32 sym = {};
@@ -451,16 +460,16 @@ bool DumpProcSym32(FILE* out,
 
 bool DumpRegRel32(FILE* out,
                   PdbStream* stream,
-                  uint16 len,
-                  uint8 indent_level) {
+                  uint16_t len,
+                  uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpThreadSym32(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   cci::ThreadSym32 symbol_info = {};
   std::string symbol_name;
   if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
@@ -476,15 +485,15 @@ bool DumpThreadSym32(FILE* out,
 
 bool DumpProcSymMips(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpCompileSymFlags(FILE* out,
                          const CompileSymFlags& flags,
-                         uint8 indent_level) {
+                         uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
   DumpIndentedText(out, indent_level, "Flags:\n");
   DumpIndentedText(out, indent_level + 1, "Language         : %d\n",
@@ -511,8 +520,8 @@ bool DumpCompileSymFlags(FILE* out,
 template <typename CompileSymType>
 bool DumpCompileSymImpl(FILE* out,
                         PdbStream* stream,
-                        uint16 len,
-                        uint8 indent_level,
+                        uint16_t len,
+                        uint8_t indent_level,
                         int symbol_version) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
   DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
@@ -587,8 +596,8 @@ bool DumpCompileSymImpl(FILE* out,
 
 bool DumpCompileSym(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
   DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
   if (!DumpCompileSymImpl<cci::CompileSym>(out, stream, len, indent_level, 1))
@@ -598,8 +607,8 @@ bool DumpCompileSym(FILE* out,
 
 bool DumpCompileSym2(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
   DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
   if (!DumpCompileSymImpl<CompileSym2>(out, stream, len, indent_level, 2))
@@ -609,104 +618,104 @@ bool DumpCompileSym2(FILE* out,
 
 bool DumpManyRegSym2(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpProcSymIa64(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpSlotSym32(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpFrameRelSym(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpAttrRegSym(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpAttrSlotSym(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpAttrManyRegSym(FILE* out,
                         PdbStream* stream,
-                        uint16 len,
-                        uint8 indent_level) {
+                        uint16_t len,
+                        uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpAttrRegRel(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpAttrManyRegSym2(FILE* out,
                          PdbStream* stream,
-                         uint16 len,
-                         uint8 indent_level) {
+                         uint16_t len,
+                         uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpUnamespaceSym(FILE* out,
                        PdbStream* stream,
-                       uint16 len,
-                       uint8 indent_level) {
+                       uint16_t len,
+                       uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpManProcSym(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpTrampolineSym(FILE* out,
                        PdbStream* stream,
-                       uint16 len,
-                       uint8 indent_level) {
+                       uint16_t len,
+                       uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpSepCodSym(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   cci::SepCodSym symbol_info = {};
   if (!stream->Read(&symbol_info, 1))
     return false;
@@ -725,16 +734,16 @@ bool DumpSepCodSym(FILE* out,
 
 bool DumpLocalSym(FILE* out,
                   PdbStream* stream,
-                  uint16 len,
-                  uint8 indent_level) {
+                  uint16_t len,
+                  uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpLocalSym2013(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   LocalSym2013 symbol_info = {};
   std::string symbol_name;
   if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name)) {
@@ -775,11 +784,11 @@ bool DumpLocalSym2013(FILE* out,
 
 bool DumpDefrangeSymRegister(FILE* out,
                              PdbStream* stream,
-                             uint16 len,
-                             uint8 indent_level) {
+                             uint16_t len,
+                             uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
   // stream of shorter length.
-  uint16 bytes_left = len;
+  uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefrangeSymRegister, gaps);
@@ -802,11 +811,11 @@ bool DumpDefrangeSymRegister(FILE* out,
 
 bool DumpDefRangeSymFramePointerRel(FILE* out,
                                     PdbStream* stream,
-                                    uint16 len,
-                                    uint8 indent_level) {
+                                    uint16_t len,
+                                    uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
   // stream of shorter length.
-  uint16 bytes_left = len;
+  uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymFramePointerRel, gaps);
@@ -829,11 +838,11 @@ bool DumpDefRangeSymFramePointerRel(FILE* out,
 
 bool DumpDefRangeSymSubfieldRegister(FILE* out,
                                      PdbStream* stream,
-                                     uint16 len,
-                                     uint8 indent_level) {
+                                     uint16_t len,
+                                     uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
   // stream of shorter length.
-  uint16 bytes_left = len;
+  uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymSubfieldRegister, gaps);
@@ -857,8 +866,8 @@ bool DumpDefRangeSymSubfieldRegister(FILE* out,
 
 bool DumpFPOffs2013(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   FPOffs2013 fp_offs = {};
   if (!stream->Read(&fp_offs, 1))
     return false;
@@ -869,11 +878,11 @@ bool DumpFPOffs2013(FILE* out,
 
 bool DumpDefRangeSymRegisterRel(FILE* out,
                                 PdbStream* stream,
-                                uint16 len,
-                                uint8 indent_level) {
+                                uint16_t len,
+                                uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
   // stream of shorter length.
-  uint16 bytes_left = len;
+  uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymRegisterRel, gaps);
@@ -901,24 +910,24 @@ bool DumpDefRangeSymRegisterRel(FILE* out,
 
 bool DumpDefRangeSym(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpDefRangeSym2(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpSectionSym(FILE* out,
                     PdbStream* stream,
-                    uint16 len,
-                    uint8 indent_level) {
+                    uint16_t len,
+                    uint8_t indent_level) {
   cci::SectionSym section = {};
   std::string section_name;
   if (!ReadSymbolAndName(stream, len, &section, &section_name))
@@ -938,8 +947,8 @@ bool DumpSectionSym(FILE* out,
 
 bool DumpCoffGroupSym(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   cci::CoffGroupSym coff_group = {};
   std::string coff_group_name;
   if (!ReadSymbolAndName(stream, len, &coff_group, &coff_group_name))
@@ -957,8 +966,8 @@ bool DumpCoffGroupSym(FILE* out,
 
 bool DumpExportSym(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   cci::ExportSym export_sym;
   std::string name;
 
@@ -990,8 +999,8 @@ bool DumpExportSym(FILE* out,
 
 bool DumpCallsiteInfo(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   cci::CallsiteInfo symbol_info = {};
   if (!stream->Read(&symbol_info, 1)) {
     LOG(ERROR) << "Unable to read symbol record.";
@@ -1007,8 +1016,8 @@ bool DumpCallsiteInfo(FILE* out,
 
 bool DumpFrameCookie(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   cci::FrameCookie frame_cookie = {};
   if (!stream->Read(&frame_cookie, 1))
     return false;
@@ -1024,8 +1033,8 @@ bool DumpFrameCookie(FILE* out,
 
 bool DumpFrameCookieSym(FILE* out,
                         PdbStream* stream,
-                        uint16 len,
-                        uint8 indent_level) {
+                        uint16_t len,
+                        uint8_t indent_level) {
   FrameCookieSym frame_cookie = {};
   if (!stream->Read(&frame_cookie, 1))
     return false;
@@ -1040,16 +1049,16 @@ bool DumpFrameCookieSym(FILE* out,
 
 bool DumpDiscardedSym(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
   return false;
 }
 
 bool DumpMSToolEnvV3(FILE* out,
                      PdbStream* stream,
-                     uint16 len,
-                     uint8 indent_level) {
+                     uint16_t len,
+                     uint8_t indent_level) {
   MSToolEnvV3 environment;
 
   // Read the structure header.
@@ -1088,7 +1097,10 @@ bool DumpMSToolEnvV3(FILE* out,
 }
 
 // Hexdump the data of the undeciphered symbol records.
-bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
+bool DumpUnknown(FILE* out,
+                 PdbStream* stream,
+                 uint16_t len,
+                 uint8_t indent_level) {
   if (len == 0)
     return true;
   DumpIndentedText(out, indent_level, "Unsupported symbol type.\n");
@@ -1101,36 +1113,36 @@ bool DumpUnknown(FILE* out, PdbStream* stream, uint16 len, uint8 indent_level) {
 //     this compiles cleanly.
 bool DumpCompileSymCV2(FILE* out,
                        PdbStream* stream,
-                       uint16 len,
-                       uint8 indent_level) {
+                       uint16_t len,
+                       uint8_t indent_level) {
   return DumpUnknown(out, stream, len, indent_level);
 }
 
 bool DumpSearchSym(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   return DumpUnknown(out, stream, len, indent_level);
 }
 
 bool DumpEndArgSym(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   return DumpUnknown(out, stream, len, indent_level);
 }
 
 bool DumpReturnSym(FILE* out,
                    PdbStream* stream,
-                   uint16 len,
-                   uint8 indent_level) {
+                   uint16_t len,
+                   uint8_t indent_level) {
   return DumpUnknown(out, stream, len, indent_level);
 }
 
 bool DumpEntryThisSym(FILE* out,
                       PdbStream* stream,
-                      uint16 len,
-                      uint8 indent_level) {
+                      uint16_t len,
+                      uint8_t indent_level) {
   return DumpUnknown(out, stream, len, indent_level);
 }
 
@@ -1139,7 +1151,7 @@ bool DumpEntryThisSym(FILE* out,
 void DumpSymbolRecords(FILE* out,
                        PdbStream* stream,
                        const SymbolRecordVector& sym_record_vector,
-                       uint8 indent_level) {
+                       uint8_t indent_level) {
   DCHECK(stream != NULL);
 
   SymbolRecordVector::const_iterator symbol_iter =

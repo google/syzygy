@@ -34,8 +34,8 @@ bool GetRegisterValue(IDiaStackFrame* frame,
   if (!pe::GetRegisterValue(frame, register_index, &value)) {
     return false;
   }
-  base::CheckedNumeric<uint32> checked_value =
-      base::CheckedNumeric<uint32>::cast(value);
+  base::CheckedNumeric<uint32_t> checked_value =
+      base::CheckedNumeric<uint32_t>::cast(value);
   if (!checked_value.IsValid()) {
     LOG(ERROR) << "register value is not a 32 bit value.";
     return false;

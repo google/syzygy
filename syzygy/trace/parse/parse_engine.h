@@ -81,7 +81,7 @@ class ParseEngine {
 
  protected:
   // Used to store module information about each observed process.
-  typedef std::map<uint32, ModuleSpace> ProcessMap;
+  typedef std::map<uint32_t, ModuleSpace> ProcessMap;
 
   // Initialize the base ParseEngine.
   //

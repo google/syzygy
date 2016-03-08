@@ -40,8 +40,8 @@ typedef SampleGrinder::HeatMap HeatMap;
 core::RelativeAddress GetBucketStart(const TraceSampleData* sample_data) {
   DCHECK(sample_data != NULL);
   return core::RelativeAddress(
-      reinterpret_cast<uint32>(sample_data->bucket_start) -
-          reinterpret_cast<uint32>(sample_data->module_base_addr));
+      reinterpret_cast<uint32_t>(sample_data->bucket_start) -
+      reinterpret_cast<uint32_t>(sample_data->module_base_addr));
 }
 
 // Returns the size of an intersection between a given address range and a
@@ -246,10 +246,10 @@ bool RollUpToLines(const HeatMap& heat_map, LineInfo* line_info) {
 
     // Use saturation arithmetic, and ensure that no value is zero.
     uint32_t ui = 0;
-    if (d >= std::numeric_limits<uint32>::max()) {
-      ui = std::numeric_limits<uint32>::max();
+    if (d >= std::numeric_limits<uint32_t>::max()) {
+      ui = std::numeric_limits<uint32_t>::max();
     } else {
-      ui = static_cast<uint32>(d);
+      ui = static_cast<uint32_t>(d);
       if (ui == 0)
         ui = 1;
     }

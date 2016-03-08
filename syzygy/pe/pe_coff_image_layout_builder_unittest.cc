@@ -363,7 +363,7 @@ TEST_F(PECoffImageLayoutBuilderTest, Align) {
       first = false;
 
       // This is true because kOffsetMin is negative.
-      EXPECT_EQ(static_cast<uint32>(-kOffsetMin), curr_address.value());
+      EXPECT_EQ(static_cast<uint32_t>(-kOffsetMin), curr_address.value());
     } else {
       // The space between the blocks is the difference of the addresses minus
       // the data size.

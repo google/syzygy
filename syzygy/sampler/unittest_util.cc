@@ -41,7 +41,7 @@ void GetLabelTestFuncAdddress(const pe::PEFile& test_dll_pe_file,
       *function_rva = exports[i].function;
       break;
     }
-  };
+  }
   ASSERT_NE(0u, function_rva->value());
 }
 
@@ -71,7 +71,7 @@ void InitializeDummyTraceSampleData(
           kDummyBucketSize;
 
   buffer->resize(offsetof(TraceSampleData, buckets) +
-                     sizeof(uint32) * bucket_count);
+                 sizeof(uint32_t) * bucket_count);
   TraceSampleData* sample_data = reinterpret_cast<TraceSampleData*>(
       buffer->data());
 

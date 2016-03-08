@@ -68,8 +68,8 @@ bool SetDbiDbgStream(size_t index_offset,
   // If the stream is an invalid index, we create a new one.
   int16_t new_index = existing_index;
   if (existing_index < 0 ||
-      existing_index >= static_cast<int16>(pdb_file->StreamCount())) {
-    new_index = static_cast<int16>(pdb_file->AppendStream(stream));
+      existing_index >= static_cast<uint16_t>(pdb_file->StreamCount())) {
+    new_index = static_cast<uint16_t>(pdb_file->AppendStream(stream));
   } else {
     pdb_file->ReplaceStream(new_index, stream);
   }
@@ -177,7 +177,7 @@ bool PdbBitSet::Read(PdbStream* stream) {
 
 bool PdbBitSet::Write(WritablePdbStream* stream, bool with_size) {
   DCHECK(stream != NULL);
-  if (with_size && !stream->Write(static_cast<uint32>(bits_.size()))) {
+  if (with_size && !stream->Write(static_cast<uint32_t>(bits_.size()))) {
     LOG(ERROR) << "Failed to write bitset size.";
     return false;
   }
@@ -376,7 +376,7 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
   }
 
   // Update it.
-  info_header.timestamp = static_cast<uint32>(time(NULL));
+  info_header.timestamp = static_cast<uint32_t>(time(NULL));
   info_header.pdb_age = 1;  // Reset age to 1, as this is a new generation.
   info_header.signature = guid;
 
@@ -684,7 +684,7 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   }
 
   // The run of pairs must be terminated with a single NULL entry.
-  if (!pdb_stream->Write(static_cast<uint32>(0))) {
+  if (!pdb_stream->Write(static_cast<uint32_t>(0))) {
     LOG(ERROR) << "Failed to write terminating NULL.";
     return false;
   }

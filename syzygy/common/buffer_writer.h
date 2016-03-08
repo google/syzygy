@@ -24,8 +24,8 @@
 //   uint8_t buffer[1024];
 //   FixedBufferWriter writer(buffer, sizeof(buffer));
 //   writer.WriteString(some_string);
-//   writer.AlignUp(sizeof(uint32));
-//   writer.Write(number_of_elements, array_of_uint32s);
+//   writer.AlignUp(sizeof(uint32_t);
+//   writer.Write(number_of_elements, array_of_uint32_t);
 //   writer.Write(some_complex_object);
 
 #ifndef SYZYGY_COMMON_BUFFER_WRITER_H_

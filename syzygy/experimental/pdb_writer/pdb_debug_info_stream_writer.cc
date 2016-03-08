@@ -55,9 +55,9 @@ bool WriteDebugInfoStream(uint32_t pdb_age,
   dbi_header.pdb_dll_build_minor = 0;
 
   dbi_header.gp_modi_size = 0;
-  dbi_header.section_contribution_size = sizeof(uint32);
-  dbi_header.section_map_size = 2 * sizeof(uint16);
-  dbi_header.file_info_size = 2 * sizeof(uint16);
+  dbi_header.section_contribution_size = sizeof(uint32_t);
+  dbi_header.section_map_size = 2 * sizeof(uint16_t);
+  dbi_header.file_info_size = 2 * sizeof(uint16_t);
   dbi_header.ts_map_size = 0;
   dbi_header.mfc_index = 0;
   dbi_header.dbg_header_size = sizeof(DbiDbgHeader);

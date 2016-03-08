@@ -26,7 +26,7 @@ namespace {
 // Test fixture.
 class ArReaderTest : public testing::Test {
  public:
-  virtual void SetUp() override {
+  void SetUp() override {
     lib_path_ = testing::GetSrcRelativePath(testing::kArchiveFile);
   }
 
@@ -79,7 +79,7 @@ TEST_F(ArReaderTest, InitAndBuildFileIndex) {
   // Double check the filename map inverts properly.
   EXPECT_NO_FATAL_FAILURE(InverseIsCorrect(reader));
 
-  typedef std::pair<std::string, uint64> FileInfo;
+  typedef std::pair<std::string, uint64_t> FileInfo;
   typedef std::vector<FileInfo> FileInfos;
   FileInfos expected, observed;
   expected.push_back(std::make_pair(std::string(

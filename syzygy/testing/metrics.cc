@@ -147,7 +147,7 @@ bool DeleteFileIfTooLarge(const base::FilePath& path, size_t max_size) {
   }
 
   // If the file doesn't need to be deleted then return.
-  if (file_size <= static_cast<int64>(max_size))
+  if (file_size <= static_cast<int64_t>(max_size))
     return true;
 
   // Try to delete the file in a retry loop.

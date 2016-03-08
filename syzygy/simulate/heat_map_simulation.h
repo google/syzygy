@@ -206,7 +206,7 @@ class HeatMapSimulation : public SimulationEventHandler {
 // Stores the respective memory slices of a particular time slice in a map.
 class HeatMapSimulation::TimeSlice {
  public:
-  typedef std::map<std::string, uint32> FunctionMap;
+  typedef std::map<std::string, uint32_t> FunctionMap;
 
   struct MemorySlice {
     FunctionMap functions;

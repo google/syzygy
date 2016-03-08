@@ -103,7 +103,7 @@ TEST_F(JumpTableCaseCountTransformTest, Apply) {
   // Validate the jump table frequency data structure.
   block_graph::ConstTypedBlock<IndexedFrequencyData> frequency_data;
   ASSERT_TRUE(frequency_data.Init(0, tx.frequency_data_block()));
-  EXPECT_EQ(sizeof(uint32), frequency_data->frequency_size);
+  EXPECT_EQ(sizeof(uint32_t), frequency_data->frequency_size);
   EXPECT_EQ(common::kJumpTableCountAgentId, frequency_data->agent_id);
   EXPECT_EQ(common::kJumpTableFrequencyDataVersion, frequency_data->version);
   EXPECT_EQ(IndexedFrequencyData::JUMP_TABLE, frequency_data->data_type);

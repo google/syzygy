@@ -93,9 +93,9 @@ namespace ar {
 class ArReader {
  public:
   // Stores the offsets of each file object, by their index.
-  typedef std::vector<uint32> FileOffsetVector;
+  typedef std::vector<uint32_t> FileOffsetVector;
   // Stores the inverse of a FileOffsetVector.
-  typedef std::map<uint32, size_t> OffsetIndexMap;
+  typedef std::map<uint32_t, size_t> OffsetIndexMap;
   // Maps sorted object filenames to their index in the archive. This is a
   // multimap as multiple files may exist with the same name.
   typedef std::set<std::pair<std::string, size_t>> FileNameMap;

@@ -92,7 +92,7 @@ class PECoffImageLayoutBuilder {
   //
   // @param section the section to be laid out.
   // @returns true on success, false on failure.
-  // @see OpenSection(const char*, uint32)
+  // @see OpenSection(const char*, uint32_t)
   bool OpenSection(const BlockGraph::Section& section);
 
   // Lay out the provided block, enforcing to the inter-block block

@@ -88,7 +88,7 @@ bool BlockGraphSerializer::Save(const BlockGraph& block_graph,
   // Save the serialization attributes so we can read this block-graph without
   // having to be told how it was saved.
   if (!out_archive->Save(kSerializedBlockGraphVersion) ||
-      !out_archive->Save(static_cast<uint32>(data_mode_)) ||
+      !out_archive->Save(static_cast<uint32_t>(data_mode_)) ||
       !out_archive->Save(attributes_)) {
     LOG(ERROR) << "Unable to save serialized block-graph properties.";
     return false;
@@ -338,14 +338,13 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
 
   // We use a signed integer for saving the section ID, as -1 is used to
   // indicate 'no section'.
-  if (!out_archive->Save(type) ||
-      !SaveUint32(block.size(), out_archive) ||
+  if (!out_archive->Save(type) || !SaveUint32(block.size(), out_archive) ||
       !SaveUint32(block.alignment(), out_archive) ||
       !SaveInt32(block.alignment_offset(), out_archive) ||
       !SaveUint32(block.padding_before(), out_archive) ||
       !out_archive->Save(block.source_ranges()) ||
       !out_archive->Save(block.addr()) ||
-      !SaveInt32(static_cast<uint32>(block.section()), out_archive) ||
+      !SaveInt32(static_cast<uint32_t>(block.section()), out_archive) ||
       !out_archive->Save(block.attributes()) ||
       !MaybeSaveString(*this, block.name(), out_archive) ||
       !MaybeSaveString(*this, block.compiland_name(), out_archive)) {
@@ -404,7 +403,7 @@ bool BlockGraphSerializer::LoadBlockPropertiesImpl(
 
   if (type > BlockGraph::BLOCK_TYPE_MAX ||
       !ValidAttributes(attributes, BlockGraph::BLOCK_ATTRIBUTES_MAX)) {
-    LOG(ERROR) << "Invalid block type (" << static_cast<uint32>(type)
+    LOG(ERROR) << "Invalid block type (" << static_cast<uint32_t>(type)
                << ") and/or attributes ("
                << base::StringPrintf("%04X", attributes)
                << ") for block with id " << block->id() << ".";
@@ -459,7 +458,7 @@ bool BlockGraphSerializer::SaveBlockLabels(const BlockGraph::Block& block,
 
     int32_t offset = label_iter->first;
     const BlockGraph::Label& label = label_iter->second;
-    uint16_t attributes = static_cast<uint16>(label.attributes());
+    uint16_t attributes = static_cast<uint16_t>(label.attributes());
 
     if (!SaveInt32(offset, out_archive) || !out_archive->Save(attributes) ||
         !MaybeSaveString(*this, label.name(), out_archive)) {
@@ -798,8 +797,8 @@ bool BlockGraphSerializer::LoadReference(BlockGraph* block_graph,
 
   if (type >= BlockGraph::REFERENCE_TYPE_MAX ||
       size > BlockGraph::Reference::kMaximumSize) {
-    LOG(ERROR) << "Invalid reference type (" << static_cast<uint32>(type)
-               << ") and/or size (" << static_cast<uint32>(size) << ").";
+    LOG(ERROR) << "Invalid reference type (" << static_cast<uint32_t>(type)
+               << ") and/or size (" << static_cast<uint32_t>(size) << ").";
     return false;
   }
 
@@ -899,7 +898,7 @@ bool BlockGraphSerializer::SaveInt32(int32_t value,
                                      OutArchive* out_archive) const {
   DCHECK(out_archive != NULL);
 
-  uint32_t uvalue = static_cast<uint32>(value < 0 ? -value : value);
+  uint32_t uvalue = static_cast<uint32_t>(value < 0 ? -value : value);
   CHECK_GT((1u << 31), uvalue);
 
   // Add the sign bit as the least significant bit. This allows values near 0
@@ -923,7 +922,7 @@ bool BlockGraphSerializer::LoadInt32(int32_t* value,
   if (!LoadUint32(&uvalue, in_archive))
     return false;
 
-  *value = static_cast<int32>(uvalue >> 1);
+  *value = static_cast<int32_t>(uvalue >> 1);
   if ((uvalue & 1) != 0)
     *value = -(*value);
 

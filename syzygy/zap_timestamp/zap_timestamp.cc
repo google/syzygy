@@ -422,7 +422,7 @@ bool NormalizeDbiStream(DWORD pdb_age_data, PdbByteStream* dbi_stream) {
   }
 
   // Ensure that the section contributions are addressable.
-  size_t section_contrib_end_pos = dbi_header->gp_modi_size + sizeof(uint32) +
+  size_t section_contrib_end_pos = dbi_header->gp_modi_size + sizeof(uint32_t) +
                                    dbi_header->section_contribution_size;
   if (dbi_stream->length() < section_contrib_end_pos) {
     LOG(ERROR) << "Invalid DBI header gp_modi_size.";
@@ -430,7 +430,7 @@ bool NormalizeDbiStream(DWORD pdb_age_data, PdbByteStream* dbi_stream) {
   }
 
   // Run over the section contributions.
-  dbi_data += sizeof(uint32);  // Skip the signature.
+  dbi_data += sizeof(uint32_t);  // Skip the signature.
   uint8_t* section_contrib_end =
       dbi_data + dbi_header->section_contribution_size;
   while (dbi_data < section_contrib_end) {
@@ -823,7 +823,7 @@ bool ZapTimestamp::CalculatePdbGuid() {
       return false;  // This logs verbosely for us.
   }
 
-  DCHECK_EQ(end.value(), static_cast<uint32>(::ftell(pe_file.get())));
+  DCHECK_EQ(end.value(), static_cast<uint32_t>(::ftell(pe_file.get())));
 
   static_assert(sizeof(base::MD5Digest) == sizeof(pdb_guid_data_),
                 "MD5Digest and GUID size mismatch.");
@@ -867,8 +867,8 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
   // Update the timestamp, the age and the signature.
   LOG(INFO) << "Updating PDB header.";
   header_writer->set_pos(offsetof(pdb::PdbInfoHeader70, timestamp));
-  header_writer->Write(static_cast<uint32>(timestamp_data_));
-  header_writer->Write(static_cast<uint32>(pdb_age_data_));
+  header_writer->Write(static_cast<uint32_t>(timestamp_data_));
+  header_writer->Write(static_cast<uint32_t>(pdb_age_data_));
   header_writer->Write(pdb_guid_data_);
 
   // Normalize the DBI stream in place.
@@ -902,7 +902,7 @@ bool ZapTimestamp::LoadAndUpdatePdbFile() {
       pubsym_reader->GetWritableStream();
   DCHECK(pubsym_writer.get() != NULL);
   pubsym_writer->set_pos(24);
-  pubsym_writer->Write(static_cast<uint32>(0));
+  pubsym_writer->Write(static_cast<uint32_t>(0));
 
   return true;
 }

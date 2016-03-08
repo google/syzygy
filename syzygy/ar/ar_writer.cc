@@ -38,7 +38,7 @@ namespace {
 typedef ArWriter::FileVector FileVector;
 
 // Contains a list of file offsets at which each file starts in the archive.
-typedef std::vector<uint32> FileOffsets;
+typedef std::vector<uint32_t> FileOffsets;
 
 // Determines if a symbol should be added to the symbol table. The rules as to
 // what symbols should be exported has been derived by observation of inputs
@@ -339,7 +339,7 @@ bool PopulateArFileHeader(const ParsedArFileHeader& parsed_header,
 
   // Convert value types.
   std::string timestamp = base::StringPrintf(
-      "%lld", static_cast<uint64>(parsed_header.timestamp.ToDoubleT()));
+      "%lld", static_cast<uint64_t>(parsed_header.timestamp.ToDoubleT()));
   std::string mode = base::StringPrintf("%d", parsed_header.mode);
   std::string size = base::StringPrintf("%lld", parsed_header.size);
 
@@ -418,11 +418,11 @@ bool WritePrimarySymbolTable(const base::Time& timestamp,
   // Generate the content.
   DataBuffer buffer;
   common::VectorBufferWriter writer(&buffer);
-  CHECK(writer.Write<uint32>(base::ByteSwap(symbols.size())));
+  CHECK(writer.Write<uint32_t>(base::ByteSwap(symbols.size())));
   for (size_t i = 0; i < syms.size(); ++i) {
     DCHECK_LE(syms[i].first, offsets.size());
     uint32_t offset = offsets[syms[i].first];
-    CHECK(writer.Write<uint32>(base::ByteSwap(offset)));
+    CHECK(writer.Write<uint32_t>(base::ByteSwap(offset)));
   }
   for (size_t i = 0; i < syms.size(); ++i) {
     CHECK(writer.Write<char>(syms[i].second.size() + 1,
@@ -454,13 +454,13 @@ bool WriteSecondarySymbolTable(const base::Time& timestamp,
   // Generate the content.
   DataBuffer buffer;
   common::VectorBufferWriter writer(&buffer);
-  CHECK(writer.Write<uint32>(offsets.size()));
-  CHECK(writer.Write<uint32>(offsets.size(), offsets.data()));
-  CHECK(writer.Write<uint32>(symbols.size()));
+  CHECK(writer.Write<uint32_t>(offsets.size()));
+  CHECK(writer.Write<uint32_t>(offsets.size(), offsets.data()));
+  CHECK(writer.Write<uint32_t>(symbols.size()));
   SymbolIndexMap::const_iterator sym_it = symbols.begin();
   // File indices are 1 based.
   for (; sym_it != symbols.end(); ++sym_it)
-    CHECK(writer.Write<uint16>(sym_it->second + 1));
+    CHECK(writer.Write<uint16_t>(sym_it->second + 1));
   for (sym_it = symbols.begin(); sym_it != symbols.end(); ++sym_it) {
     CHECK(writer.Write<char>(sym_it->first.size() + 1,
                              sym_it->first.data()));

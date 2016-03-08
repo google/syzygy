@@ -35,7 +35,7 @@ typedef std::vector<uint8_t> DataBuffer;
 
 // Maps symbols by their name to the index of the archived file containing
 // them.
-typedef std::map<std::string, uint32> SymbolIndexMap;
+typedef std::map<std::string, uint32_t> SymbolIndexMap;
 
 // The global file header.
 struct ArGlobalHeader {

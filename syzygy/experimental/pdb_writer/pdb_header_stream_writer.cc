@@ -25,7 +25,7 @@ bool WriteHeaderStream(const pe::PdbInfo& pdb_info,
                        WritablePdbStream* stream) {
   PdbInfoHeader70 info_header = {};
   info_header.version = kPdbCurrentVersion;
-  info_header.timestamp = static_cast<uint32>(time(NULL));
+  info_header.timestamp = static_cast<uint32_t>(time(NULL));
   info_header.pdb_age = pdb_info.pdb_age();
   info_header.signature = pdb_info.signature();
 

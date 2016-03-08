@@ -342,7 +342,7 @@ TEST_F(BlockTest, InsertData) {
   block1->SetLabel(0, "Pointer1", BlockGraph::DATA_LABEL);
   block1->SetLabel(kPtrSize, "Pointer2", BlockGraph::DATA_LABEL);
   block1->SetLabel(2 * kPtrSize, "Pointer3", BlockGraph::DATA_LABEL);
-  TypedBlock<uint32> data1;
+  TypedBlock<uint32_t> data1;
   ASSERT_TRUE(data1.Init(0, block1));
   data1[0] = 0xAAAAAAAA;
   data1[1] = 0xBBBBBBBB;
@@ -562,7 +562,7 @@ TEST_F(BlockTest, RemoveData) {
   block1->SetLabel(0, "Pointer1", BlockGraph::DATA_LABEL);
   block1->SetLabel(2 * kPtrSize, "Pointer3", BlockGraph::DATA_LABEL);
   block1->SetLabel(3 * kPtrSize, "EndOfPointers", BlockGraph::DATA_LABEL);
-  TypedBlock<uint32> data1;
+  TypedBlock<uint32_t> data1;
   ASSERT_TRUE(data1.Init(0, block1));
   data1[0] = 0xAAAAAAAA;
   data1[1] = 0xBBBBBBBB;

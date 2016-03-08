@@ -253,7 +253,7 @@ const Playback::BlockGraph::Block* Playback::FindFunctionBlock(
   // Convert the address to an RVA. We can only instrument 32-bit DLLs, so we're
   // sure that the following address conversion is safe.
   core::RelativeAddress rva(
-      static_cast<uint32>(abs_address - module_info->base_address.value()));
+      static_cast<uint32_t>(abs_address - module_info->base_address.value()));
 
   // Convert the address from one in the instrumented module to one in the
   // original module using the OMAP data.

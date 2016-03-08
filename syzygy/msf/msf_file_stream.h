@@ -83,7 +83,7 @@ class MsfFileStreamImpl : public MsfStreamImpl<T> {
   scoped_refptr<RefCountedFILE> file_;
 
   // The list of pages in the msf MSF that make up this stream.
-  std::vector<uint32> pages_;
+  std::vector<uint32_t> pages_;
 
   // The size of pages within the stream.
   size_t page_size_;

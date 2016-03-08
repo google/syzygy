@@ -146,7 +146,7 @@ struct MinidumpSpecification::ExceptionSpecification {
   uint32_t exception_flags;
   uint64_t exception_record;
   uint64_t exception_address;
-  std::vector<uint64> exception_information;
+  std::vector<uint64_t> exception_information;
 
   std::string context_data;  // represents a CONTEXT.
 };

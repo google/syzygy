@@ -173,7 +173,7 @@ struct MemReplayGrinder::ThreadData {
   ThreadData() : plot_line(nullptr) {}
 
   // The timestamps associated with the events in the plot line.
-  std::vector<uint64> timestamps;
+  std::vector<uint64_t> timestamps;
   // The PlotLine representing the events in this thread.
   bard::Story::PlotLine* plot_line;
 };

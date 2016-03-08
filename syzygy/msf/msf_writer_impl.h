@@ -93,9 +93,7 @@ class ReadOnlyMsfStream : public MsfStreamImpl<T> {
   ReadOnlyMsfStream(const void* data, size_t bytes)
       : MsfStreamImpl(bytes), data_(data) {}
 
-  virtual bool ReadBytes(void* dest,
-                         size_t count,
-                         size_t* bytes_read) override {
+  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) override {
     DCHECK(dest != NULL);
     DCHECK(bytes_read != NULL);
 
@@ -129,7 +127,7 @@ class ReadOnlyMsfStream : public MsfStreamImpl<T> {
 // @post the file will be positioned at @p *page_count * kMsfPageSiz when
 //     exiting this routine.
 bool AppendPage(const void* data,
-                std::vector<uint32>* pages_written,
+                std::vector<uint32_t>* pages_written,
                 uint32_t* page_count,
                 FILE* file) {
   DCHECK(data != NULL);
@@ -142,7 +140,7 @@ bool AppendPage(const void* data,
   // The file is written sequentially, so it will already be pointing to
   // the appropriate spot.
   DCHECK_EQ(local_page_count * kMsfPageSize,
-            static_cast<uint32>(::ftell(file)));
+            static_cast<uint32_t>(::ftell(file)));
 
   // If we're due to allocate pages for the free page map, then do so.
   if (((*page_count) % kMsfPageSize) == 1) {
@@ -163,7 +161,7 @@ bool AppendPage(const void* data,
   ++local_page_count;
 
   DCHECK_EQ(local_page_count * kMsfPageSize,
-            static_cast<uint32>(::ftell(file)));
+            static_cast<uint32_t>(::ftell(file)));
 
   *page_count = local_page_count;
   return true;
@@ -234,7 +232,7 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
   }
 
   // Initialize the directory with stream count and lengths.
-  std::vector<uint32> directory;
+  std::vector<uint32_t> directory;
   directory.push_back(msf_file.StreamCount());
   for (size_t i = 0; i < msf_file.StreamCount(); ++i) {
     // Null streams have an implicit zero length.
@@ -280,7 +278,7 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
   DCHECK_LE(stream0_start, stream0_end);
 
   // Write the directory, and keep track of the pages it is written to.
-  std::vector<uint32> directory_pages;
+  std::vector<uint32_t> directory_pages;
   scoped_refptr<MsfStreamImpl<T>> directory_stream(new ReadOnlyMsfStream<T>(
       directory.data(), sizeof(directory[0]) * directory.size()));
   if (!AppendStream(directory_stream.get(), &directory_pages, &page_count)) {
@@ -290,7 +288,7 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
 
   // Write the root directory, and keep track of the pages it is written to.
   // These will in turn go into the header root directory pointers.
-  std::vector<uint32> root_directory_pages;
+  std::vector<uint32_t> root_directory_pages;
   scoped_refptr<MsfStreamImpl<T>> root_directory_stream(
       new ReadOnlyMsfStream<T>(
           directory_pages.data(),
@@ -331,7 +329,7 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
 
 template <MsfFileType T>
 bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
-                                    std::vector<uint32>* pages_written,
+                                    std::vector<uint32_t>* pages_written,
                                     uint32_t* page_count) {
   DCHECK(stream != NULL);
   DCHECK(pages_written != NULL);
@@ -386,7 +384,7 @@ bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
 
 template <MsfFileType T>
 bool MsfWriterImpl<T>::WriteHeader(
-    const std::vector<uint32>& root_directory_pages,
+    const std::vector<uint32_t>& root_directory_pages,
     size_t directory_size,
     uint32_t page_count) {
   VLOG(1) << "Writing MSF Header ...";

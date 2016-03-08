@@ -69,7 +69,7 @@ bool WritePublicStreamHashTable(const SymbolVector& symbols,
 
   // A vector that contains the indexes of symbols that were first in their
   // buckets.
-  std::vector<uint32> hash_table_representatives;
+  std::vector<uint32_t> hash_table_representatives;
 
   // Write a bit set with ones for buckets that contain at least one public
   // symbol.
@@ -96,16 +96,16 @@ bool WritePublicStreamHashTable(const SymbolVector& symbols,
     return false;
 
   // Write a 0 at the end of the bit set.
-  if (!stream->Write(static_cast<uint32>(0)))
+  if (!stream->Write(static_cast<uint32_t>(0)))
     return false;
 
   // Write a table with the value
   // (|index| * |kPublicStreamHashTableIndexMultiplier|) for each symbol that
   // was the first to be inserted in its bucket.
   for (size_t i = 0; i < hash_table_representatives.size(); ++i) {
-    if (!stream->Write(static_cast<uint32>(
-            hash_table_representatives[i] *
-            kPublicStreamHashTableIndexMultiplier))) {
+    if (!stream->Write(
+            static_cast<uint32_t>(hash_table_representatives[i] *
+                                  kPublicStreamHashTableIndexMultiplier))) {
       return false;
     }
   }
@@ -176,7 +176,7 @@ bool WritePublicStream(const SymbolVector& symbols,
   PublicStreamHeader header = {};
   header.sorted_symbols_offset =
       sorted_symbols_offset - offsetof(PublicStreamHeader, unknown);
-  header.sorted_symbols_size = sizeof(uint32) * num_public_symbols;
+  header.sorted_symbols_size = sizeof(uint32_t) * num_public_symbols;
   header.unknown = kPublicStreamUnknownValue;
   header.signature = kPublicStreamSignature;
   header.offset_table_size =

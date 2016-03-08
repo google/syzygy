@@ -61,7 +61,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     trace::common::GetClockInfo(&clock_info_);
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::PELibUnitTest::SetUp();
     test_dll_path_ = testing::GetOutputRelativePath(testing::kTestDllName);
     ASSERT_TRUE(test_dll_pe_file_.Init(test_dll_path_));
@@ -73,7 +73,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
     ASSERT_TRUE(sample_data_ == NULL);
 
     buffer_.resize(offsetof(TraceSampleData, buckets) +
-                       sizeof(uint32) * bucket_count);
+                   sizeof(uint32_t) * bucket_count);
     sample_data_ = reinterpret_cast<TraceSampleData*>(buffer_.data());
   }
 
@@ -179,7 +179,7 @@ class SampleGrinderTest : public testing::PELibUnitTest {
       // Thus, it will be spread evenly across the source ranges in those 4
       // bytes, with the lowest value scaled to 1. The scaling makes the visit
       // count the same as the encoded instruction size.
-      typedef std::map<size_t, uint32> LineVisitCountMap;
+      typedef std::map<size_t, uint32_t> LineVisitCountMap;
       LineVisitCountMap expected, actual;
       expected[61] = 1;  // Label. Ends up being a 1 byte source range.
       expected[64] = 1;  // push ebp (1 byte).

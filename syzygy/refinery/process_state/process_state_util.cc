@@ -78,13 +78,13 @@ bool ModuleLayerAccessor::GetModuleSignature(const Address va,
 
   // Set the signature's address.
   const AddressRange& module_range = module_record->range();
-  if (!base::IsValueInRangeForNumericType<uint32>(module_range.start())) {
+  if (!base::IsValueInRangeForNumericType<uint32_t>(module_range.start())) {
     LOG(ERROR) << "PE::Signature doesn't support 64bit addresses. Address: "
                << module_range.start();
     return false;
   }
   signature->base_address =
-      core::AbsoluteAddress(base::checked_cast<uint32>(module_range.start()));
+      core::AbsoluteAddress(base::checked_cast<uint32_t>(module_range.start()));
 
   return true;
 }

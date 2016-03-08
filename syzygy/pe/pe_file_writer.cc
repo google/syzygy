@@ -568,13 +568,13 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
           return false;
         break;
 
-      case sizeof(uint16):
-        if (!UpdateReference(ref_offset, static_cast<uint16>(value), buffer))
+      case sizeof(uint16_t):
+        if (!UpdateReference(ref_offset, static_cast<uint16_t>(value), buffer))
           return false;
         break;
 
-      case sizeof(uint32):
-        if (!UpdateReference(ref_offset, static_cast<uint32>(value), buffer))
+      case sizeof(uint32_t):
+        if (!UpdateReference(ref_offset, static_cast<uint32_t>(value), buffer))
           return false;
         break;
 

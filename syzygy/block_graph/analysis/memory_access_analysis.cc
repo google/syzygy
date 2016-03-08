@@ -100,15 +100,15 @@ bool MemoryAccessAnalysis::Intersect(const block_graph::BasicBlock* bb,
   bool changed = false;
   // Subtract non redundant memory accesses.
   for (size_t r = 0; r < assm::kRegister32Count; ++r) {
-    const std::set<int32>& from = state.active_memory_accesses_[r];
-    std::set<int32>& to = bbentry_state->second.active_memory_accesses_[r];
+    const std::set<int32_t>& from = state.active_memory_accesses_[r];
+    std::set<int32_t>& to = bbentry_state->second.active_memory_accesses_[r];
 
     // In-place intersection. Remove unknown accesses of the destination set.
-    std::set<int32>::iterator it1 = to.begin();
-    std::set<int32>::const_iterator it2 = from.begin();
+    std::set<int32_t>::iterator it1 = to.begin();
+    std::set<int32_t>::const_iterator it2 = from.begin();
     while (it1 != to.end()) {
       if (it2 == from.end() || *it1 < *it2) {
-        std::set<int32>::iterator old = it1;
+        std::set<int32_t>::iterator old = it1;
         ++it1;
         to.erase(old);
         changed = true;
@@ -249,7 +249,7 @@ bool MemoryAccessAnalysis::State::HasNonRedundantAccess(
         if (instr.FindOperandReference(op_id, &reference))
           return true;
 
-        const std::set<int32>& accesses = active_memory_accesses_[base_reg];
+        const std::set<int32_t>& accesses = active_memory_accesses_[base_reg];
         if (accesses.find(repr.disp) == accesses.end())
           return true;
       }

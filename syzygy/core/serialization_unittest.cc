@@ -160,13 +160,13 @@ TEST_F(SerializationTest, PlainOldDataTypesRoundTrip) {
   EXPECT_TRUE(TestRoundTrip<float>(0.1f));
   EXPECT_TRUE(TestRoundTrip<double>(9.7e45));
   EXPECT_TRUE(TestRoundTrip<int8_t>(-8));
-  EXPECT_TRUE(TestRoundTrip<int16>(-16));
-  EXPECT_TRUE(TestRoundTrip<int32>(-32));
-  EXPECT_TRUE(TestRoundTrip<int64>(-64));
+  EXPECT_TRUE(TestRoundTrip<int16_t>(-16));
+  EXPECT_TRUE(TestRoundTrip<int32_t>(-32));
+  EXPECT_TRUE(TestRoundTrip<int64_t>(-64));
   EXPECT_TRUE(TestRoundTrip<uint8_t>(8));
-  EXPECT_TRUE(TestRoundTrip<uint16>(16));
-  EXPECT_TRUE(TestRoundTrip<uint32>(32));
-  EXPECT_TRUE(TestRoundTrip<uint64>(64));
+  EXPECT_TRUE(TestRoundTrip<uint16_t>(16));
+  EXPECT_TRUE(TestRoundTrip<uint32_t>(32));
+  EXPECT_TRUE(TestRoundTrip<uint64_t>(64));
 }
 
 TEST_F(SerializationTest, StlTypesRoundTrip) {

@@ -334,9 +334,8 @@ bool BranchHookTransform::PostBlockGraphIteration(
     return true;
   }
 
-  if (!add_frequency_data_.ConfigureFrequencyDataBuffer(num_basic_blocks,
-                                                        3,
-                                                        sizeof(uint32))) {
+  if (!add_frequency_data_.ConfigureFrequencyDataBuffer(num_basic_blocks, 3,
+                                                        sizeof(uint32_t))) {
     LOG(ERROR) << "Failed to configure frequency data buffer.";
     return false;
   }

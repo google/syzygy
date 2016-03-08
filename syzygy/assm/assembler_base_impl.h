@@ -110,7 +110,7 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
 
   // Emit an arithmetic instruction with 3 operands.
   void EmitThreeOperandArithmeticInstructionToRegister32(
-      uint8 op,
+      uint8_t op,
       const Register32& dst,
       const Register32& src,
       const Immediate& index);
@@ -490,9 +490,10 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::
 
 template <class ReferenceType>
 void AssemblerBase<ReferenceType>::InstructionBuffer::
-EmitThreeOperandArithmeticInstructionToRegister32(
-    uint8 op, const Register32& dst, const Register32& src,
-    const Immediate& index) {
+    EmitThreeOperandArithmeticInstructionToRegister32(uint8_t op,
+                                                      const Register32& dst,
+                                                      const Register32& src,
+                                                      const Immediate& index) {
   EmitArithmeticInstruction(op, dst, src);
   Emit32BitImmediate(index);
 }

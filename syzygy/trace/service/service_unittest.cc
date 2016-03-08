@@ -325,9 +325,9 @@ class CallTraceServiceTest : public testing::Test {
     ASSERT_EQ(header.server_version.lo, TRACE_VERSION_LO);
     ASSERT_EQ(header.process_id, ::GetCurrentProcessId());
     ASSERT_EQ(header.module_base_address,
-              reinterpret_cast<uint32>(module_info.lpBaseOfDll));
+              reinterpret_cast<uint32_t>(module_info.lpBaseOfDll));
     ASSERT_EQ(header.module_size,
-              static_cast<uint32>(module_info.SizeOfImage));
+              static_cast<uint32_t>(module_info.SizeOfImage));
 
     ASSERT_EQ(blob_module_path, std::wstring(module_path));
     ASSERT_EQ(blob_command_line, cmd_line);

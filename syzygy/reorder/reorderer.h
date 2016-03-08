@@ -103,7 +103,7 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
   typedef block_graph::BlockGraph BlockGraph;
   typedef core::RelativeAddress RelativeAddress;
   typedef playback::Playback Playback;
-  typedef std::set<uint32> ProcessSet;
+  typedef std::set<uint32_t> ProcessSet;
   typedef trace::parser::ModuleInformation ModuleInformation;
   typedef TraceFileList::iterator TraceFileIter;
 
@@ -115,18 +115,18 @@ class Reorderer : public trace::parser::ParseEventHandlerImpl {
 
   // @name ParseEventHandler overrides.
   // @{
-  virtual void OnProcessStarted(base::Time time,
-                                DWORD process_id,
-                                const TraceSystemInfo* data) override;
-  virtual void OnProcessEnded(base::Time time, DWORD process_id) override;
-  virtual void OnFunctionEntry(base::Time time,
-                               DWORD process_id,
-                               DWORD thread_id,
-                               const TraceEnterExitEventData* data) override;
-  virtual void OnBatchFunctionEntry(base::Time time,
-                                    DWORD process_id,
-                                    DWORD thread_id,
-                                    const TraceBatchEnterData* data) override;
+  void OnProcessStarted(base::Time time,
+                        DWORD process_id,
+                        const TraceSystemInfo* data) override;
+  void OnProcessEnded(base::Time time, DWORD process_id) override;
+  void OnFunctionEntry(base::Time time,
+                       DWORD process_id,
+                       DWORD thread_id,
+                       const TraceEnterExitEventData* data) override;
+  void OnBatchFunctionEntry(base::Time time,
+                            DWORD process_id,
+                            DWORD thread_id,
+                            const TraceBatchEnterData* data) override;
   // @}
 
   // A playback, which will decompose the image for us.

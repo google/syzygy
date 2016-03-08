@@ -113,7 +113,7 @@ bool AddPdbInfoTransform::TransformBlockGraph(
   }
 
   // Update the debug directory.
-  debug_dir->TimeDateStamp = static_cast<uint32>(time(NULL));
+  debug_dir->TimeDateStamp = static_cast<uint32_t>(time(NULL));
   debug_dir->SizeOfData = new_debug_info_size;
 
   // Resize the debug info struct while patching up its metadata.

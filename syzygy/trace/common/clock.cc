@@ -28,7 +28,7 @@ namespace {
 union LargeInteger {
   LARGE_INTEGER li;
   uint64_t ui64;
-  static_assert(sizeof(LARGE_INTEGER) == sizeof(uint64),
+  static_assert(sizeof(LARGE_INTEGER) == sizeof(uint64_t),
                 "LARGE_INTEGER and uint64_t must have the same size.");
 };
 
@@ -80,8 +80,8 @@ void GetTscTimerInfo(TimerInfo* timer_info) {
 
 bool TimerToFileTime(const FILETIME& file_time_ref,
                      const TimerInfo& timer_info,
-                     const uint64& timer_ref,
-                     const uint64& timer_value,
+                     const uint64_t& timer_ref,
+                     const uint64_t& timer_value,
                      FILETIME* file_time) {
   DCHECK(file_time != NULL);
 
@@ -89,7 +89,7 @@ bool TimerToFileTime(const FILETIME& file_time_ref,
   if (timer_info.frequency == 0 || timer_info.resolution == 0)
     return false;
 
-  uint64_t t = (static_cast<uint64>(file_time_ref.dwHighDateTime) << 32) |
+  uint64_t t = (static_cast<uint64_t>(file_time_ref.dwHighDateTime) << 32) |
                file_time_ref.dwLowDateTime;
 
     // The filetime is expressed in 100ns intervals.
@@ -100,7 +100,7 @@ bool TimerToFileTime(const FILETIME& file_time_ref,
   if (new_file_time < 0)
     return false;
 
-  t = static_cast<uint64>(new_file_time);
+  t = static_cast<uint64_t>(new_file_time);
   file_time->dwLowDateTime = t & 0xFFFFFFFF;
   file_time->dwHighDateTime = t >> 32;
 

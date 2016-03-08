@@ -303,7 +303,7 @@ class ParseEngineRpcTest: public testing::PELibUnitTest {
 
     // Look up this process in the process map.
     trace::parser::AbsoluteAddress64 addr =
-        reinterpret_cast<uint32>(&kConstantInThisModule);
+        reinterpret_cast<uint32_t>(&kConstantInThisModule);
     const trace::parser::ModuleInformation* module_info =
         parser.GetModuleInformation(pid, addr);
 

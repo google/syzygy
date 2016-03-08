@@ -73,26 +73,26 @@ class ProfileGrinder : public GrinderInterface {
 
   // @name GrinderInterface implementation.
   // @{
-  virtual bool ParseCommandLine(const base::CommandLine* command_line) override;
-  virtual void SetParser(Parser* parser) override;
-  virtual bool Grind() override;
-  virtual bool OutputData(FILE* file) override;
+  bool ParseCommandLine(const base::CommandLine* command_line) override;
+  void SetParser(Parser* parser) override;
+  bool Grind() override;
+  bool OutputData(FILE* file) override;
   // @}
 
   // @name ParseEventHandler overrides.
   // @{
-  virtual void OnInvocationBatch(base::Time time,
-                                 DWORD process_id,
-                                 DWORD thread_id,
-                                 size_t num_invocations,
-                                 const TraceBatchInvocationInfo* data) override;
-  virtual void OnThreadName(base::Time time,
-                            DWORD process_id,
-                            DWORD thread_id,
-                            const base::StringPiece& thread_name) override;
-  virtual void OnDynamicSymbol(DWORD process_id,
-                               uint32_t symbol_id,
-                               const base::StringPiece& symbol_name) override;
+  void OnInvocationBatch(base::Time time,
+                         DWORD process_id,
+                         DWORD thread_id,
+                         size_t num_invocations,
+                         const TraceBatchInvocationInfo* data) override;
+  void OnThreadName(base::Time time,
+                    DWORD process_id,
+                    DWORD thread_id,
+                    const base::StringPiece& thread_name) override;
+  void OnDynamicSymbol(DWORD process_id,
+                       uint32_t symbol_id,
+                       const base::StringPiece& symbol_name) override;
   // @}
 
  protected:
@@ -114,7 +114,7 @@ class ProfileGrinder : public GrinderInterface {
   struct InvocationEdge;
 
   // The key to the dynamic symbol map i
-  typedef std::pair<uint32, uint32> DynamicSymbolKey;
+  typedef std::pair<uint32_t, uint32_t> DynamicSymbolKey;
   typedef std::map<DynamicSymbolKey, std::string> DynamicSymbolMap;
   typedef std::set<ModuleInformation,
       bool (*)(const ModuleInformation& a, const ModuleInformation& b)>
@@ -186,7 +186,7 @@ class ProfileGrinder : public GrinderInterface {
 
   // The parts we store. If thread_parts_ is false, we store only a single
   // part with id 0. The parts are keyed on process id/thread id.
-  typedef std::pair<uint32, uint32> PartKey;
+  typedef std::pair<uint32_t, uint32_t> PartKey;
   typedef std::map<PartKey, PartData> PartDataMap;
   PartDataMap parts_;
 

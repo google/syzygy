@@ -412,7 +412,7 @@ TEST_F(EntryThunkTransformTest, ParameterizedThunks) {
   EXPECT_EQ(assm::kSizeNone, tx.function_thunk_parameter().size());
 
   // A 32-bit parameter should be accepted just fine.
-  auto imm32(Immediate(static_cast<int32>(0x11223344)));
+  auto imm32(Immediate(static_cast<int32_t>(0x11223344)));
   EXPECT_TRUE(tx.SetEntryThunkParameter(imm32));
   EXPECT_TRUE(tx.SetFunctionThunkParameter(imm32));
 

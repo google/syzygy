@@ -43,7 +43,7 @@ namespace simulate {
 class PageFaultSimulation : public SimulationEventHandler {
  public:
   typedef block_graph::BlockGraph::Block Block;
-  typedef std::set<uint32> PageSet;
+  typedef std::set<uint32_t> PageSet;
 
   // The default page size, in case neither the user nor the system
   // provide one.

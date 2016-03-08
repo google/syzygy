@@ -96,7 +96,7 @@ class DbiStream {
   typedef std::vector<DbiFileInfoFileList> DbiFileInfoVector;
   typedef std::map<size_t, std::string> DbiFileInfoNameMap;
   typedef std::pair<DbiFileInfoVector, DbiFileInfoNameMap> DbiFileInfo;
-  typedef std::map<uint16, DbiSectionMapItem> DbiSectionMap;
+  typedef std::map<uint16_t, DbiSectionMapItem> DbiSectionMap;
   typedef OffsetStringMap DbiEcInfoVector;
 
   // Default constructor.

@@ -23,7 +23,7 @@ const char RandomOrderer::kOrdererName[] = "RandomOrderer";
 
 RandomOrderer::RandomOrderer(bool default_shuffle_section)
     : default_shuffle_section_(default_shuffle_section),
-      rng_(static_cast<uint32>(time(NULL))) {
+      rng_(static_cast<uint32_t>(time(NULL))) {
 }
 
 RandomOrderer::RandomOrderer(bool default_shuffle_section, uint32_t seed)

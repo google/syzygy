@@ -268,9 +268,9 @@ bool LineInfo::Visit(
     if (visit.Intersects(range)) {
       // We use saturation arithmetic here as overflow is a real possibility in
       // long trace files.
-      it->visit_count =
-          std::min(it->visit_count,
-                   std::numeric_limits<uint32>::max() - count) + count;
+      it->visit_count = std::min(it->visit_count,
+                                 std::numeric_limits<uint32_t>::max() - count) +
+                        count;
     }
   }
 

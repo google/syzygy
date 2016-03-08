@@ -29,7 +29,7 @@ HeatMapSimulation::HeatMapSimulation()
 bool HeatMapSimulation::TimeSlice::PrintJSONFunctions(
     core::JSONFileWriter& json_file,
     const HeatMapSimulation::TimeSlice::FunctionMap& functions) {
-  typedef std::pair<uint32, base::StringPiece> QtyNamePair;
+  typedef std::pair<uint32_t, base::StringPiece> QtyNamePair;
   std::vector<QtyNamePair> ordered_functions(functions.size());
 
   FunctionMap::const_iterator functions_iter = functions.begin();

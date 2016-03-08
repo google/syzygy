@@ -676,7 +676,7 @@ void ModuleTraceDataToModuleInformation(
     ModuleInformation* module_info) {
   DCHECK_NE(static_cast<ModuleInformation*>(nullptr), module_info);
   module_info->base_address.set_value(
-      reinterpret_cast<uint32>(module_data.module_base_addr));
+      reinterpret_cast<uint32_t>(module_data.module_base_addr));
   module_info->module_size = module_data.module_base_size;
   module_info->path = module_data.module_name;
   module_info->module_checksum = module_data.module_checksum;

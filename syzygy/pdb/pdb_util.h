@@ -28,7 +28,7 @@
 namespace pdb {
 
 // A map of names to stream IDs, stored in the header stream.
-typedef std::map<std::string, uint32> NameStreamMap;
+typedef std::map<std::string, uint32_t> NameStreamMap;
 
 // A map of position offset to strings, stored in some streams of the Pdb.
 typedef std::map<size_t, std::string> OffsetStringMap;
@@ -71,7 +71,7 @@ class PdbBitSet {
   size_t size() const { return bits_.size() * 32; }
 
  private:
-  std::vector<uint32> bits_;
+  std::vector<uint32_t> bits_;
 };
 
 // Calculates the hash value associated with a string, as used by hash tables

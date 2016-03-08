@@ -49,11 +49,11 @@ class MsfWriterImpl {
   // @p pages_written, while @p page_count is updated to reflect the total
   // number of pages written to disk.
   bool AppendStream(MsfStreamImpl<T>* stream,
-                    std::vector<uint32>* pages_written,
+                    std::vector<uint32_t>* pages_written,
                     uint32_t* page_count);
 
   // Writes the MSF header after the directory has been written.
-  bool WriteHeader(const std::vector<uint32>& root_directory_pages,
+  bool WriteHeader(const std::vector<uint32_t>& root_directory_pages,
                    size_t directory_size,
                    uint32_t page_count);
 

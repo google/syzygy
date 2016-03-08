@@ -641,7 +641,7 @@ TEST_F(ParseEngineUnitTest, DynamicSymbol) {
 TEST_F(ParseEngineUnitTest, SampleData) {
   const uint32_t kBucketCount = 42;
   char buffer[FIELD_OFFSET(TraceSampleData, buckets) +
-              kBucketCount * sizeof(uint32)] = {};
+              kBucketCount * sizeof(uint32_t)] = {};
   TraceSampleData* data = reinterpret_cast<TraceSampleData*>(buffer);
 
   data->module_base_addr = reinterpret_cast<ModuleAddr>(0x01000000);

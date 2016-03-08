@@ -121,7 +121,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   void CheckSimulationResult(uint32_t expected_size,
                              const uint32_t expected_times[],
                              TimeSlice::MemorySliceMap expected_slices[]) {
-    std::vector<uint32> expected_totals(expected_size, 0);
+    std::vector<uint32_t> expected_totals(expected_size, 0);
 
     // Loop through all the functions and add the number of times they were
     // called to their respective MemorySlice and TimeSlice totals.
@@ -170,8 +170,8 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
   // @param size The size of the latest byte pointed by the MockBlockInfoList.
   // @returns A vector of size size where every element is equal to the number
   //     of different MockBlockInfos in input that cover to that position.
-  std::vector<uint32> Vectorize(const MockBlockInfoList &input, size_t size) {
-    std::vector<uint32> vector_input(size, 0);
+  std::vector<uint32_t> Vectorize(const MockBlockInfoList& input, size_t size) {
+    std::vector<uint32_t> vector_input(size, 0);
     for (uint32_t i = 0; i < input.size(); i++) {
       for (uint32_t u = 0; u < input[i].size; u++)
         vector_input[input[i].start + u - input[0].start]++;
@@ -215,7 +215,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
     }
     size -= start;
 
-    std::vector<uint32> slices = Vectorize(input, size);
+    std::vector<uint32_t> slices = Vectorize(input, size);
 
     uint32_t slice = 0;
     while (slice < slices.size()) {

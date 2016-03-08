@@ -49,7 +49,7 @@ bool GetFileSize(FILE* file, uint32_t* size) {
   }
   DCHECK_GT(temp, 0);
 
-  (*size) = static_cast<uint32>(temp);
+  (*size) = static_cast<uint32_t>(temp);
   return true;
 }
 
@@ -112,9 +112,9 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
   int num_dir_pages =
       static_cast<int>(GetNumPages(header, header.directory_size));
   scoped_refptr<MsfFileStreamImpl<T>> dir_page_stream(
-      new MsfFileStreamImpl<T>(file.get(), num_dir_pages * sizeof(uint32),
+      new MsfFileStreamImpl<T>(file.get(), num_dir_pages * sizeof(uint32_t),
                                header.root_pages, header.page_size));
-  scoped_ptr<uint32[]> dir_pages(new uint32[num_dir_pages]);
+  scoped_ptr<uint32_t[]> dir_pages(new uint32_t[num_dir_pages]);
   if (dir_pages.get() == NULL) {
     LOG(ERROR) << "Failed to allocate directory pages.";
     return false;
@@ -125,17 +125,17 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
   }
 
   // Load the actual directory.
-  int dir_size = static_cast<int>(header.directory_size / sizeof(uint32));
+  int dir_size = static_cast<int>(header.directory_size / sizeof(uint32_t));
   scoped_refptr<MsfFileStreamImpl<T>> dir_stream(new MsfFileStreamImpl<T>(
       file.get(), header.directory_size, dir_pages.get(), header.page_size));
-  std::vector<uint32> directory(dir_size);
+  std::vector<uint32_t> directory(dir_size);
   if (!dir_stream->Read(&directory[0], dir_size)) {
     LOG(ERROR) << "Failed to read directory stream.";
     return false;
   }
 
   // Iterate through the streams and construct MsfStreams.
-  const uint32& num_streams = directory[0];
+  const uint32_t& num_streams = directory[0];
   const uint32_t* stream_lengths = &(directory[1]);
   const uint32_t* stream_pages = &(directory[1 + num_streams]);
 

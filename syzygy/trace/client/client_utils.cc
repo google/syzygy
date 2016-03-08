@@ -214,7 +214,7 @@ void FillPrefix(RecordPrefix* prefix, int type, size_t size) {
   prefix->size = size;
   prefix->version.hi = TRACE_VERSION_HI;
   prefix->version.lo = TRACE_VERSION_LO;
-  prefix->type = static_cast<uint16>(type);
+  prefix->type = static_cast<uint16_t>(type);
   prefix->timestamp = trace::common::GetTsc();
 }
 

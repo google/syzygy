@@ -45,7 +45,7 @@ bool SymbolBaseImpl::Write(WritablePdbStream* stream) const {
   // Update the |length| field.
   stream->set_pos(start_pos + offsetof(SymbolRecordHeader, length));
   if (!stream->Write(
-      static_cast<uint16>(end_pos - start_pos - sizeof(header.length)))) {
+          static_cast<uint16_t>(end_pos - start_pos - sizeof(header.length)))) {
     return false;
   }
 

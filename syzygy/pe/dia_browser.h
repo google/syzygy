@@ -190,7 +190,7 @@ class DiaBrowser {
   // ensure that cycles get broken. However, we want the symbol to be reachable
   // via each matching pattern and not just via the first one walked.
   // TODO(chrisha): Use a hash_map here instead, to minimize allocations?
-  std::set<std::pair<const PatternElement*, uint32> > visited_;
+  std::set<std::pair<const PatternElement*, uint32_t> > visited_;
 
   // The search patterns we're using. All patterns stored here must be valid.
   // We manually manage memory because we require a 'delete []' to be called

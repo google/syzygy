@@ -138,8 +138,8 @@ bool TestMemoryAccessAnalysisState::IsEmpty() const {
 
 bool TestMemoryAccessAnalysisState::Contains(const assm::Register32& reg,
                                              int32_t displ) const {
-  const std::set<int32>& offsets = active_memory_accesses_[
-      reg.id() - assm::kRegister32Min];
+  const std::set<int32_t>& offsets =
+      active_memory_accesses_[reg.id() - assm::kRegister32Min];
   return offsets.find(displ) != offsets.end();
 }
 

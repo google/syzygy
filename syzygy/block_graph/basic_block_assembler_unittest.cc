@@ -309,14 +309,14 @@ TYPED_TEST(ValueTest, Factories) {
   Test8BitValue(0, 0);
   Test8BitValue(127, 127);
 
-  Test8BitValue(static_cast<uint32>(-128), 0xFFFFFF80);
+  Test8BitValue(static_cast<uint32_t>(-128), 0xFFFFFF80);
   Test8BitValue(0, 0);
   Test8BitValue(127, 0x0000007F);
 
   Test32BitValue(128, 0x00000080);
   Test32BitValue(0xCAFEBABE, 0xCAFEBABE);
 
-  Test32BitValue(static_cast<uint32>(-129), 0xFFFFFF7F);
+  Test32BitValue(static_cast<uint32_t>(-129), 0xFFFFFF7F);
   Test32BitValue(128, 0x000000080);
   Test32BitValue(0xBABE, 0xBABE);
 

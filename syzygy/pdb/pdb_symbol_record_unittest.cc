@@ -45,7 +45,7 @@ class PdbVisitSymbolsTest : public testing::Test {
 
 class MockVisitorImpl {
  public:
-  MOCK_METHOD3(Callback, bool(uint16, uint16, PdbStream*));
+  MOCK_METHOD3(Callback, bool(uint16_t, uint16_t, PdbStream*));
 };
 typedef testing::StrictMock<MockVisitorImpl> MockVisitor;
 
@@ -77,10 +77,10 @@ TEST(PdbReadSymbolRecordTest, ReadInvalidSymRecordStream) {
 
 TEST_F(PdbVisitSymbolsTest, FailsOnInvalidTableSize) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
-  writer->Write(static_cast<uint16>(4));  // Symbol length.
-  writer->Write(static_cast<uint16>(0x2937));  // Made up symbol type.
-  writer->Write(static_cast<uint16>(0));  // Dummy data.
+  writer->Write(static_cast<uint32_t>(cci::C13));  // Symbol stream type.
+  writer->Write(static_cast<uint16_t>(4));         // Symbol length.
+  writer->Write(static_cast<uint16_t>(0x2937));    // Made up symbol type.
+  writer->Write(static_cast<uint16_t>(0));         // Dummy data.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(
@@ -104,8 +104,8 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingStreamType) {
 
 TEST_F(PdbVisitSymbolsTest, FailsOnInvalidStreamType) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C11));  // Symbol stream type.
-  writer->Write(static_cast<uint16>(0));  // Symbol length.
+  writer->Write(static_cast<uint32_t>(cci::C11));  // Symbol stream type.
+  writer->Write(static_cast<uint16_t>(0));         // Symbol length.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(
@@ -117,7 +117,7 @@ TEST_F(PdbVisitSymbolsTest, FailsOnInvalidStreamType) {
 
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolLength) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
+  writer->Write(static_cast<uint32_t>(cci::C13));  // Symbol stream type.
   writer->Write(static_cast<uint8_t>(1));  // Partial symbol stream length.
 
   MockVisitor visitor;
@@ -130,8 +130,8 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolLength) {
 
 TEST_F(PdbVisitSymbolsTest, FailsOnShortSymbolLength) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
-  writer->Write(static_cast<uint16>(1));  // Symbol length.
+  writer->Write(static_cast<uint32_t>(cci::C13));  // Symbol stream type.
+  writer->Write(static_cast<uint16_t>(1));         // Symbol length.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(
@@ -143,8 +143,8 @@ TEST_F(PdbVisitSymbolsTest, FailsOnShortSymbolLength) {
 
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolType) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
-  writer->Write(static_cast<uint16>(4));  // Symbol length.
+  writer->Write(static_cast<uint32_t>(cci::C13));  // Symbol stream type.
+  writer->Write(static_cast<uint16_t>(4));         // Symbol length.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(
@@ -156,9 +156,9 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolType) {
 
 TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolData) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
-  writer->Write(static_cast<uint16>(4));  // Symbol length.
-  writer->Write(static_cast<uint16>(0x1337));  // Symbol type.
+  writer->Write(static_cast<uint32_t>(cci::C13));  // Symbol stream type.
+  writer->Write(static_cast<uint16_t>(4));         // Symbol length.
+  writer->Write(static_cast<uint16_t>(0x1337));    // Symbol type.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(
@@ -170,8 +170,8 @@ TEST_F(PdbVisitSymbolsTest, FailsOnMissingSymbolData) {
 
 TEST_F(PdbVisitSymbolsTest, SucceedsOnEmptySymbolStream) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
-  writer->Write(static_cast<uint16>(0));  // Symbol length.
+  writer->Write(static_cast<uint32_t>(cci::C13));  // Symbol stream type.
+  writer->Write(static_cast<uint16_t>(0));         // Symbol length.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(
@@ -183,10 +183,10 @@ TEST_F(PdbVisitSymbolsTest, SucceedsOnEmptySymbolStream) {
 
 TEST_F(PdbVisitSymbolsTest, EarlyTermination) {
   SetUpByteStream();
-  writer->Write(static_cast<uint32>(cci::C13));  // Symbol stream type.
-  writer->Write(static_cast<uint16>(4));  // Symbol length.
-  writer->Write(static_cast<uint16>(0x2937));  // Made up symbol type.
-  writer->Write(static_cast<uint16>(0));  // Dummy data.
+  writer->Write(static_cast<uint32_t>(cci::C13));  // Symbol stream type.
+  writer->Write(static_cast<uint16_t>(4));         // Symbol length.
+  writer->Write(static_cast<uint16_t>(0x2937));    // Made up symbol type.
+  writer->Write(static_cast<uint16_t>(0));         // Dummy data.
 
   MockVisitor visitor;
   VisitSymbolsCallback callback = base::Bind(

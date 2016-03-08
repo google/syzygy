@@ -42,7 +42,7 @@ bool EventInterface::Save(const EventInterface* event,
 
   static_assert((kMaxEventType & 0xFFFF) == kMaxEventType,
                 "event type counts must fit in 16-bits");
-  if (!out_archive->Save(static_cast<uint16>(event->type())))
+  if (!out_archive->Save(static_cast<uint16_t>(event->type())))
     return false;
 
   switch (event->type()) {

@@ -66,19 +66,19 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
       return false;
     case IMAGE_REL_I386_DIR32:
       *ref_type = BlockGraph::RELOC_ABSOLUTE_REF;
-      *ref_size = sizeof(uint32);
+      *ref_size = sizeof(uint32_t);
       return true;
     case IMAGE_REL_I386_DIR32NB:
       *ref_type = BlockGraph::RELOC_RELATIVE_REF;
-      *ref_size = sizeof(uint32);
+      *ref_size = sizeof(uint32_t);
       return true;
     case IMAGE_REL_I386_SECTION:
       *ref_type = BlockGraph::RELOC_SECTION_REF;
-      *ref_size = sizeof(uint16);
+      *ref_size = sizeof(uint16_t);
       return true;
     case IMAGE_REL_I386_SECREL:
       *ref_type = BlockGraph::RELOC_SECTION_OFFSET_REF;
-      *ref_size = sizeof(uint32);
+      *ref_size = sizeof(uint32_t);
       return true;
     case IMAGE_REL_I386_SECREL7:
       *ref_type = BlockGraph::RELOC_SECTION_OFFSET_REF;
@@ -89,7 +89,7 @@ bool GetRelocationTypeAndSize(const IMAGE_RELOCATION& reloc,
       return true;
     case IMAGE_REL_I386_REL32:
       *ref_type = BlockGraph::RELOC_PC_RELATIVE_REF;
-      *ref_size = sizeof(uint32);
+      *ref_size = sizeof(uint32_t);
       return true;
     default:
       // Ignore other types; they are either explicitly mentioned as unsupported
@@ -359,9 +359,9 @@ bool ParseDebugSubsections4(Block* block) {
   DCHECK(block != NULL);
 
   size_t section_index = block->section();
-  size_t cursor = sizeof(uint32);
+  size_t cursor = sizeof(uint32_t);
   while (cursor < block->data_size()) {
-    ConstTypedBlock<uint32> type;
+    ConstTypedBlock<uint32_t> type;
     if (!type.Init(cursor, block)) {
       LOG(ERROR) << "Unable to read debug subsection type at offset "
                  << cursor << " in .debug$S section " << section_index << ".";
@@ -369,7 +369,7 @@ bool ParseDebugSubsections4(Block* block) {
     }
     cursor += sizeof(*type);
 
-    ConstTypedBlock<uint32> size;
+    ConstTypedBlock<uint32_t> size;
     if (!size.Init(cursor, block)) {
       LOG(ERROR) << "Unable to read debug subsection size at offset "
                  << cursor << " in .debug$S section " << section_index << ".";
@@ -418,7 +418,7 @@ bool ParseDebugSubsections4(Block* block) {
 bool ParseDebugSubsections2(Block* block) {
   DCHECK(block != NULL);
 
-  size_t cursor = sizeof(uint32);
+  size_t cursor = sizeof(uint32_t);
   if (!ParseDebugSymbols(cci::C11, cursor, block->size() - cursor, block))
     return false;
 
@@ -781,7 +781,7 @@ bool CoffDecomposer::CreateReferencesFromDebugInfo() {
       continue;
 
     Block* block = &it->second;
-    ConstTypedBlock<uint32> magic;
+    ConstTypedBlock<uint32_t> magic;
     if (!magic.Init(0, block)) {
       LOG(ERROR) << "Unable to read magic number from .debug$S section "
                  << section_index << ".";
@@ -969,12 +969,12 @@ bool CoffDecomposer::CreateReference(FileOffsetAddress src_addr,
   BlockGraph::Offset extra_offset = 0;
   if ((ref_type & BlockGraph::RELOC_REF_BIT) != 0) {
     switch (ref_size) {
-      case sizeof(uint32):
-        if (!ReadRelocationValue<uint32>(source, src_offset, &extra_offset))
+      case sizeof(uint32_t):
+        if (!ReadRelocationValue<uint32_t>(source, src_offset, &extra_offset))
           return false;
         break;
-      case sizeof(uint16):
-        if (!ReadRelocationValue<uint16>(source, src_offset, &extra_offset))
+      case sizeof(uint16_t):
+        if (!ReadRelocationValue<uint16_t>(source, src_offset, &extra_offset))
           return false;
         break;
       case sizeof(uint8_t):
