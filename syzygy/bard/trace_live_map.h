@@ -37,6 +37,12 @@ class TraceLiveMap {
   bool GetLiveFromTrace(T trace, T* live);
   bool GetTraceFromLive(T live, T* trace);
 
+  // Clears this map.
+  void Clear();
+
+  // @returns true iff this map is empty.
+  bool Empty() const { return trace_live_.empty() && live_trace_.empty(); }
+
  private:
   std::map<T, T> trace_live_;
   std::map<T, T> live_trace_;

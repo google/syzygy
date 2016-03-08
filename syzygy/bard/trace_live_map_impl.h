@@ -21,21 +21,23 @@ namespace bard {
 
 template <typename T>
 bool TraceLiveMap<T>::AddMapping(T trace, T live) {
-  DCHECK_NE(static_cast<T>(nullptr), trace);
-  DCHECK_NE(static_cast<T>(nullptr), live);
+  DCHECK((trace == nullptr) == (live == nullptr));
+  if (trace == nullptr && live == nullptr)
+    return true;
+
   base::AutoLock auto_lock(lock_);
 
   auto insert_trace_live = trace_live_.insert(std::make_pair(trace, live));
 
   if (!insert_trace_live.second) {
-    LOG(ERROR) << "Trace argument was previously added.";
+    LOG(ERROR) << "Trace argument was previously added: " << trace;
     return false;
   }
 
   auto insert_live_trace = live_trace_.insert(std::make_pair(live, trace));
 
   if (!insert_live_trace.second) {
-    LOG(ERROR) << "Live argument was previously added.";
+    LOG(ERROR) << "Live argument was previously added: " << live;
     trace_live_.erase(insert_trace_live.first);
     return false;
   }
@@ -45,20 +47,22 @@ bool TraceLiveMap<T>::AddMapping(T trace, T live) {
 
 template <typename T>
 bool TraceLiveMap<T>::RemoveMapping(T trace, T live) {
-  DCHECK_NE(static_cast<T>(nullptr), trace);
-  DCHECK_NE(static_cast<T>(nullptr), live);
+  DCHECK((trace == nullptr) == (live == nullptr));
+  if (trace == nullptr && live == nullptr)
+    return true;
+
   base::AutoLock auto_lock(lock_);
 
   auto find_trace_live = trace_live_.find(trace);
   auto find_live_trace = live_trace_.find(live);
 
   if (find_trace_live == trace_live_.end()) {
-    LOG(ERROR) << "Trace was not previously added.";
+    LOG(ERROR) << "Trace was not previously added:" << trace;
     return false;
   }
 
   if (find_live_trace == live_trace_.end()) {
-    LOG(ERROR) << "Live was not previously added.";
+    LOG(ERROR) << "Live was not previously added: " << live;
     return false;
   }
 
@@ -69,12 +73,16 @@ bool TraceLiveMap<T>::RemoveMapping(T trace, T live) {
 
 template <typename T>
 bool TraceLiveMap<T>::GetLiveFromTrace(T trace, T* live) {
-  DCHECK_NE(static_cast<T>(nullptr), trace);
+  if (trace == nullptr) {
+    live = nullptr;
+    return true;
+  }
+
   base::AutoLock auto_lock(lock_);
 
   auto live_it = trace_live_.find(trace);
   if (live_it == trace_live_.end()) {
-    LOG(ERROR) << "Trace argument was not previously added.";
+    LOG(ERROR) << "Trace argument was not previously added: " << trace;
     return false;
   }
 
@@ -84,17 +92,27 @@ bool TraceLiveMap<T>::GetLiveFromTrace(T trace, T* live) {
 
 template <typename T>
 bool TraceLiveMap<T>::GetTraceFromLive(T live, T* trace) {
-  DCHECK_NE(static_cast<T>(nullptr), live);
+  if (trace == nullptr) {
+    live = nullptr;
+    return true;
+  }
+
   base::AutoLock auto_lock(lock_);
 
   auto trace_it = live_trace_.find(live);
   if (trace_it == live_trace_.end()) {
-    LOG(ERROR) << "Live argument was not previously added.";
+    LOG(ERROR) << "Live argument was not previously added: " << live;
     return false;
   }
 
   *trace = trace_it->second;
   return true;
+}
+
+template <typename T>
+void TraceLiveMap<T>::Clear() {
+  trace_live_.clear();
+  live_trace_.clear();
 }
 
 }  // namespace bard

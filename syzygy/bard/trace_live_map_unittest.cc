@@ -21,6 +21,7 @@ namespace bard {
 
 TEST(TraceLiveMapTest, TestMapping) {
   TraceLiveMap<void*> trace_live_map;
+  EXPECT_TRUE(trace_live_map.Empty());
 
   void* trace = reinterpret_cast<void*>(0xAB11CD22);
   void* extra_trace = reinterpret_cast<void*>(0x13213221);
@@ -31,11 +32,17 @@ TEST(TraceLiveMapTest, TestMapping) {
   EXPECT_FALSE(trace_live_map.AddMapping(trace, extra_live));
   EXPECT_FALSE(trace_live_map.AddMapping(extra_trace, live));
   testing::CheckTraceLiveMapContains(trace_live_map, trace, live);
+  EXPECT_FALSE(trace_live_map.Empty());
 
   EXPECT_TRUE(trace_live_map.RemoveMapping(trace, live));
   testing::CheckTraceLiveMapNotContain(trace_live_map, trace, live);
 
   EXPECT_FALSE(trace_live_map.RemoveMapping(trace, live));
+
+  EXPECT_TRUE(trace_live_map.AddMapping(trace, live));
+  testing::CheckTraceLiveMapContains(trace_live_map, trace, live);
+  trace_live_map.Clear();
+  testing::CheckTraceLiveMapNotContain(trace_live_map, trace, live);
 }
 
 }  // namespace bard
