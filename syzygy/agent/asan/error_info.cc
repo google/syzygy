@@ -151,6 +151,36 @@ const char* ErrorInfoAccessTypeToStr(BadAccessKind bad_access_kind) {
   }
 }
 
+namespace {
+
+// Converts an access kind string to its corresponding enum value.
+BadAccessKind ErrorInfoAccessTypeStrToEnum(const std::string& access_kind) {
+  if (::strcmp(kHeapUseAfterFree, access_kind.c_str())) {
+    return USE_AFTER_FREE;
+  } else if (::strcmp(kHeapBufferUnderFlow, access_kind.c_str()) == 0) {
+    return HEAP_BUFFER_UNDERFLOW;
+  } else if (::strcmp(kHeapBufferOverFlow, access_kind.c_str()) == 0) {
+    return HEAP_BUFFER_OVERFLOW;
+  } else if (::strcmp(kWildAccess, access_kind.c_str()) == 0) {
+    return WILD_ACCESS;
+  } else if (::strcmp(kInvalidAddress, access_kind.c_str()) == 0) {
+    return INVALID_ADDRESS;
+  } else if (::strcmp(kAttemptingDoubleFree, access_kind.c_str()) == 0) {
+    return DOUBLE_FREE;
+  } else if (::strcmp(kHeapUnknownError, access_kind.c_str()) == 0) {
+    return UNKNOWN_BAD_ACCESS;
+  } else if (::strcmp(kHeapCorruptBlock, access_kind.c_str()) == 0) {
+    return CORRUPT_BLOCK;
+  } else if (::strcmp(kCorruptHeap, access_kind.c_str()) == 0) {
+    return CORRUPT_HEAP;
+  } else {
+    NOTREACHED() << "Unexpected bad access kind.";
+    return BAD_ACCESS_KIND_MAX;
+  }
+}
+
+}  // namespace
+
 bool ErrorInfoGetBadAccessInformation(const Shadow* shadow,
                                       StackCaptureCache* stack_cache,
                                       AsanErrorInfo* bad_access_info) {
@@ -294,13 +324,41 @@ void GetAsanErrorShadowMemory(const Shadow* shadow,
 
 namespace {
 
+const char kAllocatedBlock[] = "allocated";
+const char kQuarantinedBlock[] = "quarantined";
+const char kQuarantinedFloodedBlock[] = "quarantined (flooded)";
+const char kFreedBlock[] = "freed";
+const char kAccessModeRead[] = "read";
+const char kAccessModeWrite[] = "write";
+const char kAccessModeUnknown[] = "(unknown)";
+
 // Converts an access mode to a string.
 void AccessModeToString(AccessMode access_mode, std::string* str) {
   DCHECK_NE(static_cast<std::string*>(nullptr), str);
   switch (access_mode) {
-    case ASAN_READ_ACCESS: *str = "read"; break;
-    case ASAN_WRITE_ACCESS: *str = "write"; break;
-    default: *str = "(unknown)"; break;
+    case ASAN_READ_ACCESS:
+      *str = kAccessModeRead;
+      break;
+    case ASAN_WRITE_ACCESS:
+      *str = kAccessModeWrite;
+      break;
+    default:
+      *str = kAccessModeUnknown;
+      break;
+  }
+}
+
+// Converts an access mode string to its corresponding enum value.
+AccessMode AccessModeStringToEnum(const std::string& access_mode) {
+  if (::strcmp(kAccessModeRead, access_mode.c_str()) == 0) {
+    return ASAN_READ_ACCESS;
+  } else if (::strcmp(kAccessModeWrite, access_mode.c_str()) == 0) {
+    return ASAN_WRITE_ACCESS;
+  } else if (::strcmp(kAccessModeUnknown, access_mode.c_str()) == 0) {
+    return ASAN_UNKNOWN_ACCESS;
+  } else {
+    NOTREACHED() << "Unexpected access mode.";
+    return ASAN_ACCESS_MODE_MAX;
   }
 }
 
@@ -308,15 +366,48 @@ void AccessModeToString(AccessMode access_mode, std::string* str) {
 void BlockStateToString(BlockState block_state, std::string* str) {
   DCHECK_NE(static_cast<std::string*>(nullptr), str);
   switch (block_state) {
-    case ALLOCATED_BLOCK: *str = "allocated"; break;
-    case QUARANTINED_BLOCK: *str = "quarantined"; break;
-    case QUARANTINED_FLOODED_BLOCK: *str = "quarantined (flooded)"; break;
+    case ALLOCATED_BLOCK:
+      *str = kAllocatedBlock;
+      break;
+    case QUARANTINED_BLOCK:
+      *str = kQuarantinedBlock;
+      break;
+    case QUARANTINED_FLOODED_BLOCK:
+      *str = kQuarantinedFloodedBlock;
+      break;
     case FREED_BLOCK: *str = "freed"; break;
   }
 }
 
-uint64_t CastAddress(const void* address) {
-  return static_cast<uint64_t>(reinterpret_cast<uint32_t>(address));
+// Converts a block state string to its corresponding enum value.
+BlockState BlockStateStringToEnum(const std::string& block_state) {
+  if (::strcmp(kAllocatedBlock, block_state.c_str()) == 0) {
+    return ALLOCATED_BLOCK;
+  } else if (::strcmp(kQuarantinedBlock, block_state.c_str()) == 0) {
+    return QUARANTINED_BLOCK;
+  } else if (::strcmp(kQuarantinedFloodedBlock, block_state.c_str()) == 0) {
+    return QUARANTINED_FLOODED_BLOCK;
+  } else if (::strcmp(kFreedBlock, block_state.c_str()) == 0) {
+    return FREED_BLOCK;
+  } else {
+    NOTREACHED() << "Unexpected block state.";
+    return BLOCK_STATE_MAX;
+  }
+}
+
+// Converts a heap type string to its corresponding enum value.
+HeapType HeapTypeStrToEnum(const std::string& heap_type) {
+  for (size_t i = 0; i < kHeapTypeMax; ++i) {
+    if (::strcmp(kHeapTypes[i], heap_type.c_str()) == 0) {
+      return static_cast<HeapType>(i);
+    }
+  }
+  NOTREACHED() << "Unexpected heap type.";
+  return kHeapTypeMax;
+}
+
+uint64 CastAddress(const void* address) {
+  return static_cast<uint64>(reinterpret_cast<uint32>(address));
 }
 
 void PopulateStackTrace(const void* const* frames,
@@ -662,6 +753,70 @@ void PopulateErrorInfo(const Shadow* shadow,
     }
   }
   PopulateAsanParameters(error_info, dict);
+}
+
+void CrashdataProtobufToErrorInfo(const crashdata::Value& protobuf,
+                                  AsanErrorInfo* error_info) {
+  DCHECK_NE(static_cast<AsanErrorInfo*>(nullptr), error_info);
+
+  DCHECK_EQ(crashdata::Value_Type_DICTIONARY, protobuf.type());
+
+  const crashdata::Dictionary outer_dict = protobuf.dictionary();
+  DCHECK(outer_dict.IsInitialized());
+  for (const auto& iter : outer_dict.values()) {
+    if (iter.value().has_leaf()) {
+      const crashdata::Leaf& leaf = iter.value().leaf();
+      if (base::LowerCaseEqualsASCII(iter.key(), "header")) {
+        DCHECK(leaf.has_address());
+        error_info->block_info.header =
+            reinterpret_cast<const void*>(leaf.address().address());
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "user-size")) {
+        DCHECK(leaf.has_unsigned_integer());
+        error_info->block_info.user_size = leaf.unsigned_integer();
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "state")) {
+        DCHECK(leaf.has_string());
+        error_info->block_info.state = BlockStateStringToEnum(leaf.string());
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "heap-type")) {
+        DCHECK(leaf.has_string());
+        error_info->block_info.heap_type = HeapTypeStrToEnum(leaf.string());
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "alloc-thread-id")) {
+        DCHECK(leaf.has_unsigned_integer());
+        error_info->block_info.alloc_tid =
+            static_cast<DWORD>(leaf.unsigned_integer());
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "alloc-stack")) {
+        DCHECK(leaf.has_stack_trace());
+        // TODO(sebmarchand): Parse this field.
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "free-thread-id")) {
+        DCHECK(leaf.has_unsigned_integer());
+        error_info->block_info.free_tid =
+            static_cast<DWORD>(leaf.unsigned_integer());
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "free-stack")) {
+        DCHECK(leaf.has_stack_trace());
+        // TODO(sebmarchand): Parse this field.
+      } else if (base::LowerCaseEqualsASCII(iter.key(),
+                                            "milliseconds-since-free")) {
+        DCHECK(leaf.has_unsigned_integer());
+        error_info->block_info.milliseconds_since_free =
+            leaf.unsigned_integer();
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "contents")) {
+        DCHECK(leaf.has_blob());
+        // TODO(sebmarchand): Parse this field.
+      } else if (base::LowerCaseEqualsASCII(iter.key(), "shadow")) {
+        DCHECK(leaf.has_blob());
+        // TODO(sebmarchand): Parse this field.
+      } else {
+        NOTREACHED() << "Unexpected leaf entry.";
+      }
+    } else if (iter.value().has_dictionary()) {
+      if (base::LowerCaseEqualsASCII(iter.key(), "analysis")) {
+        // TODO(sebmarchand): Parse this field.
+      } else {
+        NOTREACHED() << "Unexpected dictionary entry.";
+      }
+    } else {
+      NOTREACHED() << "Unexpected entry.";
+    }
+  }
 }
 
 }  // namespace asan

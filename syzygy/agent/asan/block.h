@@ -131,6 +131,8 @@ enum BlockState {
   // in a future allocation. In the meantime it is still not valid for
   // reading and writing.
   FREED_BLOCK,
+
+  BLOCK_STATE_MAX,
 };
 
 // Declares the block header that is found in every left redzone. Since

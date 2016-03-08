@@ -44,7 +44,9 @@ struct BlockHeader;
 enum AccessMode {
   ASAN_READ_ACCESS,
   ASAN_WRITE_ACCESS,
-  ASAN_UNKNOWN_ACCESS
+  ASAN_UNKNOWN_ACCESS,
+
+  ASAN_ACCESS_MODE_MAX,
 };
 
 // Enumeration of the different kinds of bad heap accesses that we can
@@ -65,7 +67,9 @@ enum BadAccessKind {
   USE_AFTER_FREE,
   HEAP_BUFFER_OVERFLOW,
   HEAP_BUFFER_UNDERFLOW,
-  DOUBLE_FREE
+  DOUBLE_FREE,
+
+  BAD_ACCESS_KIND_MAX,
 };
 
 // The different types of errors we can encounter.
@@ -295,6 +299,13 @@ void PopulateErrorInfo(const Shadow* shadow,
                        const AsanErrorInfo& error_info,
                        crashdata::Value* value,
                        MemoryRanges* memory_ranges);
+
+// Given a populated crashdata protobuf, fills out a corresponding AsanErrorInfo
+// struct.
+// @param protobuf The filled in error information protobuf.
+// @param value The uninitialized AsanErrorInfo struct to be populated.
+void CrashdataProtobufToErrorInfo(const crashdata::Value& protobuf,
+                                  AsanErrorInfo* error_info);
 
 }  // namespace asan
 }  // namespace agent

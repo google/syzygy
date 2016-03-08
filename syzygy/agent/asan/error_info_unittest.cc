@@ -880,5 +880,34 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
   }
 }
 
+TEST_F(AsanErrorInfoTest, CrashdataProtobufToErrorInfo) {
+  AsanBlockInfo block_info = {};
+  InitAsanBlockInfo(&block_info);
+
+  block_info.state = QUARANTINED_FLOODED_BLOCK;
+  block_info.free_tid = 32;
+  block_info.free_stack[0] = reinterpret_cast<void*>(3);
+  block_info.free_stack[1] = reinterpret_cast<void*>(4);
+  block_info.free_stack[2] = reinterpret_cast<void*>(5);
+  block_info.free_stack_size = 3;
+  block_info.heap_type = kWinHeap;
+  block_info.milliseconds_since_free = 100;
+
+  crashdata::Value value;
+  PopulateBlockInfo(runtime_->shadow(), block_info, true, &value, nullptr);
+
+  AsanErrorInfo error_info_from_proto = {};
+  CrashdataProtobufToErrorInfo(value, &error_info_from_proto);
+
+  EXPECT_EQ(block_info.header, error_info_from_proto.block_info.header);
+  EXPECT_EQ(block_info.user_size, error_info_from_proto.block_info.user_size);
+  EXPECT_EQ(block_info.state, error_info_from_proto.block_info.state);
+  EXPECT_EQ(block_info.heap_type, error_info_from_proto.block_info.heap_type);
+  EXPECT_EQ(block_info.alloc_tid, error_info_from_proto.block_info.alloc_tid);
+  EXPECT_EQ(block_info.free_tid, error_info_from_proto.block_info.free_tid);
+  EXPECT_EQ(block_info.milliseconds_since_free,
+            error_info_from_proto.block_info.milliseconds_since_free);
+}
+
 }  // namespace asan
 }  // namespace agent
