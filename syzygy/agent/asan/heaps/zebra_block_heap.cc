@@ -256,7 +256,7 @@ void ZebraBlockHeap::Empty(ObjectVector* infos) {
   }
 }
 
-size_t ZebraBlockHeap::GetCount() {
+size_t ZebraBlockHeap::GetCountForTesting() {
   ::common::AutoRecursiveLock lock(lock_);
   return quarantine_.size();
 }

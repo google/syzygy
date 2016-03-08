@@ -91,8 +91,8 @@ TEST(SizeLimitedQuarantineTest, ConstructorsSettersAndGetters) {
   TestQuarantine q;
   EXPECT_EQ(TestQuarantine::kUnboundedSize, q.max_object_size());
   EXPECT_EQ(TestQuarantine::kUnboundedSize, q.max_quarantine_size());
-  EXPECT_EQ(0u, q.size());
-  EXPECT_EQ(0u, q.GetCount());
+  EXPECT_EQ(0u, q.GetSizeForTesting());
+  EXPECT_EQ(0u, q.GetCountForTesting());
 
   q.set_max_object_size(100);
   EXPECT_EQ(100u, q.max_object_size());
@@ -105,7 +105,7 @@ TEST(SizeLimitedQuarantineTest, NoSizeLimit) {
   TestQuarantine q;
   for (size_t i = 0; i < 1000; ++i) {
     q.Push(DummyObject(i * 1000));
-    EXPECT_EQ(i + 1, q.GetCount());
+    EXPECT_EQ(i + 1, q.GetCountForTesting());
   }
 }
 
@@ -115,10 +115,10 @@ TEST(SizeLimitedQuarantineTest, MaxObjectSizeEnforced) {
   for (size_t i = 1; i < 20; ++i) {
     if (i <= 10) {
       EXPECT_TRUE(q.Push(DummyObject(i)));
-      EXPECT_EQ(i, q.GetCount());
+      EXPECT_EQ(i, q.GetCountForTesting());
     } else {
       EXPECT_FALSE(q.Push(DummyObject(i)));
-      EXPECT_EQ(10u, q.GetCount());
+      EXPECT_EQ(10u, q.GetCountForTesting());
     }
   }
 }
@@ -130,24 +130,24 @@ TEST(SizeLimitedQuarantineTest, InvariantEnforced) {
   q.set_max_quarantine_size(15);
 
   EXPECT_TRUE(q.Push(o));
-  EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.GetCount());
+  EXPECT_EQ(10u, q.GetSizeForTesting());
+  EXPECT_EQ(1u, q.GetCountForTesting());
 
   EXPECT_FALSE(q.Pop(&o));
-  EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.GetCount());
+  EXPECT_EQ(10u, q.GetSizeForTesting());
+  EXPECT_EQ(1u, q.GetCountForTesting());
 
   EXPECT_TRUE(q.Push(o));
-  EXPECT_EQ(20u, q.size());
-  EXPECT_EQ(2u, q.GetCount());
+  EXPECT_EQ(20u, q.GetSizeForTesting());
+  EXPECT_EQ(2u, q.GetCountForTesting());
 
   EXPECT_TRUE(q.Pop(&o));
-  EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.GetCount());
+  EXPECT_EQ(10u, q.GetSizeForTesting());
+  EXPECT_EQ(1u, q.GetCountForTesting());
 
   EXPECT_FALSE(q.Pop(&o));
-  EXPECT_EQ(10u, q.size());
-  EXPECT_EQ(1u, q.GetCount());
+  EXPECT_EQ(10u, q.GetSizeForTesting());
+  EXPECT_EQ(1u, q.GetCountForTesting());
 }
 
 TEST(SizeLimitedQuarantineTest, EmptyWorks) {
@@ -157,8 +157,8 @@ TEST(SizeLimitedQuarantineTest, EmptyWorks) {
   EXPECT_TRUE(q.Push(o));
   EXPECT_TRUE(q.Push(o));
   EXPECT_TRUE(q.Push(o));
-  EXPECT_EQ(30u, q.size());
-  EXPECT_EQ(3u, q.GetCount());
+  EXPECT_EQ(30u, q.GetSizeForTesting());
+  EXPECT_EQ(3u, q.GetCountForTesting());
 
   DummyObjectVector os;
   q.Empty(&os);

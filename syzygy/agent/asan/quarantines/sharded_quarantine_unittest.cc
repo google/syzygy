@@ -97,7 +97,7 @@ TEST(ShardedQuarantineTest, EvenLoading) {
   q.set_max_object_size(TestShardedQuarantine::kUnboundedSize);
   q.set_max_quarantine_size(10000);
 
-  EXPECT_EQ(0u, q.size());
+  EXPECT_EQ(0u, q.GetSizeForTesting());
 
   // Stuff a bunch of things into the quarantine, but don't saturate it.
   for (size_t i = 0; i < 9000; ++i) {
@@ -106,14 +106,14 @@ TEST(ShardedQuarantineTest, EvenLoading) {
       EXPECT_TRUE(q.Push(d));
     }
     d.hash++;
-    EXPECT_EQ(i + 1, q.size());
+    EXPECT_EQ(i + 1, q.GetSizeForTesting());
 
     EXPECT_FALSE(q.Pop(&popped));
-    EXPECT_EQ(i + 1, q.size());
+    EXPECT_EQ(i + 1, q.GetSizeForTesting());
   }
 
   // Saturate the quarantine, invalidating the invariant.
-  while (q.size() <= q.max_quarantine_size()) {
+  while (q.GetSizeForTesting() <= q.max_quarantine_size()) {
     {
       TestShardedQuarantine::AutoQuarantineLock lock(&q, d);
       EXPECT_TRUE(q.Push(d));
@@ -124,7 +124,7 @@ TEST(ShardedQuarantineTest, EvenLoading) {
   // Now expect one element to be popped off before the invariant is satisfied.
   EXPECT_TRUE(q.Pop(&popped));
   EXPECT_EQ(d.size, popped.size);
-  EXPECT_EQ(q.max_quarantine_size(), q.size());
+  EXPECT_EQ(q.max_quarantine_size(), q.GetSizeForTesting());
 
   // Expect there to be roughly even loading.
   double expected_count = q.max_quarantine_size() / q.kShardingFactor;
@@ -150,41 +150,41 @@ TEST(ShardedQuarantineTest, StressTest) {
     size_t size = (rand() & (logsize - 1)) | logsize;
     DummyObject d(size);
 
-    size_t old_size = q.size();
-    size_t old_count = q.GetCount();
+    size_t old_size = q.GetSizeForTesting();
+    size_t old_count = q.GetCountForTesting();
     if (size > q.max_object_size()) {
       {
         TestShardedQuarantine::AutoQuarantineLock lock(&q, d);
         EXPECT_FALSE(q.Push(d));
       }
-      EXPECT_EQ(old_size, q.size());
-      EXPECT_EQ(old_count, q.GetCount());
+      EXPECT_EQ(old_size, q.GetSizeForTesting());
+      EXPECT_EQ(old_count, q.GetCountForTesting());
     } else {
       {
         TestShardedQuarantine::AutoQuarantineLock lock(&q, d);
         EXPECT_TRUE(q.Push(d));
       }
-      EXPECT_EQ(old_size + size, q.size());
-      EXPECT_EQ(old_count + 1, q.GetCount());
+      EXPECT_EQ(old_size + size, q.GetSizeForTesting());
+      EXPECT_EQ(old_count + 1, q.GetCountForTesting());
     }
 
     DummyObject popped;
-    while (q.size() > q.max_quarantine_size()) {
-      old_size = q.size();
-      old_count = q.GetCount();
+    while (q.GetSizeForTesting() > q.max_quarantine_size()) {
+      old_size = q.GetSizeForTesting();
+      old_count = q.GetCountForTesting();
       EXPECT_TRUE(q.Pop(&popped));
-      EXPECT_EQ(old_size - popped.size, q.size());
-      EXPECT_EQ(old_count - 1, q.GetCount());
+      EXPECT_EQ(old_size - popped.size, q.GetSizeForTesting());
+      EXPECT_EQ(old_count - 1, q.GetCountForTesting());
     }
     EXPECT_FALSE(q.Pop(&popped));
   }
 
-  size_t old_size = q.size();
-  size_t old_count = q.GetCount();
+  size_t old_size = q.GetSizeForTesting();
+  size_t old_count = q.GetCountForTesting();
   TestShardedQuarantine::ObjectVector os;
   q.Empty(&os);
-  EXPECT_EQ(0u, q.size());
-  EXPECT_EQ(0u, q.GetCount());
+  EXPECT_EQ(0u, q.GetSizeForTesting());
+  EXPECT_EQ(0u, q.GetCountForTesting());
   EXPECT_EQ(old_count, os.size());
   size_t emptied_size = 0;
   for (size_t i = 0; i < os.size(); ++i)

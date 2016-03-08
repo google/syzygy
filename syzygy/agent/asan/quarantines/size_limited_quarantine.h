@@ -31,6 +31,9 @@ namespace quarantines {
 // consistency. Hence, the lock must be acquired (by calling Lock) before any
 // other operation is performed. The lock should be returned (by calling Unlock)
 // as soon as possible to minimize the locked time.
+// Note that since pushing/popping the quarantine are not atomic operations, the
+// size/count can become negative in transition, hence the need to have them as
+// signed integer (only their eventual consistency is guaranteed).
 class QuarantineSizeCount {
  public:
   // Default constructor that sets the size and count to 0.
@@ -57,13 +60,26 @@ class QuarantineSizeCount {
     return count_;
   }
 
-  // Increments the size and count (accepts negative values for decrementing).
+  // Increments the size and count.
   // @param size_delta The delta by which the size is incremented.
   // @param count_delta The delta by which the count is incremented.
-  void Increment(int32_t size_delta, int32_t count_delta) {
+  // @returns the new size.
+  int32_t Increment(size_t size_delta, size_t count_delta) {
     lock_.AssertAcquired();
     size_ += size_delta;
     count_ += count_delta;
+    return size_;
+  }
+
+  // Decrements the size and count.
+  // @param size_delta The delta by which the size is decremented.
+  // @param count_delta The delta by which the count is decremented.
+  // @returns the new size.
+  int32_t Decrement(size_t size_delta, size_t count_delta) {
+    lock_.AssertAcquired();
+    size_ -= size_delta;
+    count_ -= count_delta;
+    return size_;
   }
 
  private:
@@ -167,22 +183,20 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
 
   // @returns the current size of the quarantine.
   // @note that this function could be racing with a push/pop operation and
-  // return a stale value. It should only be used when this is acceptable (in
-  // tests for example).
-  size_t size() {
+  // return a stale value. It is only used in tests.
+  size_t GetSizeForTesting() {
     ScopedQuarantineSizeCountLock size_count_lock(size_count_);
     return size_count_.size();
   }
 
   // @name QuarantineInterface implementation.
-  // @note that GetCount could be racing with a push/pop operation and return a
-  // stale value. It should only be used when this is acceptable (in tests for
-  // example).
+  // @note that GetCountForTest could be racing with a push/pop operation and
+  // return a stale value. It is only used in in tests.
   // @{
   virtual bool Push(const Object& object);
   virtual bool Pop(Object* object);
   virtual void Empty(ObjectVector* objects);
-  virtual size_t GetCount();
+  virtual size_t GetCountForTesting();
   virtual size_t GetLockId(const Object& object);
   virtual void Lock(size_t id);
   virtual void Unlock(size_t id);

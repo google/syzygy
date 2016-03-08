@@ -688,7 +688,7 @@ TEST_F(BlockHeapManagerTest, QuarantineLargeBlock) {
   ASSERT_NE(static_cast<void*>(nullptr), mem1);
   EXPECT_TRUE(heap.Free(mem1));
   EXPECT_FALSE(heap.InQuarantine(mem1));
-  EXPECT_EQ(0u, heap.GetQuarantine()->GetCount());
+  EXPECT_EQ(0u, heap.GetQuarantine()->GetCountForTesting());
 
   // A smaller block should make it because our current max block size allows
   // it.
@@ -780,11 +780,11 @@ TEST_F(BlockHeapManagerTest, QuarantineIsShared) {
   EXPECT_TRUE(heap_2.InQuarantine(heap_2_mem2));
 
   BlockQuarantineInterface* quarantine = heap_1.GetQuarantine();
-  EXPECT_EQ(4, quarantine->GetCount());
+  EXPECT_EQ(4, quarantine->GetCountForTesting());
   heap_2.ReleaseHeap();
-  EXPECT_EQ(2, quarantine->GetCount());
+  EXPECT_EQ(2, quarantine->GetCountForTesting());
   heap_1.ReleaseHeap();
-  EXPECT_EQ(0, quarantine->GetCount());
+  EXPECT_EQ(0, quarantine->GetCountForTesting());
 }
 
 TEST_F(BlockHeapManagerTest, AllocZeroBytes) {
@@ -1473,7 +1473,8 @@ TEST_F(BlockHeapManagerTest, ZebraBlockHeapQuarantineRatioIsRespected) {
 
     // After Free the quarantine should be trimmed, enforcing the quarantine
     // size upper bound.
-    EXPECT_LE(test_zebra_block_heap_->GetCount(), max_quarantine_size);
+    EXPECT_LE(test_zebra_block_heap_->GetCountForTesting(),
+              max_quarantine_size);
 
     {
       ScopedBlockAccess block_access(block_info, runtime_->shadow());

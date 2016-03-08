@@ -120,7 +120,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
   virtual bool Push(const CompactBlockInfo& info);
   virtual bool Pop(CompactBlockInfo* info);
   virtual void Empty(std::vector<CompactBlockInfo>* infos);
-  virtual size_t GetCount();
+  virtual size_t GetCountForTesting();
   virtual size_t GetLockId(const CompactBlockInfo& info) {
     return 0;
   }

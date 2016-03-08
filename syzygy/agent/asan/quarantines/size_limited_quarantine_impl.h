@@ -33,8 +33,10 @@ bool SizeLimitedQuarantineImpl<OT, SFT>::Push(
   if (!PushImpl(object))
     return false;
 
+  // Note that if a thread gets preempted here, the size/count will be wrong,
+  // until the thread resumes.
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
-  size_count_.Increment(static_cast<int32_t>(size), 1);
+  size_count_.Increment(size, 1);
 
   return true;
 }
@@ -56,9 +58,11 @@ bool SizeLimitedQuarantineImpl<OT, SFT>::Pop(
   if (!PopImpl(object))
     return false;
 
+  // Note that if a thread gets preempted here, the size/count will be wrong,
+  // until the thread resumes.
   size_t size = size_functor_(*object);
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
-  size_count_.Increment(-static_cast<int32_t>(size), -1);
+  size_count_.Decrement(size, 1);
 
   return true;
 }
@@ -81,11 +85,11 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
   }
 
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
-  size_count_.Increment(-net_size, -static_cast<int32_t>(objects->size()));
+  size_count_.Decrement(net_size, objects->size());
 }
 
-template<typename OT, typename SFT>
-size_t SizeLimitedQuarantineImpl<OT, SFT>::GetCount() {
+template <typename OT, typename SFT>
+size_t SizeLimitedQuarantineImpl<OT, SFT>::GetCountForTesting() {
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
   return size_count_.count();
 }

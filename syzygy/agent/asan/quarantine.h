@@ -66,9 +66,10 @@ class QuarantineInterface {
   // vector. This routine must be thread-safe, and implement its own locking.
   virtual void Empty(ObjectVector* objects) = 0;
 
-  // The number of objects currently in the quarantine.
+  // The number of objects currently in the quarantine. Only used in testing, as
+  // the implementation is racy.
   // @returns the number of objects in the quarantine.
-  virtual size_t GetCount() = 0;
+  virtual size_t GetCountForTesting() = 0;
 
   // An automatic quarantine lock.
   //
