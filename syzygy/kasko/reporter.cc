@@ -184,7 +184,7 @@ scoped_ptr<Reporter> Reporter::Create(
   // the Reporter instance will shut down |upload_thread| before destroying
   // |report_repository|.
   scoped_ptr<UploadThread> upload_thread = UploadThread::Create(
-      data_directory, waitable_timer.Pass(),
+      data_directory, std::move(waitable_timer),
       base::Bind(base::IgnoreResult(&ReportRepository::UploadPendingReport),
                  base::Unretained(report_repository.get())));
 
@@ -194,7 +194,7 @@ scoped_ptr<Reporter> Reporter::Create(
   }
 
   scoped_ptr<Reporter> instance(
-      new Reporter(report_repository.Pass(), upload_thread.Pass(),
+      new Reporter(std::move(report_repository), std::move(upload_thread),
                    endpoint_name, data_directory.Append(kTemporarySubdir)));
   if (!instance->service_bridge_.Run()) {
     LOG(ERROR) << "Failed to start the Kasko RPC service using protocol "
@@ -204,7 +204,7 @@ scoped_ptr<Reporter> Reporter::Create(
 
   instance->upload_thread_->Start();
 
-  return instance.Pass();
+  return std::move(instance);
 }
 
 Reporter::~Reporter() {}
@@ -260,8 +260,8 @@ Reporter::Reporter(scoped_ptr<ReportRepository> report_repository,
                    scoped_ptr<UploadThread> upload_thread,
                    const base::string16& endpoint_name,
                    const base::FilePath& temporary_minidump_directory)
-    : report_repository_(report_repository.Pass()),
-      upload_thread_(upload_thread.Pass()),
+    : report_repository_(std::move(report_repository)),
+      upload_thread_(std::move(upload_thread)),
       temporary_minidump_directory_(temporary_minidump_directory),
       service_bridge_(
           kRpcProtocol,

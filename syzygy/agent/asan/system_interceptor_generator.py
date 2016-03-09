@@ -51,21 +51,21 @@ BOOL WINAPI asan_WriteFile(
     ) {
   if (lpBuffer != NULL) {
     TestMemoryRange(system_interceptor_shadow_,
-                    reinterpret_cast<const uint8*>(lpBuffer),
+                    reinterpret_cast<const uint8_t*>(lpBuffer),
                     nNumberOfBytesToWrite,
                     agent::asan::ASAN_READ_ACCESS);
   }
 
   if (lpNumberOfBytesWritten != NULL) {
     TestMemoryRange(system_interceptor_shadow_,
-                    reinterpret_cast<const uint8*>(lpNumberOfBytesWritten),
+                    reinterpret_cast<const uint8_t*>(lpNumberOfBytesWritten),
                     sizeof(*lpNumberOfBytesWritten),
                     agent::asan::ASAN_WRITE_ACCESS);
   }
 
   if (lpOverlapped != NULL) {
     TestMemoryRange(system_interceptor_shadow_,
-                    reinterpret_cast<const uint8*>(lpOverlapped),
+                    reinterpret_cast<const uint8_t*>(lpOverlapped),
                     sizeof(*lpOverlapped),
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -80,14 +80,14 @@ BOOL WINAPI asan_WriteFile(
 
   if (lpNumberOfBytesWritten != NULL) {
     TestMemoryRange(system_interceptor_shadow_,
-                    reinterpret_cast<const uint8*>(lpNumberOfBytesWritten),
+                    reinterpret_cast<const uint8_t*>(lpNumberOfBytesWritten),
                     sizeof(*lpNumberOfBytesWritten),
                     agent::asan::ASAN_WRITE_ACCESS);
   }
 
   if (lpBuffer != NULL) {
     TestMemoryRange(system_interceptor_shadow_,
-                    reinterpret_cast<const uint8*>(lpBuffer),
+                    reinterpret_cast<const uint8_t*>(lpBuffer),
                     nNumberOfBytesToWrite,
                     agent::asan::ASAN_READ_ACCESS);
   }
@@ -296,8 +296,8 @@ _PARAM_CHECKS_TEMPLATE = Template("""
   if (${param_to_check} != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 ${param_keyword}*>(${param_to_check})),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t ${param_keyword}*>(${param_to_check})),
         ${param_size},
         agent::asan::ASAN_${access_type}_ACCESS);
   }

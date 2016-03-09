@@ -72,7 +72,7 @@ base::Process LaunchPythonProcess(
   if (stderr_dup)
     ::CloseHandle(stderr_dup);
 
-  return process.Pass();
+  return std::move(process);
 }
 
 }  // namespace testing

@@ -123,17 +123,17 @@ class StackAndFrameAnalyzersTest : public testing::Test {
 
     AnalysisRunner runner;
     scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
-    runner.AddAnalyzer(analyzer.Pass());
+    runner.AddAnalyzer(std::move(analyzer));
     analyzer.reset(new refinery::ThreadAnalyzer());
-    runner.AddAnalyzer(analyzer.Pass());
+    runner.AddAnalyzer(std::move(analyzer));
     analyzer.reset(new refinery::ExceptionAnalyzer());
-    runner.AddAnalyzer(analyzer.Pass());
+    runner.AddAnalyzer(std::move(analyzer));
     analyzer.reset(new refinery::ModuleAnalyzer());
-    runner.AddAnalyzer(analyzer.Pass());
+    runner.AddAnalyzer(std::move(analyzer));
     analyzer.reset(new refinery::StackAnalyzer());
-    runner.AddAnalyzer(analyzer.Pass());
+    runner.AddAnalyzer(std::move(analyzer));
     analyzer.reset(new refinery::StackFrameAnalyzer());
-    runner.AddAnalyzer(analyzer.Pass());
+    runner.AddAnalyzer(std::move(analyzer));
 
     scoped_refptr<DiaSymbolProvider> dia_symbol_provider(
         new DiaSymbolProvider());

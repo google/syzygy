@@ -406,8 +406,8 @@ HeapType HeapTypeStrToEnum(const std::string& heap_type) {
   return kHeapTypeMax;
 }
 
-uint64 CastAddress(const void* address) {
-  return static_cast<uint64>(reinterpret_cast<uint32>(address));
+uint64_t CastAddress(const void* address) {
+  return static_cast<uint64_t>(reinterpret_cast<uint32_t>(address));
 }
 
 void PopulateStackTrace(const void* const* frames,

@@ -42,10 +42,11 @@ bool AnalyzeMinidump(const base::FilePath& minidump_path,
 
   AnalysisRunner runner;
   runner.AddAnalyzer(
-      scoped_ptr<Analyzer>(new refinery::MemoryAnalyzer()).Pass());
+      std::move(scoped_ptr<Analyzer>(new refinery::MemoryAnalyzer())));
   runner.AddAnalyzer(
-      scoped_ptr<Analyzer>(new refinery::ModuleAnalyzer()).Pass());
-  runner.AddAnalyzer(scoped_ptr<Analyzer>(new refinery::TebAnalyzer()).Pass());
+      std::move(scoped_ptr<Analyzer>(new refinery::ModuleAnalyzer())));
+  runner.AddAnalyzer(
+      std::move(scoped_ptr<Analyzer>(new refinery::TebAnalyzer())));
 
   SimpleProcessAnalysis analysis(process_state);
   analysis.set_symbol_provider(new SymbolProvider());

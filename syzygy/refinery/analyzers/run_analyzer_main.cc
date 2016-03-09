@@ -362,7 +362,7 @@ bool RunAnalyzerApplication::AddAnalyzers(
     scoped_ptr<refinery::Analyzer> analyzer(
         factory.CreateAnalyzer(analyzer_name));
     if (analyzer) {
-      runner->AddAnalyzer(analyzer.Pass());
+      runner->AddAnalyzer(std::move(analyzer));
     } else {
       LOG(ERROR) << "No such analyzer " << analyzer_name;
       return false;

@@ -19,7 +19,7 @@ namespace events {
 
 LinkedEvent::LinkedEvent(scoped_ptr<EventInterface> event) {
   DCHECK_NE(static_cast<EventInterface*>(nullptr), event.get());
-  event_ = event.Pass();
+  event_ = std::move(event);
 }
 
 bool LinkedEvent::Play(void* backdrop) {
@@ -79,7 +79,7 @@ bool LinkedEvent::Save(const EventInterface* const event,
 scoped_ptr<LinkedEvent> LinkedEvent::Load(core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
   scoped_ptr<EventInterface> e = EventInterface::Load(in_archive);
-  return scoped_ptr<LinkedEvent>(new LinkedEvent(e.Pass()));
+  return scoped_ptr<LinkedEvent>(new LinkedEvent(std::move(e)));
 }
 
 bool LinkedEvent::AddDep(EventInterface* dep) {

@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,8 +27,8 @@ BOOL WINAPI asan_ReadFile(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToRead,
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -37,8 +37,8 @@ BOOL WINAPI asan_ReadFile(
   if (lpNumberOfBytesRead != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpNumberOfBytesRead)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpNumberOfBytesRead)),
         sizeof(*lpNumberOfBytesRead),
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -46,8 +46,8 @@ BOOL WINAPI asan_ReadFile(
   if (lpOverlapped != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpOverlapped)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpOverlapped)),
         sizeof(*lpOverlapped),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -67,8 +67,8 @@ BOOL WINAPI asan_ReadFile(
   if (lpNumberOfBytesRead != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpNumberOfBytesRead)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpNumberOfBytesRead)),
         sizeof(*lpNumberOfBytesRead),
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -77,8 +77,8 @@ BOOL WINAPI asan_ReadFile(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToRead,
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -99,8 +99,8 @@ BOOL WINAPI asan_ReadFileEx(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToRead,
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -109,8 +109,8 @@ BOOL WINAPI asan_ReadFileEx(
   if (lpOverlapped != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpOverlapped)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpOverlapped)),
         sizeof(*lpOverlapped),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -131,8 +131,8 @@ BOOL WINAPI asan_ReadFileEx(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToRead,
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -152,8 +152,8 @@ BOOL WINAPI asan_WriteFile(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToWrite,
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -162,8 +162,8 @@ BOOL WINAPI asan_WriteFile(
   if (lpNumberOfBytesWritten != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpNumberOfBytesWritten)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpNumberOfBytesWritten)),
         sizeof(*lpNumberOfBytesWritten),
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -171,8 +171,8 @@ BOOL WINAPI asan_WriteFile(
   if (lpOverlapped != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpOverlapped)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpOverlapped)),
         sizeof(*lpOverlapped),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -192,8 +192,8 @@ BOOL WINAPI asan_WriteFile(
   if (lpNumberOfBytesWritten != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpNumberOfBytesWritten)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpNumberOfBytesWritten)),
         sizeof(*lpNumberOfBytesWritten),
         agent::asan::ASAN_WRITE_ACCESS);
   }
@@ -202,8 +202,8 @@ BOOL WINAPI asan_WriteFile(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToWrite,
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -223,8 +223,8 @@ BOOL WINAPI asan_WriteFileEx(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToWrite,
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -233,8 +233,8 @@ BOOL WINAPI asan_WriteFileEx(
   if (lpOverlapped != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpOverlapped)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpOverlapped)),
         sizeof(*lpOverlapped),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -255,8 +255,8 @@ BOOL WINAPI asan_WriteFileEx(
   if (lpBuffer != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpBuffer)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpBuffer)),
         nNumberOfBytesToWrite,
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -275,8 +275,8 @@ long WINAPI asan_InterlockedCompareExchange(
   if (Destination != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 volatile*>(Destination)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t volatile*>(Destination)),
         sizeof(*Destination),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -306,8 +306,8 @@ long WINAPI asan_InterlockedIncrement(
   if (lpAddend != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpAddend)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpAddend)),
         sizeof(*lpAddend),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -337,8 +337,8 @@ long WINAPI asan_InterlockedDecrement(
   if (lpAddend != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 *>(lpAddend)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t *>(lpAddend)),
         sizeof(*lpAddend),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -369,8 +369,8 @@ long WINAPI asan_InterlockedExchange(
   if (Target != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 volatile*>(Target)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t volatile*>(Target)),
         sizeof(*Target),
         agent::asan::ASAN_READ_ACCESS);
   }
@@ -401,8 +401,8 @@ long WINAPI asan_InterlockedExchangeAdd(
   if (Addend != NULL) {
     TestMemoryRange(
         system_interceptor_shadow_,
-        const_cast<const uint8*>(
-            reinterpret_cast<const uint8 volatile*>(Addend)),
+        const_cast<const uint8_t*>(reinterpret_cast<
+            const uint8_t volatile*>(Addend)),
         sizeof(*Addend),
         agent::asan::ASAN_READ_ACCESS);
   }

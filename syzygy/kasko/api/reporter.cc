@@ -203,7 +203,7 @@ void SendReportForProcess(base::ProcessHandle process_handle,
 void ShutdownReporter() {
   scoped_ptr<Reporter> reporter(g_reporter);
   g_reporter = nullptr;
-  Reporter::Shutdown(reporter.Pass());
+  Reporter::Shutdown(std::move(reporter));
 
   DCHECK(g_dll_lifetime);
   delete g_dll_lifetime;

@@ -18,6 +18,8 @@
 #define SYZYGY_PDB_PDB_TYPE_INFO_STREAM_ENUM_H_
 
 #include <stdint.h>
+#include <unordered_map>
+
 #include "base/callback.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_data.h"
@@ -88,7 +90,7 @@ class TypeInfoEnumerator {
   TypeInfoHeader type_info_header_;
 
   // Map of the positions of records.
-  base::hash_map<uint32_t, size_t> start_positions_;
+  std::unordered_map<uint32_t, size_t> start_positions_;
 
   // The largest type index we already saved in the start_positions_ map. Every
   // time we seek beyond this record we simply load records one by one and save

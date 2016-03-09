@@ -207,7 +207,7 @@ class AutoWinHttpUrlProxyConfig {
 // Implements HttpResponse using the WinHTTP API.
 class HttpResponseImpl : public HttpResponse {
  public:
-  virtual ~HttpResponseImpl() override;
+  ~HttpResponseImpl() override;
 
   // Issues the request defined by its parameters and, if successful, returns an
   // HttpResponse that may be used to access the response. See HttpAgent::Post
@@ -221,13 +221,13 @@ class HttpResponseImpl : public HttpResponse {
                                          const std::string& body);
 
   // HttpResponse implementation.
-  virtual bool GetStatusCode(uint16_t* status_code) override;
-  virtual bool GetContentLength(bool* has_content_length,
-                                size_t* content_length) override;
-  virtual bool GetContentType(bool* has_content_type,
-                              base::string16* content_type) override;
-  virtual bool HasData(bool* has_data) override;
-  virtual bool ReadData(char* buffer, size_t* count) override;
+  bool GetStatusCode(uint16_t* status_code) override;
+  bool GetContentLength(bool* has_content_length,
+                        size_t* content_length) override;
+  bool GetContentType(bool* has_content_type,
+                      base::string16* content_type) override;
+  bool HasData(bool* has_data) override;
+  bool ReadData(char* buffer, size_t* count) override;
 
  private:
   HttpResponseImpl();
@@ -348,7 +348,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
     return scoped_ptr<HttpResponse>();
   }
 
-  return instance.Pass();
+  return std::move(instance);
 }
 
 bool HttpResponseImpl::GetStatusCode(uint16_t* status_code) {

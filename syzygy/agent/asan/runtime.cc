@@ -286,7 +286,7 @@ void SetEarlyCrashKeysForModernChrome(BreakpadFunctions breakpad_functions,
   base::Version version(v);
   if (!version.IsValid())
     return;
-  if (version.IsOlderThan("36.0.0.0"))
+  if (version < base::Version("36.0.0.0"))
     return;
 
   // Set a crash key that indicates that early crash keys were successfully

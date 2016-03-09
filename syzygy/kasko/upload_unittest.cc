@@ -53,7 +53,7 @@ class MockHttpAgent : public HttpAgent {
   };
 
   MockHttpAgent();
-  virtual ~MockHttpAgent() override;
+  ~MockHttpAgent() override;
 
   Expectations& expectations();
   void set_response(scoped_ptr<HttpResponse> response);
@@ -62,12 +62,12 @@ class MockHttpAgent : public HttpAgent {
   }
 
   // HttpAgent implementation
-  virtual scoped_ptr<HttpResponse> Post(const base::string16& host,
-                                        uint16_t port,
-                                        const base::string16& path,
-                                        bool secure,
-                                        const base::string16& extra_headers,
-                                        const std::string& body) override;
+  scoped_ptr<HttpResponse> Post(const base::string16& host,
+                                uint16_t port,
+                                const base::string16& path,
+                                bool secure,
+                                const base::string16& extra_headers,
+                                const std::string& body) override;
 
  private:
   Expectations expectations_;
@@ -89,7 +89,7 @@ MockHttpAgent::Expectations& MockHttpAgent::expectations() {
 }
 
 void MockHttpAgent::set_response(scoped_ptr<HttpResponse> response) {
-  response_ = response.Pass();
+  response_ = std::move(response);
 }
 
 scoped_ptr<HttpResponse> MockHttpAgent::Post(
@@ -137,7 +137,7 @@ scoped_ptr<HttpResponse> MockHttpAgent::Post(
 
   EXPECT_EQ(expectations_.host, host);
 
-  return response_.Pass();
+  return std::move(response_);
 }
 
 // An implementation of HttpResponse that may be configured to fail at any point
@@ -147,13 +147,13 @@ class MockHttpResponse : public HttpResponse {
   MockHttpResponse();
 
   // HttpResponse implementation
-  virtual bool GetStatusCode(uint16_t* status_code) override;
-  virtual bool GetContentLength(bool* has_content_length,
-                                size_t* content_length) override;
-  virtual bool GetContentType(bool* has_content_type,
-                              base::string16* content_type) override;
-  virtual bool HasData(bool* has_data) override;
-  virtual bool ReadData(char* buffer, size_t* count) override;
+  bool GetStatusCode(uint16_t* status_code) override;
+  bool GetContentLength(bool* has_content_length,
+                        size_t* content_length) override;
+  bool GetContentType(bool* has_content_type,
+                      base::string16* content_type) override;
+  bool HasData(bool* has_data) override;
+  bool ReadData(char* buffer, size_t* count) override;
 
   // Sets the values that will be returned by GetStatusCode().
   void set_status_code(bool success, uint16_t status_code);
@@ -287,7 +287,7 @@ void MockHttpResponse::set_data(const std::vector<std::string>& data) {
 
 class UploadTest : public testing::Test {
  protected:
-  virtual void SetUp() override {
+  void SetUp() override {
     agent().expectations().host = L"example.com";
     agent().expectations().port = 80;
     agent().expectations().secure = false;
@@ -328,7 +328,7 @@ TEST_F(UploadTest, PostSucceeds) {
   data.push_back(kResponse);
   data.push_back(std::string());
   mock_response->set_data(data);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -345,7 +345,7 @@ TEST_F(UploadTest, PostSucceedsSecure) {
   data.push_back(kResponse);
   data.push_back(std::string());
   mock_response->set_data(data);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
   agent().expectations().secure = true;
   agent().expectations().port = 443;
 
@@ -383,7 +383,7 @@ TEST_F(UploadTest, GetStatusFails) {
 
   scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   mock_response->set_status_code(false, 500);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -399,7 +399,7 @@ TEST_F(UploadTest, PostSucceedsInMultiplePackets) {
   data.push_back(kResponse2);
   data.push_back(std::string());
   mock_response->set_data(data);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -418,7 +418,7 @@ TEST_F(UploadTest, PostFailsInMultiplePackets) {
   // By omitting an empty packet here, we tell the MockHttpResponse to fail
   // after returning the above two packets.
   mock_response->set_data(data);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -431,7 +431,7 @@ TEST_F(UploadTest, TooMuchData) {
   data.push_back(std::string(8192, 'x'));
   data.push_back(std::string());
   mock_response->set_data(data);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -446,7 +446,7 @@ TEST_F(UploadTest, CorrectContentLength) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_length(true, true, kResponse.length());
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -463,7 +463,7 @@ TEST_F(UploadTest, UnderContentLength) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_length(true, true, kResponse.length() + 1);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -478,7 +478,7 @@ TEST_F(UploadTest, OverContentLength) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_length(true, true, kResponse.length() - 1);
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -494,7 +494,7 @@ TEST_F(UploadTest, OverContentLengthTwoPackets) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_length(true, true, kResponse.length());
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -509,7 +509,7 @@ TEST_F(UploadTest, CorrectContentTypeAndCharset) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_type(true, true, L"text/plain; charset=utf-8");
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -528,7 +528,7 @@ TEST_F(UploadTest, UnsupportedCharset) {
   mock_response->set_data(data);
   mock_response->set_content_type(true, true,
                                   L"text/plain; charset=iso-8859-1");
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -545,7 +545,7 @@ TEST_F(UploadTest, ASCIISubsetOfLatin1) {
   mock_response->set_data(data);
   mock_response->set_content_type(true, true,
                                   L"text/plain; charset=iso-8859-1");
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -562,7 +562,7 @@ TEST_F(UploadTest, UnsupportedContentType) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_type(true, true, L"text/html; charset=utf-8");
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -577,7 +577,7 @@ TEST_F(UploadTest, TextLabeledAsHTML) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_type(true, true, L"text/html; charset=utf-8");
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -594,7 +594,7 @@ TEST_F(UploadTest, CorrectContentTypeNoCharset) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_type(true, true, L"text/plain");
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;
@@ -612,7 +612,7 @@ TEST_F(UploadTest, WideResponse) {
   data.push_back(std::string());
   mock_response->set_data(data);
   mock_response->set_content_type(true, true, L"text/plain; charset=utf-16");
-  agent().set_response(mock_response.Pass());
+  agent().set_response(std::move(mock_response));
 
   base::string16 response_body;
   uint16_t response_code = 0;

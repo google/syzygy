@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/common/hot_patcher.h"
 
+#include <stdint.h>
 #include <windows.h>
 
 #include "base/logging.h"

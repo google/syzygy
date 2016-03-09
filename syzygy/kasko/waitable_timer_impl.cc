@@ -27,8 +27,8 @@ scoped_ptr<WaitableTimer> WaitableTimerImpl::Create(
   scoped_ptr<WaitableTimer> result;
   base::win::ScopedHandle handle(::CreateWaitableTimer(NULL, TRUE, NULL));
   if (handle.IsValid())
-    result.reset(new WaitableTimerImpl(handle.Pass(), interval));
-  return result.Pass();
+    result.reset(new WaitableTimerImpl(std::move(handle), interval));
+  return std::move(result);
 }
 
 WaitableTimerImpl::~WaitableTimerImpl() {}

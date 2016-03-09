@@ -15,6 +15,8 @@
 #ifndef SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 #define SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 
+#include <unordered_set>
+
 #include "base/observer_list.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/shadow.h"
@@ -130,9 +132,9 @@ class StackCaptureCache {
  protected:
   // The container type in which we store the cached stacks. This enforces
   // uniqueness based on their hash value, nothing more.
-  typedef base::hash_set<common::StackCapture*,
-                         common::StackCapture::HashCompare,
-                         common::StackCapture::HashCompare> StackSet;
+  typedef std::unordered_set<common::StackCapture*,
+                             common::StackCapture::HashCompare,
+                             common::StackCapture::HashCompare> StackSet;
 
   // Used for shuttling around statistics about this cache.
   struct Statistics {

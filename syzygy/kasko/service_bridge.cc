@@ -102,7 +102,7 @@ ServiceBridge::ServiceBridge(const base::string16& protocol,
                              scoped_ptr<Service> service)
     : protocol_(protocol),
       endpoint_(endpoint),
-      service_(service.Pass()),
+      service_(std::move(service)),
       running_(false) {
   // It's a bad idea to have two instances stepping on each other's toes.
   CHECK(!g_service_bridge);
@@ -149,7 +149,7 @@ bool ServiceBridge::Run() {
                    << ".";
       } else {
         running_ = true;
-        interface_registration_ = interface_registration.Pass();
+        interface_registration_ = std::move(interface_registration);
       }
     }
   }

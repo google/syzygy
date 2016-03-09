@@ -77,7 +77,7 @@ bool TestJSONSerialization(bool pretty_print) {
   DictionaryValue* metadata_dict = NULL;
   scoped_ptr<Value> value;
   if (success) {
-    value = base::JSONReader::Read(file_string).Pass();
+    value = std::move(base::JSONReader::Read(file_string));
     EXPECT_TRUE(success =
         (value.get() != NULL && value->GetType() == Value::TYPE_DICTIONARY));
     if (success)

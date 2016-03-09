@@ -152,10 +152,10 @@ TEST(StoryTest, TestSerialization) {
 
   // The following events will either be cross plot line dependencies or have
   // such dependencies.
-  scoped_ptr<LinkedEvent> linked_event1(new LinkedEvent(event1.Pass()));
-  scoped_ptr<LinkedEvent> linked_event2(new LinkedEvent(event2.Pass()));
-  scoped_ptr<LinkedEvent> linked_event4(new LinkedEvent(event4.Pass()));
-  scoped_ptr<LinkedEvent> linked_event5(new LinkedEvent(event5.Pass()));
+  scoped_ptr<LinkedEvent> linked_event1(new LinkedEvent(std::move(event1)));
+  scoped_ptr<LinkedEvent> linked_event2(new LinkedEvent(std::move(event2)));
+  scoped_ptr<LinkedEvent> linked_event4(new LinkedEvent(std::move(event4)));
+  scoped_ptr<LinkedEvent> linked_event5(new LinkedEvent(std::move(event5)));
 
   // Alloc depends on Create, as it would be on another thread.
   linked_event2->AddDep(linked_event1.get());
@@ -168,18 +168,18 @@ TEST(StoryTest, TestSerialization) {
   scoped_ptr<Story::PlotLine> plot_line2(new Story::PlotLine());
 
   // One plot line creates and frees the heap.
-  plot_line1->push_back(linked_event1.Pass());
-  plot_line1->push_back(linked_event5.Pass());
+  plot_line1->push_back(std::move(linked_event1));
+  plot_line1->push_back(std::move(linked_event5));
 
   // Another plot line owns the allocation.
-  plot_line2->push_back(linked_event2.Pass());
-  plot_line2->push_back(event3.Pass());
-  plot_line2->push_back(linked_event4.Pass());
+  plot_line2->push_back(std::move(linked_event2));
+  plot_line2->push_back(std::move(event3));
+  plot_line2->push_back(std::move(linked_event4));
 
   // Create a story to wrap it all up.
   Story story;
-  story.AddPlotLine(plot_line1.Pass());
-  story.AddPlotLine(plot_line2.Pass());
+  story.AddPlotLine(std::move(plot_line1));
+  story.AddPlotLine(std::move(plot_line2));
 
   EXPECT_TRUE(testing::TestSerialization(story));
 }

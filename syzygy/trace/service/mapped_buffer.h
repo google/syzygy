@@ -18,6 +18,8 @@
 #ifndef SYZYGY_TRACE_SERVICE_MAPPED_BUFFER_H_
 #define SYZYGY_TRACE_SERVICE_MAPPED_BUFFER_H_
 
+#include <stdint.h>
+
 #include "base/logging.h"
 
 namespace trace {

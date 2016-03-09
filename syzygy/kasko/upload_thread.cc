@@ -44,12 +44,12 @@ scoped_ptr<UploadThread> UploadThread::Create(
       ::CreateEvent(NULL, FALSE, FALSE, wake_event_name.c_str()));
   DPCHECK(wake_event.Get());
   if (mutex.Get() && stop_event.Get() && wake_event.Get()) {
-    instance.reset(new UploadThread(mutex.Pass(), stop_event.Pass(),
-                                    wake_event.Pass(), waitable_timer.Pass(),
-                                    uploader));
+    instance.reset(new UploadThread(std::move(mutex), std::move(stop_event),
+                                    std::move(wake_event),
+                                    std::move(waitable_timer), uploader));
   }
 
-  return instance.Pass();
+  return std::move(instance);
 }
 
 UploadThread::~UploadThread() {
@@ -140,7 +140,7 @@ UploadThread::UploadThread(base::win::ScopedHandle mutex,
     : mutex_(mutex.Take()),
       stop_event_(stop_event.Take()),
       wake_event_(wake_event.Take()),
-      waitable_timer_(waitable_timer.Pass()),
+      waitable_timer_(std::move(waitable_timer)),
       uploader_(uploader),
       thread_impl_(this) {
 }

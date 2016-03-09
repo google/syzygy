@@ -259,8 +259,8 @@ bool MatchSequenceNode(StructuralTree* current_node,
       end_node->get()->kind() != StructuralNode::kStopNode &&
       CheckDistinct(current_node, end_node)) {
     current_node->reset(new StructuralNode(StructuralNode::kSequenceNode,
-                                           current_node->Pass(),
-                                           end_node->Pass()));
+                                           std::move(*current_node),
+                                           std::move(*end_node)));
 
     // Remove internal links.
     RemoveLink(current_node, end_node, successor_links, predecessor_links);
@@ -303,8 +303,8 @@ bool MatchIfThenNode(StructuralTree* current_node,
       CheckUniqueLink(*predecessor_links, then_node, current_node) &&
       CheckDistinct(current_node, then_node)) {
     current_node->reset(new StructuralNode(StructuralNode::kIfThenNode,
-                                           current_node->Pass(),
-                                           then_node->Pass()));
+                                           std::move(*current_node),
+                                           std::move(*then_node)));
 
     // Remove internal links.
     RemoveLink(current_node, then_node, successor_links, predecessor_links);
@@ -350,10 +350,9 @@ bool MatchIfThenElseNode(StructuralTree* current_node,
       CheckUniqueLink(*predecessor_links, then_node, current_node) &&
       CheckUniqueLink(*predecessor_links, else_node, current_node) &&
       CheckDistinct(current_node, then_node, else_node)) {
-    current_node->reset(new StructuralNode(StructuralNode::kIfThenElseNode,
-                                           current_node->Pass(),
-                                           then_node->Pass(),
-                                           else_node->Pass()));
+    current_node->reset(new StructuralNode(
+        StructuralNode::kIfThenElseNode, std::move(*current_node),
+        std::move(*then_node), std::move(*else_node)));
 
     // Remove internal links.
     RemoveLink(current_node, then_node, successor_links, predecessor_links);
@@ -394,8 +393,8 @@ bool MatchRepeatNode(StructuralTree* current_node,
       SwapNode(swap, &body_node, &end_node) &&
       body_node == current_node &&
       body_node != end_node) {
-    current_node->reset(new StructuralNode(StructuralNode::kRepeatNode,
-                                           body_node->Pass()));
+    current_node->reset(
+        new StructuralNode(StructuralNode::kRepeatNode, std::move(*body_node)));
 
     // Remove internal links.
     RemoveLink(current_node, current_node, successor_links, predecessor_links);
@@ -438,8 +437,8 @@ bool MatchWhileNode(StructuralTree* current_node,
       CheckUniqueLink(*successor_links, body_node, current_node) &&
       CheckDistinct(current_node, body_node)) {
     current_node->reset(new StructuralNode(StructuralNode::kWhileNode,
-                                           current_node->Pass(),
-                                           body_node->Pass()));
+                                           std::move(*current_node),
+                                           std::move(*body_node)));
 
     // Remove internal links.
     RemoveLink(current_node, body_node, successor_links, predecessor_links);
@@ -475,7 +474,7 @@ bool MatchLoopNode(StructuralTree* current_node,
   if (MatchUniqueLink(*successor_links, current_node, &body_node) &&
       body_node == current_node) {
     current_node->reset(new StructuralNode(StructuralNode::kLoopNode,
-                                           current_node->Pass()));
+                                           std::move(*current_node)));
 
     // Remove internal links.
     RemoveLink(current_node, current_node, successor_links, predecessor_links);
@@ -574,17 +573,17 @@ StructuralNode::StructuralNode(Kind kind, const BasicCodeBlock* root)
 }
 
 StructuralNode::StructuralNode(Kind kind, StructuralTree entry_node)
-    : kind_(kind), root_(NULL),
-      entry_node_(entry_node.Pass()) {
+    : kind_(kind), root_(NULL), entry_node_(std::move(entry_node)) {
   root_ = entry_node_->root();
 }
 
 StructuralNode::StructuralNode(Kind kind,
                                StructuralTree entry_node,
                                StructuralTree child1)
-    : kind_(kind), root_(NULL),
-      entry_node_(entry_node.Pass()),
-      child1_(child1.Pass()) {
+    : kind_(kind),
+      root_(NULL),
+      entry_node_(std::move(entry_node)),
+      child1_(std::move(child1)) {
   root_ = entry_node_->root();
 }
 
@@ -592,10 +591,11 @@ StructuralNode::StructuralNode(Kind kind,
                                StructuralTree entry_node,
                                StructuralTree child1,
                                StructuralTree child2)
-    : kind_(kind), root_(NULL),
-      entry_node_(entry_node.Pass()),
-      child1_(child1.Pass()),
-      child2_(child2.Pass()) {
+    : kind_(kind),
+      root_(NULL),
+      entry_node_(std::move(entry_node)),
+      child1_(std::move(child1)),
+      child2_(std::move(child2)) {
   root_ = entry_node_->root();
 }
 
@@ -781,7 +781,7 @@ bool ControlFlowAnalysis::BuildStructuralTree(
       CheckUniqueLink(predecessor_links, reduced_tree, &start_node) &&
       CheckUniqueLink(successor_links, reduced_tree, &stop_node) &&
       CheckUniqueLink(predecessor_links, &stop_node, reduced_tree)) {
-    *tree = reduced_tree->Pass();
+    *tree = std::move(*reduced_tree);
     return true;
   }
 

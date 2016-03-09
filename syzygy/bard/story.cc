@@ -33,7 +33,7 @@ using events::LinkedEvent;
 
 Story::PlotLine* Story::AddPlotLine(scoped_ptr<PlotLine> plot_line) {
   PlotLine* pl = plot_line.get();
-  plot_lines_.push_back(plot_line.Pass());
+  plot_lines_.push_back(std::move(plot_line));
   return pl;
 }
 
@@ -117,10 +117,10 @@ bool Story::Load(core::InArchive* in_archive) {
         linked_events_by_id.push_back(linked_event);
       }
 
-      plot_line->push_back(event.Pass());
+      plot_line->push_back(std::move(event));
     }
 
-    plot_lines_.push_back(plot_line.Pass());
+    plot_lines_.push_back(std::move(plot_line));
   }
 
   // Deserialize event dependencies.

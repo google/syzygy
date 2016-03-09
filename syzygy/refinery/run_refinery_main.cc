@@ -68,17 +68,17 @@ bool Analyze(const Minidump& minidump, ProcessState* process_state) {
   AnalysisRunner runner;
 
   scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
+  runner.AddAnalyzer(std::move(analyzer));
   analyzer.reset(new refinery::ThreadAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
+  runner.AddAnalyzer(std::move(analyzer));
   analyzer.reset(new refinery::ExceptionAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
+  runner.AddAnalyzer(std::move(analyzer));
   analyzer.reset(new refinery::ModuleAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
+  runner.AddAnalyzer(std::move(analyzer));
   analyzer.reset(new refinery::HeapAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
+  runner.AddAnalyzer(std::move(analyzer));
   analyzer.reset(new refinery::StackAnalyzer());
-  runner.AddAnalyzer(analyzer.Pass());
+  runner.AddAnalyzer(std::move(analyzer));
 
   scoped_refptr<refinery::SymbolProvider> symbol_provider(
       new refinery::SymbolProvider());

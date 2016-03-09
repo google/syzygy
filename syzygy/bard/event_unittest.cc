@@ -94,7 +94,7 @@ void EventSerializationTest() {
   core::ScopedInStreamPtr in_stream;
   in_stream.reset(core::CreateByteInStream(bytes.begin(), bytes.end()));
   core::NativeBinaryInArchive in_archive(in_stream.get());
-  scoped_ptr<EventInterface> e1 = EventInterface::Load(&in_archive).Pass();
+  scoped_ptr<EventInterface> e1 = std::move(EventInterface::Load(&in_archive));
   EXPECT_NE(static_cast<EventInterface*>(nullptr), e1.get());
 
   EXPECT_TRUE(e0->Equals(e1.get()));

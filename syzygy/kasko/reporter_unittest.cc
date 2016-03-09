@@ -144,7 +144,7 @@ class ReporterTest : public ::testing::Test {
   ReporterTest()
       : test_instance_key_(base::UintToString(base::GetCurrentProcId())) {}
 
-  virtual void SetUp() override {
+  void SetUp() override {
     ASSERT_TRUE(server_.Start());
     ASSERT_TRUE(temp_directory_.CreateUniqueTempDir());
   }
@@ -243,7 +243,7 @@ TEST_F(ReporterTest, BasicTest) {
   EXPECT_TRUE(upload_success);
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
-  Reporter::Shutdown(instance.Pass());
+  Reporter::Shutdown(std::move(instance));
 
   auto entry = crash_keys.find(base::UTF16ToASCII(kCrashKey1Name));
   ASSERT_NE(entry, crash_keys.end());
@@ -288,7 +288,7 @@ TEST_F(ReporterTest, NoCallback) {
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 
-  Reporter::Shutdown(instance.Pass());
+  Reporter::Shutdown(std::move(instance));
 }
 
 TEST_F(ReporterTest, SendReportForProcessTest) {
@@ -318,7 +318,7 @@ TEST_F(ReporterTest, SendReportForProcessTest) {
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 
-  Reporter::Shutdown(instance.Pass());
+  Reporter::Shutdown(std::move(instance));
 
   ASSERT_FALSE(report_id.empty());
 }
@@ -350,7 +350,7 @@ TEST_F(ReporterTest, PermanentFailureTest) {
   EXPECT_HRESULT_SUCCEEDED(
       testing::VisitMinidump(minidump_path, base::Bind(&ValidateMinidump)));
 
-  Reporter::Shutdown(instance.Pass());
+  Reporter::Shutdown(std::move(instance));
 
   ASSERT_TRUE(report_id.empty());
 }

@@ -533,7 +533,7 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
     }
   }
 
-  thread_data->plot_line->push_back(evt.Pass());
+  thread_data->plot_line->push_back(std::move(evt));
   thread_data->timestamps.push_back(data->timestamp);
   return true;
 }
@@ -566,7 +566,7 @@ MemReplayGrinder::ProcessData* MemReplayGrinder::FindOrCreateProcessData(
   it = process_data_map_.insert(it, std::make_pair(process_id, ProcessData()));
   it->second.process_id = process_id;
   it->second.story = story.get();
-  stories_.push_back(story.Pass());
+  stories_.push_back(std::move(story));
   return &it->second;
 }
 

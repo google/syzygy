@@ -20,8 +20,10 @@ vars = {
 
   # Paths to installed utilities used in hooks. These need to use
   # Windows style paths.
-  "python_path": "src\\third_party\\python_26\\python.exe",
   "gyp_path": "src\\syzygy\\build\\gyp_main.py",
+
+  # This is expected to be Python 2.7 from depot_tools.
+  "python_path": "python"
 }
 
 deps = {
@@ -88,6 +90,14 @@ hooks = [
                "-o", "src\\syzygy\\build\\LASTCHANGE.gen"],
   },
   {
+    "name": "generate_base_lastchange",
+    "pattern": ".",
+    "action": [Var("python_path"),
+               "src\\build\\util\\lastchange.py",
+               "-s", "src\\base",
+               "-o", "src\\build\\util\\LASTCHANGE"],
+  },
+  {
     "name": "generate_timestamp",
     "pattern": ".",
     "action": [Var("python_path"),
@@ -98,7 +108,8 @@ hooks = [
     # Update the Windows toolchain if necessary.
     'name': 'win_toolchain',
     'pattern': '.',
-    'action': ['python', 'src/syzygy/build/vs_toolchain_wrapper.py', 'update'],
+    'action': [Var("python_path"), 'src/syzygy/build/vs_toolchain_wrapper.py',
+               'update'],
   },
   {
     "name": "run_gyp",
@@ -125,7 +136,7 @@ hooks = [
   {
     'name': 'syzygy-binaries',
     'pattern': '.',
-    'action': ['python',
+    'action': [Var("python_path"),
                'src/syzygy/build/get_syzygy_binaries.py',
                '--output-dir=src/syzygy/binaries',
                '--revision=0645c685e783c6787acb8f6e1dade4f916605fc1',

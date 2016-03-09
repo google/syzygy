@@ -17,6 +17,7 @@
 #ifndef SYZYGY_ASSM_LABEL_BASE_H_
 #define SYZYGY_ASSM_LABEL_BASE_H_
 
+#include <stdint.h>
 #include <vector>
 
 #include "base/macros.h"
