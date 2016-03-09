@@ -74,8 +74,6 @@ void HeapBackdrop::UpdateStats(EventType type, uint64_t time) {
 }
 
 bool HeapBackdrop::TearDown() {
-  DCHECK(!heap_destroy_.is_null());
-
   // Destroy heaps created via AddExistingHeap.
   for (auto live_heap : existing_heaps_) {
     HANDLE trace_heap = nullptr;
@@ -95,6 +93,7 @@ bool HeapBackdrop::TearDown() {
 
   // Handle any other heaps that were created via the HeapDestroy callback.
   for (auto heap_pair : heap_map_.live_trace()) {
+    DCHECK(!heap_destroy_.is_null());
     if (!heap_destroy_.Run(heap_pair.first))
       return false;
   }

@@ -73,8 +73,9 @@ bool TraceLiveMap<T>::RemoveMapping(T trace, T live) {
 
 template <typename T>
 bool TraceLiveMap<T>::GetLiveFromTrace(T trace, T* live) {
+  DCHECK_NE(static_cast<T*>(nullptr), live);
   if (trace == nullptr) {
-    live = nullptr;
+    *live = nullptr;
     return true;
   }
 
@@ -92,8 +93,9 @@ bool TraceLiveMap<T>::GetLiveFromTrace(T trace, T* live) {
 
 template <typename T>
 bool TraceLiveMap<T>::GetTraceFromLive(T live, T* trace) {
-  if (trace == nullptr) {
-    live = nullptr;
+  DCHECK_NE(static_cast<T*>(nullptr), trace);
+  if (live == nullptr) {
+    *trace = nullptr;
     return true;
   }
 

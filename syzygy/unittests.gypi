@@ -44,6 +44,9 @@
       '<(src)/syzygy/agent/memprof/memprof.gyp:memprof_unittests',
       '<(src)/syzygy/agent/profiler/profiler.gyp:profile_unittests',
 
+      # Bard unittests.
+      '<(src)/syzygy/bard/bard.gyp:bard_unittests',
+
       # Block graph tests.
       '<(src)/syzygy/block_graph/block_graph.gyp:block_graph_unittests',
       '<(src)/syzygy/block_graph/analysis/block_graph_analysis.gyp:'

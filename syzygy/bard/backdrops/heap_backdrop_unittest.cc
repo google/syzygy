@@ -58,15 +58,15 @@ TEST(HeapBackdropTest, SetProcessHeap) {
   EXPECT_TRUE(backdrop.alloc_map().Empty());
   EXPECT_TRUE(backdrop.heap_map().Empty());
 
-  void* ph = reinterpret_cast<void*>(0xDEADBEEF);
-  backdrop.SetProcessHeap(ph);
+  void* trace_ph = reinterpret_cast<void*>(0xDEADBEEF);
+  backdrop.SetProcessHeap(trace_ph);
   EXPECT_TRUE(backdrop.alloc_map().Empty());
   EXPECT_FALSE(backdrop.heap_map().Empty());
   void* live_ph = ::GetProcessHeap();
   void* ret = nullptr;
-  EXPECT_TRUE(backdrop.alloc_map().GetTraceFromLive(live_ph, &ret));
-  EXPECT_EQ(ret, ph);
-  EXPECT_TRUE(backdrop.alloc_map().GetLiveFromTrace(ph, &ret));
+  EXPECT_TRUE(backdrop.heap_map().GetTraceFromLive(live_ph, &ret));
+  EXPECT_EQ(ret, trace_ph);
+  EXPECT_TRUE(backdrop.heap_map().GetLiveFromTrace(trace_ph, &ret));
   EXPECT_EQ(ret, live_ph);
 
   EXPECT_TRUE(backdrop.TearDown());
@@ -82,7 +82,7 @@ TEST(HeapBackdropTest, AddExistingHeap) {
   EXPECT_TRUE(backdrop.alloc_map().Empty());
   EXPECT_FALSE(backdrop.heap_map().Empty());
   void* ret = nullptr;
-  EXPECT_TRUE(backdrop.alloc_map().GetLiveFromTrace(eh, &ret));
+  EXPECT_TRUE(backdrop.heap_map().GetLiveFromTrace(eh, &ret));
   EXPECT_TRUE(ret != nullptr);
 
   EXPECT_TRUE(backdrop.TearDown());
