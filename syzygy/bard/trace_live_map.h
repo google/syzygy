@@ -31,6 +31,8 @@ namespace bard {
 template <typename T>
 class TraceLiveMap {
  public:
+  using Map = std::map<T, T>;
+
   bool AddMapping(T trace, T live);
   bool RemoveMapping(T trace, T live);
 
@@ -43,9 +45,15 @@ class TraceLiveMap {
   // @returns true iff this map is empty.
   bool Empty() const { return trace_live_.empty() && live_trace_.empty(); }
 
+  // @name Simple accessors.
+  // @{
+  const Map& trace_live() const { return trace_live_; }
+  const Map& live_trace() const { return live_trace_; }
+  // @}
+
  private:
-  std::map<T, T> trace_live_;
-  std::map<T, T> live_trace_;
+  Map trace_live_;
+  Map live_trace_;
 
   base::Lock lock_;
 };

@@ -73,5 +73,52 @@ void HeapBackdrop::UpdateStats(EventType type, uint64_t time) {
   stats->second.time += time;
 }
 
+bool HeapBackdrop::TearDown() {
+  DCHECK(!heap_destroy_.is_null());
+
+  // Destroy heaps created via AddExistingHeap.
+  for (auto live_heap : existing_heaps_) {
+    HANDLE trace_heap = nullptr;
+    if (!heap_map_.GetTraceFromLive(live_heap, &trace_heap))
+      return false;
+    ::HeapDestroy(live_heap);
+    // This can only fail under racy use of this class.
+    CHECK(heap_map_.RemoveMapping(trace_heap, live_heap));
+  }
+
+  // Remove the heap created by SetProcessHeap. This can only fail under racy
+  // use of this class.
+  HANDLE live_ph = ::GetProcessHeap();
+  HANDLE trace_ph = nullptr;
+  if (heap_map_.GetTraceFromLive(live_ph, &trace_ph))
+    CHECK(heap_map_.RemoveMapping(trace_ph, live_ph));
+
+  // Handle any other heaps that were created via the HeapDestroy callback.
+  for (auto heap_pair : heap_map_.live_trace()) {
+    if (!heap_destroy_.Run(heap_pair.first))
+      return false;
+  }
+  heap_map_.Clear();
+
+  // Since the heaps are clear, also clear the maps.
+  alloc_map_.Clear();
+  existing_heaps_.clear();
+
+  return true;
+}
+
+bool HeapBackdrop::SetProcessHeap(void* proc_heap) {
+  HANDLE ph = ::GetProcessHeap();
+  return heap_map_.AddMapping(proc_heap, ph);
+}
+
+bool HeapBackdrop::AddExistingHeap(void* heap) {
+  HANDLE h = ::HeapCreate(0, 0, 0);
+  if (!h)
+    return false;
+  existing_heaps_.push_back(h);
+  return heap_map_.AddMapping(heap, h);
+}
+
 }  // namespace backdrops
 }  // namespace bard
