@@ -29,27 +29,6 @@ import test_utils.testing as testing  # pylint: disable=F0401
 import test_utils.syzygy as syzygy  # pylint: disable=F0401
 
 
-class MsvsBuildAll(testing.Test):
-  """A test that checks to see if the 'build_all' target succeeds via MSVS."""
-
-  def __init__(self):
-    testing.Test.__init__(
-        self, syzygy.MSVS_BUILD_DIR, syzygy.SYZYGY_TARGET, True)
-
-  def _Run(self, configuration):
-    try:
-      testing.BuildProjectConfig(
-          syzygy.SYZYGY_SLN, [syzygy.SYZYGY_TARGET], [configuration])
-    except testing.BuildFailure:
-      # Recast this error as a test failure.
-      raise testing.TestFailure, sys.exc_info()[1], sys.exc_info()[2]
-
-    return True
-
-  def _Touch(self, configuration):
-    self._Run(configuration)
-
-
 class NinjaBuildAll(testing.Test):
   """A test that checks to see if the 'build_all' target succeeds via Ninja."""
 
@@ -68,10 +47,7 @@ class NinjaBuildAll(testing.Test):
 
 
 def MakeTest():
-  if syzygy.UseNinjaBuild():
-    return NinjaBuildAll()
-  # Otherwise default to the MSVS builder.
-  return MsvsBuildAll()
+  return NinjaBuildAll()
 
 
 if __name__ == '__main__':

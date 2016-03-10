@@ -79,11 +79,8 @@ class GypTests(testing.TestSuite):
     if not os.path.exists(gyp_path):
       raise Error('gyp file "%s" does not exist.' % (gyp_path))
 
-    self._use_ninja = syzygy.UseNinjaBuild()
     self._project_dir = os.path.dirname(gyp_path)
-    self._build_dir = syzygy.MSVS_BUILD_DIR
-    if self._use_ninja:
-      self._build_dir = syzygy.NINJA_BUILD_DIR
+    self._build_dir = syzygy.NINJA_BUILD_DIR
 
     testing.TestSuite.__init__(self, self._build_dir, name, [])
 

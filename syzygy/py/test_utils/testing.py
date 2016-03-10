@@ -14,7 +14,6 @@
 
 """Defines a collection of classes for running unit-tests."""
 
-import build_project
 import cStringIO
 import datetime
 import hashlib
@@ -33,11 +32,6 @@ _LOGGER = logging.getLogger(os.path.basename(__file__))
 
 class Error(Exception):
   """An error class used for reporting problems while running tests."""
-  pass
-
-
-class BuildFailure(Error):
-  """The error thrown to indicate that BuildProjectConfig has failed."""
   pass
 
 
@@ -61,18 +55,6 @@ def AddThirdPartyToPath():
 
 AddThirdPartyToPath()
 import colorama
-
-
-def BuildProjectConfig(*args, **kwargs):
-  """Wraps build_project.BuildProjectConfig, but ensures that if it throws
-  an error it is of type testing.Error.
-  """
-  try:
-    build_project.BuildProjectConfig(*args, **kwargs)
-  except build_project.Error:
-    # Convert the exception to an instance of testing.BuildFailure, but preserve
-    # the original message and stack-trace.
-    raise BuildFailure, sys.exc_info()[1], sys.exc_info()[2]
 
 
 def RunCommand(cmd, *args, **kwargs):
