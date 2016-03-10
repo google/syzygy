@@ -64,8 +64,11 @@ class TestRunner : public base::DelegateSimpleThread::Delegate {
 
 class LinkedEventTest : public testing::Test {
  public:
+  // The backdrop isn't used, but can't be null. Simply generate a dummy
+  // address.
   LinkedEventTest()
-      : linked_event1_(scoped_ptr<EventInterface>(new TestEvent())),
+      : empty_backdrop_(reinterpret_cast<void*>(0xBAADF00D)),
+        linked_event1_(scoped_ptr<EventInterface>(new TestEvent())),
         linked_event2_(scoped_ptr<EventInterface>(new TestEvent())),
         linked_event3_(scoped_ptr<EventInterface>(new TestEvent())),
         runner1_(&linked_event1_, empty_backdrop_),
