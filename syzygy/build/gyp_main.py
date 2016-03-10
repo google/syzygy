@@ -69,7 +69,8 @@ def apply_syzygy_gyp_env(syzygy_src_path):
   if 'SKIP_SYZYGY_GYP_ENV' not in os.environ:
     # Update the environment based on syzygy.gyp_env
     path = os.path.join(syzygy_src_path, 'syzygy.gyp_env')
-    if not apply_gyp_environment_from_file(path):
+    if (not apply_gyp_environment_from_file(path) or
+        not os.environ.get('GYP_GENERATORS')):
       # Default to ninja if no generator has explicitly been set.
       os.environ['GYP_GENERATORS'] = 'ninja'
 
@@ -80,6 +81,11 @@ if __name__ == '__main__':
   src_dir = os.path.abspath(os.path.join(self_dir, '..', '..'))
 
   apply_syzygy_gyp_env(src_dir)
+  assert os.environ.get('GYP_GENERATORS')
+
+  if os.environ.get('GYP_GENERATORS') == 'msvs':
+    print 'ERROR: The \'msvs\' configuration isn\'t supported anymore.'
+    sys.exit(1)
 
   # Get the path to src/build. This contains a bunch of gyp
   # 'plugins' that get called by common.gypi and base.gyp.
