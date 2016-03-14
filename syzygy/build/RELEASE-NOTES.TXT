@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.14.1
+
+[35cb04163a] SyzyASan - Fix to prevent instrumentation of NOP instructions.
+
 Version 0.8.14.0
 
 [fce63bdc64] Add a fix to support the I_FXSAVE and I_FXRSTOR instructions.
