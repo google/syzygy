@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.14.2
+
+[2e9b159d91] Fixed broken build step.
+
 Version 0.8.14.1
 
 [35cb04163a] SyzyASan - Fix to prevent instrumentation of NOP instructions.
