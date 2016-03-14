@@ -70,6 +70,7 @@
             '<(success_file)',
           ],
           'action': [
+            '<(src)/syzygy/scripts/clear_python_env.bat',
             '<(PRODUCT_DIR)/py/scripts/python',
             '<(script_file)',
             '--setup-file', '<(setup_file)',
@@ -113,6 +114,7 @@
             '<(success_file)',
           ],
           'action': [
+            '<(src)/syzygy/scripts/clear_python_env.bat',
             '<(PRODUCT_DIR)/py/scripts/python',
             '<(script_file)',
             '--setup-file', '<(setup_file)',

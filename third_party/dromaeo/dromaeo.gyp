@@ -64,7 +64,7 @@
             '<(PRODUCT_DIR)/dromaeo.zip',
           ],
           'action': [
-            'python',
+            '<(python_exe)',
             '-m', 'zipfile',
             '-c', '<(PRODUCT_DIR)/dromaeo.zip',
             '<@(source_files)',
