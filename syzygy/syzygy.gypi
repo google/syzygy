@@ -22,7 +22,7 @@
 
     # Make sure we use the bundled version of python rather than any others
     # installed on the system,
-    'python_exe': '<(DEPTH)/syzygy/build/python.bat',
+    'python_exe': '<(DEPTH)/syzygy/build/python26.bat',
 
     # This allows us to decouple the repository root from '<(DEPTH)', as
     # the relative depth of a pure git repository and an SVN repository
