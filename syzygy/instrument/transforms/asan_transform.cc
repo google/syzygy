@@ -171,6 +171,11 @@ bool DecodeMemoryAccess(const Instruction& instr,
   DCHECK(info != NULL);
   const _DInst& repr = instr.representation();
 
+  // Don't instrument NOP instructions. These can often make reference to
+  // registers, but their contents aren't actually meaningful.
+  if (core::IsNop(repr))
+    return false;
+
   // Figure out which operand we're instrumenting.
   size_t mem_op_id = SIZE_MAX;
   if (IsInstrumentable(repr.ops[0]) && IsInstrumentable(repr.ops[1])) {

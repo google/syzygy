@@ -371,6 +371,34 @@ TEST_F(AsanTransformTest, ApplyAsanTransformCoff) {
       &asan_transform_, policy_, &block_graph_, header_block_));
 }
 
+TEST_F(AsanTransformTest, NopsNotInstrumented) {
+  // Add all of the nops to the block.
+  static const size_t kMaxNopSize =
+      block_graph::BasicBlockAssembler::kMaxNopInstructionSize;
+  for (size_t i = 1; i <= kMaxNopSize; ++i)
+    bb_asm_->nop(i);
+
+  // Add source ranges to the instruction.
+  block_graph::Instruction& i1 = *basic_block_->instructions().begin();
+  Instruction::SourceRange source_range =
+      Instruction::SourceRange(RelativeAddress(1000), i1.size());
+  i1.set_source_range(source_range);
+
+  // Instrument this basic block.
+  InitHooksRefs();
+  TestAsanBasicBlockTransform bb_transform(&hooks_check_access_ref_);
+  ASSERT_TRUE(bb_transform.InstrumentBasicBlock(
+      basic_block_,
+      AsanBasicBlockTransform::kSafeStackAccess,
+      BlockGraph::PE_IMAGE));
+
+  // Expect that no instrumentation happened.
+  EXPECT_FALSE(bb_transform.instrumentation_happened());
+
+  // Expect the same number of instructions as before the instrumentation.
+  ASSERT_EQ(basic_block_->instructions().size(), kMaxNopSize);
+}
+
 TEST_F(AsanTransformTest, InjectAsanHooksPe) {
   // Add a read access to the memory.
   bb_asm_->mov(assm::eax, block_graph::Operand(assm::ebx));

@@ -40,6 +40,11 @@ class AssemblerBase {
   typedef OperandBase<ReferenceType> Operand;
   typedef LabelBase<ReferenceType> Label;
 
+  // The maximum size of a single NOP instruction. Any NOPs generated beyond
+  // this length will actually consist of multiple consecutive NOP
+  // instructions.
+  static const size_t kMaxNopInstructionSize = 11;
+
   // Tracks a single embedded reference in the instruction.
   struct ReferenceInfo {
     size_t offset;
