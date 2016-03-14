@@ -102,6 +102,7 @@
             '<(success_file)',
           ],
           'action': [
+            '<(src)/syzygy/scripts/clear_python_env.bat',
             '<(PRODUCT_DIR)/py/scripts/python',
             '<(script_file)',
             '--setup-file', '<(setup_file)',
@@ -109,7 +110,7 @@
             '--success-file', '<(success_file)',
             '--',
             'install_data',
-                '--exe-dir', '<(PRODUCT_DIR)',
+            '--exe-dir', '<(PRODUCT_DIR)',
           ],
         },
       ],
@@ -145,6 +146,7 @@
             '<(PRODUCT_DIR)/profile.bat',
           ],
           'action': [
+            '<(src)/syzygy/scripts/clear_python_env.bat',
             '<(PRODUCT_DIR)/py/scripts/python',
             'zip_benchmark.py',
             '--root-dir',

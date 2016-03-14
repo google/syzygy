@@ -13,20 +13,18 @@
 :: See the License for the specific language governing permissions and
 :: limitations under the License.
 
-:: Save original Python environment variables.
+:: Wrapper script for clearing the Python environment variables before
+:: delegating to the specified command.
+
+:: Save original Python environment variables and clear the Python paths.
 set OLD_PYTHONHOME=%PYTHONHOME%
 set OLD_PYTHONPATH=%PYTHONPATH%
-
-:: Build paths to Syzygy's baked in Python version. Clear any paths that are set
-:: externally, which likely reference depot_tools Python.
-set SYZYGY_PYTHON="%~dp0..\..\third_party\python_26\python.exe"
 set PYTHONHOME=
 set PYTHONPATH=
 
-%SYZYGY_PYTHON% %*
+%*
 
 :: Restore the environment.
-set SYZYGY_PYTHON=
 set PYTHONHOME=%OLD_PYTHONHOME%
 set PYTHONPATH=%OLD_PYTHONPATH%
 set OLD_PYTHONHOME=
