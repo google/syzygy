@@ -18,21 +18,8 @@
 # builder.
 
 {
-  'conditions': [
-    ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
-      'variables': {
-        'lib_dir': '<(PRODUCT_DIR)',
-      },
-    }],
-    ['"<(GENERATOR)"=="msvs"', {
-      'variables': {
-        'lib_dir': '<(PRODUCT_DIR)/lib',
-      },
-    }],
-  ],
-
   'variables': {
-    'lib_dir': '<(lib_dir)',
+    'lib_dir': '<(PRODUCT_DIR)',
 
     'binaries': [
       '<(PRODUCT_DIR)/kasko.dll',

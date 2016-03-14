@@ -208,19 +208,8 @@
     {
       'target_name': 'pe_unittests',
       'type': 'executable',
-      'variables': {
-        'conditions': [
-          ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
-            'test_dll_object_file':
-                'obj/syzygy/pe/test_dll.test_dll.obj',
-          }],
-          ['"<(GENERATOR)"=="msvs"', {
-            'test_dll_object_file': 'obj/test_dll/test_dll.obj',
-          }],
-        ],
-      },
       'defines': [
-        'TEST_DLL_OBJECT_FILE="<(test_dll_object_file)"',
+        'TEST_DLL_OBJECT_FILE="obj/syzygy/pe/test_dll.test_dll.obj"',
       ],
       'sources': [
         'coff_decomposer_unittest.cc',

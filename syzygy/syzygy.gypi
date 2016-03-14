@@ -22,7 +22,7 @@
 
     # Make sure we use the bundled version of python rather than any others
     # installed on the system,
-    'python_exe': '<(DEPTH)/third_party/python_26/python.exe',
+    'python_exe': '<(DEPTH)/syzygy/build/python.bat',
 
     # This allows us to decouple the repository root from '<(DEPTH)', as
     # the relative depth of a pure git repository and an SVN repository
@@ -33,14 +33,7 @@
     # file.
     'test_isolation_mode': 'noop',
 
-    'conditions': [
-      ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
-        'output_dir_prefix': 'out',
-      }],
-      ['"<(GENERATOR)"=="msvs"', {
-        'output_dir_prefix': 'build',
-      }],
-    ],
+    'output_dir_prefix': 'out',
 
     'msvs_xtree_patched%': '0',
 

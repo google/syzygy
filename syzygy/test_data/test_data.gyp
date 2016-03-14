@@ -48,24 +48,13 @@
       'copies': [
         {
           'destination': '<(PRODUCT_DIR)/test_data',
-          'conditions': [
+          'files': [
             # We rely on pe.gyp:test_dll producing these
             # intermediate/auxiliary output files.
-            ['"<(GENERATOR)"=="ninja" or "<(GENERATOR)"=="msvs-ninja"', {
-              'files': [
-                '<(PRODUCT_DIR)/obj/syzygy/pe/test_dll.gen/'
-                    'test_dll_label_test_func.obj',
-                '<(PRODUCT_DIR)/export_dll.dll.lib',
-                '<(PRODUCT_DIR)/obj/syzygy/pe/test_dll_no_private_symbols.lib',
-              ],
-            }],
-            ['"<(GENERATOR)"=="msvs"', {
-              'files': [
-                '<(PRODUCT_DIR)/obj/test_dll/test_dll_label_test_func.obj',
-                '<(PRODUCT_DIR)/lib/export_dll.dll.lib',
-                '<(PRODUCT_DIR)/lib/test_dll_no_private_symbols.lib',
-              ],
-            }],
+            '<(PRODUCT_DIR)/obj/syzygy/pe/test_dll.gen/'
+                'test_dll_label_test_func.obj',
+            '<(PRODUCT_DIR)/export_dll.dll.lib',
+            '<(PRODUCT_DIR)/obj/syzygy/pe/test_dll_no_private_symbols.lib',
           ],
         },
       ],
