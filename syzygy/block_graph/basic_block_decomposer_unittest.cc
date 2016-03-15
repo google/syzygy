@@ -476,6 +476,19 @@ TEST_F(BasicBlockDecomposerTest, HasInlineAssembly) {
   }
 }
 
+TEST_F(BasicBlockDecomposerTest, FailsForBrokenInlineAssembly) {
+  static const uint8_t kInvalidInstruction[] = { 0xF0, 0x0F };
+  auto block = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, sizeof(kInvalidInstruction), "foo");
+  block->SetData(kInvalidInstruction, sizeof(kInvalidInstruction));
+  block->set_attribute(BlockGraph::HAS_INLINE_ASSEMBLY);
+
+  BasicBlockSubGraph bbsg;
+  BasicBlockDecomposer bbd(block, &bbsg);
+  ASSERT_FALSE(bbd.Decompose());
+  EXPECT_FALSE(bbd.contains_unsupported_instructions());
+}
+
 TEST_F(BasicBlockDecomposerTest, ContainsJECXZ) {
   ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
   BlockGraph::Block* jecxz = block_graph_.AddBlock(

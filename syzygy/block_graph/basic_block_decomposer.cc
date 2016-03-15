@@ -157,7 +157,15 @@ bool BasicBlockDecomposer::Decompose() {
     CHECK(!disassembled);
     return false;
   }
-  CHECK(disassembled);
+
+  // It's entirely possible for the policy object to have allowed
+  // decomposition of a function that contains assembly. In this case the
+  // decomposition may fail. However that is the only case in which this
+  // should fail.
+  if (!disassembled) {
+    CHECK(block_->attributes() & BlockGraph::HAS_INLINE_ASSEMBLY);
+    return false;
+  }
 
   // Don't bother with the following bookkeeping work if the results aren't
   // being looked at.
