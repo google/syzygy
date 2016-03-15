@@ -908,6 +908,30 @@ bool DumpDefRangeSymRegisterRel(FILE* out,
   return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
 }
 
+bool DumpInlineSiteSym(FILE* out,
+                       PdbStream* stream,
+                       uint16_t len,
+                       uint8_t indent_level) {
+  size_t bytes_left = len;
+
+  // Read the fixed part.
+  size_t to_read = offsetof(InlineSiteSym, binaryAnnotations);
+  size_t bytes_read = 0;
+  InlineSiteSym sym;
+  if (!stream->ReadBytes(&sym, to_read, &bytes_read) || bytes_read != to_read) {
+    LOG(ERROR) << "Unable to read symbol record.";
+    return false;
+  }
+  bytes_left -= bytes_read;
+
+  DumpIndentedText(out, indent_level, "pParent: 0x%08X\n", sym.pParent);
+  DumpIndentedText(out, indent_level, "pEnd: 0x%08X\n", sym.pEnd);
+  DumpIndentedText(out, indent_level, "inlinee: 0x%08X\n", sym.inlinee);
+
+  DumpIndentedText(out, indent_level, "binaryAnnotations:\n");
+  return DumpUnknownBlock(out, stream, bytes_left, indent_level + 1);
+}
+
 bool DumpDefRangeSym(FILE* out,
                      PdbStream* stream,
                      uint16_t len,

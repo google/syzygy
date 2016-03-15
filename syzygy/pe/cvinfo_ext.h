@@ -22,6 +22,7 @@
 
 #include "syzygy/common/assertions.h"
 #include "third_party/cci/files/cvinfo.h"
+#include "third_party/microsoft-pdb/files/cvinfo.h"
 
 namespace Microsoft_Cci_Pdb {
 
@@ -45,23 +46,12 @@ const uint16_t S_MSTOOLENV_V3 = 0x113D;  // Environment block split off from
 const uint16_t S_LOCAL_VS2013 = 0x113E;  // Defines a local symbol in optimized
                                        // code.
 
-// Ranges for en-registered symbol.
-const uint16_t S_DEFRANGE_REGISTER = 0x1141;
-// Range for stack symbol.
-const uint16_t S_DEFRANGE_FRAMEPOINTER_REL = 0x1142;
-// Ranges for en-registered field of symbol.
-const uint16_t S_DEFRANGE_SUBFIELD_REGISTER = 0x1143;
-// Range for stack symbol span valid full scope of function body, gap might
-// apply. Provides the frame pointer offset for the S_LOCAL_VS2013 variables.
-const uint16_t S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE = 0x1144;
-// Range for symbol address as register + offset.
-const uint16_t S_DEFRANGE_REGISTER_REL = 0x1145;
-
 // Since VS2013 it seems that the compiler isn't emitting the same value as
 // those in cvinfo.h for the S_GPROC32 and S_LPROC32 types, the following 2
 // values should be used instead.
 const uint16_t S_LPROC32_VS2013 = 0x1146;
 const uint16_t S_GPROC32_VS2013 = 0x1147;
+
 }  // namespace Microsoft_Cci_Pdb
 
 // This macro enables the easy construction of switch statements over the
@@ -197,7 +187,9 @@ const uint16_t S_GPROC32_VS2013 = 0x1147;
     decl(S_DEFRANGE_FRAMEPOINTER_REL_FULL_SCOPE, FPOffs2013) \
     decl(S_DEFRANGE_REGISTER_REL, DefRangeSymRegisterRel) \
     decl(S_LPROC32_VS2013, ProcSym32) \
-    decl(S_GPROC32_VS2013, ProcSym32)
+    decl(S_GPROC32_VS2013, ProcSym32) \
+    decl(S_INLINESITE, InlineSiteSym) \
+    decl(S_INLINESITE_END, Unknown)
 
 // This macro allows the easy construction of switch statements over the
 // numeric leaves types.
@@ -726,62 +718,6 @@ struct LocalSym2013 {
   uint8_t name[1];        // Name of this symbol.
 };
 COMPILE_ASSERT_IS_POD_OF_SIZE(LocalSym2013, 7);
-
-// Represents an address range, used for optimized code debug info.
-struct CvLvarAddrRange {
-  uint32_t offStart;
-  uint16_t isectStart;
-  uint16_t cbRange;  // Length.
-};
-COMPILE_ASSERT_IS_POD_OF_SIZE(CvLvarAddrRange, 8);
-
-// Represents the holes in overall address range, all address is pre-bbt.
-// It is for compress and reduce the amount of relocations need.
-struct CvLvarAddrGap {
-  uint16_t gapStartOffset;  // Relative offset from beginning of live range.
-  uint16_t cbRange;  // Length of gap.
-};
-COMPILE_ASSERT_IS_POD_OF_SIZE(CvLvarAddrGap, 4);
-
-// Attributes of a variable's range.
-union CvRangeAttr {
-  uint16_t raw;
-  struct {
-    uint16_t maybe : 1;  // May have no user name on one of control flow path.
-    uint16_t padding : 15;  // Padding for future use.
-  };
-};
-// We coerce a stream of bytes to this structure, so we require it to be
-// exactly 2 bytes in size.
-COMPILE_ASSERT_IS_POD_OF_SIZE(CvRangeAttr, 2);
-
-// A live range of en-registed variable.
-struct DefrangeSymRegister {
-  uint16_t reg;             // Register to hold the value of the symbol
-  CvRangeAttr attr;       // Attribute of the register range.
-  CvLvarAddrRange range;  // Range of addresses where this program is valid.
-  CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
-};
-COMPILE_ASSERT_IS_POD_OF_SIZE(DefrangeSymRegister, 16);
-
-// A live range of frame variable.
-struct DefRangeSymFramePointerRel {
-  int32_t offFramePointer;  // Offset to frame pointer.
-  CvLvarAddrRange range;   // Range of addresses where this program is valid.
-  CvLvarAddrGap gaps[1];   // The value is not available in following gaps.
-};
-COMPILE_ASSERT_IS_POD_OF_SIZE(DefRangeSymFramePointerRel, 16);
-
-// Ranges for en-registered field of symbol.
-struct DefRangeSymSubfieldRegister {
-  uint16_t reg;             // Register to hold the value of the symbol
-  CvRangeAttr attr;       // Attribute of the register range.
-  uint32_t offParent : 12;  // Offset in parent variable.
-  uint32_t padding : 20;    // Padding for future use.
-  CvLvarAddrRange range;  // Range of addresses where this program is valid.
-  CvLvarAddrGap gaps[1];  // The value is not available in following gaps.
-};
-COMPILE_ASSERT_IS_POD_OF_SIZE(DefRangeSymSubfieldRegister, 20);
 
 // Frame pointer offset for LocalSym2013 variable.
 struct FPOffs2013 {

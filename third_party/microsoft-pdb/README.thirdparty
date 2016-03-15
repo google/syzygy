@@ -1,0 +1,11 @@
+URL: https://github.com/Microsoft/microsoft-pdb
+Version: e6b1dec
+License: MIT
+License File: LICENSE
+
+Description:
+Information from Microsoft about the PDB (Program Database) Symbol File format.
+
+Local Modifications:
+This contains only a subset of cvinfo data structures of interest, with some
+modifications (eg excluding record length and type from record definitions).
