@@ -161,6 +161,7 @@ class BasicBlockAssembler : public assm::AssemblerBase<UntypedReference> {
   // @{
   void jmp(const Immediate& dst);
   void jmp(const Operand& dst);
+  void jmp(const Register32& dst);
   // @}
 
   // @name Conditional branch instruction.
