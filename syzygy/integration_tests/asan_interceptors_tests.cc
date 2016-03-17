@@ -195,6 +195,44 @@ size_t AsanStrlenUseAfterFree() {
   return 0;
 }
 
+size_t AsanStrnlenOverflow() {
+  const char str_value[] = "abc1";
+  size_t max_len = arraysize(str_value);
+  char* str = new char[max_len];
+  ::strcpy(str, str_value);
+
+  // Make two valid calls.
+  size_t str_len = ::strnlen(str, max_len);
+  str[str_len] = 'a';
+  ::strnlen(str, max_len);
+
+  TryInvalidCall2(&::strnlen, static_cast<const char*>(str), max_len + 1);
+  delete[] str;
+  return 0;
+}
+
+size_t AsanStrnlenUnderflow() {
+  const char str_value[] = "abc1";
+  size_t max_len = arraysize(str_value);
+  char* str = new char[max_len];
+  ::strcpy(str, str_value);
+
+  TryInvalidCall2(&::strnlen, static_cast<const char*>(str - 1), max_len);
+  delete[] str;
+  return 0;
+}
+
+size_t AsanStrnlenUseAfterFree() {
+  const char str_value[] = "abc1";
+  size_t max_len = arraysize(str_value);
+  char* str = new char[max_len];
+  ::strcpy(str, str_value);
+
+  delete[] str;
+  TryInvalidCall2(&::strnlen, static_cast<const char*>(str), max_len);
+  return 0;
+}
+
 size_t AsanStrrchrOverflow() {
   const char* str_value = "abc1";
   char* str = new char[::strlen(str_value) + 1];

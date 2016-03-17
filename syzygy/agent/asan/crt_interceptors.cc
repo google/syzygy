@@ -100,6 +100,20 @@ size_t __cdecl asan_strlen(const char* str) {
   return size - 1;
 }
 
+size_t __cdecl asan_strnlen(const char* str, size_t max_count) {
+  if (!crt_interceptor_shadow_)
+    return ::strnlen(str, max_count);
+
+  size_t size = 0;
+  if (!crt_interceptor_shadow_->GetNullTerminatedArraySize<char>(
+          str, max_count, &size)) {
+    ReportBadAccess(reinterpret_cast<const uint8_t*>(str) + size,
+                    agent::asan::ASAN_READ_ACCESS);
+    return ::strlen(str);
+  }
+  return size - 1;
+}
+
 const char* __cdecl asan_strrchr(const char* str, int character) {
   if (!crt_interceptor_shadow_)
     return ::strrchr(str, character);

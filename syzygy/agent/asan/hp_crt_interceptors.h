@@ -46,6 +46,8 @@ size_t __cdecl hp_asan_strcspn(const char* str1, const char* str2);
 
 size_t __cdecl hp_asan_strlen(const char* str);
 
+size_t __cdecl hp_asan_strnlen(const char* str, size_t max_len);
+
 char* __cdecl hp_asan_strncat(char* destination,
                               const char* source,
                               size_t num);

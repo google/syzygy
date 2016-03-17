@@ -22,13 +22,16 @@ namespace instrument {
 namespace transforms {
 
 const MD5Hash kHashes_memchr[] = {
-    {"3549cc2f365403c679287c34325b8925"},  // VS2010 and VS2013.
+    {"3549cc2f365403c679287c34325b8925"},  // VS2010, VS2013, VS2015.
     {""} };
 const MD5Hash kHashes_strcspn[] = {
     {"c2e8480d30ceeeb2e9e39b545c82c98c"},  // VS2010 and VS2013.
     {""} };
 const MD5Hash kHashes_strlen[] = {
     {"20e07f6e772c47e6cbfc13db5eafa757"},  // VS2010 and VS2013.
+    {""} };
+const MD5Hash kHashes_strnlen[] = {
+    {"7f4492174275ca903993fef8d7f8ef77"},  // VS2015.
     {""} };
 const MD5Hash kHashes_strpbrk[] = {
     {"9af2e6d499d25ad4628c58a25dbcde1e"},  // VS2010 and VS2013.
@@ -37,26 +40,29 @@ const MD5Hash kHashes_strspn[] = {
     {"79b6a33a1b03b482be14afff061d7c68"},  // VS2010 and VS2013.
     {""} };
 const MD5Hash kHashes_strncpy[] = {
-    {"aed1dd2372364f66f4d126eefb073070"},  // VS2010 and VS2013.
+    {"aed1dd2372364f66f4d126eefb073070"},  // VS2010, VS2013, VS2015.
     {""} };
 const MD5Hash kHashes_strncat[] = {
-    {"9cc9e9a57cdd695606caf6cbf532d88e"},  // VS2010 and VS2013.
+    {"9cc9e9a57cdd695606caf6cbf532d88e"},  // VS2010, VS2013, VS2015.
     {""} };
 const MD5Hash kHashes_memcpy[] = {
     {"da1805f40d6e92f6ac497c66ac969e61"},  // VS2010.
     {"270406ea8a9e931f2c0db8a7f0b5d698"},  // VS2013.
+    {"efbdeed39029c2d07800b504e28b5df6"},  // VS2015.
     {""} };
 const MD5Hash kHashes_memmove[] = {
     {"da1805f40d6e92f6ac497c66ac969e61"},  // VS2010.
     {"270406ea8a9e931f2c0db8a7f0b5d698"},  // VS2013.
+    {"efbdeed39029c2d07800b504e28b5df6"},  // VS2015.
     {""} };
 const MD5Hash kHashes_memset[] = {
     {"5fcb11b79692c753845cf26dfa42e74c"},  // VS2010.
     {"4900d834c35bb195ab8af6f91d648d6d"},  // VS2013.
+    {"2e1f679969390b71b0b28ae4153b53df"},  // VS2015.
     {""} };
 const MD5Hash kHashes_strrchr[] = {
     {"f849347be44ddb17a4fc3c64b90f8cca"},  // VS2010.
-    {"17575b2dc3a7fd3b277d0cd798f507df"},  // VS2013.
+    {"17575b2dc3a7fd3b277d0cd798f507df"},  // VS2013, VS2015.
     {""} };
 const MD5Hash kHashes_strcmp[] = {
     {"865502e059de8a9dc6cee8ef05b1a586"},  // VS2010.
@@ -68,12 +74,15 @@ const MD5Hash kHashes_strstr[] = {
     {""} };
 const MD5Hash kHashes_wcsrchr[] = {
     {"dc474260def9e341659230dc2edd13e6"},  // VS2013.
+    {"bfb15ac56c29c1dd8c68e9ba25d264a8"},  // VS2015.
     {""} };
 const MD5Hash kHashes_wcschr[] = {
     {"3fae79785ec4de9951eac512bc62a27e"},  // VS2013.
+    {"941bb6826538a1a40f055cb28c7b3695"},  // VS2015.
     {""} };
 const MD5Hash kHashes_wcsstr[] = {
     {"2301f403b55567eae76f3dc58dd777f4"},  // VS2013.
+    {"01fb77e5eeab6ae224a705aa6ad5117d"},  // VS2015.
     {""} };
 
 // List of module names.
@@ -113,6 +122,7 @@ const AsanIntercept kAsanIntercepts[] = {
   { "memmove", "_memmove", NULL, kHashes_memmove, true },
   { "memset", "_memset", NULL, kHashes_memset, true },
   { "strlen", "_strlen", NULL, kHashes_strlen, true },
+  { "strnlen", "_strnlen", NULL, kHashes_strnlen, true },
   { "strncpy", "_strncpy", NULL, kHashes_strncpy, true },
   { "strncat", "_strncat", NULL, kHashes_strncat, true },
   { "strrchr", "_strrchr", NULL, kHashes_strrchr, true },

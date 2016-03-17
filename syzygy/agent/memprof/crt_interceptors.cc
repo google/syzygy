@@ -43,6 +43,10 @@ size_t asan_strlen(const char* str) {
   return ::strlen(str);
 }
 
+size_t asan_strnlen(const char* str, size_t max_len) {
+  return ::strnlen(str, max_len);
+}
+
 const char* asan_strrchr(const char* str, int ch) {
   return ::strrchr(str, ch);
 }

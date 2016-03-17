@@ -222,6 +222,26 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrlen) {
   ResetLog();
 }
 
+TEST_F(CrtInterceptorsTest, AsanCheckStrnlen) {
+  const char str_value[] = "test_strnlen";
+  const size_t str_len = arraysize(str_value);
+  ScopedAsanAlloc<char> str(this, str_len, str_value);
+  ASSERT_TRUE(str != NULL);
+
+  SetCallBackFunction(&AsanErrorCallback);
+  EXPECT_EQ(::strnlen(str.get(), str_len), strnlenFunction(str.get(), str_len));
+
+  strnlenFunctionFailing(str.get() - 1, str_len);
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
+  ResetLog();
+
+  size_t n = ::strlen(str.get());
+  str[n] = 'a';
+  strnlenFunctionFailing(str.get(), str_len + 1);
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
+  ResetLog();
+}
+
 TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
   const char* str_value = "test_strrchr";
   ScopedAsanAlloc<char> str(this, ::strlen(str_value) + 1, str_value);

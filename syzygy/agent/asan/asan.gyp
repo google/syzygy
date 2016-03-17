@@ -295,7 +295,7 @@
         # automatically configure it as the ModuleDefinitionFile
         # (we usually suffix generated files with .gen).
         'dummy_shadow.cc',
-        'gen/system_interceptors_dyn.def',
+        'gen/system_interceptors.def',
         'syzyasan_rtl.cc',
         'syzyasan_rtl.rc',
       ],

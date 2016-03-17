@@ -187,6 +187,8 @@ class TestWithAsanLogger : public OnExceptionCallbackTest {
     F(_cdecl, size_t, strcspn, (const char* str1, const char* str2),  \
       (str1, str2))  \
     F(_cdecl, size_t, strlen, (const char* str), (str))  \
+    F(_cdecl, size_t, strnlen, (const char* str, size_t max_len),  \
+      (str, max_len))  \
     F(_cdecl, const char*, strrchr, (const char* str, int character),  \
       (str, character))  \
     F(_cdecl, const wchar_t*, wcsrchr, (const wchar_t* str, int character),  \
@@ -373,13 +375,13 @@ class TestWithAsanRuntime : public OnExceptionCallbackTest {
     runtime_ = NULL;
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
     testing::Test::SetUp();
     runtime_->SetUp(L"");
   }
 
-  virtual void TearDown() override {
+  void TearDown() override {
     CHECK_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime_);
     runtime_->TearDown();
     testing::Test::TearDown();

@@ -30,6 +30,7 @@ EXPORTS
   hp_asan_strcmp
   hp_asan_strcspn
   hp_asan_strlen
+  hp_asan_strnlen
   hp_asan_strncat
   hp_asan_strncpy
   hp_asan_strpbrk

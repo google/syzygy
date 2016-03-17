@@ -52,6 +52,10 @@ size_t __cdecl hp_asan_strlen(const char* str) {
   return ::strlen(str);
 }
 
+size_t __cdecl hp_asan_strnlen(const char* str, size_t max_len) {
+  return ::strnlen(str, max_len);
+}
+
 const char* __cdecl hp_asan_strpbrk(const char* str1, const char* str2) {
   return ::strpbrk(str1, str2);
 }

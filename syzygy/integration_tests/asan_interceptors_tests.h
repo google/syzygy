@@ -327,6 +327,12 @@ size_t AsanStrlenUnderflow();
 
 size_t AsanStrlenUseAfterFree();
 
+size_t AsanStrnlenOverflow();
+
+size_t AsanStrnlenUnderflow();
+
+size_t AsanStrnlenUseAfterFree();
+
 size_t AsanStrrchrOverflow();
 
 size_t AsanStrrchrUnderflow();

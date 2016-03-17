@@ -745,7 +745,8 @@ BlockGraph::Block* CreateGetProcessHeapReplacement(
 
 // Since MSVS 2012 the implementation of the CRT _heap_init function has
 // changed and as a result the CRT defers all its allocation to the process
-// heap.
+// heap. Since MSVS 2015 the function has changed names to
+// _acrt_heap_initialize.
 //
 // As we don't want to replace the process heap by an Asan heap we need to
 // patch this function to make it use ::HeapCreate instead of
@@ -754,11 +755,12 @@ BlockGraph::Block* CreateGetProcessHeapReplacement(
 // We do this by replacing the reference to ::GetProcessHeap by a reference
 // to a thunk that calls ::HeapCreate.
 //
-// TODO(sebmarchand): Also patch the _heap_term function. This function
-//     isn't always present and is just used to reset the crt_heap pointer
-//     and free the underlying heap. This isn't so important in this case
-//     because it only happens when the process terminates and the heap will
-//     be automatically freed when we unload the SyzyAsan agent DLL.
+// TODO(sebmarchand): Also patch the _heap_term/_acrt_uninitialize_heap
+//     functions. These functions arent't always present and is just used to
+//     reset the crt_heap pointer and free the underlying heap. This isn't so
+//     important in this case because it only happens when the process
+//     terminates and the heap will be automatically freed when we unload the
+//     SyzyAsan agent DLL.
 //
 // @param block_graph The block-graph to populate with the stub.
 // @param header_block the header block of @p block_graph.
@@ -1500,7 +1502,17 @@ base::StringPiece AsanTransform::instrument_dll_name() const {
 
 void AsanTransform::FindHeapInitAndCrtHeapBlocks(BlockGraph* block_graph) {
   for (auto& iter : block_graph->blocks_mutable()) {
+    bool add_block = false;
     if (iter.second.name().find("_heap_init") != std::string::npos) {
+      // VS2012 CRT heap initialization.
+      add_block = true;
+    } else if (iter.second.name().find("_acrt_initialize_heap") !=
+        std::string::npos) {
+      // VS2015 CRT heap initialization.
+      add_block = true;
+    }
+
+    if (add_block) {
       DCHECK(std::find(heap_init_blocks_.begin(),
           heap_init_blocks_.end(), &(iter.second)) == heap_init_blocks_.end());
       heap_init_blocks_.push_back(&(iter.second));

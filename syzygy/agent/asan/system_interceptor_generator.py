@@ -319,18 +319,14 @@ class SystemInterceptorGenerator(object):
     #           contain a list of AsanIntercept entries.
     #     - output_base + '.def' : This file will contain a copy of the input
     #           DEF file followed by the list of the new interceptors.
-    #     - output_base + '_dyn.def' : This file will contain a copy of the
-    #           input DEF file followed by the list of the new interceptors.
     output_impl_filename = output_base + '_impl.gen'
     output_instrumentation_filter_filename = output_base +  \
         '_instrumentation_filter.gen'
     output_def_filename = output_base + '.def'
-    output_dyn_def_filename = output_base + '_dyn.def'
 
     if (os.path.isfile(output_impl_filename) or  \
         os.path.isfile(output_instrumentation_filter_filename) or  \
-        os.path.isfile(output_def_filename) or  \
-        os.path.isfile(output_dyn_def_filename)) and  \
+        os.path.isfile(output_def_filename)) and  \
         not overwrite:
       _LOGGER.error('Output files already exist, use the --overwrite flag to '
                     'overwrite it.')
@@ -344,21 +340,14 @@ class SystemInterceptorGenerator(object):
     self._output_instrumentation_filter_file.write(_HEADER.format(c='//'))
 
     self._def_file = open(output_def_filename, 'wb')
-    self._dyn_def_file = open(output_dyn_def_filename, 'wb')
 
     # Copy the input DEF file.
     with open(def_file, 'r') as f:
       template = f.read()
-      # The static runtime library uses the 2GB probes by default.
       self._def_file.write(template.format(
-          r='check', s='rtl', m='_2gb',
+          r='redirect', s='rtl', m='',
           message=_GENERATED_MESSAGE.format(c=';')))
       self._def_file.write('\n  ; Generated system intercepts\n')
-
-      self._dyn_def_file.write(template.format(
-          r='redirect', s='dyn', m='',
-          message=_GENERATED_MESSAGE.format(c=';')))
-      self._dyn_def_file.write('\n  ; Generated system intercepts\n')
 
     # List of the intercepted functions.
     self._intercepted_functions = set()
@@ -376,7 +365,6 @@ class SystemInterceptorGenerator(object):
     self._output_impl_file.close()
     self._output_instrumentation_filter_file.close()
     self._def_file.close()
-    self._dyn_def_file.close()
 
   def GenerateFunctionInterceptor(self, function_name, return_type,
                                   function_arguments, calling_convention,
@@ -484,7 +472,6 @@ class SystemInterceptorGenerator(object):
 
     # Add the new interceptor to the DEF files.
     self._def_file.write('  asan_' + function_name + '\n')
-    self._dyn_def_file.write('  asan_' + function_name + '\n')
 
   def VisitFunctionsInFiles(self, files, callback):
     """Parse the functions declared in a given list of files and invokes the

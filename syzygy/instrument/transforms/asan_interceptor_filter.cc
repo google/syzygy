@@ -61,9 +61,14 @@ bool AsanInterceptorFilter::ShouldIntercept(const BlockGraph::Block* block) {
   std::string hash_val = base::MD5DigestToBase16(block_hash.md5_digest);
 
   HashSet::iterator hash_iter = func_iter->second.find(hash_val);
-
-  if (hash_iter == func_iter->second.end())
+  if (hash_iter == func_iter->second.end()) {
+    LOG(WARNING) << "Not intercepting " << func_iter->first << " with hash "
+                 << hash_val;
     return false;
+  }
+
+  LOG(INFO) << "Intercepting " << func_iter->first << " with hash "
+            << hash_val;
 
   return true;
 }
