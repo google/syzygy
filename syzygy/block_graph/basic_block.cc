@@ -227,7 +227,7 @@ bool BasicBlockReferrer::IsValid() const {
   return offset_ >= 0;
 }
 
-Instruction::Instruction() : offset_(BasicBlock::kNoOffset) {
+Instruction::Instruction() {
   static const uint8_t kNop[] = {0x90};
   CHECK(core::DecodeOneInstruction(kNop, sizeof(kNop), &representation_));
   DCHECK_EQ(sizeof(kNop), representation_.size);
@@ -236,7 +236,7 @@ Instruction::Instruction() : offset_(BasicBlock::kNoOffset) {
 }
 
 Instruction::Instruction(const _DInst& repr, const uint8_t* data)
-    : representation_(repr), offset_(BasicBlock::kNoOffset) {
+    : representation_(repr) {
   DCHECK_LT(repr.size, sizeof(data_));
   DCHECK(data != NULL);
   ::memcpy(data_, data, repr.size);
@@ -248,7 +248,6 @@ Instruction::Instruction(const Instruction& other)
       references_(other.references_),
       source_range_(other.source_range_),
       label_(other.label_),
-      offset_(BasicBlock::kNoOffset),
       tags_(other.tags_) {
   ::memcpy(data_, other.data_, sizeof(data_));
 }

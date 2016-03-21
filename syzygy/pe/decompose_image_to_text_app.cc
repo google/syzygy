@@ -201,6 +201,7 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
     const BlockGraph::Block* block, const BasicCodeBlock* bb) {
   BasicBlock::Instructions::const_iterator instr_it(
       bb->instructions().begin());
+  BasicBlock::Offset instr_offs = bb->offset();
   for (; instr_it != bb->instructions().end(); ++instr_it) {
     const block_graph::Instruction& instr = *instr_it;
 
@@ -214,7 +215,8 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
 
     dinst.addr = 0;
     distorm_format(&code, &dinst, &decoded);
-    ::fprintf(out(), "  %-14s %s %s",
+    ::fprintf(out(), " +%04X: %-14s %s %s",
+              instr_offs,
               decoded.instructionHex.p,
               decoded.mnemonic.p,
               decoded.operands.p);
@@ -225,6 +227,7 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
       DumpReference(ref_it->second, out());
     }
     ::fprintf(out(), "\n");
+    instr_offs += instr.size();
   }
 
   BasicBlock::Successors::const_iterator succ_it(bb->successors().begin());
@@ -248,13 +251,15 @@ void DecomposeImageToTextApp::DumpCodeBBToText(
       distorm_decompose64(&code, &instr, 1, &count);
       instr.addr = 0;
       distorm_format(&code, &instr, &decoded);
-      ::fprintf(out(), "  %-14s %s %s",
+      ::fprintf(out(), " +%04X: %-14s %s %s",
+                instr_offs,
                 decoded.instructionHex.p,
                 decoded.mnemonic.p,
                 decoded.operands.p);
 
       DumpReference(succ.reference(), out());
       ::fprintf(out(), "\n");
+      instr_offs += succ.instruction_size();
     }
   }
 }

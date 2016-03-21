@@ -281,12 +281,6 @@ class Instruction {
   uint8_t* GetMutableData() { return data_; }
   /// @}
 
-  // @name Deprecated accessors.
-  // @{
-  Offset offset() const { return offset_; }
-  void set_offset(Offset offset) { offset_ = offset; }
-  // @}
-
   // @name Helper functions.
   // @{
   bool IsNop() const { return core::IsNop(representation_); }
@@ -370,9 +364,6 @@ class Instruction {
 
   // The data associated with this instruction.
   uint8_t data_[kMaxSize];
-
-  // Deprecated.
-  Offset offset_;
 
   // The tags that are applied to this object.
   TagSet tags_;
@@ -667,7 +658,7 @@ class BasicCodeBlock : public BasicBlock {
 
   // Returns true iff this basic block is a valid code block - i.e., it
   // contains at least one instruction and/or 0-2 successors.
-  virtual bool IsValid() const override;
+  bool IsValid() const override;
 
   // Return the number of bytes required to store the instructions
   // this basic block contains, exclusive successors.
@@ -730,7 +721,7 @@ class BasicDataBlock : public BasicBlock {
   bool SetReference(Offset offset, const BasicBlockReference& ref);
 
   // Returns true iff this basic block is a valid block i.e., it contains data.
-  virtual bool IsValid() const override;
+  bool IsValid() const override;
 
  private:
   // BasicBlockSubGraph has a factory for this type.
@@ -798,7 +789,7 @@ class BasicEndBlock : public BasicBlock {
   bool SetReference(const BasicBlockReference& ref);
 
   // Returns true iff this basic block is a valid block.
-  virtual bool IsValid() const override;
+  bool IsValid() const override;
 
  private:
   // BasicBlockSubGraph has a factory for this type.
