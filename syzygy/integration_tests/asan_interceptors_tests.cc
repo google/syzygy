@@ -233,6 +233,44 @@ size_t AsanStrnlenUseAfterFree() {
   return 0;
 }
 
+size_t AsanWcsnlenOverflow() {
+  const wchar_t str_value[] = L"abc1";
+  size_t max_len = arraysize(str_value);
+  wchar_t* str = new wchar_t[max_len];
+  ::wcscpy(str, str_value);
+
+  // Make two valid calls.
+  size_t str_len = ::wcsnlen(str, max_len);
+  str[str_len] = 'a';
+  ::wcsnlen(str, max_len);
+
+  TryInvalidCall2(&::wcsnlen, static_cast<const wchar_t*>(str), max_len + 1);
+  delete[] str;
+  return 0;
+}
+
+size_t AsanWcsnlenUnderflow() {
+  const wchar_t str_value[] = L"abc1";
+  size_t max_len = arraysize(str_value);
+  wchar_t* str = new wchar_t[max_len];
+  ::wcscpy(str, str_value);
+
+  TryInvalidCall2(&::wcsnlen, static_cast<const wchar_t*>(str - 1), max_len);
+  delete[] str;
+  return 0;
+}
+
+size_t AsanWcsnlenUseAfterFree() {
+  const wchar_t str_value[] = L"abc1";
+  size_t max_len = arraysize(str_value);
+  wchar_t* str = new wchar_t[max_len];
+  ::wcscpy(str, str_value);
+
+  delete[] str;
+  TryInvalidCall2(&::wcsnlen, static_cast<const wchar_t*>(str), max_len);
+  return 0;
+}
+
 size_t AsanStrrchrOverflow() {
   const char* str_value = "abc1";
   char* str = new char[::strlen(str_value) + 1];

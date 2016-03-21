@@ -262,6 +262,27 @@ TEST_F(CrtInterceptorsTest, AsanCheckStrrchr) {
   ResetLog();
 }
 
+TEST_F(CrtInterceptorsTest, AsanCheckWcsnlen) {
+  const wchar_t str_value[] = L"test_wcsnlen";
+  const size_t str_len = arraysize(str_value);
+  ScopedAsanAlloc<wchar_t> str(this, str_len, str_value);
+  ASSERT_TRUE(str != NULL);
+
+  SetCallBackFunction(&AsanErrorCallback);
+  EXPECT_EQ(::wcsnlen(str.get(), str_len),
+            wcsnlenFunction(str.get(), str_len));
+
+  wcsnlenFunctionFailing(str.get() - 1, str_len);
+  EXPECT_TRUE(LogContains(kHeapBufferUnderFlow));
+  ResetLog();
+
+  size_t n = ::wcslen(str.get());
+  str[n] = 'a';
+  wcsnlenFunctionFailing(str.get(), str_len + 1);
+  EXPECT_TRUE(LogContains(kHeapBufferOverFlow));
+  ResetLog();
+}
+
 TEST_F(CrtInterceptorsTest, AsanCheckWcsrchr) {
   const wchar_t* wstr_value = L"test_wcsrchr";
   ScopedAsanAlloc<wchar_t> wstr(this, ::wcslen(wstr_value) + 1);

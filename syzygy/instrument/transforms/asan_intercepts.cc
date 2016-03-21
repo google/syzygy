@@ -31,6 +31,7 @@ const MD5Hash kHashes_strlen[] = {
     {"20e07f6e772c47e6cbfc13db5eafa757"},  // VS2010 and VS2013.
     {""} };
 const MD5Hash kHashes_strnlen[] = {
+    {"09d4062ec47f5e7fd25a19bc60c4bd8e"},  // VS2013.
     {"7f4492174275ca903993fef8d7f8ef77"},  // VS2015.
     {""} };
 const MD5Hash kHashes_strpbrk[] = {
@@ -71,6 +72,10 @@ const MD5Hash kHashes_strcmp[] = {
 const MD5Hash kHashes_strstr[] = {
     {"cdfbaae199dcc8272681c021fab9d664"},  // VS2010.
     {"1926bd8c94118f97819d604ec5afee30"},  // VS2013.
+    {""} };
+const MD5Hash kHashes_wcsnlen[] = {
+    {"3764327beb7392f3b841b72b89f94af5"},  // VS2013.
+    {"2059f3897a59cf8a0fe6d1803c90af77"},  // VS2015.
     {""} };
 const MD5Hash kHashes_wcsrchr[] = {
     {"dc474260def9e341659230dc2edd13e6"},  // VS2013.
@@ -126,6 +131,7 @@ const AsanIntercept kAsanIntercepts[] = {
   { "strncpy", "_strncpy", NULL, kHashes_strncpy, true },
   { "strncat", "_strncat", NULL, kHashes_strncat, true },
   { "strrchr", "_strrchr", NULL, kHashes_strrchr, true },
+  { "wcsnlen", "_wcsnlen", NULL, kHashes_wcsnlen, true },
   { "wcsrchr", "_wcsrchr", NULL, kHashes_wcsrchr, true },
   { "wcschr", "_wcschr", NULL, kHashes_wcschr, true },
   { "wcsstr", "_wcsstr", NULL, kHashes_wcsstr, true },

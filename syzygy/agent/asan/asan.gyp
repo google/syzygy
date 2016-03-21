@@ -35,6 +35,7 @@
         'constants.h',
         'crt_interceptors.cc',
         'crt_interceptors.h',
+        'crt_interceptors_macros.h',
         'error_info.cc',
         'error_info.h',
         'gen/memory_interceptors_impl.asm',

@@ -16,6 +16,8 @@
 #ifndef SYZYGY_AGENT_ASAN_CRT_INTERCEPTORS_H_
 #define SYZYGY_AGENT_ASAN_CRT_INTERCEPTORS_H_
 
+#include "syzygy/agent/asan/crt_interceptors_macros.h"
+
 namespace agent {
 namespace asan {
 
@@ -33,43 +35,8 @@ Shadow* SetCrtInterceptorShadow(Shadow* shadow);
 // Exposes the CRT interceptors.
 extern "C" {
 
-void* __cdecl asan_memcpy(unsigned char* destination,
-                          const unsigned char* source,
-                          size_t num);
-
-void* __cdecl asan_memmove(unsigned char* destination,
-                           const unsigned char* source,
-                           size_t num);
-
-void* __cdecl asan_memset(unsigned char* ptr, int value, size_t num);
-
-const void* __cdecl asan_memchr(const unsigned char* ptr,
-                                int value,
-                                size_t num);
-
-size_t __cdecl asan_strcspn(const char* str1, const char* str2);
-
-size_t __cdecl asan_strlen(const char* str);
-
-const char* __cdecl asan_strrchr(const char* str, int character);
-
-const wchar_t* asan_wcsrchr(const wchar_t* str, wchar_t character);
-
-const wchar_t* asan_wcschr(const wchar_t* str, wchar_t character);
-
-int __cdecl asan_strcmp(const char* str1, const char* str2);
-
-const char* __cdecl asan_strpbrk(const char* str1, const char* str2);
-
-const char* __cdecl asan_strstr(const char* str1, const char* str2);
-
-const wchar_t* asan_wcsstr(const wchar_t* str, const wchar_t* keys);
-
-size_t __cdecl asan_strspn(const char* str1, const char* str2);
-
-char* __cdecl asan_strncpy(char* destination, const char* source, size_t num);
-
-char* __cdecl asan_strncat(char* destination, const char* source, size_t num);
+// See crt_interceptors_macros.h for details.
+ASAN_CRT_INTERCEPTORS(ASAN_CRT_INTERCEPTORS_DECL, asan_);
 
 }  // extern "C"
 

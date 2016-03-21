@@ -23,52 +23,13 @@
 #ifndef SYZYGY_AGENT_ASAN_HP_CRT_INTERCEPTORS_H_
 #define SYZYGY_AGENT_ASAN_HP_CRT_INTERCEPTORS_H_
 
+#include "syzygy/agent/asan/crt_interceptors_macros.h"
+
 // Exposes the CRT interceptors.
 extern "C" {
 
-const void* __cdecl hp_asan_memchr(const unsigned char* ptr,
-                                   int value,
-                                   size_t num);
-
-void* __cdecl hp_asan_memcpy(unsigned char* destination,
-                             const unsigned char* source,
-                             size_t num);
-
-void* __cdecl hp_asan_memmove(unsigned char* destination,
-                         const unsigned char* source,
-                         size_t num);
-
-void* __cdecl hp_asan_memset(unsigned char* ptr, int value, size_t num);
-
-int __cdecl hp_asan_strcmp(const char* str1, const char* str2);
-
-size_t __cdecl hp_asan_strcspn(const char* str1, const char* str2);
-
-size_t __cdecl hp_asan_strlen(const char* str);
-
-size_t __cdecl hp_asan_strnlen(const char* str, size_t max_len);
-
-char* __cdecl hp_asan_strncat(char* destination,
-                              const char* source,
-                              size_t num);
-
-char* __cdecl hp_asan_strncpy(char* destination,
-                              const char* source,
-                              size_t num);
-
-const char* __cdecl hp_asan_strpbrk(const char* str1, const char* str2);
-
-const char* __cdecl hp_asan_strrchr(const char* str, int character);
-
-size_t __cdecl hp_asan_strspn(const char* str1, const char* str2);
-
-const char* __cdecl hp_asan_strstr(const char* str1, const char* str2);
-
-const wchar_t* hp_asan_wcschr(const wchar_t* str, wchar_t character);
-
-const wchar_t* hp_asan_wcsrchr(const wchar_t* str, wchar_t character);
-
-const wchar_t* hp_asan_wcsstr(const wchar_t* str, const wchar_t* keys);
+// See crt_interceptors_macros.h for details.
+ASAN_CRT_INTERCEPTORS(ASAN_CRT_INTERCEPTORS_DECL, hp_asan_);
 
 }  // extern "C"
 

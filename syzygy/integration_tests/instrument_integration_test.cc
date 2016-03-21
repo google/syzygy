@@ -480,6 +480,12 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
                                   bool expect_exception,
                                   std::string* log) {
     DCHECK_NE(static_cast<std::string*>(nullptr), log);
+
+    // If running under the debugger then don't do this test. The debugger's
+    // exception handler prevents this from completing as expected.
+    if (expect_exception && ::IsDebuggerPresent())
+      return;
+
     ScopedAgentLogger logger(temp_dir_);
     logger.Start();
 
@@ -523,6 +529,11 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
       bool expect_exception,
       const base::StringPiece& log_message_1,
       const base::StringPiece& log_message_2) {
+    // If running under the debugger then don't do this test. The debugger's
+    // exception handler prevents this from completing as expected.
+    if (expect_exception && ::IsDebuggerPresent())
+      return;
+
     std::string log;
     OutOfProcessAsanErrorCheck(test, expect_exception, &log);
 
@@ -786,6 +797,20 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrlenUnderflow,
         HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrlenUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1, 1, false));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrnlenOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrnlenUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrnlenUseAfterFree,
+        USE_AFTER_FREE, ASAN_READ_ACCESS, 1, 1, false));
+    // TODO(chrisha): These should actually be indicated as 2 byte reads. This
+    // needs to be fixed in the runtime.
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcsnlenOverflow,
+        HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcsnlenUnderflow,
+        HEAP_BUFFER_UNDERFLOW, ASAN_READ_ACCESS, 1, 1, false));
+    EXPECT_TRUE(AsanErrorCheck(testing::kAsanWcsnlenUseAfterFree,
         USE_AFTER_FREE, ASAN_READ_ACCESS, 1, 1, false));
     EXPECT_TRUE(AsanErrorCheck(testing::kAsanStrrchrOverflow,
         HEAP_BUFFER_OVERFLOW, ASAN_READ_ACCESS, 1, 1, false));
@@ -1470,8 +1495,8 @@ TEST_F(InstrumentAppIntegrationTest,
 }
 
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
-  // Disable the heap checking as this is implies touching all the shadow bytes
-  // and this make those tests really slow.
+  // Disable the heap checking as this implies touching all the shadow bytes
+  // and this make these tests really slow.
   cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());

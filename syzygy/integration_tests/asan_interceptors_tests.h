@@ -333,6 +333,12 @@ size_t AsanStrnlenUnderflow();
 
 size_t AsanStrnlenUseAfterFree();
 
+size_t AsanWcsnlenOverflow();
+
+size_t AsanWcsnlenUnderflow();
+
+size_t AsanWcsnlenUseAfterFree();
+
 size_t AsanStrrchrOverflow();
 
 size_t AsanStrrchrUnderflow();

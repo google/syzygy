@@ -93,6 +93,9 @@ namespace testing {
     decl(kAsanStrnlenOverflow, testing::AsanStrnlenOverflow)  \
     decl(kAsanStrnlenUnderflow, testing::AsanStrnlenUnderflow)  \
     decl(kAsanStrnlenUseAfterFree, testing::AsanStrnlenUseAfterFree)  \
+    decl(kAsanWcsnlenOverflow, testing::AsanWcsnlenOverflow)  \
+    decl(kAsanWcsnlenUnderflow, testing::AsanWcsnlenUnderflow)  \
+    decl(kAsanWcsnlenUseAfterFree, testing::AsanWcsnlenUseAfterFree)  \
     decl(kAsanStrrchrOverflow, testing::AsanStrrchrOverflow)  \
     decl(kAsanStrrchrUnderflow, testing::AsanStrrchrUnderflow)  \
     decl(kAsanStrrchrUseAfterFree, testing::AsanStrrchrUseAfterFree)  \
