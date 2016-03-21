@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.14.4
+
+[0cb9970e70] SyzyASan - Add wcsnlen interceptor for VS2015 CRT compatibility.
+
 Version 0.8.14.3
 
 [68eb588716] SyzyASan - Add strnlen interceptor for VS2015 CRT compatibility.
