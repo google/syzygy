@@ -103,30 +103,6 @@ class IncrementEvent : public EventInterface {
 
 }  // namespace
 
-// Comparison operator. This is out of the anonymous namespace so it can be
-// found by the unittest helper.
-bool operator==(const Story::PlotLine& pl1, const Story::PlotLine& pl2) {
-  if (pl1.size() != pl2.size())
-    return false;
-  for (size_t i = 0; i < pl1.size(); ++i) {
-    if (!pl1[i]->Equals(pl2[i]))
-      return false;
-  }
-  return true;
-}
-
-// Comparison operator. This is out of the anonymous namespace so it can be
-// found by the unittest helper.
-bool operator==(const Story& s1, const Story& s2) {
-  if (s1.plot_lines().size() != s2.plot_lines().size())
-    return false;
-  for (size_t i = 0; i < s1.plot_lines().size(); ++i) {
-    if (!(*s1.plot_lines()[i] == *s2.plot_lines()[i]))
-      return false;
-  }
-  return true;
-}
-
 TEST(StoryTest, CreatePlotLine) {
   Story s;
   EXPECT_EQ(0u, s.plot_lines().size());

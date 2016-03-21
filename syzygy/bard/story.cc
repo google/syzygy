@@ -14,6 +14,8 @@
 
 #include "syzygy/bard/story.h"
 
+#include "base/bind.h"
+#include "base/synchronization/condition_variable.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
 #include "syzygy/bard/events/heap_create_event.h"
 #include "syzygy/bard/events/heap_destroy_event.h"
@@ -149,36 +151,103 @@ bool Story::Load(core::InArchive* in_archive) {
   return true;
 }
 
+namespace {
+
+struct RunnerInfo {
+  RunnerInfo() : cv(&lock), completed_count(0), failed(nullptr) {}
+
+  base::Lock lock;
+  base::ConditionVariable cv;
+  size_t completed_count;
+  Story::PlotLineRunner* failed;
+};
+
+// Callback used to keep track of which runners have finished.
+void OnComplete(RunnerInfo* info, Story::PlotLineRunner* runner) {
+  DCHECK_NE(static_cast<RunnerInfo*>(nullptr), info);
+  DCHECK_NE(static_cast<Story::PlotLineRunner*>(nullptr), runner);
+
+  base::AutoLock auto_lock(info->lock);
+  ++info->completed_count;
+  if (runner->Failed())
+    info->failed = runner;
+  info->cv.Signal();
+}
+
+}  // namespace
+
 bool Story::Play(void* backdrop) {
+  // Set up the callback for each runner to invoke.
+  RunnerInfo info;
+  auto on_complete = base::Bind(&OnComplete, base::Unretained(&info));
+
   // Create all of the runners and threads for them.
   ScopedVector<PlotLineRunner> runners;
-  for (auto plot_line : plot_lines_)
-    runners.push_back(new PlotLineRunner(backdrop, plot_line));
+  for (auto plot_line : plot_lines_) {
+    auto runner = new PlotLineRunner(backdrop, plot_line);
+    runner->set_on_complete(on_complete);
+    runners.push_back(runner);
+  }
 
   // Start the threads.
   for (auto runner : runners)
     runner->Start();
 
-  // Join the threads and collect their results.
+  // Wait for all threads to finish successfully, or for one to fail.
   bool success = true;
-  for (auto runner : runners) {
-    runner->Join();
-    if (runner->Failed())
+  while (true) {
+    // Wait for at least one runner to complete.
+    base::AutoLock auto_lock(info.lock);
+    info.cv.Wait();
+
+    if (info.failed) {
       success = false;
+      break;
+    }
+
+    if (info.completed_count == runners.size())
+      break;
   }
 
   return success;
 }
 
+bool Story::operator==(const Story& story) const {
+  if (plot_lines().size() != story.plot_lines().size())
+    return false;
+  for (size_t i = 0; i < plot_lines().size(); ++i) {
+    if (!(*plot_lines()[i] == *story.plot_lines()[i]))
+      return false;
+  }
+  return true;
+}
+
 Story::PlotLineRunner::PlotLineRunner(void* backdrop, PlotLine* plot_line)
-    : base::SimpleThread("PlotLineRunner"),
-      backdrop_(backdrop),
+    : backdrop_(backdrop),
       plot_line_(plot_line),
       failed_event_(nullptr) {
 }
 
-void Story::PlotLineRunner::Run() {
-  for (auto evt : *plot_line_) {
+void Story::PlotLineRunner::ThreadMain() {
+  base::PlatformThread::SetName("PlotLineRunner");
+  RunImpl();
+  if (!on_complete_.is_null())
+    on_complete_.Run(this);
+}
+
+void Story::PlotLineRunner::Start() {
+  DCHECK(handle_.is_null());
+  CHECK(base::PlatformThread::Create(0, this, &handle_));
+}
+
+void Story::PlotLineRunner::Join() {
+  DCHECK(!handle_.is_null());
+  base::PlatformThread::Join(handle_);
+}
+
+void Story::PlotLineRunner::RunImpl() {
+  for (size_t i = 0; i < plot_line_->size(); ++i) {
+    auto evt = (*plot_line_)[i];
     if (!evt->Play(backdrop_)) {
       failed_event_ = evt;
       return;
@@ -187,3 +256,14 @@ void Story::PlotLineRunner::Run() {
 }
 
 }  // namespace bard
+
+bool operator==(const bard::Story::PlotLine& pl1,
+                const bard::Story::PlotLine& pl2) {
+  if (pl1.size() != pl2.size())
+    return false;
+  for (size_t i = 0; i < pl1.size(); ++i) {
+    if (!pl1[i]->Equals(pl2[i]))
+      return false;
+  }
+  return true;
+}

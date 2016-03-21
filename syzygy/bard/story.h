@@ -38,6 +38,7 @@
 #ifndef SYZYGY_BARD_STORY_H_
 #define SYZYGY_BARD_STORY_H_
 
+#include "base/callback.h"
 #include "base/memory/scoped_vector.h"
 #include "base/threading/simple_thread.h"
 #include "syzygy/bard/event.h"
@@ -55,6 +56,10 @@ class Story {
 
   // PlotLine playback thread runner.
   class PlotLineRunner;
+
+  // Some constants used in serialization.
+  static const uint32_t kBardMagic = 0xBA4D7355;
+  static const uint32_t kBardVersion = 1;
 
   Story() {}
 
@@ -81,17 +86,36 @@ class Story {
   // plot line and plays the events back as fast as possible on each thread.
   bool Play(void* backdrop);
 
+  // For unittesting.
+  bool operator==(const Story& story) const;
+
  private:
   ScopedVector<PlotLine> plot_lines_;
 
   DISALLOW_COPY_AND_ASSIGN(Story);
 };
 
-// Thread main body for playing back all events on a PlotLine.
-class Story::PlotLineRunner : public base::SimpleThread {
+// Thread main body for playing back all events on a PlotLine. Since there is
+// lots of waiting/signaling between the various threads it is impossible for
+// one thread to exit with an error and the rest of them to hang. Thus each
+// thread communicates that it has completed via a callback.
+//
+// This uses a PlatformThread::Delegate rather than base::SimpleThread or other
+// implementations as those have the expectation that Join has been called for
+// each thread. The current implementation can't support this in the general
+// case as some thread's may hang if others exit with an error, meaning they
+// are not guaranteed to be joinable.
+class Story::PlotLineRunner : public base::PlatformThread::Delegate {
  public:
+  // Invoked to indicate that this runner has completed.
+  using OnCompleteCallback = base::Callback<void(PlotLineRunner*)>;
+
   PlotLineRunner(void* backdrop, PlotLine* plot_line);
   ~PlotLineRunner() override {}
+
+  void set_on_complete(OnCompleteCallback on_complete) {
+    on_complete_ = on_complete;
+  }
 
   // @returns true if the playback failed.
   bool Failed() const { return failed_event_ != nullptr; }
@@ -99,20 +123,38 @@ class Story::PlotLineRunner : public base::SimpleThread {
   // @returns the event that failed during playback, if an event failed.
   EventInterface* failed_event() const { return failed_event_; }
 
+  // Implementation of PlatformThread::Delegate.
+  void ThreadMain() override;
+
+  // For starting and stopping the thread.
+  void Start();
+  void Join();
+
  private:
-  // Implementation of base::SimpleThread.
-  void Run() override;
+  void RunImpl();
 
   void* backdrop_;
   PlotLine* plot_line_;
+
+  OnCompleteCallback on_complete_;
 
   // If an error occurs, this is left pointing at the event that failed.
   // Useful for debugging.
   EventInterface* failed_event_;
 
+  base::PlatformThreadHandle handle_;
+
   DISALLOW_COPY_AND_ASSIGN(PlotLineRunner);
 };
 
 }  // namespace bard
+
+// Comparison operator for PlotLines.
+// @param pl1 The first plotline to compare.
+// @param pl2 The second plotline to compare.
+// @returns true if the two plotlines are equal, false otherwise.
+// @note This is in the root namespace so its found by test fixtures.
+bool operator==(const bard::Story::PlotLine& pl1,
+                const bard::Story::PlotLine& pl2);
 
 #endif  // SYZYGY_BARD_STORY_H_

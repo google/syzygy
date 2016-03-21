@@ -31,15 +31,15 @@ class EventInterface {
   // kMaxEventType), to maintain backwards compatibility for
   // serialization/deserialization.
   enum EventType {
-    kLinkedEvent,
+    kLinkedEvent = 0,
     // Memory-profiling related events.
-    kHeapAllocEvent,
-    kHeapCreateEvent,
-    kHeapDestroyEvent,
-    kHeapFreeEvent,
-    kHeapReAllocEvent,
-    kHeapSetInformationEvent,
-    kHeapSizeEvent,
+    kHeapAllocEvent = 1,
+    kHeapCreateEvent = 2,
+    kHeapDestroyEvent = 3,
+    kHeapFreeEvent = 4,
+    kHeapReAllocEvent = 5,
+    kHeapSetInformationEvent = 6,
+    kHeapSizeEvent = 7,
     // New events must be added strictly to the end in order for serialization
     // to maintain backwards compatibility.
     // This must come last.
