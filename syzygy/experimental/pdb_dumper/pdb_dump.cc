@@ -110,6 +110,7 @@ bool ExplodeStreams(const base::FilePath& input_pdb_path,
   stream_suffixes[pdb::kPdbHeaderInfoStream] = L"-pdb-header";
   stream_suffixes[pdb::kDbiStream] = L"-dbi";
   stream_suffixes[pdb::kTpiStream] = L"-tpi";
+  stream_suffixes[pdb::kIpiStream] = L"-ipi";
 
   stream_suffixes[dbi_stream.header().global_symbol_info_stream] = L"-globals";
   stream_suffixes[dbi_stream.header().public_symbol_info_stream] = L"-public";
@@ -199,6 +200,8 @@ const char kUsage[] =
     "    --dump-fpo if provided, the FPO stream will be dumped\n"
     "    --dump-type-info if provided the type info stream will be dumped.\n"
     "       This is a big stream so it could take a lot of time to process.\n"
+    "    --dump-id-info if provided the ID info stream will be dumped when\n"
+    "       it is present. This is a big stream, so may take a long time.\n"
     "    --dump-modules if provided the module streams will be dumped. Note\n"
     "       that this can take a long time as there may be many of these\n"
     "       streams.\n"
@@ -214,6 +217,7 @@ PdbDumpApp::PdbDumpApp()
       dump_symbol_record_(false),
       dump_fpo_(false),
       dump_type_info_(false),
+      dump_id_info_(false),
       dump_modules_(false) {
 }
 
@@ -225,6 +229,7 @@ bool PdbDumpApp::ParseCommandLine(const base::CommandLine* command_line) {
   dump_symbol_record_ = command_line->HasSwitch("dump-symbol-records");
   dump_fpo_ = command_line->HasSwitch("dump-fpo");
   dump_type_info_ = command_line->HasSwitch("dump-type-info");
+  dump_id_info_ = command_line->HasSwitch("dump-id-info");
   dump_modules_ = command_line->HasSwitch("dump-modules");
 
   base::CommandLine::StringVector args = command_line->GetArgs();
@@ -295,16 +300,33 @@ int PdbDumpApp::Run() {
 
       DumpFpoStream(index_names, fpo_stream.get(), new_fpo_stream.get());
     }
+
     // Read the type info stream.
     stream = pdb_file.GetStream(pdb::kTpiStream).get();
     TypeInfoEnumerator type_info_enum;
-
     if (type_info_enum.Init(stream)) {
       if (dump_type_info_)
         DumpTypeInfoStream(out(), type_info_enum);
     } else {
       LOG(ERROR) << "No type info stream.";
       return 1;
+    }
+
+    // Read the ID info stream. This isn't present in all PDBs.
+    // TODO(chrisha): This references the type info stream, and creates a set
+    // of IDs that are also referenced from symbol record and module symbol
+    // record streams. This needs to be parsed with the type stream already
+    // parsed, and its contents need to be used when parsing the symbol
+    // streams.
+    stream = pdb_file.GetStream(pdb::kIpiStream).get();
+    if (stream) {
+      TypeInfoEnumerator id_info_enum;
+      if (!id_info_enum.Init(stream)) {
+        LOG(ERROR) << "Invalid ID info stream.";
+        return 1;
+      }
+      if (dump_id_info_)
+        DumpTypeInfoStream(out(), id_info_enum);
     }
 
     // Read the symbol record stream.

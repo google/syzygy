@@ -1317,6 +1317,140 @@ void DumpLeafCmplx128(FILE* out, PdbStream* stream) {
             numeric_value.val1_imag);
 }
 
+// ID stream leaf types.
+
+// Reads a string from the stream.
+bool ReadString(PdbStream* stream, std::string* s) {
+  s->clear();
+  while (stream->bytes_left()) {
+    char c = 0;
+    if (!stream->Read(&c, 1))
+      return false;
+    if (c == 0)
+      return true;
+    s->push_back(c);
+  }
+  // Stream ended before the string was read.
+  return false;
+}
+
+bool DumpLeafFunctionId(
+    const TypeInfoRecordMap& type_map,
+    FILE* out,
+    PdbStream* stream,
+    uint16_t len,
+    uint8_t indent_level) {
+  LeafFunctionId func_id = {};
+  size_t bytes_read = 0;
+  if (!stream->ReadBytes(
+          &func_id, offsetof(LeafFunctionId, name), &bytes_read)) {
+    return false;
+  }
+  std::string name;
+  if (!ReadString(stream, &name))
+    return false;
+  DumpIndentedText(out, indent_level, "scopeId: 0x%08x\n", func_id.scopeId);
+  DumpIndentedText(out, indent_level, "type: 0x%08x\n", func_id.type);
+  DumpIndentedText(out, indent_level, "name: %s\n", name.c_str());
+  return true;
+}
+
+bool DumpLeafMemberFunctionId(
+    const TypeInfoRecordMap& type_map,
+    FILE* out,
+    PdbStream* stream,
+    uint16_t len,
+    uint8_t indent_level) {
+  LeafMemberFunctionId mfunc_id = {};
+  size_t read_unused = 0;
+  if (!stream->ReadBytes(
+          &mfunc_id, offsetof(LeafMemberFunctionId, name), &read_unused)) {
+    return false;
+  }
+  std::string name;
+  if (!ReadString(stream, &name))
+    return false;
+  DumpIndentedText(out, indent_level, "parentType: 0x%08x\n",
+                   mfunc_id.parentType);
+  DumpIndentedText(out, indent_level, "type: 0x%08x\n", mfunc_id.type);
+  DumpIndentedText(out, indent_level, "name: %s\n", name.c_str());
+  return true;
+}
+
+bool DumpLeafStringId(
+    const TypeInfoRecordMap& type_map,
+    FILE* out,
+    PdbStream* stream,
+    uint16_t len,
+    uint8_t indent_level) {
+  LeafStringId str_id = {};
+  size_t read_unused = 0;
+  if (!stream->ReadBytes(&str_id, offsetof(LeafStringId, name), &read_unused))
+    return false;
+  std::string name;
+  if (!ReadString(stream, &name))
+    return false;
+  DumpIndentedText(out, indent_level, "id: 0x%08x\n", str_id.id);
+  DumpIndentedText(out, indent_level, "name: %s\n", name.c_str());
+  return true;
+}
+
+bool DumpLeafUdtSourceLine(
+    const TypeInfoRecordMap& type_map,
+    FILE* out,
+    PdbStream* stream,
+    uint16_t len,
+    uint8_t indent_level) {
+  LeafUdtSourceLine src_line = {};
+  if (!stream->Read(&src_line, 1))
+    return false;
+  DumpIndentedText(out, indent_level, "type: 0x%08x\n", src_line.type);
+  DumpIndentedText(out, indent_level, "src: 0x%08x\n", src_line.src);
+  DumpIndentedText(out, indent_level, "line: 0x%08x\n", src_line.line);
+  return true;
+}
+
+bool DumpLeafUdtModuleSourceLine(
+    const TypeInfoRecordMap& type_map,
+    FILE* out,
+    PdbStream* stream,
+    uint16_t len,
+    uint8_t indent_level) {
+  LeafUdtModuleSourceLine mod_src_line = {};
+  if (!stream->Read(&mod_src_line, 1))
+    return false;
+  DumpIndentedText(out, indent_level, "type: 0x%08x\n", mod_src_line.type);
+  DumpIndentedText(out, indent_level, "src: 0x%08x\n", mod_src_line.src);
+  DumpIndentedText(out, indent_level, "line: 0x%08x\n", mod_src_line.line);
+  DumpIndentedText(out, indent_level, "imod: 0x%04x\n", mod_src_line.imod);
+  return true;
+}
+
+bool DumpLeafBuildInfo(
+    const TypeInfoRecordMap& type_map,
+    FILE* out,
+    PdbStream* stream,
+    uint16_t len,
+    uint8_t indent_level) {
+  static const char* kFieldNames[] = { "CurrentDirectory", "BuildTool",
+      "SourceFile", "ProgramDatabaseFile"};
+  uint16_t count = 0;
+  if (!stream->Read(&count, 1))
+    return false;
+  for (size_t i = 0; i < count; ++i) {
+    uint32_t id = 0;
+    if (!stream->Read(&id, 1))
+      return false;
+    size_t j = std::min(arraysize(kFieldNames) - 1, i);
+    if (i == j) {
+      DumpIndentedText(out, indent_level, "%s: 0x%08x\n", kFieldNames[i], id);
+    } else {
+      DumpIndentedText(out, indent_level, "Argument[%d]: 0x%08x\n", i - j, id);
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
 bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
@@ -1399,6 +1533,7 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
     }
       LEAF_CASE_TABLE(LEAF_TYPE_DUMP)
 #undef LEAF_TYPE_DUMP
+
     default:
       return false;
   }

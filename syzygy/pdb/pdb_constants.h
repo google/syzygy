@@ -40,6 +40,10 @@ const uint32_t kPdbStringTableVersion = 1;
 // The index of the Tpi (Type info) stream.
 const size_t kTpiStream = 2;
 
+// The index of the Ipi (ID info) stream. This is of the same layout as the
+// Tpi stream.
+const size_t kIpiStream = 4;
+
 // The version we've observed for the Tpi stream.
 const uint32_t kTpiStreamVersion = 0x0131CA0B;
 

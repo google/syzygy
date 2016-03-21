@@ -291,7 +291,14 @@ const uint16_t S_GPROC32_VS2013 = 0x1147;
     decl(LF_MEMBERMODIFY, LeafMemberModify) \
     decl(LF_MANAGED, LeafManaged) \
     decl(LF_TYPESERVER2, LeafTypeServer2) \
-    decl(LF_VARSTRING, LeafVarString)
+    decl(LF_VARSTRING, LeafVarString)  \
+    decl(LF_FUNC_ID, LeafFunctionId)  \
+    decl(LF_MFUNC_ID, LeafMemberFunctionId)  \
+    decl(LF_BUILDINFO, LeafBuildInfo)  \
+    decl(LF_SUBSTR_LIST, LeafArgList)  \
+    decl(LF_STRING_ID, LeafStringId)  \
+    decl(LF_UDT_SRC_LINE, LeafUdtSourceLine)  \
+    decl(LF_UDT_MOD_SRC_LINE, LeafUdtModuleSourceLine)
 
 // This macro allow the easy construction of switch statements over the special
 // types enum. It define the case table, the parameter of each entry is the type

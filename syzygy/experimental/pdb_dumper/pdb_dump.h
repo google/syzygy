@@ -83,6 +83,9 @@ class PdbDumpApp : public application::AppImplBase {
   // Iff true, the type info stream will be dumped. Default to false.
   bool dump_type_info_;
 
+  // Iff true the ID info stream will be dumped. Defaults to false.
+  bool dump_id_info_;
+
   // Iff true, the module streams will be dumped. Default to false.
   bool dump_modules_;
 };
