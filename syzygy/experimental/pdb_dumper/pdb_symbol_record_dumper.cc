@@ -303,8 +303,22 @@ bool DumpBlockSym32(FILE* out,
                     PdbStream* stream,
                     uint16_t len,
                     uint8_t indent_level) {
-  // TODO(sebmarchand): Implement this function if we encounter this symbol.
-  return false;
+  DCHECK_NE(static_cast<FILE*>(nullptr), out);
+  DCHECK_NE(static_cast<PdbStream*>(nullptr), stream);
+
+  cci::BlockSym32 sym = {};
+  std::string name;
+  if (!ReadSymbolAndName(stream, len, &sym, &name))
+    return false;
+
+  DumpIndentedText(out, indent_level, "Parent: 0x%08X\n", sym.parent);
+  DumpIndentedText(out, indent_level, "End: 0x%08X\n", sym.end);
+  DumpIndentedText(out, indent_level, "Len: 0x%08X\n", sym.len);
+  DumpIndentedText(out, indent_level, "Off: 0x%08X\n", sym.off);
+  DumpIndentedText(out, indent_level, "Seg: 0x%04X\n", sym.seg);
+  DumpIndentedText(out, indent_level, "Name: %s\n", name.c_str());
+
+  return true;
 }
 
 bool DumpWithSym32(FILE* out,
@@ -327,15 +341,15 @@ bool DumpRegSym(FILE* out,
                 PdbStream* stream,
                 uint16_t len,
                 uint8_t indent_level) {
-  DCHECK_NE(reinterpret_cast<FILE*>(nullptr), out);
-  DCHECK_NE(reinterpret_cast<PdbStream*>(nullptr), stream);
+  DCHECK_NE(static_cast<FILE*>(nullptr), out);
+  DCHECK_NE(static_cast<PdbStream*>(nullptr), stream);
   cci::RegSym sym = {};
   std::string name;
   if (!ReadSymbolAndName(stream, len, &sym, &name))
     return false;
   DumpIndentedText(out, indent_level, "Type index: 0x%08X\n", sym.typind);
   DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
-  DumpIndentedText(out, indent_level, "Name     : %s\n", name.c_str());
+  DumpIndentedText(out, indent_level, "Name: %s\n", name.c_str());
   return true;
 }
 
