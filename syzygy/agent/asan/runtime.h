@@ -184,6 +184,12 @@ class AsanRuntime {
   // @returns EXCEPTION_CONTINUE_SEARCH or EXCEPTION_EXECUTE_HANDLER.
   static int CrashForException(EXCEPTION_POINTERS* exception);
 
+  // Enables the deferred free thread.
+  void EnableDeferredFreeThread();
+
+  // Disables the deferred free thread.
+  void DisableDeferredFreeThread();
+
  protected:
   // Propagate the values of the flags to the target modules.
   void PropagateParams();

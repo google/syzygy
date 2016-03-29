@@ -1293,5 +1293,15 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
   return EXCEPTION_CONTINUE_SEARCH;
 }
 
+void AsanRuntime::EnableDeferredFreeThread() {
+  DCHECK(heap_manager_);
+  heap_manager_->EnableDeferredFreeThread();
+}
+
+void AsanRuntime::DisableDeferredFreeThread() {
+  DCHECK(heap_manager_);
+  heap_manager_->DisableDeferredFreeThread();
+}
+
 }  // namespace asan
 }  // namespace agent

@@ -103,12 +103,12 @@ TEST(ShardedQuarantineTest, EvenLoading) {
   for (size_t i = 0; i < 9000; ++i) {
     {
       TestShardedQuarantine::AutoQuarantineLock lock(&q, d);
-      EXPECT_TRUE(q.Push(d));
+      EXPECT_TRUE(q.Push(d).push_successful);
     }
     d.hash++;
     EXPECT_EQ(i + 1, q.GetSizeForTesting());
 
-    EXPECT_FALSE(q.Pop(&popped));
+    EXPECT_FALSE(q.Pop(&popped).pop_successful);
     EXPECT_EQ(i + 1, q.GetSizeForTesting());
   }
 
@@ -116,13 +116,13 @@ TEST(ShardedQuarantineTest, EvenLoading) {
   while (q.GetSizeForTesting() <= q.max_quarantine_size()) {
     {
       TestShardedQuarantine::AutoQuarantineLock lock(&q, d);
-      EXPECT_TRUE(q.Push(d));
+      EXPECT_TRUE(q.Push(d).push_successful);
     }
     d.hash++;
   }
 
   // Now expect one element to be popped off before the invariant is satisfied.
-  EXPECT_TRUE(q.Pop(&popped));
+  EXPECT_TRUE(q.Pop(&popped).pop_successful);
   EXPECT_EQ(d.size, popped.size);
   EXPECT_EQ(q.max_quarantine_size(), q.GetSizeForTesting());
 
@@ -155,14 +155,14 @@ TEST(ShardedQuarantineTest, StressTest) {
     if (size > q.max_object_size()) {
       {
         TestShardedQuarantine::AutoQuarantineLock lock(&q, d);
-        EXPECT_FALSE(q.Push(d));
+        EXPECT_FALSE(q.Push(d).push_successful);
       }
       EXPECT_EQ(old_size, q.GetSizeForTesting());
       EXPECT_EQ(old_count, q.GetCountForTesting());
     } else {
       {
         TestShardedQuarantine::AutoQuarantineLock lock(&q, d);
-        EXPECT_TRUE(q.Push(d));
+        EXPECT_TRUE(q.Push(d).push_successful);
       }
       EXPECT_EQ(old_size + size, q.GetSizeForTesting());
       EXPECT_EQ(old_count + 1, q.GetCountForTesting());
@@ -172,11 +172,11 @@ TEST(ShardedQuarantineTest, StressTest) {
     while (q.GetSizeForTesting() > q.max_quarantine_size()) {
       old_size = q.GetSizeForTesting();
       old_count = q.GetCountForTesting();
-      EXPECT_TRUE(q.Pop(&popped));
+      EXPECT_TRUE(q.Pop(&popped).pop_successful);
       EXPECT_EQ(old_size - popped.size, q.GetSizeForTesting());
       EXPECT_EQ(old_count - 1, q.GetCountForTesting());
     }
-    EXPECT_FALSE(q.Pop(&popped));
+    EXPECT_FALSE(q.Pop(&popped).pop_successful);
   }
 
   size_t old_size = q.GetSizeForTesting();

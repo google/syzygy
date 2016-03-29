@@ -25,6 +25,41 @@
 namespace agent {
 namespace asan {
 
+// Specifies the color of the quarantine, depending on its size. YELLOW means
+// that we are below the maximum size whereas BLACK means we are way overbudget.
+// We also have two other colors, GREEN and RED, that are used to add
+// hysteresis. Basically, the color order is as follows:
+//     GREEN -> YELLOW -> RED -> BLACK
+// Having these multiple colors allows for trimming the quarantine at different
+// paces, depending on urgency (urgent trimming is done synchronously on the
+// critical path whereas non-urgent is done asynchronously in a background
+// thread). For more information about the colors, see implementation of
+// GetQuarantineColor.
+enum TrimColor { GREEN, YELLOW, RED, BLACK };
+
+// Used to indicate whether the quarantine must be trimmed synchronously, be
+// scheduled for trimming by the background thread (asynchronously) or both.
+using TrimStatus = uint32_t;
+enum TrimStatusBits : uint32_t {
+  TRIM_NOT_REQUIRED = 0,
+  ASYNC_TRIM_REQUIRED = 1 << 0,
+  SYNC_TRIM_REQUIRED = 1 << 1
+};
+
+// Type returned by Push. It returns whether the push was successful or not and
+// whether the quarantine requires trimming (either sync and/or async).
+struct PushResult {
+  bool push_successful;
+  TrimStatus trim_status;
+};
+
+// Type returned by Pop. It returns whether the pop was successful or not and
+// the color of the quarantine post-pop.
+struct PopResult {
+  bool pop_successful;
+  TrimColor trim_color;
+};
+
 // The interface that quarantines must satisfy. They store literal copies of
 // objects of type |ObjectType|.
 //
@@ -51,16 +86,14 @@ class QuarantineInterface {
   // Places an allocation in the quarantine. This routine must be called under
   // Lock.
   // @param The object to place in the quarantine.
-  // @returns true if the has been accepted by and placed in the quarantine,
-  //     and false if its entry has been refused.
-  virtual bool Push(const Object& object) = 0;
+  // @returns a PushResult.
+  virtual PushResult Push(const Object& object) = 0;
 
   // Potentially removes an object from the quarantine to maintain the
   // invariant. This routine must be thread-safe, and implement its own locking.
   // @param object Is filled in with a copy of the removed object.
-  // @returns true if an object was removed, false otherwise. If this returns
-  //     false then the cache invariant is satisfied.
-  virtual bool Pop(Object* object) = 0;
+  // @returns a PopResult.
+  virtual PopResult Pop(Object* object) = 0;
 
   // Removes all objects from the quarantine, placing them in the provided
   // vector. This routine must be thread-safe, and implement its own locking.

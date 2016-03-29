@@ -23,6 +23,7 @@
 #include "base/debug/alias.h"
 #include "base/synchronization/condition_variable.h"
 #include "base/synchronization/lock.h"
+#include "base/synchronization/waitable_event.h"
 #include "base/test/test_reg_util_win.h"
 #include "base/threading/simple_thread.h"
 #include "gmock/gmock.h"
@@ -181,9 +182,11 @@ class TestZebraBlockHeap : public heaps::ZebraBlockHeap {
 
   // Wrapper that allows easily disabling the insertion of new blocks in the
   // quarantine.
-  bool Push(const CompactBlockInfo& info) override {
-    if (refuse_push_)
-      return false;
+  PushResult Push(const CompactBlockInfo& info) override {
+    if (refuse_push_) {
+      PushResult result = {false, 0};
+      return result;
+    }
     return ZebraBlockHeap::Push(info);
   }
 
@@ -227,6 +230,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::large_block_heap_id_;
   using BlockHeapManager::locked_heaps_;
   using BlockHeapManager::parameters_;
+  using BlockHeapManager::shared_quarantine_;
   using BlockHeapManager::zebra_block_heap_;
   using BlockHeapManager::zebra_block_heap_id_;
 
@@ -247,8 +251,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   TestBlockHeapManager(Shadow* shadow,
                        StackCaptureCache* stack_cache,
                        MemoryNotifierInterface* memory_notifier)
-      : BlockHeapManager(shadow, stack_cache, memory_notifier) {
-  }
+      : BlockHeapManager(shadow, stack_cache, memory_notifier) {}
 
   // Removes the heap with the given ID.
   void RemoveHeapById(HeapId heap_id) {
@@ -270,6 +273,23 @@ class TestBlockHeapManager : public BlockHeapManager {
     }
 
     PropagateParameters();
+  }
+
+  // Wrapper around DeferredFreeDoWork that allows for synchronization around
+  // the actual work (pause for start and signal finish).
+  void DeferredFreeDoWorkWithSync(base::WaitableEvent* start_event,
+                                  base::WaitableEvent* end_event) {
+    start_event->Wait();
+    BlockHeapManager::DeferredFreeDoWork();
+    end_event->Signal();
+  }
+
+  // Enabled the deferred free thread with the above wrapper.
+  void EnableDeferredFreeWithSync(base::WaitableEvent* start_event,
+                                  base::WaitableEvent* end_event) {
+    EnableDeferredFreeThreadWithCallback(
+        base::Bind(&TestBlockHeapManager::DeferredFreeDoWorkWithSync,
+                   base::Unretained(this), start_event, end_event));
   }
 };
 
@@ -1681,6 +1701,63 @@ TEST_F(BlockHeapManagerTest, ComputeRelativeStackId) {
   stack.InitFromStack();
 
   EXPECT_NE(0U, stack.relative_stack_id());
+}
+
+TEST_F(BlockHeapManagerTest, EnableDeferredFreeThreadTest) {
+  ScopedHeap heap(heap_manager_);
+  ASSERT_FALSE(heap_manager_->IsDeferredFreeThreadRunning());
+  heap_manager_->EnableDeferredFreeThread();
+  ASSERT_TRUE(heap_manager_->IsDeferredFreeThreadRunning());
+  heap_manager_->DisableDeferredFreeThread();
+  ASSERT_FALSE(heap_manager_->IsDeferredFreeThreadRunning());
+}
+
+TEST_F(BlockHeapManagerTest, DeferredFreeThreadTest) {
+  const size_t kAllocSize = 100;
+  const size_t kTargetMaxYellow = 10;
+  size_t real_alloc_size = GetAllocSize(kAllocSize);
+  ScopedHeap heap(heap_manager_);
+
+  ::common::AsanParameters parameters = heap_manager_->parameters();
+  parameters.quarantine_size = real_alloc_size * kTargetMaxYellow;
+  heap_manager_->set_parameters(parameters);
+
+  size_t max_size_yellow =
+      heap_manager_->shared_quarantine_.GetMaxSizeForColorForTesting(YELLOW) /
+      real_alloc_size;
+
+  ASSERT_EQ(kTargetMaxYellow, max_size_yellow);
+
+  // Blocks the callback until it gets signaled.
+  base::WaitableEvent deferred_free_callback_start(false, false);
+  // Gets signaled by the callback this it's done executing.
+  base::WaitableEvent deferred_free_callback_end(false, false);
+  heap_manager_->EnableDeferredFreeWithSync(&deferred_free_callback_start,
+                                            &deferred_free_callback_end);
+  ASSERT_TRUE(heap_manager_->IsDeferredFreeThreadRunning());
+
+  // Overshoot the YELLOW size (into RED) then start and wait for the callback
+  // to be executed. The quarantine should to be back to GREEN.
+  for (int i = 0; i < max_size_yellow + 1; i++) {
+    void* heap_mem = heap.Allocate(kAllocSize);
+    ASSERT_NE(static_cast<void*>(nullptr), heap_mem);
+    heap.Free(heap_mem);
+  }
+
+  size_t current_size = heap_manager_->shared_quarantine_.GetSizeForTesting();
+  ASSERT_EQ(RED,
+            heap_manager_->shared_quarantine_.GetQuarantineColor(current_size));
+
+  // Signal the callback to execute and for it to finish.
+  deferred_free_callback_start.Signal();
+  deferred_free_callback_end.Wait();
+
+  current_size = heap_manager_->shared_quarantine_.GetSizeForTesting();
+  EXPECT_EQ(GREEN,
+            heap_manager_->shared_quarantine_.GetQuarantineColor(current_size));
+
+  heap_manager_->DisableDeferredFreeThread();
+  EXPECT_FALSE(heap_manager_->IsDeferredFreeThreadRunning());
 }
 
 namespace {

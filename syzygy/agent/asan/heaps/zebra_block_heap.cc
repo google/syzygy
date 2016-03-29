@@ -209,28 +209,31 @@ bool ZebraBlockHeap::FreeBlock(const BlockInfo& block_info) {
   return true;
 }
 
-bool ZebraBlockHeap::Push(const CompactBlockInfo& info) {
+PushResult ZebraBlockHeap::Push(const CompactBlockInfo& info) {
   ::common::AutoRecursiveLock lock(lock_);
   size_t slab_index = GetSlabIndex(info.header);
+  PushResult result = {false, 0};
   if (slab_index == kInvalidSlabIndex)
-    return false;
+    return result;
   if (slab_info_[slab_index].state != kAllocatedSlab)
-    return false;
+    return result;
   if (::memcmp(&slab_info_[slab_index].info, &info,
                sizeof(info)) != 0) {
-    return false;
+    return result;
   }
 
   quarantine_.push(slab_index);
   slab_info_[slab_index].state = kQuarantinedSlab;
-  return true;
+  result.push_successful = true;
+  result.trim_status |= TrimStatusBits::SYNC_TRIM_REQUIRED;
+  return result;
 }
 
-bool ZebraBlockHeap::Pop(CompactBlockInfo* info) {
+PopResult ZebraBlockHeap::Pop(CompactBlockInfo* info) {
   ::common::AutoRecursiveLock lock(lock_);
-
+  PopResult result = {false, TrimColor::GREEN};
   if (QuarantineInvariantIsSatisfied())
-    return false;
+    return result;
 
   size_t slab_index = quarantine_.front();
   DCHECK_NE(kInvalidSlabIndex, slab_index);
@@ -240,7 +243,8 @@ bool ZebraBlockHeap::Pop(CompactBlockInfo* info) {
   slab_info_[slab_index].state = kAllocatedSlab;
   *info = slab_info_[slab_index].info;
 
-  return true;
+  result.pop_successful = true;
+  return result;
 }
 
 void ZebraBlockHeap::Empty(ObjectVector* infos) {

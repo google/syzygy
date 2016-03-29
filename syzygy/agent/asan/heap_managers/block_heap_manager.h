@@ -31,6 +31,7 @@
 #include "syzygy/agent/asan/quarantine.h"
 #include "syzygy/agent/asan/registry_cache.h"
 #include "syzygy/agent/asan/stack_capture_cache.h"
+#include "syzygy/agent/asan/heap_managers/deferred_free_thread.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/agent/asan/quarantines/sharded_quarantine.h"
 #include "syzygy/agent/common/stack_capture.h"
@@ -125,6 +126,19 @@ class BlockHeapManager : public HeapManagerInterface {
   // @note The flag is stored per-thread using TLS. Multiple threads do not
   //     share the same flag.
   void set_allocation_filter_flag(bool value);
+
+  // Enables the deferred free thread mechanism. Must not be called if the
+  // thread is already running. Typical usage is to enable the thread at startup
+  // and disable it at shutdown.
+  void EnableDeferredFreeThread();
+
+  // Disables the deferred free thread mechanism. Must be called before the
+  // destructor if the thread is enabled. Must also never be called if the
+  // thread is not enabled.
+  void DisableDeferredFreeThread();
+
+  // @returns true if the deferred thread is currently running.
+  bool IsDeferredFreeThreadRunning();
 
  protected:
   // This allows the runtime access to our internals, necessary for crash
@@ -237,18 +251,19 @@ class BlockHeapManager : public HeapManagerInterface {
   void DestroyHeapResourcesUnlocked(BlockHeapInterface* heap,
                                     BlockQuarantineInterface* quarantine);
 
-  // If the quarantine of a heap is over its maximum size, trim it down until
-  // it's below the limit. If parameters_.quarantine_size is 0 then
-  // then quarantine is flushed.
+  // Trim the specified quarantine until its color is |stop_color| or lower. If
+  // parameters_.quarantine_size is 0 then the quarantine is flushed.
+  // @param stop_color The target color at which the trimming ends.
   // @param quarantine The quarantine to trim.
   // TODO(peterssen): Change the 0-size contract. The quarantine 'contract'
   //    establish that when the size is 0, it means unlimited, this is rather
   //    awkward since trimming with size 0 should flush the quarantine.
-  void TrimQuarantine(BlockQuarantineInterface* quarantine);
+  void TrimQuarantine(TrimColor stop_color,
+                      BlockQuarantineInterface* quarantine);
 
-  // Free a vector of blocks.
-  // @param vec The vector of blocks to be freed.
-  void FreeBlockVector(BlockQuarantineInterface::ObjectVector& vec);
+  // Free a block.
+  // @param obj The object to be freed.
+  void FreeBlock(const BlockQuarantineInterface::Object& obj);
 
   // Free a block that might be corrupt. If the block is corrupt first reports
   // an error before safely releasing the block.
@@ -319,6 +334,33 @@ class BlockHeapManager : public HeapManagerInterface {
   // @param block_info The corrupt block.
   // @returns true if an error should be reported, false otherwise.
   bool ShouldReportCorruptBlock(const BlockInfo* block_info);
+
+  // Called to check if the quarantine needs to be trimmed. This will either
+  // schedule asynchronous trimming, execute synchronous trimming, do both or do
+  // neither, depending on the value of |trim_status|.
+  // @param quarantine The quarantine to be trimmed.
+  // @param trim_status The status returned by the push.
+  void TrimOrScheduleIfNecessary(TrimStatus trim_status,
+                                 BlockQuarantineInterface* quarantine);
+
+  // Used by TrimOrScheduleIfNecessary to signal the deferred free thread that
+  // the quarantine needs trimming (ie. asynchronous trimming).
+  void DeferredFreeThreadSignalWork();
+
+  // Invoked by the deferred free thread when it is signaled that the quarantine
+  // needs trimming.
+  void DeferredFreeDoWork();
+
+  // Implementation of EnableDeferredFreeThread that takes the callback. Used
+  // also by tests to override the callback.
+  // @param deferred_free_callback The callback.
+  void EnableDeferredFreeThreadWithCallback(
+      DeferredFreeThread::Callback deferred_free_callback);
+
+  // Returns the ID of the deferred free thread. Must not be called if the
+  // thread is not running.
+  // @returns the thread ID.
+  base::PlatformThreadId GetDeferredFreeThreadId();
 
   // The shadow memory that is notified by all activity in this heap manager.
   Shadow* shadow_;
@@ -395,6 +437,12 @@ class BlockHeapManager : public HeapManagerInterface {
   RegistryCache corrupt_block_registry_cache_;
 
  private:
+  // Background thread that takes care of trimming the quarantine
+  // asynchronously.
+  base::Lock deferred_free_thread_lock_;
+  // Under deferred_free_thread_lock_.
+  scoped_ptr<DeferredFreeThread> deferred_free_thread_;
+
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);
 };
 

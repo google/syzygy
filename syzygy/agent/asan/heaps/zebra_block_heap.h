@@ -116,9 +116,13 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // @}
 
   // @name BlockQuarantineInterface functions.
+  // @note As of now, the zebra heap always gets trimmed synchronously after
+  // each successful push by calling pop once. Therefore, a successful push will
+  // always return SYNC_TRIM_REQUIRED and a pop will always return the GREEN
+  // color.
   // @{
-  virtual bool Push(const CompactBlockInfo& info);
-  virtual bool Pop(CompactBlockInfo* info);
+  virtual PushResult Push(const CompactBlockInfo& info);
+  virtual PopResult Pop(CompactBlockInfo* info);
   virtual void Empty(std::vector<CompactBlockInfo>* infos);
   virtual size_t GetCountForTesting();
   virtual size_t GetLockId(const CompactBlockInfo& info) {

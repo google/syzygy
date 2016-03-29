@@ -40,6 +40,11 @@ typedef HeapManagerInterface::HeapId HeapId;
 using heaps::LargeBlockHeap;
 using heaps::ZebraBlockHeap;
 
+// For now, the overbudget size is always set to 20% of the size of the
+// quarantine.
+// TODO(georgesak): allow this to be changed through the parameters.
+enum : uint32_t { kOverbudgetSizePercentage = 20 };
+
 // Return the position of the most significant bit in a 32 bit unsigned value.
 size_t GetMSBIndex(size_t n) {
   // Algorithm taken from
@@ -312,11 +317,15 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   CompactBlockInfo compact = {};
   ConvertBlockInfo(block_info, &compact);
 
+  PushResult push_result = {};
   {
     BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(
         quarantine, compact);
-    if (!quarantine->Push(compact))
+    push_result = quarantine->Push(compact);
+    if (!push_result.push_successful) {
+      TrimOrScheduleIfNecessary(push_result.trim_status, quarantine);
       return FreePristineBlock(&block_info);
+    }
 
     if (enable_page_protections_) {
       // The recently pushed block can be popped out in TrimQuarantine if the
@@ -327,7 +336,9 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
       BlockProtectAll(block_info, shadow_);
     }
   }
-  TrimQuarantine(quarantine);
+
+  TrimOrScheduleIfNecessary(push_result.trim_status, quarantine);
+
   return true;
 }
 
@@ -565,7 +576,7 @@ void BlockHeapManager::PropagateParameters() {
 
   // Trim the quarantine if its maximum size has decreased.
   if (initialized_ && quarantine_size > parameters_.quarantine_size)
-    TrimQuarantine(&shared_quarantine_);
+    TrimQuarantine(TrimColor::YELLOW, &shared_quarantine_);
 
   if (parameters_.enable_zebra_block_heap && zebra_block_heap_ == nullptr) {
     // Initialize the zebra heap only if it isn't already initialized.
@@ -585,7 +596,7 @@ void BlockHeapManager::PropagateParameters() {
     zebra_block_heap_->set_quarantine_ratio(
         parameters_.zebra_block_heap_quarantine_ratio);
     if (initialized_)
-      TrimQuarantine(zebra_block_heap_);
+      TrimQuarantine(TrimColor::YELLOW, zebra_block_heap_);
   }
 
   // Create the LargeBlockHeap if need be.
@@ -612,6 +623,29 @@ void BlockHeapManager::set_allocation_filter_flag(bool value) {
   ::TlsSetValue(allocation_filter_flag_tls_, reinterpret_cast<void*>(value));
 }
 
+void BlockHeapManager::EnableDeferredFreeThread() {
+  // The thread will be shutdown before this BlockHeapManager object is
+  // destroyed, so passing |this| unretained is safe.
+  EnableDeferredFreeThreadWithCallback(base::Bind(
+      &BlockHeapManager::DeferredFreeDoWork, base::Unretained(this)));
+}
+
+void BlockHeapManager::DisableDeferredFreeThread() {
+  DCHECK(IsDeferredFreeThreadRunning());
+  // Stop the thread and wait for it to exit.
+  base::AutoLock lock(deferred_free_thread_lock_);
+  if (deferred_free_thread_)
+    deferred_free_thread_->Stop();
+  deferred_free_thread_.reset();
+  // Set the overbudget size to 0 to remove the hysteresis.
+  shared_quarantine_.SetOverbudgetSize(0);
+}
+
+bool BlockHeapManager::IsDeferredFreeThreadRunning() {
+  base::AutoLock lock(deferred_free_thread_lock_);
+  return deferred_free_thread_ != nullptr;
+}
+
 HeapType BlockHeapManager::GetHeapTypeUnlocked(HeapId heap_id) {
   DCHECK(initialized_);
   DCHECK(IsValidHeapIdUnlocked(heap_id, true));
@@ -628,7 +662,6 @@ bool BlockHeapManager::DestroyHeapContents(
 
   // Starts by removing all the block from this heap from the quarantine.
   BlockQuarantineInterface::ObjectVector blocks_vec;
-  BlockQuarantineInterface::ObjectVector blocks_to_free;
 
   // We'll keep the blocks that don't belong to this heap in a temporary list.
   // While this isn't optimal in terms of performance, destroying a heap isn't a
@@ -650,7 +683,7 @@ bool BlockHeapManager::DestroyHeapContents(
     BlockHeapInterface* block_heap = GetHeapFromId(expanded.trailer->heap_id);
 
     if (block_heap == heap) {
-      blocks_to_free.push_back(iter_block);
+      FreeBlock(iter_block);
     } else {
       blocks_to_reinsert.push_back(iter_block);
     }
@@ -663,18 +696,16 @@ bool BlockHeapManager::DestroyHeapContents(
 
     BlockQuarantineInterface::AutoQuarantineLock quarantine_lock(quarantine,
                                                                  iter_block);
-    if (quarantine->Push(iter_block)) {
+    if (quarantine->Push(iter_block).push_successful) {
       if (enable_page_protections_) {
         // Restore protection to quarantined block.
         BlockProtectAll(expanded, shadow_);
       }
     } else {
       // Avoid memory leak.
-      blocks_to_free.push_back(iter_block);
+      FreeBlock(iter_block);
     }
   }
-
-  FreeBlockVector(blocks_to_free);
 
   return true;
 }
@@ -695,31 +726,34 @@ void BlockHeapManager::DestroyHeapResourcesUnlocked(
   delete heap;
 }
 
-void BlockHeapManager::TrimQuarantine(BlockQuarantineInterface* quarantine) {
+void BlockHeapManager::TrimQuarantine(TrimColor stop_color,
+                                      BlockQuarantineInterface* quarantine) {
   DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockQuarantineInterface*>(nullptr), quarantine);
 
-  BlockQuarantineInterface::ObjectVector blocks_to_free;
-
-  // Trim the quarantine to the new maximum size.
+  // Trim the quarantine to the required color.
   if (parameters_.quarantine_size == 0) {
+    BlockQuarantineInterface::ObjectVector blocks_to_free;
     quarantine->Empty(&blocks_to_free);
+    for (const auto& block : blocks_to_free)
+      FreeBlock(block);
   } else {
     CompactBlockInfo compact = {};
-    while (quarantine->Pop(&compact))
-      blocks_to_free.push_back(compact);
+    while (true) {
+      PopResult result = quarantine->Pop(&compact);
+      if (!result.pop_successful)
+        break;
+      FreeBlock(compact);
+      if (result.trim_color <= stop_color)
+        break;
+    }
   }
-
-  FreeBlockVector(blocks_to_free);
 }
 
-void BlockHeapManager::FreeBlockVector(
-    BlockQuarantineInterface::ObjectVector& vec) {
-  for (const auto& iter_block : vec) {
-    BlockInfo expanded = {};
-    ConvertBlockInfo(iter_block, &expanded);
-    CHECK(FreePotentiallyCorruptBlock(&expanded));
-  }
+void BlockHeapManager::FreeBlock(const BlockQuarantineInterface::Object& obj) {
+  BlockInfo expanded = {};
+  ConvertBlockInfo(obj, &expanded);
+  CHECK(FreePotentiallyCorruptBlock(&expanded));
 }
 
 namespace {
@@ -924,6 +958,60 @@ bool BlockHeapManager::ShouldReportCorruptBlock(const BlockInfo* block_info) {
   // encounter a corrupt block that has the same allocation stack trace.
   corrupt_block_registry_cache_.AddOrUpdateStackId(relative_alloc_stack_id);
   return true;
+}
+
+void BlockHeapManager::TrimOrScheduleIfNecessary(
+    TrimStatus trim_status,
+    BlockQuarantineInterface* quarantine) {
+  // If no trimming is required, nothing to do.
+  if (trim_status == TRIM_NOT_REQUIRED)
+    return;
+
+  // If the deferred thread is not running, always trim synchronously.
+  if (!IsDeferredFreeThreadRunning()) {
+    TrimQuarantine(TrimColor::YELLOW, quarantine);
+    return;
+  }
+
+  // Signal the deferred thread to wake up and/or trim synchronously, as needed.
+  if (trim_status & TrimStatusBits::ASYNC_TRIM_REQUIRED)
+    DeferredFreeThreadSignalWork();
+  if (trim_status & TrimStatusBits::SYNC_TRIM_REQUIRED)
+    TrimQuarantine(TrimColor::YELLOW, quarantine);
+}
+
+void BlockHeapManager::DeferredFreeThreadSignalWork() {
+  DCHECK(IsDeferredFreeThreadRunning());
+  base::AutoLock lock(deferred_free_thread_lock_);
+  deferred_free_thread_->SignalWork();
+}
+
+void BlockHeapManager::DeferredFreeDoWork() {
+  DCHECK_EQ(GetDeferredFreeThreadId(), base::PlatformThread::CurrentId());
+  // As of now, only the shared quarantine gets trimmed asynchronously. This
+  // will bring it back in the GREEN color.
+  BlockQuarantineInterface* shared_quarantine = &shared_quarantine_;
+  TrimQuarantine(TrimColor::GREEN, shared_quarantine);
+}
+
+base::PlatformThreadId BlockHeapManager::GetDeferredFreeThreadId() {
+  DCHECK(IsDeferredFreeThreadRunning());
+  base::AutoLock lock(deferred_free_thread_lock_);
+  return deferred_free_thread_->deferred_free_thread_id();
+}
+
+void BlockHeapManager::EnableDeferredFreeThreadWithCallback(
+    DeferredFreeThread::Callback deferred_free_callback) {
+  DCHECK(!IsDeferredFreeThreadRunning());
+
+  shared_quarantine_.SetOverbudgetSize(
+      shared_quarantine_.max_quarantine_size() * kOverbudgetSizePercentage /
+      100);
+
+  // Create the thread and wait for it to start.
+  base::AutoLock lock(deferred_free_thread_lock_);
+  deferred_free_thread_.reset(new DeferredFreeThread(deferred_free_callback));
+  deferred_free_thread_->Start();
 }
 
 }  // namespace heap_managers

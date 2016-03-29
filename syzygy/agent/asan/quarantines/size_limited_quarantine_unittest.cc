@@ -78,8 +78,8 @@ class TestQuarantine
   }
 
   size_t GetLockIdImpl(const DummyObject& o) { return 0; }
-  void LockImpl(size_t lock_id) { };
-  void UnlockImpl(size_t lock_id) { };
+  void LockImpl(size_t lock_id) {}
+  void UnlockImpl(size_t lock_id) {}
   // @}
 
   DummyObjectVector objects_;
@@ -114,10 +114,10 @@ TEST(SizeLimitedQuarantineTest, MaxObjectSizeEnforced) {
   q.set_max_object_size(10);
   for (size_t i = 1; i < 20; ++i) {
     if (i <= 10) {
-      EXPECT_TRUE(q.Push(DummyObject(i)));
+      EXPECT_TRUE(q.Push(DummyObject(i)).push_successful);
       EXPECT_EQ(i, q.GetCountForTesting());
     } else {
-      EXPECT_FALSE(q.Push(DummyObject(i)));
+      EXPECT_FALSE(q.Push(DummyObject(i)).push_successful);
       EXPECT_EQ(10u, q.GetCountForTesting());
     }
   }
@@ -129,23 +129,23 @@ TEST(SizeLimitedQuarantineTest, InvariantEnforced) {
 
   q.set_max_quarantine_size(15);
 
-  EXPECT_TRUE(q.Push(o));
+  EXPECT_TRUE(q.Push(o).push_successful);
   EXPECT_EQ(10u, q.GetSizeForTesting());
   EXPECT_EQ(1u, q.GetCountForTesting());
 
-  EXPECT_FALSE(q.Pop(&o));
+  EXPECT_FALSE(q.Pop(&o).pop_successful);
   EXPECT_EQ(10u, q.GetSizeForTesting());
   EXPECT_EQ(1u, q.GetCountForTesting());
 
-  EXPECT_TRUE(q.Push(o));
+  EXPECT_TRUE(q.Push(o).push_successful);
   EXPECT_EQ(20u, q.GetSizeForTesting());
   EXPECT_EQ(2u, q.GetCountForTesting());
 
-  EXPECT_TRUE(q.Pop(&o));
+  EXPECT_TRUE(q.Pop(&o).pop_successful);
   EXPECT_EQ(10u, q.GetSizeForTesting());
   EXPECT_EQ(1u, q.GetCountForTesting());
 
-  EXPECT_FALSE(q.Pop(&o));
+  EXPECT_FALSE(q.Pop(&o).pop_successful);
   EXPECT_EQ(10u, q.GetSizeForTesting());
   EXPECT_EQ(1u, q.GetCountForTesting());
 }
@@ -154,9 +154,9 @@ TEST(SizeLimitedQuarantineTest, EmptyWorks) {
   TestQuarantine q;
   DummyObject o(10);
 
-  EXPECT_TRUE(q.Push(o));
-  EXPECT_TRUE(q.Push(o));
-  EXPECT_TRUE(q.Push(o));
+  EXPECT_TRUE(q.Push(o).push_successful);
+  EXPECT_TRUE(q.Push(o).push_successful);
+  EXPECT_TRUE(q.Push(o).push_successful);
   EXPECT_EQ(30u, q.GetSizeForTesting());
   EXPECT_EQ(3u, q.GetCountForTesting());
 
@@ -164,6 +164,83 @@ TEST(SizeLimitedQuarantineTest, EmptyWorks) {
   q.Empty(&os);
 
   EXPECT_THAT(os, testing::ElementsAre(o, o, o));
+}
+
+TEST(SizeLimitedQuarantineTest, GetQuarantineColor) {
+  const size_t kMaxSize = 1000;
+  const size_t kOverbudgetSize = 10;
+
+  TestQuarantine q;
+  q.set_max_quarantine_size(kMaxSize);
+  q.SetOverbudgetSize(kOverbudgetSize);
+
+  // Test all values to make sure they fit in the right color.
+  int i = 0;
+  for (; i <= q.GetMaxSizeForColorForTesting(TrimColor::GREEN); i++)
+    EXPECT_EQ(TrimColor::GREEN, q.GetQuarantineColor(i));
+
+  for (; i <= q.GetMaxSizeForColorForTesting(TrimColor::YELLOW); i++)
+    EXPECT_EQ(TrimColor::YELLOW, q.GetQuarantineColor(i));
+
+  for (; i <= q.GetMaxSizeForColorForTesting(TrimColor::RED); i++)
+    EXPECT_EQ(TrimColor::RED, q.GetQuarantineColor(i));
+
+  // Testing all the Black values would take too long, so only test the first
+  // few.
+  for (; i < q.GetMaxSizeForColorForTesting(TrimColor::RED) * 2; i++)
+    EXPECT_EQ(TrimColor::BLACK, q.GetQuarantineColor(i));
+}
+
+TEST(SizeLimitedQuarantineTest, GetMaxSizeForColorForTesting) {
+  const size_t kMaxQuarantineSize = 1000;
+  const size_t kOverbudgetSize = 2048;
+
+  TestQuarantine q;
+  q.set_max_quarantine_size(kMaxQuarantineSize);
+
+  // There should only be two limits by default.
+  EXPECT_EQ(q.GetMaxSizeForColorForTesting(TrimColor::GREEN),
+            q.GetMaxSizeForColorForTesting(TrimColor::YELLOW));
+  EXPECT_EQ(q.GetMaxSizeForColorForTesting(TrimColor::YELLOW),
+            q.GetMaxSizeForColorForTesting(TrimColor::RED));
+  EXPECT_LT(q.GetMaxSizeForColorForTesting(TrimColor::RED),
+            q.GetMaxSizeForColorForTesting(TrimColor::BLACK));
+
+  q.SetOverbudgetSize(kOverbudgetSize);
+  // Yellow is set at the max size.
+  EXPECT_EQ(kMaxQuarantineSize,
+            q.GetMaxSizeForColorForTesting(TrimColor::YELLOW));
+  // There should be 4 limits now that an overbudget size is set.
+  EXPECT_LT(q.GetMaxSizeForColorForTesting(TrimColor::GREEN),
+            q.GetMaxSizeForColorForTesting(TrimColor::YELLOW));
+  EXPECT_LT(q.GetMaxSizeForColorForTesting(TrimColor::YELLOW),
+            q.GetMaxSizeForColorForTesting(TrimColor::RED));
+  EXPECT_LT(q.GetMaxSizeForColorForTesting(TrimColor::RED),
+            q.GetMaxSizeForColorForTesting(TrimColor::BLACK));
+}
+
+TEST(SizeLimitedQuarantineTest, SetOverbudgetSize) {
+  const size_t kMaxQuarantineSize = 10 * 1024;
+  const size_t kMinBudgetSize = 1024;
+  TestQuarantine q;
+  q.set_max_quarantine_size(kMaxQuarantineSize);
+  EXPECT_EQ(0, q.GetOverbudgetSizeForTesting());
+
+  // Min is 1k.
+  q.SetOverbudgetSize(kMinBudgetSize - 1);
+  EXPECT_EQ(kMinBudgetSize, q.GetOverbudgetSizeForTesting());
+  q.SetOverbudgetSize(0);
+
+  // Max is max_quarantine_size/2.
+  q.SetOverbudgetSize(kMaxQuarantineSize);
+  EXPECT_EQ(kMaxQuarantineSize / 2, q.GetOverbudgetSizeForTesting());
+  q.SetOverbudgetSize(0);
+
+  q.SetOverbudgetSize(kMinBudgetSize * 2);
+  EXPECT_EQ(kMinBudgetSize * 2, q.GetOverbudgetSizeForTesting());
+
+  q.SetOverbudgetSize(0);
+  EXPECT_EQ(0, q.GetOverbudgetSizeForTesting());
 }
 
 }  // namespace quarantines

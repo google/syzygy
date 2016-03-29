@@ -120,3 +120,7 @@ EXPORTS
 
   ; Breakpad-like exception filter.
   asan_CrashForException
+
+  ; Functions exposed to enable/disable the deferred trimming mechanism.
+  asan_EnableDeferredFreeThread
+  asan_DisableDeferredFreeThread

@@ -18,6 +18,8 @@
 #ifndef SYZYGY_AGENT_ASAN_QUARANTINES_SIZE_LIMITED_QUARANTINE_H_
 #define SYZYGY_AGENT_ASAN_QUARANTINES_SIZE_LIMITED_QUARANTINE_H_
 
+#include <utility>
+
 #include "base/atomicops.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/quarantine.h"
@@ -143,8 +145,8 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   SizeLimitedQuarantineImpl()
       : max_object_size_(kUnboundedSize),
         max_quarantine_size_(kUnboundedSize),
-        size_functor_() {
-  }
+        size_functor_(),
+        overbudget_size_(0) {}
 
   // Constructor. Initially the quarantine has unlimited capacity.
   // @param size_functor The size functor to be used. This will be copied
@@ -152,8 +154,16 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   explicit SizeLimitedQuarantineImpl(const SizeFunctor& size_functor)
       : max_object_size_(kUnboundedSize),
         max_quarantine_size_(kUnboundedSize),
-        size_functor_(size_functor) {
-  }
+        size_functor_(size_functor),
+        overbudget_size_(0) {}
+
+  // Constructor. Takes the quarantine capacity.
+  // @param max_quarantine_size The capacity of the quarantine.
+  explicit SizeLimitedQuarantineImpl(size_t max_quarantine_size)
+      : max_object_size_(kUnboundedSize),
+        max_quarantine_size_(max_quarantine_size),
+        size_functor_(),
+        overbudget_size_(0) {}
 
   // Virtual destructor.
   virtual ~SizeLimitedQuarantineImpl() { }
@@ -189,12 +199,36 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
     return size_count_.size();
   }
 
+  // @returns the current overbudget size.
+  size_t GetOverbudgetSizeForTesting() const { return overbudget_size_; }
+
+  // Sets the overbudget size by which the quarantine is allowed to go over and
+  // enables hysteresis by defining color regions.  Note that once the size is
+  // set, it cannot be changed unless the hysteresis is removed first by setting
+  // the size to 0. It is also illegal to set the size to 0 if it's already at
+  // that value.
+  // @param overbudget_size The overbudget size. This is capped to half of
+  //     the maximum size of the quarantine and must be at least 1024 bytes. If
+  //     0, this removes the hysteresis.
+  void SetOverbudgetSize(size_t overbudget_size);
+
+  // Returns the color of the quarantine, depending on the size. See note in
+  // implementation about the raciness of the function.
+  // @param size The size that is used to calculate the color.
+  // @returns the color of the quarantine.
+  TrimColor GetQuarantineColor(size_t size) const;
+
+  // Returns the maximum size of a certain color. Used only in testing.
+  // @param color The color for which the size is queried.
+  // @returns the size.
+  size_t GetMaxSizeForColorForTesting(TrimColor color) const;
+
   // @name QuarantineInterface implementation.
   // @note that GetCountForTest could be racing with a push/pop operation and
   // return a stale value. It is only used in in tests.
   // @{
-  virtual bool Push(const Object& object);
-  virtual bool Pop(Object* object);
+  virtual PushResult Push(const Object& object);
+  virtual PopResult Pop(Object* object);
   virtual void Empty(ObjectVector* objects);
   virtual size_t GetCountForTesting();
   virtual size_t GetLockId(const Object& object);
@@ -221,6 +255,13 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
 
   // The size functor.
   SizeFunctor size_functor_;
+
+  // The size by which the quarantine is allowed to go over until it has to be
+  // synchronously trimmed. This is atomically accessed. Since it is not behind
+  // a lock, when modified, this could potentially lead to transitions between
+  // colors being missed. The implementation takes this factor into
+  // consideration.
+  base::subtle::Atomic32 overbudget_size_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SizeLimitedQuarantineImpl);

@@ -193,6 +193,18 @@ BOOL WINAPI DllMain(HMODULE instance, DWORD reason, LPVOID reserved) {
   return TRUE;
 }
 
+// Enables the deferred free mechanism. This can be called only once per
+// execution.
+VOID WINAPI asan_EnableDeferredFreeThread() {
+  asan_runtime->EnableDeferredFreeThread();
+}
+
+// Disables the deferred free mechanism. This must be called before shutdown if
+// the thread was started.
+VOID WINAPI asan_DisableDeferredFreeThread() {
+  asan_runtime->DisableDeferredFreeThread();
+}
+
 }  // extern "C"
 
 }  // namespace asan

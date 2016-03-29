@@ -419,13 +419,13 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
     blocks.push_back(block);
     CompactBlockInfo compact = {};
     ConvertBlockInfo(block, &compact);
-    EXPECT_TRUE(h.Push(compact));
+    EXPECT_TRUE(h.Push(compact).push_successful);
   }
 
   for (size_t i = 0; i < h.slab_count_; i++) {
     CompactBlockInfo dummy = {};
     bool old_invariant = h.QuarantineInvariantIsSatisfied();
-    if (h.Pop(&dummy)) {
+    if (h.Pop(&dummy).pop_successful) {
       EXPECT_FALSE(old_invariant);
     } else {
       EXPECT_TRUE(old_invariant);
