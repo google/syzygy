@@ -31,7 +31,7 @@ static_assert(kasko::api::kProtobufStreamType ==
 
 // Define required export names.
 const char* reporters::KaskoReporter::ReportCrashWithProtobuf::name_ =
-    "ReportCrashWithProtobufExport";
+    "ReportCrashWithProtobuf";
 const char* reporters::KaskoReporter::
     ReportCrashWithProtobufAndMemoryRanges::name_ =
         "ReportCrashWithProtobufAndMemoryRanges";

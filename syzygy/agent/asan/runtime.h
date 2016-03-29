@@ -27,6 +27,7 @@
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/memory_notifier.h"
+#include "syzygy/agent/asan/reporter.h"
 #include "syzygy/agent/asan/heap_managers/block_heap_manager.h"
 #include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/asan_parameters.h"
@@ -73,6 +74,7 @@ class AsanRuntime {
   AsanLogger* logger() const { return logger_.get(); }
   Shadow* shadow() const { return shadow_.get(); }
   StackCaptureCache* stack_cache() const { return stack_cache_.get(); }
+  ReporterInterface* crash_reporter() const { return crash_reporter_.get(); }
   // @}
 
   // Initialize asan runtime library.
@@ -322,6 +324,10 @@ class AsanRuntime {
   // A random key that is generated on object creation. This is used for
   // correlating duplicate crash reports on the back-end.
   const uint64_t random_key_;
+
+  // The crash reporter in use. This will be left null if no crash reporter
+  // is available.
+  scoped_ptr<ReporterInterface> crash_reporter_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

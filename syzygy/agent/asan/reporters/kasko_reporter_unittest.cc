@@ -26,8 +26,8 @@ namespace {
 
 using testing::_;
 
-static const uint8_t* kDummyAddress =
-    reinterpret_cast<const uint8_t*>(0xBAADCA57);
+static const char* kDummyAddress =
+    reinterpret_cast<const char*>(0xBAADCA57);
 static EXCEPTION_POINTERS* kDummyExceptionPointers =
     reinterpret_cast<EXCEPTION_POINTERS*>(0xBAADF00D);
 

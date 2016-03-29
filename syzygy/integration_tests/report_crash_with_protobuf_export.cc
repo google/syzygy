@@ -16,6 +16,12 @@
 // instrumented processes may export (from their executable module) in order to
 // handle SyzyASAN reports. The exit code from this method is used to verify
 // SyzyASAN functionality in instrument_integration_test.cc .
+//
+// This export, along with SetCrashKeyValueImpl, is expected of a Kasko crash
+// reporter enabled binary. If either ReportCrashWithProtobuf or
+// ReportCrashWithProtobufAndMemoryRanges is available, the RTL will use these
+// preferentially rather than the Breakpad exports provided by
+// crash_for_exception_export.cc .
 
 #include <windows.h>
 

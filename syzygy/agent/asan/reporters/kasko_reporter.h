@@ -26,7 +26,7 @@ namespace asan {
 namespace reporters {
 
 // Implements Kasko crash reporting integration.
-class KaskoReporter : ReporterInterface {
+class KaskoReporter : public ReporterInterface {
  public:
   // Exported functions that are used for Kasko crash reporting integration.
   using ReportCrashWithProtobuf = ExportedFunction<
@@ -68,6 +68,8 @@ class KaskoReporter : ReporterInterface {
       : kasko_functions_(kasko_functions) {
     DCHECK(AreValid(kasko_functions_));
   }
+
+  virtual ~KaskoReporter() {}
 
   // @name ReporterInterface implementation.
   // @{

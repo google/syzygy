@@ -44,6 +44,8 @@
 #include "syzygy/agent/asan/system_interceptors.h"
 #include "syzygy/agent/asan/windows_heap_adapter.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
+#include "syzygy/agent/asan/reporters/breakpad_reporter.h"
+#include "syzygy/agent/asan/reporters/kasko_reporter.h"
 #include "syzygy/crashdata/crashdata.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -63,46 +65,6 @@ namespace {
 using agent::asan::AsanLogger;
 using agent::asan::StackCaptureCache;
 using agent::asan::WindowsHeapAdapter;
-using base::win::WinProcExceptionFilter;
-
-// Signatures of the various Breakpad functions for setting custom crash
-// key-value pairs.
-// Post r194002.
-typedef void(__cdecl* SetCrashKeyValuePairPtr)(const char*, const char*);
-// Post r217590.
-typedef void(__cdecl* SetCrashKeyValueImplPtr)(const wchar_t*, const wchar_t*);
-
-// Signature of enhanced crash reporting functions.
-typedef void(__cdecl* ReportCrashWithProtobufPtr)(EXCEPTION_POINTERS* info,
-                                                  const char* protobuf,
-                                                  size_t protobuf_length);
-typedef void(__cdecl* ReportCrashWithProtobufAndMemoryRangesPtr)(
-    EXCEPTION_POINTERS* info,
-    const char* protobuf,
-    size_t protobuf_length,
-    const void* const* base_addresses,
-    const size_t* lengths);
-
-// Collects the various Breakpad-related exported functions.
-struct BreakpadFunctions {
-  // The Breakpad crash reporting entry point.
-  WinProcExceptionFilter crash_for_exception_ptr;
-
-  // The optional enhanced crash reporting entry points.
-  ReportCrashWithProtobufPtr report_crash_with_protobuf_ptr;
-  ReportCrashWithProtobufAndMemoryRangesPtr
-      report_crash_with_protobuf_and_memory_ranges_ptr;
-
-  // Various flavours of the custom key-value setting function. The version
-  // exported depends on the version of Chrome. It is possible for both of these
-  // to be NULL even if crash_for_exception_ptr is not NULL.
-  SetCrashKeyValuePairPtr set_crash_key_value_pair_ptr;
-  SetCrashKeyValueImplPtr set_crash_key_value_impl_ptr;
-};
-
-// The static breakpad functions. All runtimes share these. This is under
-// AsanRuntime::lock_.
-BreakpadFunctions breakpad_functions = {};
 
 // A custom exception code we use to indicate that the exception originated
 // from Asan, and shouldn't be processed again by our unhandled exception
@@ -152,174 +114,43 @@ void DefaultErrorHandler(AsanErrorInfo* error_info) {
                          ARRAYSIZE(arguments), arguments);
 }
 
-// Returns the breakpad crash reporting functions if breakpad is enabled for
-// the current executable.
-//
-// If we're running in the context of a breakpad enabled binary we can
-// report errors directly via that breakpad entry-point. This allows us
-// to report the exact context of the error without including the Asan RTL
-// in crash context, depending on where and when we capture the context.
-//
-// @param breakpad_functions The Breakpad functions structure to be populated.
-// @returns true if we found breakpad functions, false otherwise.
-bool GetBreakpadFunctions(BreakpadFunctions* breakpad_functions) {
-  DCHECK_NE(reinterpret_cast<BreakpadFunctions*>(NULL), breakpad_functions);
-
-  // Clear the structure.
-  ::memset(breakpad_functions, 0, sizeof(*breakpad_functions));
-
-  // The named entry-point exposed to report a crash.
-  static const char kCrashHandlerSymbol[] = "CrashForException";
-
-  // The optional enhanced entry-points exposed to report a crash.
-  static const char kReportCrashWithProtobufSymbol[] =
-      "ReportCrashWithProtobuf";
-  static const char kReportCrashWithProtobufAndMemoryRangesSymbol[] =
-      "ReportCrashWithProtobufAndMemoryRanges";
-
-  // The named entry-point exposed to annotate a crash with a key/value pair.
-  static const char kSetCrashKeyValuePairSymbol[] = "SetCrashKeyValuePair";
-  static const char kSetCrashKeyValueImplSymbol[] = "SetCrashKeyValueImpl";
-
-  // Get a handle to the current executable image.
-  HMODULE exe_hmodule = ::GetModuleHandle(NULL);
-
-  // Lookup the crash handler symbol.
-  breakpad_functions->crash_for_exception_ptr =
-      reinterpret_cast<WinProcExceptionFilter>(
-          ::GetProcAddress(exe_hmodule, kCrashHandlerSymbol));
-
-  // Lookup the optional enhanced crash handler symbol.
-  breakpad_functions->report_crash_with_protobuf_ptr =
-      reinterpret_cast<ReportCrashWithProtobufPtr>(
-          ::GetProcAddress(exe_hmodule, kReportCrashWithProtobufSymbol));
-  // Lookup the optional enhanced crash handler symbol.
-  breakpad_functions->report_crash_with_protobuf_and_memory_ranges_ptr =
-      reinterpret_cast<ReportCrashWithProtobufAndMemoryRangesPtr>(
-          ::GetProcAddress(exe_hmodule,
-                            kReportCrashWithProtobufAndMemoryRangesSymbol));
-
-  if (breakpad_functions->crash_for_exception_ptr == NULL &&
-      breakpad_functions->report_crash_with_protobuf_ptr == NULL &&
-      breakpad_functions->report_crash_with_protobuf_and_memory_ranges_ptr ==
-          NULL) {
-    return false;
-  }
-
-  // Lookup the crash annotation symbol.
-  breakpad_functions->set_crash_key_value_pair_ptr =
-      reinterpret_cast<SetCrashKeyValuePairPtr>(
-          ::GetProcAddress(exe_hmodule, kSetCrashKeyValuePairSymbol));
-  breakpad_functions->set_crash_key_value_impl_ptr =
-      reinterpret_cast<SetCrashKeyValueImplPtr>(
-          ::GetProcAddress(exe_hmodule, kSetCrashKeyValueImplSymbol));
-
-  return true;
-}
-
-// Sets a crash key using the given breakpad function. The breakpad functions
-// are passed by value so a stack copy is made.
-void SetCrashKeyValuePair(BreakpadFunctions breakpad_functions,
-                          const char* key,
-                          const char* value) {
-  if (breakpad_functions.set_crash_key_value_pair_ptr != NULL) {
-    breakpad_functions.set_crash_key_value_pair_ptr(key, value);
-    return;
-  }
-
-  if (breakpad_functions.set_crash_key_value_impl_ptr != NULL) {
-    std::wstring wkey = base::UTF8ToWide(key);
-    std::wstring wvalue = base::UTF8ToWide(value);
-    breakpad_functions.set_crash_key_value_impl_ptr(wkey.c_str(),
-                                                    wvalue.c_str());
-    return;
-  }
-
-  return;
-}
-
 // Writes some early crash keys. These will be present even if SyzyAsan crashes
-// and can be used to help triage those bugs.
-void SetEarlyCrashKeys(BreakpadFunctions breakpad_functions,
-                       AsanRuntime* runtime) {
+// and can be used to help triage those bugs. This should only be called if a
+// reporter exists and supports crash keys.
+void SetEarlyCrashKeys(AsanRuntime* runtime) {
   DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
+  DCHECK_NE(static_cast<ReporterInterface*>(nullptr),
+            runtime->crash_reporter());
+  DCHECK_NE(0u, runtime->crash_reporter()->GetFeatures() &
+      ReporterInterface::FEATURE_CRASH_KEYS);
 
-  SetCrashKeyValuePair(
-      breakpad_functions, "asan-random-key",
+  runtime->crash_reporter()->SetCrashKey(
+      "asan-random-key",
       base::StringPrintf("%016llx", runtime->random_key()).c_str());
 
   if (runtime->params().feature_randomization) {
-    SetCrashKeyValuePair(
-        breakpad_functions, "asan-feature-set",
+    runtime->crash_reporter()->SetCrashKey(
+        "asan-feature-set",
         base::UintToString(runtime->enabled_features()).c_str());
   }
 }
 
 // This sets early crash keys for sufficiently modern versions of Chrome that
 // are known to support this.
-void SetEarlyCrashKeysForModernChrome(BreakpadFunctions breakpad_functions,
-                                      AsanRuntime* runtime) {
-  // Modern Chrome versions use SetCrashKeyValueImpl exclusively.
-  if (breakpad_functions.set_crash_key_value_impl_ptr == nullptr)
+void SetEarlyCrashKeysIfPossible(AsanRuntime* runtime) {
+  // To set crash keys we need a crash reporter, and it needs to support early
+  // crash key setting.
+  if (runtime->crash_reporter() == nullptr)
     return;
-
-  // The process needs to be an instance of "chrome.exe".
-  base::FilePath path;
-  if (!PathService::Get(base::FILE_EXE, &path))
+  if ((runtime->crash_reporter()->GetFeatures() &
+          ReporterInterface::FEATURE_EARLY_CRASH_KEYS) == 0) {
     return;
-  if (path.BaseName().value() != L"chrome.exe")
-    return;
-
-  scoped_ptr<FileVersionInfo> version_info(
-      FileVersionInfo::CreateFileVersionInfo(path));
-  if (!version_info.get())
-    return;
-
-  // The version string may have the format "0.1.2.3 (baadf00d)". The
-  // revision hash must be stripped in order to use base::Version.
-  std::string v = base::WideToUTF8(version_info->product_version());
-  size_t offset = v.find_first_not_of("0123456789.");
-  if (offset != v.npos)
-    v.resize(offset);
-
-  // Ensure the version is sufficiently new.
-  base::Version version(v);
-  if (!version.IsValid())
-    return;
-  if (version < base::Version("36.0.0.0"))
-    return;
+  }
 
   // Set a crash key that indicates that early crash keys were successfully
   // set and then set the remaining early crash keys themselves.
-  SetCrashKeyValuePair(breakpad_functions, "asan-early-keys", "true");
-  SetEarlyCrashKeys(breakpad_functions, runtime);
-}
-
-// Writes the appropriate crash keys for the given error. The breakpad
-// functions are passed by value so a stack copy is made.
-void SetCrashKeys(BreakpadFunctions breakpad_functions,
-                  AsanErrorInfo* error_info) {
-  DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
-         breakpad_functions.report_crash_with_protobuf_ptr != NULL ||
-         breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr !=
-             NULL);
-  DCHECK(error_info != NULL);
-
-  // Reset the early crash keys, as they may not actually have been set.
-  SetEarlyCrashKeys(breakpad_functions, AsanRuntime::runtime());
-
-  SetCrashKeyValuePair(breakpad_functions, "asan-error-type",
-                       ErrorInfoAccessTypeToStr(error_info->error_type));
-
-  if (error_info->shadow_info[0] != '\0') {
-    SetCrashKeyValuePair(breakpad_functions, "asan-error-message",
-                         error_info->shadow_info);
-  }
-
-  if (error_info->asan_parameters.feature_randomization) {
-    SetCrashKeyValuePair(breakpad_functions, "asan-feature-set",
-                         base::UintToString(error_info->feature_set).c_str());
-  }
+  runtime->crash_reporter()->SetCrashKey("asan-early-keys", "true");
+  SetEarlyCrashKeys(runtime);
 }
 
 // Initializes an exception record for an Asan crash.
@@ -356,54 +187,71 @@ bool PopulateProtobufAndMemoryRanges(const AsanErrorInfo& error_info,
   return true;
 }
 
-// The breakpad error handler. It is expected that this will be bound in a
-// callback in the Asan runtime.
-// @param breakpad_functions A struct containing pointers to the various
-//     Breakpad reporting functions.
+// Send a crash report for the given exception.
+void DumpAndCrashViaReporter(AsanErrorInfo* error_info,
+                             EXCEPTION_POINTERS* exception_pointers) {
+  auto runtime = AsanRuntime::runtime();
+  auto reporter = runtime->crash_reporter();
+  DCHECK_NE(static_cast<ReporterInterface*>(nullptr), reporter);
+
+  // Set any crash keys.
+  if (reporter->GetFeatures() & ReporterInterface::FEATURE_CRASH_KEYS) {
+    // Reset the early crash keys, as they may not actually have been set.
+    SetEarlyCrashKeys(AsanRuntime::runtime());
+
+    reporter->SetCrashKey("asan-error-type",
+                          ErrorInfoAccessTypeToStr(error_info->error_type));
+
+    if (error_info->shadow_info[0] != '\0')
+      reporter->SetCrashKey("asan-error-message", error_info->shadow_info);
+
+    if (error_info->asan_parameters.feature_randomization) {
+      reporter->SetCrashKey("asan-feature-set",
+          base::UintToString(error_info->feature_set).c_str());
+    }
+  }
+
+  // These are in an outer scope so that they persist until the call to
+  // DumpAndCrash.
+  std::string protobuf;
+  MemoryRanges memory_ranges;
+
+  // Populate the protobuf and the memory regions if possible.
+  static const uint32_t kExtraFeatures =
+      ReporterInterface::FEATURE_MEMORY_RANGES |
+      ReporterInterface::FEATURE_CUSTOM_STREAMS;
+  if ((reporter->GetFeatures() & kExtraFeatures) != 0) {
+    MemoryRanges* memory_ranges_ptr = nullptr;
+    if (reporter->GetFeatures() & ReporterInterface::FEATURE_MEMORY_RANGES)
+      memory_ranges_ptr = &memory_ranges;
+    PopulateProtobufAndMemoryRanges(*error_info, &protobuf, &memory_ranges);
+
+    if (reporter->GetFeatures() & ReporterInterface::FEATURE_CUSTOM_STREAMS) {
+      reporter->SetCustomStream(
+          ReporterInterface::kCrashdataProtobufStreamType,
+          reinterpret_cast<const uint8_t*>(protobuf.data()),
+          protobuf.size());
+    }
+
+    // Due to the logic above |memory_ranges| will only be non-empty if
+    // the memory range feature is supported.
+    if (memory_ranges.size())
+      reporter->SetMemoryRanges(memory_ranges);
+  }
+
+  // This function should not return.
+  reporter->DumpAndCrash(exception_pointers);
+  NOTREACHED();
+}
+
+// The crash reporting error handler. It is expected that this will be bound in
+// a callback in the Asan runtime if a error reporting system is available.
 // @param error_info The information about this error.
-// @note @p breakpad_function is passed by value so a stack copy is made.
-void BreakpadErrorHandler(BreakpadFunctions breakpad_functions,
-                          AsanErrorInfo* error_info) {
-  DCHECK(breakpad_functions.crash_for_exception_ptr != NULL ||
-         breakpad_functions.report_crash_with_protobuf_ptr != NULL ||
-         breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr !=
-             NULL);
-  DCHECK(error_info != NULL);
-
-  SetCrashKeys(breakpad_functions, error_info);
-
+void CrashReporterErrorHandler(AsanErrorInfo* error_info) {
   EXCEPTION_RECORD exception = {};
   EXCEPTION_POINTERS pointers = {};
   InitializeExceptionRecord(error_info, &exception, &pointers);
-
-  if (breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr) {
-    std::string protobuf;
-    MemoryRanges memory_ranges;
-    PopulateProtobufAndMemoryRanges(*error_info, &protobuf, &memory_ranges);
-
-    // Convert the memory ranges to arrays.
-    std::vector<const void*> base_addresses;
-    std::vector<size_t> range_lengths;
-    for (const auto& val : memory_ranges) {
-      base_addresses.push_back(val.first);
-      range_lengths.push_back(val.second);
-    }
-    // Null-terminate these two arrays.
-    base_addresses.push_back(nullptr);
-    range_lengths.push_back(0);
-
-    breakpad_functions.report_crash_with_protobuf_and_memory_ranges_ptr(
-        &pointers, protobuf.data(), protobuf.length(), base_addresses.data(),
-        range_lengths.data());
-  } else if (breakpad_functions.report_crash_with_protobuf_ptr) {
-    std::string protobuf;
-    PopulateProtobufAndMemoryRanges(*error_info, &protobuf, nullptr);
-    breakpad_functions.report_crash_with_protobuf_ptr(
-        &pointers, protobuf.data(), protobuf.length());
-  } else {
-    breakpad_functions.crash_for_exception_ptr(&pointers);
-  }
-  NOTREACHED();
+  DumpAndCrashViaReporter(error_info, &pointers);
 }
 
 // A helper function to find if an intrusive list contains a given entry.
@@ -593,13 +441,26 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Propagates the flags values to the different modules.
   PropagateParams();
 
-  // Register the error reporting callback to use if/when an Asan error is
-  // detected. If we're able to resolve a breakpad error reporting function
-  // then use that; otherwise, fall back to the default error handler.
-  if (!params_.disable_breakpad_reporting &&
-      GetBreakpadFunctions(&breakpad_functions)) {
-    logger_->Write("SyzyASAN: Using Breakpad for error reporting.");
-    SetErrorCallBack(base::Bind(&BreakpadErrorHandler, breakpad_functions));
+  // The name 'disable_breakpad_reporting' is legacy; this actually means to
+  // disable all external crash reporting integration.
+  if (!params_.disable_breakpad_reporting) {
+    // Try to set up a crash reporter, starting with the most modern first.
+
+    // Try to initialize a Kasko crash reporter first.
+    crash_reporter_.reset(reporters::KaskoReporter::Create().release());
+
+    // If that failed then try to initialize a Breakpad reporter.
+    if (crash_reporter_.get() == nullptr)
+      crash_reporter_.reset(reporters::BreakpadReporter::Create().release());
+  }
+
+  // Set up the appropriate error handler depending on whether or not
+  // we successfully found a crash reporter.
+  if (crash_reporter_.get() != nullptr) {
+    logger_->Write(base::StringPrintf(
+        "SyzyASAN: Using %s for error reporting.",
+        crash_reporter_->GetName()));
+    SetErrorCallBack(base::Bind(&CrashReporterErrorHandler));
   } else {
     logger_->Write("SyzyASAN: Using default error reporting handler.");
     SetErrorCallBack(base::Bind(&DefaultErrorHandler));
@@ -618,14 +479,7 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   heap_manager_->Init();
 
   // Set some early crash keys.
-  // NOTE: This calls back into the executable process to set crash keys. This
-  // only works for Breakpad/Kasko enabled processes, assuming we haven't
-  // instrumented the executable. In the case of Chrome this works because we
-  // have instrumented chrome.dll, which is loaded at runtime by chrome.exe,
-  // which is already initialized by the time we get here.
-  // TODO(chrisha): Either do this via an instrumented module entry hook, or
-  // expose a client API in Kasko.
-  SetEarlyCrashKeysForModernChrome(breakpad_functions, this);
+  SetEarlyCrashKeysIfPossible(this);
 
   return true;
 }
@@ -1251,10 +1105,6 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
     // Log the error via the usual means.
     runtime_->OnErrorImpl(&error_info);
 
-    // If we have Breakpad integration then set our crash keys.
-    if (breakpad_functions.crash_for_exception_ptr != NULL)
-      SetCrashKeys(breakpad_functions, &error_info);
-
     // Remember the old exception record.
     EXCEPTION_RECORD* old_record = exception->ExceptionRecord;
 
@@ -1268,26 +1118,19 @@ LONG AsanRuntime::ExceptionFilterImpl(bool is_unhandled,
         "SyzyASAN: Ignoring a near-nullptr access without heap corruption.");
   }
 
-  if (emit_asan_error && breakpad_functions.report_crash_with_protobuf_ptr) {
-    // This method is expected to terminate the process.
-    std::string protobuf;
-    PopulateProtobufAndMemoryRanges(error_info, &protobuf, nullptr);
-    breakpad_functions.report_crash_with_protobuf_ptr(
-        exception, protobuf.data(), protobuf.length());
+  // If a crash reporter is present then use it.
+  if (emit_asan_error && runtime_->crash_reporter() != nullptr) {
+    DumpAndCrashViaReporter(&error_info, exception);
     return EXCEPTION_CONTINUE_SEARCH;
   }
 
   if (is_unhandled) {
-    // Pass the buck to the next exception handler. If the process is Breakpad
-    // enabled this will eventually make its way there.
+    // Pass the buck to the next exception handler. If the process has an
+    // integrated crash reporter that we're not explicitly aware of this will
+    // eventually make its way there.
     if (previous_uef_ != NULL)
       return (*previous_uef_)(exception);
   }
-
-  // If we've found an Asan error then pass the buck to Breakpad directly,
-  // if possible. Otherwise, simply let things take their natural course.
-  if (emit_asan_error && breakpad_functions.crash_for_exception_ptr)
-    return (*breakpad_functions.crash_for_exception_ptr)(exception);
 
   // We can't do anything with this, so let the system deal with it.
   return EXCEPTION_CONTINUE_SEARCH;

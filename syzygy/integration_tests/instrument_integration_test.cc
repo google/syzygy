@@ -1514,19 +1514,6 @@ TEST_F(InstrumentAppIntegrationTest,
 }
 
 TEST_F(InstrumentAppIntegrationTest,
-          AsanHeapCheckerIgnoresCrashForException) {
-  // Heap checker failures go through the unhandled exception filter even if
-  // CrashForException is defined.
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-
-  int exit_code = RunOutOfProcessFunction(
-      L"crash_for_exception_harness.exe",
-      testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader, true);
-  EXPECT_EQ(EXIT_SUCCESS, exit_code);
-}
-
-TEST_F(InstrumentAppIntegrationTest,
        AsanHeapCheckerCallsReportCrashWithProtobuf) {
   // Heap checker failures do get reported to ReportCrashWithProtobuf if it is
   // defined.

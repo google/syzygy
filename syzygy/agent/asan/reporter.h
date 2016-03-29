@@ -55,7 +55,7 @@ class ReporterInterface {
   };
 
   // A memory range is expressed as a pointer and a length.
-  using MemoryRange = std::pair<const uint8_t*, size_t>;
+  using MemoryRange = std::pair<const char*, size_t>;
   using MemoryRanges = std::vector<MemoryRange>;
 
   ReporterInterface() {}
