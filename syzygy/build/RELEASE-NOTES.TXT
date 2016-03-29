@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.15.0
+
+[0b7468bc3b] SyzyASan - Add option to offload trimming of the quarantine to
+             a background thread.
+
 Version 0.8.14.4
 
 [0cb9970e70] SyzyASan - Add wcsnlen interceptor for VS2015 CRT compatibility.
