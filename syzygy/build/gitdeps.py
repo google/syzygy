@@ -521,6 +521,13 @@ def _InstallRepository(options, repo):
       # The old checkout directory is renamed and erased in a separate thread
       # so that the new checkout can start immediately.
       _LOGGER.info('Erasing stale checkout directory: %s', repo.checkout_dir)
+
+      # Any existing junctions to this repo must be removed otherwise the
+      # rename may fail.
+      for d in repo.remote_dirs:
+        j = os.path.abspath(os.path.join(repo.output_dir, d))
+        _RemoveOrphanedJunction(options, j)
+
       newpath = _RenameCheckout(repo.checkout_dir, options.dry_run)
       body = lambda: _DeleteCheckout(newpath, options.dry_run)
       thread = threading.Thread(target=body)
@@ -683,6 +690,9 @@ def _RemoveOrphanedJunction(options, junction):
   """
   _LOGGER.debug('Removing orphaned junction: %s', junction)
   absdir = os.path.join(options.output_dir, junction)
+  if not os.path.exists(absdir):
+    _LOGGER.debug('Junction path does not exist, ignoring.')
+    return
   if not _GetJunctionInfo(absdir):
     _LOGGER.error('Path is not a junction: %s', absdir)
     raise Exception()
