@@ -50,10 +50,10 @@
         'msvs_disabled_warnings': [
           '4018',  # signed/unsigned mismatch.
         ],
+        # This target exports a hard dependency because it generates header
+        # files.
+        'hard_dependency': 1,
       },
-      # This target exports a hard dependency because it generates header
-      # files.
-      'hard_dependency': 1,
     },
     {
       'target_name': 'crashdata_lib',
@@ -71,9 +71,8 @@
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],
       'export_dependent_settings': [
-        'crashdata_proto',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
-      ]
+      ],
     },
     {
       'target_name': 'crashdata_unittests',
