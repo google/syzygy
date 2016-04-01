@@ -79,8 +79,9 @@ void AddHotPatchingMetadataTransform::AddHotPatchingSection(
                                    block,
                                    0,
                                    0);
-    hp_block_metadata->code_size = CalculateCodeSize(block);
-    hp_block_metadata->block_size = block->data_size();
+    hp_block_metadata->code_size =
+        static_cast<uint16_t>(CalculateCodeSize(block));
+    hp_block_metadata->block_size = static_cast<uint16_t>(block->data_size());
 
     ++index;
   }

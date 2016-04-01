@@ -242,7 +242,7 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::DecodeExports(
     return false;
   }
 
-  for (size_t index = 0; index < export_dir->NumberOfFunctions; ++index) {
+  for (uint16_t index = 0; index < export_dir->NumberOfFunctions; ++index) {
     // Is it a blank entry?
     if (functions[index] != RelativeAddress(0)) {
       ExportInfo info;
@@ -260,7 +260,7 @@ bool PEFileBase<ImageNtHeaders, MagicValidation>::DecodeExports(
       }
 
       // Does it have a name?
-      for (size_t i = 0; i < export_dir->NumberOfNames; ++i) {
+      for (uint16_t i = 0; i < export_dir->NumberOfNames; ++i) {
         if (name_ordinals[i] == index) {
           if (!ReadImageString(names[i], &info.name)) {
             LOG(ERROR) << "Unable to read export name.";

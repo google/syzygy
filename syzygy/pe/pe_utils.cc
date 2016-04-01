@@ -221,7 +221,7 @@ bool UpdateDosHeader(BlockGraph::Block* dos_header_block) {
   // Calculate the number of bytes used on the last DOS executable "page".
   dos_header->e_cblp = dos_header_size % 512;
   // Calculate the number of pages used by the DOS executable.
-  dos_header->e_cp = dos_header_size / 512;
+  dos_header->e_cp = static_cast<WORD>(dos_header_size / 512);
   // Count the last page if we didn't have an even multiple
   if (dos_header->e_cblp != 0)
     dos_header->e_cp++;

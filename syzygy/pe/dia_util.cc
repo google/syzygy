@@ -26,7 +26,11 @@ namespace pe {
 using base::win::ScopedBstr;
 using base::win::ScopedComPtr;
 
+#if _MSC_VER == 1800  // MSVS 2013.
 const wchar_t kDiaDllName[] = L"msdia120.dll";
+#elif _MSC_VER == 1900  // MSVS 2015.
+const wchar_t kDiaDllName[] = L"msdia140.dll";
+#endif
 
 const wchar_t kFixupDiaDebugStreamName[] = L"FIXUP";
 const wchar_t kOmapToDiaDebugStreamName[] = L"OMAPTO";

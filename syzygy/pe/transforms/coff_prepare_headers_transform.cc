@@ -60,7 +60,8 @@ bool CoffPrepareHeadersTransform::TransformBlockGraph(
     return false;
   }
 
-  file_header->NumberOfSections = block_graph->sections().size();
+  file_header->NumberOfSections =
+      static_cast<WORD>(block_graph->sections().size());
   file_header->SizeOfOptionalHeader = 0;
 
   return true;

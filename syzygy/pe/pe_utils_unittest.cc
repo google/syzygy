@@ -97,12 +97,12 @@ void PEUtilsTest::CreateDosHeaderBlock() {
   // Set the correct magic constants in the manufactured DOS header.
   dos_header_->e_magic = IMAGE_DOS_SIGNATURE;
   // Set the "DOS File Size" headers.
-  dos_header_->e_cblp = dos_header_block_->size() % 512;
-  dos_header_->e_cp = dos_header_block_->size() / 512;
+  dos_header_->e_cblp = static_cast<WORD>(dos_header_block_->size() % 512);
+  dos_header_->e_cp = static_cast<WORD>(dos_header_block_->size() / 512);
   if (dos_header_->e_cblp != 0)
     dos_header_->e_cp++;
   // Set the header paragraph size.
-  dos_header_->e_cparhdr = dos_header_block_->size() / 16;
+  dos_header_->e_cparhdr = static_cast<WORD>(dos_header_block_->size() / 16);
 
   if (nt_headers_block_ != NULL) {
     // Set the NT headers reference.

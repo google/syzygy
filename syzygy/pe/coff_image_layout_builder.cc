@@ -451,7 +451,7 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
 
       // Fix relocation information in header.
       header->PointerToRelocations = cursor_.value();
-      header->NumberOfRelocations = relocs.size();
+      header->NumberOfRelocations = static_cast<WORD>(relocs.size());
 
       // Lay out the relocation block outside of the section.
       if (!LayoutBlockImpl(relocs_block))
@@ -534,7 +534,7 @@ bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables(
           LOG(ERROR) << "Reference to unmapped section.";
           return false;
         }
-        *section_number = section_index_it->second + 1;
+        *section_number = static_cast<uint16_t>(section_index_it->second + 1);
         DCHECK_EQ(*section_number, symbols[symbol_index].SectionNumber);
         break;
       }

@@ -45,7 +45,7 @@ static const wchar_t kNonsenseStreamName[] =
 static const char kTestDllObjPath[] = TEST_DLL_OBJECT_FILE;
 
 struct FilePathLess {
-  bool operator()(const std::wstring& lhs, const std::wstring& rhs) {
+  bool operator()(const std::wstring& lhs, const std::wstring& rhs) const {
     return base::FilePath::CompareLessIgnoreCase(lhs, rhs);
   }
 };
@@ -206,7 +206,7 @@ TEST_F(DiaUtilTest, FindAndLoadDiaDebugStreamByName) {
 
 class DiaUtilVisitorTest : public DiaUtilTest {
  public:
-  virtual void SetUp() override {
+  void SetUp() override {
     ASSERT_TRUE(CreateDiaSource(dia_source_.Receive()));
     ASSERT_TRUE(CreateDiaSession(
         testing::GetExeRelativePath(testing::kTestDllName),

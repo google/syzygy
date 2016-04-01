@@ -228,7 +228,8 @@ class PEOrdererTest : public testing::PELibUnitTest {
 
     TypedBlock<IMAGE_NT_HEADERS> nt_headers;
     ASSERT_TRUE(nt_headers.Init(0, nt_headers_block));
-    nt_headers->FileHeader.NumberOfSections = block_graph_.sections().size();
+    nt_headers->FileHeader.NumberOfSections =
+        static_cast<WORD>(block_graph_.sections().size());
     nt_headers->FileHeader.SizeOfOptionalHeader = sizeof(IMAGE_OPTIONAL_HEADER);
     nt_headers->OptionalHeader.Magic = IMAGE_NT_OPTIONAL_HDR_MAGIC;
     nt_headers->Signature = IMAGE_NT_SIGNATURE;

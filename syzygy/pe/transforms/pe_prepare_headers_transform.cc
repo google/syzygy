@@ -60,7 +60,8 @@ bool PEPrepareHeadersTransform::TransformBlockGraph(
     return false;
   }
 
-  nt_headers->FileHeader.NumberOfSections = block_graph->sections().size();
+  nt_headers->FileHeader.NumberOfSections =
+      static_cast<WORD>(block_graph->sections().size());
   nt_headers->OptionalHeader.CheckSum = 0;
   nt_headers->OptionalHeader.SizeOfHeaders =
       common::AlignUp(dos_header_block->size() + nt_headers.block()->size(),
