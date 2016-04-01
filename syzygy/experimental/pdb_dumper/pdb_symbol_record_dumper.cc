@@ -93,7 +93,8 @@ bool DumpLvarAddrGaps(FILE* out,
       LOG(ERROR) << "Unable to read symbol record.";
       return false;
     }
-    bytes_left -= bytes_read;  // Note: bytes_left >= to_read = bytes_read
+    bytes_left -= static_cast<uint16_t>(
+        bytes_read);  // Note: bytes_left >= to_read = bytes_read
     DumpIndentedText(out, indent_level + 1, "gapStartOffset: 0x%04X\n",
                      gap.gapStartOffset);
     DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n", gap.cbRange);
@@ -813,7 +814,7 @@ bool DumpDefrangeSymRegister(FILE* out,
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= bytes_read;
+  bytes_left -= static_cast<uint16_t>(bytes_read);
 
   DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
   DumpIndentedText(out, indent_level, "attr.maybe: %d\n", sym.attr.maybe);
@@ -840,7 +841,7 @@ bool DumpDefRangeSymFramePointerRel(FILE* out,
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= bytes_read;
+  bytes_left -= static_cast<uint16_t>(bytes_read);
 
   DumpIndentedText(out, indent_level + 1, "offFramePointer: %d\n",
                    sym.offFramePointer);
@@ -867,7 +868,7 @@ bool DumpDefRangeSymSubfieldRegister(FILE* out,
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= bytes_read;
+  bytes_left -= static_cast<uint16_t>(bytes_read);
 
   DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
   DumpIndentedText(out, indent_level, "attr.maybe: %d\n", sym.attr.maybe);
@@ -907,7 +908,7 @@ bool DumpDefRangeSymRegisterRel(FILE* out,
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= bytes_read;
+  bytes_left -= static_cast<uint16_t>(bytes_read);
 
   DumpIndentedText(out, indent_level, "baseReg: %d\n", sym.baseReg);
   DumpIndentedText(out, indent_level, "spilledUdtMember: %d\n",
@@ -943,7 +944,8 @@ bool DumpInlineSiteSym(FILE* out,
   DumpIndentedText(out, indent_level, "inlinee: 0x%08X\n", sym.inlinee);
 
   DumpIndentedText(out, indent_level, "binaryAnnotations:\n");
-  return DumpUnknownBlock(out, stream, bytes_left, indent_level + 1);
+  return DumpUnknownBlock(out, stream, static_cast<uint16_t>(bytes_read),
+                          indent_level + 1);
 }
 
 bool DumpDefRangeSym(FILE* out,

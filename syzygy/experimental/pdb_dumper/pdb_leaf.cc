@@ -1250,7 +1250,7 @@ void DumpLeafReal128(FILE* out, PdbStream* stream) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
-  ::fprintf(out, "%d%d", numeric_value.val0, numeric_value.val1);
+  ::fprintf(out, "%llu%llu", numeric_value.val0, numeric_value.val1);
 }
 
 void DumpLeafQuad(FILE* out, PdbStream* stream) {
@@ -1259,7 +1259,7 @@ void DumpLeafQuad(FILE* out, PdbStream* stream) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
-  ::fprintf(out, "%d", numeric_value.val);
+  ::fprintf(out, "%llu", numeric_value.val);
 }
 
 void DumpLeafUQuad(FILE* out, PdbStream* stream) {
@@ -1268,7 +1268,7 @@ void DumpLeafUQuad(FILE* out, PdbStream* stream) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
-  ::fprintf(out, "%d", numeric_value.val);
+  ::fprintf(out, "%llu", numeric_value.val);
 }
 
 void DumpLeafCmplx32(FILE* out, PdbStream* stream) {
@@ -1310,11 +1310,9 @@ void DumpLeafCmplx128(FILE* out, PdbStream* stream) {
     return;
   }
   // TODO(sebmarchand): Fix the output of this structure.
-  ::fprintf(out, "reals: %f-%f, imaginaries: %f-%f",
-            numeric_value.val0_real,
-            numeric_value.val1_real,
-            numeric_value.val0_imag,
-            numeric_value.val1_imag);
+  ::fprintf(out, "reals: %llu-%llu, imaginaries: %llu-%llu",
+            numeric_value.val0_real, numeric_value.val1_real,
+            numeric_value.val0_imag, numeric_value.val1_imag);
 }
 
 // ID stream leaf types.
@@ -1507,7 +1505,7 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
               uint16_t type_value,
               FILE* out,
               PdbStream* stream,
-              uint16_t len,
+              size_t len,
               uint8_t indent_level) {
   DCHECK(out != NULL);
   DCHECK(stream != NULL);
@@ -1523,14 +1521,11 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
   }
   switch (type_value) {
 // Call a function to dump a specific (struct_type) kind of structure.
-#define LEAF_TYPE_DUMP(type_value, struct_type) \
-    case cci::type_value: { \
-      return Dump ## struct_type(type_map, \
-                                 out, \
-                                 stream, \
-                                 len, \
-                                 indent_level + 1); \
-    }
+#define LEAF_TYPE_DUMP(type_value, struct_type)                             \
+  case cci::type_value: {                                                   \
+    return Dump##struct_type(type_map, out, stream,                         \
+                             static_cast<uint16_t>(len), indent_level + 1); \
+  }
       LEAF_CASE_TABLE(LEAF_TYPE_DUMP)
 #undef LEAF_TYPE_DUMP
 

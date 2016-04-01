@@ -197,7 +197,7 @@ bool HeapEnumerate::HeapEnumerator::Initialize(HANDLE heap,
   DCHECK(repo);
 
   // The types used to parse the heap.
-  base::hash_map<base::string16, UserDefinedTypePtr*> wanted_udts;
+  std::unordered_map<base::string16, UserDefinedTypePtr*> wanted_udts;
   wanted_udts.insert(std::make_pair(L"_HEAP", &heap_type_));
   wanted_udts.insert(std::make_pair(L"_HEAP_SEGMENT", &heap_segment_type_));
   wanted_udts.insert(

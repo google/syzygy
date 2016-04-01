@@ -37,7 +37,7 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
               uint16_t type_value,
               FILE* out,
               PdbStream* stream,
-              uint16_t len,
+              size_t len,
               uint8_t indent_level);
 
 // Returns the size of the struct associated with a numeric leaf type.
