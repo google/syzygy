@@ -17,6 +17,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <iterator>
 
 #include "base/logging.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"

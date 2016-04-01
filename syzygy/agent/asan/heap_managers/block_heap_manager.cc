@@ -616,7 +616,7 @@ void BlockHeapManager::PropagateParameters() {
 }
 
 bool BlockHeapManager::allocation_filter_flag() const {
-  return reinterpret_cast<bool>(::TlsGetValue(allocation_filter_flag_tls_));
+  return ::TlsGetValue(allocation_filter_flag_tls_) != 0;
 }
 
 void BlockHeapManager::set_allocation_filter_flag(bool value) {

@@ -41,7 +41,7 @@ void CopyStackCaptureToArray(const common::StackCapture* stack_capture,
   ::memcpy(dst,
            stack_capture->frames(),
            stack_capture->num_frames() * sizeof(void*));
-  *dst_size = stack_capture->num_frames();
+  *dst_size = static_cast<uint8_t>(stack_capture->num_frames());
 }
 
 // Get the information about an address relative to a block.

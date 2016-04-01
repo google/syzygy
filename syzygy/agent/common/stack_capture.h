@@ -57,7 +57,7 @@ class StackCapture {
         max_num_frames_(0) {
     DCHECK_LT(0u, max_num_frames);
     DCHECK_GE(kMaxNumFrames, max_num_frames);
-    max_num_frames_ = max_num_frames;
+    max_num_frames_ = static_cast<uint8_t>(max_num_frames);
   }
 
   // Static initialisation of StackCapture context.

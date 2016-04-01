@@ -76,7 +76,8 @@ void StackCapture::InitFromBuffer(const void* const* frames,
   DCHECK_LT(0U, num_frames);
 
   // Determine how many frames we can actually store.
-  num_frames_ = std::min<uint8_t>(num_frames, max_num_frames_);
+  num_frames_ =
+      std::min<uint8_t>(static_cast<uint8_t>(num_frames), max_num_frames_);
 
   ::memcpy(frames_, frames, num_frames_ * sizeof(*frames_));
 
@@ -88,7 +89,8 @@ void StackCapture::InitFromExistingStack(const StackCapture& stack_capture) {
   DCHECK_LT(0U, stack_capture.num_frames());
 
   // Determine how many frames we can actually store.
-  num_frames_ = std::min<uint8_t>(stack_capture.num_frames(), max_num_frames_);
+  num_frames_ = std::min<uint8_t>(
+      static_cast<uint8_t>(stack_capture.num_frames()), max_num_frames_);
 
   ::memcpy(frames_, stack_capture.frames(), num_frames_ * sizeof(*frames_));
 
@@ -103,8 +105,8 @@ void StackCapture::InitFromExistingStack(const StackCapture& stack_capture) {
 // don't allow it to be inlined.
 #pragma optimize("", off)
 void __declspec(noinline) StackCapture::InitFromStack() {
-  num_frames_ = agent::common::WalkStack(1, max_num_frames_, frames_,
-                                         &absolute_stack_id_);
+  num_frames_ = static_cast<uint8_t>(agent::common::WalkStack(
+      1, max_num_frames_, frames_, &absolute_stack_id_));
 
   if (bottom_frames_to_skip_) {
     num_frames_ -=

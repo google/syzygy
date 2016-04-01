@@ -76,9 +76,8 @@ struct InvocationValue {
   InvocationInfo* info;
 };
 
-typedef base::hash_map<
-    InvocationKey, InvocationValue, HashInvocationKey> InvocationMap;
-
+typedef std::unordered_map<InvocationKey, InvocationValue, HashInvocationKey>
+    InvocationMap;
 
 // The information on how to set the thread name comes from
 // a MSDN article: http://msdn2.microsoft.com/en-us/library/xcb2z8hs.aspx
@@ -319,8 +318,8 @@ class Profiler::ThreadState
 
   // @name Callback notification implementation.
   // @{
-  virtual void OnPageAdded(const void* page) override;
-  virtual void OnPageRemoved(const void* page) override;
+  void OnPageAdded(const void* page) override;
+  void OnPageRemoved(const void* page) override;
   // @}
 
   // Function exit hook.
