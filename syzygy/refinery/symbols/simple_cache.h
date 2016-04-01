@@ -56,7 +56,7 @@ class SimpleCache {
   void Store(const base::string16& key, scoped_refptr<EntryType> entry);
 
  private:
-  base::hash_map<base::string16, scoped_refptr<EntryType>> entries_;
+  std::unordered_map<base::string16, scoped_refptr<EntryType>> entries_;
 
   DISALLOW_COPY_AND_ASSIGN(SimpleCache);
 };

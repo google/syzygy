@@ -151,6 +151,7 @@ class TypeCreator {
   // Returns the leaf type of a record with given type index.
   // @param type_id type index of the record.
   // @returns type of the record, -1 as an error sentinel.
+  // TODO(manzagop): Add a typedef for the leaf type.
   uint16_t GetLeafType(TypeId type_id);
 
   // Does a first pass through the stream making the map of type indices for
@@ -192,13 +193,13 @@ class TypeCreator {
   TypeId LookupConcreteClassForForwardDeclaration(TypeId type_id);
 
   // @returns name for a basic type specified by its @p type.
-  static base::string16 BasicTypeName(uint16_t type);
+  static base::string16 BasicTypeName(size_t type);
 
   // @returns size for a basic type specified by its @p type.
-  static size_t BasicTypeSize(uint16_t type);
+  static size_t BasicTypeSize(size_t type);
 
   // @returns name for a leaf specified by its @p type.
-  static base::string16 LeafTypeName(uint16_t type);
+  static base::string16 LeafTypeName(size_t type);
 
   // @returns size of a pointer given its @p ptr type info record.
   static size_t PointerSize(const pdb::LeafPointer& ptr);
@@ -248,15 +249,15 @@ class TypeCreator {
 
   // Hash to map forward references to the right UDT records. For each unique
   // decorated name of an UDT, it contains type index of the class definition.
-  base::hash_map<base::string16, TypeId> udt_map_;
+  std::unordered_map<base::string16, TypeId> udt_map_;
 
   // Hash to store the pdb leaf types of the individual records. Indexed by type
   // indices.
-  base::hash_map<TypeId, uint16_t> types_map_;
+  std::unordered_map<TypeId, uint16_t> types_map_;
 
   // Hash which stores for each forward declaration the type index of the
   // actual class type.
-  base::hash_map<TypeId, TypeId> fwd_reference_map_;
+  std::unordered_map<TypeId, TypeId> fwd_reference_map_;
 
   // Vector of records to process.
   std::vector<TypeId> records_to_process_;
@@ -906,7 +907,7 @@ bool TypeCreator::ProcessVFuncTab(pdb::LeafVFuncTab* vfunc,
   return ProcessVFunc(vfunc->body().type, 0, fields);
 }
 
-base::string16 TypeCreator::BasicTypeName(uint16_t type) {
+base::string16 TypeCreator::BasicTypeName(size_t type) {
   switch (type) {
 // Just return the name of the type.
 #define SPECIAL_TYPE_NAME(record_type, type_name, size) \
@@ -917,7 +918,7 @@ base::string16 TypeCreator::BasicTypeName(uint16_t type) {
   return L"unknown_basic_type";
 }
 
-size_t TypeCreator::BasicTypeSize(uint16_t type) {
+size_t TypeCreator::BasicTypeSize(size_t type) {
   switch (type) {
 // Just return the size of the type.
 #define SPECIAL_TYPE_NAME(record_type, type_name, size) \
@@ -928,7 +929,7 @@ size_t TypeCreator::BasicTypeSize(uint16_t type) {
   return 0;
 }
 
-base::string16 TypeCreator::LeafTypeName(uint16_t leaf_type) {
+base::string16 TypeCreator::LeafTypeName(size_t leaf_type) {
   switch (leaf_type) {
 // Just return the name of the enum.
 #define LEAF_TYPE_NAME(record_type, unused) \
@@ -1051,7 +1052,7 @@ Type::Flags TypeCreator::CreateTypeFlags(bool is_const, bool is_volatile) {
 
 uint16_t TypeCreator::GetLeafType(TypeId type_id) {
   if (type_id < cci::CV_PRIMITIVE_TYPE::CV_FIRST_NONPRIM)
-    return type_id;
+    return static_cast<uint16_t>(type_id);
 
   auto it = types_map_.find(type_id);
   if (it == types_map_.end()) {

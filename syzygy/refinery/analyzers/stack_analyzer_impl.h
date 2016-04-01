@@ -17,8 +17,8 @@
 
 #include <dia2.h>
 
-#include <hash_map>
 #include <string>
+#include <unordered_map>
 
 #include "base/containers/hash_tables.h"
 #include "base/files/file_path.h"
@@ -103,7 +103,7 @@ class StackWalkHelper : public IDiaStackWalkHelper,
                       void* buffer);
 
   // Backing memory for registers.
-  base::hash_map<CV_HREG_e, ULONGLONG> registers_;
+  std::unordered_map<CV_HREG_e, ULONGLONG> registers_;
 
   scoped_refptr<DiaSymbolProvider> symbol_provider_;
   ProcessState* process_state_;  // Not owned.

@@ -74,9 +74,9 @@ class DiaSymbolProvider : public base::RefCounted<DiaSymbolProvider> {
   // form of null pointers.
   // The caches must be consistent: the presence of a valid source implies the
   // presence of a valid session, and vice versa.
-  base::hash_map<base::string16, base::win::ScopedComPtr<IDiaDataSource>>
+  std::unordered_map<base::string16, base::win::ScopedComPtr<IDiaDataSource>>
       pdb_sources_;
-  base::hash_map<base::string16, base::win::ScopedComPtr<IDiaSession>>
+  std::unordered_map<base::string16, base::win::ScopedComPtr<IDiaSession>>
       pdb_sessions_;
 
   DISALLOW_COPY_AND_ASSIGN(DiaSymbolProvider);

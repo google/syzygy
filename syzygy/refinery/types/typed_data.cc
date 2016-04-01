@@ -53,8 +53,8 @@ TypedData::TypedData(BitSource* bit_source, TypePtr type, Address addr)
 TypedData::TypedData(BitSource* bit_source,
                      TypePtr type,
                      Address addr,
-                     size_t bit_pos,
-                     size_t bit_len)
+                     uint8_t bit_pos,
+                     uint8_t bit_len)
     : bit_source_(bit_source),
       type_(type),
       addr_(addr),
@@ -132,12 +132,12 @@ bool TypedData::GetField(size_t field_no, TypedData* out) const {
   if (!GetField(field_no, &field))
     return false;
 
-  size_t bit_pos = 0U;
-  size_t bit_len = 0U;
+  uint8_t bit_pos = 0U;
+  uint8_t bit_len = 0U;
   MemberFieldPtr member;
   if (field->CastTo(&member)) {
-    bit_pos = member->bit_pos();
-    bit_len = member->bit_len();
+    bit_pos = static_cast<uint8_t>(member->bit_pos());
+    bit_len = static_cast<uint8_t>(member->bit_len());
   }
 
   *out = TypedData(bit_source_, field->GetType(), addr() + field->offset(),

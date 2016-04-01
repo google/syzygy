@@ -70,7 +70,7 @@ class TypeRepository : public base::RefCounted<TypeRepository> {
 
   bool is_signature_set_;
   pe::PEFile::Signature signature_;
-  base::hash_map<TypeId, TypePtr> types_;
+  std::unordered_map<TypeId, TypePtr> types_;
 
   DISALLOW_COPY_AND_ASSIGN(TypeRepository);
 };
@@ -93,10 +93,11 @@ class TypeRepository::Iterator
 
  private:
   friend TypeRepository;
-  explicit Iterator(const base::hash_map<TypeId, TypePtr>::const_iterator& it)
+  explicit Iterator(
+      const std::unordered_map<TypeId, TypePtr>::const_iterator& it)
       : it_(it) {}
 
-  base::hash_map<TypeId, TypePtr>::const_iterator it_;
+  std::unordered_map<TypeId, TypePtr>::const_iterator it_;
 };
 
 // The TypeNameIndex provides name-based indexing for types.

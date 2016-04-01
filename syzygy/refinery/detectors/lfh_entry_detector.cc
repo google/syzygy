@@ -157,7 +157,7 @@ bool LFHEntryDetector::ScanForEntryMatch(const AddressRange& range,
   // The distance histogram is used to pick an entry size by simple majority
   // vote. This yields some resilience to corruption and false positive
   // matches.
-  using DistanceHistogram = base::hash_map<size_t, size_t>;
+  using DistanceHistogram = std::unordered_map<size_t, size_t>;
   DistanceHistogram distances;
   Address last_match = range.start();
 

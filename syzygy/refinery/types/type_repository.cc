@@ -38,7 +38,7 @@ TypePtr TypeRepository::GetType(TypeId id) const {
 
 TypeId TypeRepository::AddType(TypePtr type) {
   DCHECK(type);
-  TypeId id = types_.size() + 1;
+  TypeId id = static_cast<uint16_t>(types_.size() + 1);
 
   bool result = AddTypeWithId(type, id);
 

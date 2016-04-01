@@ -69,7 +69,7 @@ class ModuleLayerData {
   const Signatures& signatures() const { return signatures_; }
 
  private:
-  base::hash_map<pe::PEFile::Signature, ModuleId, PESignatureHasher>
+  std::unordered_map<pe::PEFile::Signature, ModuleId, PESignatureHasher>
       signature_to_id_;
   Signatures signatures_;
 };

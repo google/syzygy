@@ -14,7 +14,7 @@
 
 #include "syzygy/refinery/types/dia_crawler.h"
 
-#include <hash_map>
+#include <unordered_map>
 
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -186,7 +186,7 @@ class TypeCreator {
     TypeId type_id;
     bool is_finalized;
   };
-  typedef base::hash_map<DWORD, CreatedType> CreatedTypeMap;
+  typedef std::unordered_map<DWORD, CreatedType> CreatedTypeMap;
 
   // Maps from DIA symbol index ID to the created TypeId. Also keeps a flag
   // that's set when a type is finalized, as DIA has a nasty habit of

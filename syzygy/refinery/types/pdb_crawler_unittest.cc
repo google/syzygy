@@ -14,7 +14,7 @@
 
 #include "syzygy/refinery/types/pdb_crawler.h"
 
-#include <hash_map>
+#include <unordered_map>
 #include <vector>
 
 #include "base/path_service.h"
@@ -175,7 +175,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
 
   PdbCrawler crawler_;
   base::FilePath test_types_file_;
-  base::hash_map<base::string16, size_t> constants_;
+  std::unordered_map<base::string16, size_t> constants_;
   scoped_refptr<TypeRepository> types_;
 };
 

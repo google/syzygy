@@ -149,8 +149,8 @@ class TypedData {
   TypedData(BitSource* bit_source,
             TypePtr type,
             Address addr,
-            size_t bit_pos,
-            size_t bit_len);
+            uint8_t bit_pos,
+            uint8_t bit_len);
 
   template <typename DataType>
   bool GetData(DataType* data) const;
