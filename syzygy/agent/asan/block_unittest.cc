@@ -600,7 +600,7 @@ void TestChecksumDetectsTampering(const BlockInfo& block_info) {
   if (state_offset == -1) {
     BlockHeader header1 = {};
     BlockHeader header2 = {};
-    header2.is_nested = ~header2.is_nested;
+    header2.state = ~header2.state;
     FindModifiedBits(
         sizeof(BlockHeader), reinterpret_cast<const uint8_t*>(&header1),
         reinterpret_cast<const uint8_t*>(&header2), &state_offset, &state_mask);
