@@ -84,11 +84,11 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemchr) {
 }
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
-  const size_t kAllocSize = 13;
+  const uint8_t kAllocSize = 13;
   ScopedAsanAlloc<uint8_t> mem_src(this, kAllocSize);
   ASSERT_TRUE(mem_src.get() != NULL);
   // Fill the array with value going from 0 to kAllocSize;
-  for (size_t i = 0; i < kAllocSize; ++i)
+  for (uint8_t i = 0; i < kAllocSize; ++i)
     mem_src[i] = i;
 
   SetCallBackFunction(&AsanErrorCallback);
@@ -96,7 +96,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
   EXPECT_EQ(mem_src.get() + 1,
             memmoveFunction(mem_src.get() + 1, mem_src.get(), kAllocSize - 1));
   EXPECT_EQ(0, mem_src[0]);
-  for (size_t i = 1; i < kAllocSize; ++i)
+  for (uint8_t i = 1; i < kAllocSize; ++i)
     EXPECT_EQ(i - 1, mem_src[i]);
 
   // Re-shift them to the left.
@@ -110,13 +110,13 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemmove) {
 }
 
 TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
-  const size_t kAllocSize = 13;
+  const uint8_t kAllocSize = 13;
   ScopedAsanAlloc<uint8_t> mem_src(this, kAllocSize);
   ASSERT_TRUE(mem_src.get() != NULL);
   ScopedAsanAlloc<uint8_t> mem_dst(this, kAllocSize);
   ASSERT_TRUE(mem_dst.get() != NULL);
   // Fill the array with value going from 0 to kAllocSize;
-  for (size_t i = 0; i < kAllocSize; ++i) {
+  for (uint8_t i = 0; i < kAllocSize; ++i) {
     mem_src[i] = i;
     mem_dst[i] = ~i;
   }

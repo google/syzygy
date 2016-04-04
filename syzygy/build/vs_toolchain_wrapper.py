@@ -47,7 +47,7 @@ def _GetSyzygyDesiredVsToolchainHashes():
   force it to use a specific version of the toolchain."""
   if os.environ.get('GYP_MSVS_VERSION', '2013') == '2015':
     # Update 1 with Debuggers, UCRT installers and ucrtbased.dll
-    return ['5a85cf1ce842f7cc96b9d17039a445a9dc9cf0dd']
+    return ['b349b3cc596d5f7e13d649532ddd7e8db39db0cb']
   else:
     # Default to VS2013 the Win 10 SDK v10240.
     return ['9ff97c632ae1fee0c98bcd53e71770eb3a0d8deb']

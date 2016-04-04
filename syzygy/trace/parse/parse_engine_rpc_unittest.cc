@@ -605,19 +605,19 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
   runners[0]->set_thread_detach(false);
   runners[5]->set_thread_detach(false);
 
-  base::DelegateSimpleThread threads[] = {
-      base::DelegateSimpleThread(runners[0], "thread 0"),
-      base::DelegateSimpleThread(runners[1], "thread 1"),
-      base::DelegateSimpleThread(runners[2], "thread 2"),
-      base::DelegateSimpleThread(runners[3], "thread 3"),
-      base::DelegateSimpleThread(runners[4], "thread 4"),
-      base::DelegateSimpleThread(runners[5], "thread 5")};
+  ScopedVector<base::DelegateSimpleThread> threads;
+  threads.push_back(new base::DelegateSimpleThread(runners[0], "thread 0"));
+  threads.push_back(new base::DelegateSimpleThread(runners[1], "thread 1"));
+  threads.push_back(new base::DelegateSimpleThread(runners[2], "thread 2"));
+  threads.push_back(new base::DelegateSimpleThread(runners[3], "thread 3"));
+  threads.push_back(new base::DelegateSimpleThread(runners[4], "thread 4"));
+  threads.push_back(new base::DelegateSimpleThread(runners[5], "thread 5"));
 
   std::vector<FuncAddr> expected_call_sequence;
-  for (size_t i = 0; i < arraysize(threads); ++i) {
+  for (size_t i = 0; i < threads.size(); ++i) {
     // Thread i makes calls IndirectDllMain here and makes all of its calls to
     // IndirectFunctionA/B, but nothing gets committed yet.
-    threads[i].Start();
+    threads[i]->Start();
     runners[i]->Wait();
     ::Sleep(20);
 
@@ -625,7 +625,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
       // Threads i==1 and i==3 detach here. This commits their i+1 calls to
       // IndirectFunctionB sandwiched between their 2 call to IndirectDllMain.
       runners[i]->Exit();
-      threads[i].Join();
+      threads[i]->Join();
       expected_call_sequence.push_back(IndirectDllMain);
       expected_call_sequence.insert(
           expected_call_sequence.end(), i + 1, IndirectFunctionB);
@@ -636,7 +636,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
   // Threads 2 detaches here, which commits it's 3 calls to IndirectFunctionA
   // and sandwiched between its 2 calls to IndirectDllMain.
   runners[2]->Exit();
-  threads[2].Join();
+  threads[2]->Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
       expected_call_sequence.end(), 3, IndirectFunctionA);
@@ -645,7 +645,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
   // Threads 4 detaches here, which commits it's 5 calls to IndirectFunctionA
   // and it's 1 call to IndirectDllMain.
   runners[4]->Exit();
-  threads[4].Join();
+  threads[4]->Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
       expected_call_sequence.end(), 5, IndirectFunctionA);
@@ -659,7 +659,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
   // prefaced by its initial call IndirectDllMain. No trailing call to
   // IndirectDllMain is recorded.
   runners[0]->Exit();
-  threads[0].Join();
+  threads[0]->Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
       expected_call_sequence.end(), 1, IndirectFunctionA);
@@ -668,7 +668,7 @@ TEST_F(ParseEngineRpcTest, RawCallSequence) {
   // prefaced by its initial call IndirectDllMain. No trailing call to
   // IndirectDllMain is recorded.
   runners[5]->Exit();
-  threads[5].Join();
+  threads[5]->Join();
   expected_call_sequence.push_back(IndirectDllMain);
   expected_call_sequence.insert(
       expected_call_sequence.end(), 6, IndirectFunctionB);
@@ -710,19 +710,19 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
   runners[0]->set_thread_detach(false);
   runners[5]->set_thread_detach(false);
 
-  base::DelegateSimpleThread threads[] = {
-      base::DelegateSimpleThread(runners[0], "thread 0"),
-      base::DelegateSimpleThread(runners[1], "thread 1"),
-      base::DelegateSimpleThread(runners[2], "thread 2"),
-      base::DelegateSimpleThread(runners[3], "thread 3"),
-      base::DelegateSimpleThread(runners[4], "thread 4"),
-      base::DelegateSimpleThread(runners[5], "thread 5")};
+  ScopedVector<base::DelegateSimpleThread> threads;
+  threads.push_back(new base::DelegateSimpleThread(runners[0], "thread 0"));
+  threads.push_back(new base::DelegateSimpleThread(runners[1], "thread 1"));
+  threads.push_back(new base::DelegateSimpleThread(runners[2], "thread 2"));
+  threads.push_back(new base::DelegateSimpleThread(runners[3], "thread 3"));
+  threads.push_back(new base::DelegateSimpleThread(runners[4], "thread 4"));
+  threads.push_back(new base::DelegateSimpleThread(runners[5], "thread 5"));
 
   std::vector<FuncAddr> expected_call_sequence;
-  for (size_t i = 0; i < arraysize(threads); ++i) {
+  for (size_t i = 0; i < threads.size(); ++i) {
     // Thread i calls IndirectDllMain and makes i + 1 calls to its indirect
     // function.
-    threads[i].Start();
+    threads[i]->Start();
     runners[i]->Wait();
     expected_call_sequence.push_back(IndirectDllMain);
     expected_call_sequence.insert(
@@ -733,7 +733,7 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
     // Cleanly shutdown all threads except for 2 of them.
     if (i != 0 && i != 5) {
       runners[i]->Exit();
-      threads[i].Join();
+      threads[i]->Join();
       expected_call_sequence.push_back(IndirectDllMain);
     }
   }
@@ -748,11 +748,11 @@ TEST_F(ParseEngineRpcTest, OrderedCallSequence) {
 
   // Threads 0 does not detach, so we don't see a closing IndirectDllMain call.
   runners[0]->Exit();
-  threads[0].Join();
+  threads[0]->Join();
 
   // Threads 5 does not detach either.
   runners[5]->Exit();
-  threads[5].Join();
+  threads[5]->Join();
 
   ASSERT_NO_FATAL_FAILURE(ConsumeEventsFromTempSession());
 

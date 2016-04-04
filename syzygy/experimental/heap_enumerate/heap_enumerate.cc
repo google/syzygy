@@ -516,7 +516,7 @@ void HeapEnumerate::EnumSegment(const HeapEnumerator& enumerator,
 
 void HeapEnumerate::EnumLFHBin(const HeapEnumerator& enumerator,
                                LFHBinWalker* bin_walker) {
-  ::fprintf(output_, "  LFHKey: 0x%08X\n", bin_walker->lfh_key());
+  ::fprintf(output_, "  LFHKey: 0x%16llX\n", bin_walker->lfh_key());
 
   const TypedData& udh = bin_walker->heap_userdata_header();
   DumpTypedData(udh, 2);

@@ -75,12 +75,8 @@ class TraceFileDumper : public ParseEventHandler {
     DCHECK(data->function != NULL);
     ::fprintf(file_,
               "[%012lld] %s%s: process-id=%d; thread-id=%d; address=0x%08X\n",
-              time.ToInternalValue(),
-              indentation_,
-              event_type,
-              process_id,
-              thread_id,
-              data->function);
+              time.ToInternalValue(), indentation_, event_type, process_id,
+              thread_id, reinterpret_cast<size_t>(data->function));
   }
 
   void PrintModuleEvent(const char* event_type,
@@ -95,12 +91,9 @@ class TraceFileDumper : public ParseEventHandler {
               "[%012lld] %s: process-id=%d; thread-id=%d;"
               " module-name='%ls';"
               " module-addr=0x%08X; module-size=%d\n",
-              time.ToInternalValue(),
-              event_type,
-              process_id,
-              thread_id,
+              time.ToInternalValue(), event_type, process_id, thread_id,
               data->module_name,
-              data->module_base_addr,
+              reinterpret_cast<size_t>(data->module_base_addr),
               data->module_base_size);
   }
 
@@ -292,15 +285,15 @@ class TraceFileDumper : public ParseEventHandler {
                   invocation.caller_symbol_id,
                   invocation.caller_offset);
       } else {
-        ::fprintf(file_,
-                  "    caller=0x%08X;",
-                  invocation.caller);
+        ::fprintf(file_, "    caller=0x%08X;",
+                  reinterpret_cast<size_t>(invocation.caller));
       }
 
       if ((invocation.flags & kFunctionIsSymbol) != 0) {
         ::fprintf(file_, " function_sym=0x%X;", invocation.function_symbol_id);
       } else {
-        ::fprintf(file_, " function=0x%08X;", invocation.function);
+        ::fprintf(file_, " function=0x%08X;",
+                  reinterpret_cast<size_t>(invocation.function));
       }
 
       ::fprintf(file_,
@@ -335,16 +328,11 @@ class TraceFileDumper : public ParseEventHandler {
               "    module-checksum=0x%08X; module-time-date-stamp=0x%08X\n"
               "    frequency-size=%d; num_columns=%d; num-entries=%d;\n"
               "    data-type=%s;\n",
-              time.ToInternalValue(),
-              process_id,
-              thread_id,
-              data->module_base_addr,
-              data->module_base_size,
-              data->module_checksum,
-              data->module_time_date_stamp,
-              data->frequency_size,
-              data->num_columns,
-              data->num_entries,
+              time.ToInternalValue(), process_id, thread_id,
+              reinterpret_cast<size_t>(data->module_base_addr),
+              data->module_base_size, data->module_checksum,
+              data->module_time_date_stamp, data->frequency_size,
+              data->num_columns, data->num_entries,
               GetIndexedDataTypeStr(data->data_type));
   }
 
@@ -375,19 +363,13 @@ class TraceFileDumper : public ParseEventHandler {
               "    sampling-start-time=0x%016llx;\n"
               "    sampling-end-time=0x%016llx; sampling-interval=0x%016llx;\n"
               "    samples=%lld\n",
-              time.ToInternalValue(),
-              process_id,
-              data->module_base_addr,
-              data->module_size,
-              data->module_checksum,
-              data->module_time_date_stamp,
-              data->bucket_size,
-              data->bucket_start,
-              data->bucket_count,
-              data->sampling_start_time,
-              data->sampling_end_time,
-              data->sampling_interval,
-              samples);
+              time.ToInternalValue(), process_id,
+              reinterpret_cast<size_t>(data->module_base_addr),
+              data->module_size, data->module_checksum,
+              data->module_time_date_stamp, data->bucket_size,
+              reinterpret_cast<size_t>(data->bucket_start), data->bucket_count,
+              data->sampling_start_time, data->sampling_end_time,
+              data->sampling_interval, samples);
   }
 
   // Issued for detailed function call records.

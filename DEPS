@@ -52,7 +52,7 @@ deps = {
 
   # This brings in GYP.
   "src/tools/gyp":
-    "https://chromium.googlesource.com/external/gyp@2be082c",
+    "https://chromium.googlesource.com/external/gyp@61259d5",
 
   # This brings in code coverage tools, like croc. This is required for our
   # coverage generation.

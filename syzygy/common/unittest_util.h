@@ -109,7 +109,7 @@ class ApplicationTestBase : public testing::Test {
   static FILE* GetOrInitFile(base::ScopedFILE* f, const char* mode);
 
   // List of temporary directories created during this test invocation.
-  typedef std::vector<const base::FilePath> DirList;
+  typedef std::vector<base::FilePath> DirList;
   DirList temp_dirs_;
 
   // @name Replacements for the standard IO streams.

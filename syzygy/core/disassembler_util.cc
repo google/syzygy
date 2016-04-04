@@ -108,7 +108,7 @@ bool HandleBadDecode(_CodeInfo* ci,
 
   ::memset(result, 0, sizeof(result[0]));
   result[0].addr = ci->codeOffset;
-  result[0].size = size;
+  result[0].size = static_cast<uint8_t>(size);
 
   DCHECK_EQ(FC_NONE, META_GET_FC(result[0].meta));
   DCHECK_EQ(O_NONE, result[0].ops[0].type);

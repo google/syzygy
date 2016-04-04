@@ -29,8 +29,8 @@
 namespace grinder {
 namespace basic_block_util {
 
-bool ModuleIdentityComparator::operator()(
-    const ModuleInformation& lhs, const ModuleInformation& rhs) {
+bool ModuleIdentityComparator::operator()(const ModuleInformation& lhs,
+                                          const ModuleInformation& rhs) const {
   if (lhs.module_size < rhs.module_size)
     return true;
   if (lhs.module_size > rhs.module_size)

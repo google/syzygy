@@ -189,7 +189,7 @@ bool ParseSecondarySymbolTable(size_t file_size,
       LOG(ERROR) << "Encountered a symbol referring to an invalid file index.";
       return false;
     }
-    file_index = index_it->second;
+    file_index = static_cast<uint16_t>(index_it->second);
 
     // Insert the symbol. We log a warning if there's a duplicate symbol, but
     // this is not strictly illegal.

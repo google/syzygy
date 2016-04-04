@@ -40,7 +40,8 @@ typedef pe::ModuleInformation ModuleInformation;
 
 // Compares module information on identity properties alone.
 struct ModuleIdentityComparator {
-  bool operator()(const ModuleInformation& lhs, const ModuleInformation& rhs);
+  bool operator()(const ModuleInformation& lhs,
+                  const ModuleInformation& rhs) const;
 };
 
 // Type definitions for the basic block entry count data.
@@ -49,10 +50,6 @@ typedef int32_t BasicBlockOffset;
 // An entry count map maps from the relative virtual address of the first
 // instruction or data byte in the basic block, to its entry count.
 typedef std::map<BasicBlockOffset, EntryCountType> EntryCountMap;
-
-typedef std::map<ModuleInformation,
-                 EntryCountMap,
-                 ModuleIdentityComparator> ModuleEntryCountMap;
 
 // Type definitions for the indexed frequency data.
 typedef std::pair<RelativeAddress, size_t> IndexedFrequencyOffset;

@@ -46,12 +46,14 @@ class AddFrequencyDataTransformTest
 
   void Apply(size_t num_entries,
              size_t num_columns,
-             size_t frequency_size,
+             uint8_t frequency_size,
              DataType data_type);
 };
 
 void AddFrequencyDataTransformTest::Apply(size_t num_entries,
-    size_t num_columns, size_t frequency_size, DataType data_type) {
+                                          size_t num_columns,
+                                          uint8_t frequency_size,
+                                          DataType data_type) {
   AddIndexedFrequencyDataTransform tx(kAgentId, "Test", kAgentVersion,
       data_type, sizeof(common::IndexedFrequencyData));
   ASSERT_TRUE(block_graph::ApplyBlockGraphTransform(

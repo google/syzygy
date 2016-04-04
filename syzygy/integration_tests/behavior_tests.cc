@@ -30,7 +30,7 @@ unsigned int ArrayComputation1() {
   }
 
   for (size_t i = 0; i < kBufferLength; ++i) {
-    B[i] = i;
+    B[i] = static_cast<short>(i);
     B[i] += A[i];
     B[i] = (B[i] << 1) ^ B[i];
   }

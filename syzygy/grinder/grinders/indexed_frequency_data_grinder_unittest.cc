@@ -167,7 +167,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
   }
 
   void GetFrequencyData(const ModuleInformation& module_info,
-                        size_t frequency_size,
+                        uint8_t frequency_size,
                         ScopedFrequencyData* data) {
     ASSERT_TRUE(IsValidFrequencySize(frequency_size));
     ASSERT_TRUE(data != NULL);
@@ -194,7 +194,7 @@ class IndexedFrequencyDataGrinderTest : public testing::PELibUnitTest {
 
     for (size_t i = 0; i < kNumBasicBlocks; ++i) {
       for (size_t c = 0; c < kNumColumns; ++c) {
-        uint8_t value = i + c + 1;
+        uint8_t value = static_cast<uint8_t>(i + c + 1);
         size_t offset = (i * kNumColumns) + c;
         switch (frequency_size) {
           case 1:
@@ -260,8 +260,7 @@ TEST_F(IndexedFrequencyDataGrinderTest, UpdateBasicBlockFrequencyData) {
 
   // Validate for all valid frequency sizes.
   const uint8_t kMaxFrequencySize = 4;
-  for (size_t frequency_size = 1;
-       frequency_size <= kMaxFrequencySize;
+  for (uint8_t frequency_size = 1; frequency_size <= kMaxFrequencySize;
        frequency_size *= 2) {
     TestIndexedFrequencyDataGrinder grinder;
     ScopedFrequencyData data;

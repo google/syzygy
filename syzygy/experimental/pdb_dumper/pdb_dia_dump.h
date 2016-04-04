@@ -18,8 +18,8 @@
 #include <windows.h>  // NOLINT
 #include <dia2.h>
 
-#include <hash_set>
 #include <string>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -61,7 +61,7 @@ class PdbDiaDumpApp : public application::AppImplBase {
   // Tracks previously visited symbols on the path from the root to the current
   // symbol, for cycle detection during the the recursive traversal of the
   // symbol graph.
-  base::hash_set<uint32_t> visited_symbols_;
+  std::unordered_set<uint32_t> visited_symbols_;
 };
 
 }  // namespace pdb

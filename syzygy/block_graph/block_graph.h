@@ -24,10 +24,10 @@
 #ifndef SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_H_
 #define SYZYGY_BLOCK_GRAPH_BLOCK_GRAPH_H_
 
-#include <hash_map>
 #include <map>
 #include <set>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "base/files/file_util.h"
@@ -911,7 +911,7 @@ class BlockGraph::AddressSpace {
   typedef AddressSpaceImpl::RangeMapConstIter RangeMapConstIter;
   typedef AddressSpaceImpl::RangeMapIterPair RangeMapIterPair;
   typedef AddressSpaceImpl::RangeMapConstIterPair RangeMapConstIterPair;
-  typedef stdext::hash_map<const Block*, RelativeAddress> BlockAddressMap;
+  typedef std::unordered_map<const Block*, RelativeAddress> BlockAddressMap;
 
   // Constructs a new empty address space.
   // @p start to @p start + @p size on @p graph.

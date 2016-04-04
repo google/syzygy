@@ -605,7 +605,7 @@ bool ProfileGrinder::OutputDataForPart(const PartData& part, FILE* file) {
 
           ::fprintf(file, "cfl=%ws\n", file_name.c_str());
           ::fprintf(file, "cfn=%ws\n", function_name.c_str());
-          ::fprintf(file, "calls=%d %d\n", call->metrics.num_calls, line);
+          ::fprintf(file, "calls=%lld %d\n", call->metrics.num_calls, line);
           ::fprintf(file, "%d %I64d %I64d %I64d %I64d\n", call->line,
                     call->metrics.num_calls, call->metrics.cycles_sum,
                     call->metrics.cycles_min, call->metrics.cycles_max);

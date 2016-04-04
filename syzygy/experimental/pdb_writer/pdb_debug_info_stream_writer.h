@@ -29,9 +29,9 @@ namespace pdb {
 // @param stream the stream in which to write.
 // @returns true in case of success, false otherwise.
 bool WriteDebugInfoStream(uint32_t pdb_age,
-                          size_t symbol_record_stream_index,
-                          size_t public_stream_index,
-                          size_t section_header_stream_index,
+                          int16_t symbol_record_stream_index,
+                          int16_t public_stream_index,
+                          int16_t section_header_stream_index,
                           WritablePdbStream* stream);
 
 }  // namespace pdb

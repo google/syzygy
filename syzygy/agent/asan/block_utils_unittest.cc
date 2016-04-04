@@ -34,7 +34,7 @@ TEST_F(BlockUtilTest, IsBlockCorruptInvalidMagicNumber) {
   EXPECT_TRUE(fake_block.InitializeBlock(kAllocSize));
 
   fake_block.block_info.header->magic =
-      static_cast<unsigned>(~kBlockHeaderMagic);
+      static_cast<uint16_t>(~kBlockHeaderMagic);
   EXPECT_TRUE(IsBlockCorrupt(fake_block.block_info));
   fake_block.block_info.header->magic = kBlockHeaderMagic;
   EXPECT_FALSE(IsBlockCorrupt(fake_block.block_info));
