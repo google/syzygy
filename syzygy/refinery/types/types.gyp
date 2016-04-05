@@ -54,6 +54,21 @@
       'dependencies': [
         'test_alias_lib',
       ],
+      'conditions': [
+        ['MSVS_VERSION=="2015"', {
+          'configurations': {
+            'Debug': {
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'AdditionalDependencies': [
+                    'libucrtd.lib'
+                  ],
+                },
+              },
+            },
+          },
+        }],
+      ],
       # Test data settings should match those of an official Chrome build.
       'msvs_settings': {
         'VCCLCompilerTool': {
@@ -84,6 +99,30 @@
       ],
       'dependencies': [
         'test_alias_lib',
+      ],
+      'conditions': [
+        ['MSVS_VERSION=="2015"', {
+          'configurations': {
+            'Release': {
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'AdditionalDependencies': [
+                    'vcruntime.lib'
+                  ],
+                },
+              },
+            },
+            'Debug': {
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'AdditionalDependencies': [
+                    'libucrtd.lib'
+                  ],
+                },
+              },
+            },
+          },
+        }],
       ],
       # Test data settings should match those of an official Chrome build.
       'msvs_settings': {

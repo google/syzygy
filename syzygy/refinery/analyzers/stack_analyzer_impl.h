@@ -83,6 +83,18 @@ class StackWalkHelper : public IDiaStackWalkHelper,
   STDMETHOD(addressForVA)(ULONGLONG va,
                           _Out_ DWORD* pISect,
                           _Out_ DWORD* pOffset);
+
+#if _MSC_VER >= 1900  // MSVS 2015.
+  STDMETHOD(numberOfFunctionFragmentsForVA)(ULONGLONG vaFunc,
+                                            DWORD cbFunc,
+                                            _Out_ DWORD* pNumFragments);
+
+  STDMETHOD(functionFragmentsForVA)(ULONGLONG vaFunc,
+                                    DWORD cbFunc,
+                                    DWORD cFragments,
+                                    _Out_ ULONGLONG* pVaFragment,
+                                    _Out_ DWORD* pLenFragment);
+#endif
   // @}
 
  private:

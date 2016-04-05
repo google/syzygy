@@ -145,7 +145,16 @@
               # this because we link against the release version of the C
               # runtime library, and the iterator debugging relies on some
               # functions present only in the debug version of the library.
-              'PreprocessorDefinitions': ['_HAS_ITERATOR_DEBUGGING=0'],
+              'PreprocessorDefinitions': [
+                '_HAS_ITERATOR_DEBUGGING=0',
+                'NDEBUG',
+              ],
+              # The DEBUG preprocessor flag has to be explicitely undefined in
+              # order to avoid using some code only available in the debug
+              # version of the runtime library (see comment above about that).
+              'AdditionalOptions': [
+                '/U_DEBUG'
+              ]
             },
           },
         },
