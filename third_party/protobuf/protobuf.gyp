@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# GYP build configuration for protobuf library. 
+# GYP build configuration for protobuf library.
 
 {
   # These are shared across all protobuf related targets. Things that are
@@ -24,6 +24,7 @@
       4065,  # switch statements contains 'default' but no 'case' labels
       # This is due to line 71 of google/protobuf/extension_set. The code
       # wants the compiler to be smarter than MSVC.
+      4267,  # conversion from 'size_t' to 'type'
       4715,  # not all control paths return a value
     ],
     'include_dirs': [
@@ -33,6 +34,7 @@
     # This macro must be defined to suppress the use of dynamic_cast<>,
     # which requires RTTI.
     'defines': [
+      '_SILENCE_STDEXT_HASH_DEPRECATION_WARNINGS',
       'GOOGLE_PROTOBUF_NO_RTTI',
       'GOOGLE_PROTOBUF_NO_STATIC_INITIALIZER',
     ],
