@@ -15,7 +15,7 @@
 #ifndef SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 #define SYZYGY_AGENT_ASAN_STACK_CAPTURE_CACHE_H_
 
-#include <unordered_set>
+#include <unordered_map>
 
 #include "base/observer_list.h"
 #include "base/synchronization/lock.h"
@@ -132,9 +132,7 @@ class StackCaptureCache {
  protected:
   // The container type in which we store the cached stacks. This enforces
   // uniqueness based on their hash value, nothing more.
-  typedef std::unordered_set<common::StackCapture*,
-                             common::StackCapture::HashCompare,
-                             common::StackCapture::HashCompare> StackSet;
+  typedef std::unordered_map<StackId, common::StackCapture*> StackMap;
 
   // Used for shuttling around statistics about this cache.
   struct Statistics {
@@ -223,8 +221,8 @@ class StackCaptureCache {
   // doesn't really make sense to do so.
   size_t max_num_frames_;
 
-  // The sets of known stacks. Accessed under known_stacks_locks_.
-  StackSet known_stacks_[kKnownStacksSharding];
+  // The maps of known stacks. Accessed under known_stacks_locks_.
+  StackMap known_stacks_[kKnownStacksSharding];
 
   // A lock protecting access to current_page_.
   base::Lock current_page_lock_;

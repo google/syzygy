@@ -162,25 +162,6 @@ void StackCapture::ClearFalseModules() {
   false_module_space.Clear();
 }
 
-size_t StackCapture::HashCompare::operator()(
-    const StackCapture* stack_capture) const {
-  DCHECK(stack_capture != NULL);
-  // We're assuming that the StackId and size_t have the same size, so let's
-  // make sure that's the case.
-  static_assert(sizeof(StackId) == sizeof(size_t),
-                "StackId and size_t should have the same size.");
-  return stack_capture->absolute_stack_id();
-}
-
-bool StackCapture::HashCompare::operator()(
-    const StackCapture* stack_capture1,
-    const StackCapture* stack_capture2) const {
-  DCHECK(stack_capture1 != NULL);
-  DCHECK(stack_capture2 != NULL);
-  return stack_capture1->absolute_stack_id() ==
-         stack_capture2->absolute_stack_id();
-}
-
 void StackCapture::ComputeAbsoluteStackId() {
   absolute_stack_id_ = StartStackId();
 

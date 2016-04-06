@@ -147,17 +147,6 @@ class StackCapture {
   // as it assumes that the call to it generates a full stack frame.
   void __declspec(noinline) InitFromStack();
 
-  // The hash comparison functor for use with MSDN's stdext::hash_set.
-  struct HashCompare {
-    static const size_t bucket_size = 4;
-    static const size_t min_buckets = 8;
-    // Calculates a hash value for the given stack_capture.
-    size_t operator()(const StackCapture* stack_capture) const;
-    // Value comparison operator.
-    bool operator()(const StackCapture* stack_capture1,
-                    const StackCapture* stack_capture2) const;
-  };
-
   // @name Testing seams.
   // @{
   // Allows injecting false modules for use in computing the relative stack ID.

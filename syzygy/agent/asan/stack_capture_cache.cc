@@ -183,10 +183,9 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
     // bucket.
     base::AutoLock auto_lock(known_stacks_locks_[known_stack_shard]);
 
-    // Check if the stack capture is already in the cache map. It's fine to
-    // remove the const as this call will not modify |stack_capture|.
-    StackSet::iterator result = known_stacks_[known_stack_shard].find(
-        const_cast<common::StackCapture*>(&stack_capture));
+    // Check if the stack capture is already in the cache map.
+    StackMap::iterator result =
+        known_stacks_[known_stack_shard].find(absolute_stack_id);
 
     // If this capture has not already been cached then we have to initialize
     // the data.
@@ -194,13 +193,14 @@ const common::StackCapture* StackCaptureCache::SaveStackTrace(
       stack_trace = GetStackCapture(num_frames);
       DCHECK_NE(static_cast<common::StackCapture*>(nullptr), stack_trace);
       stack_trace->InitFromExistingStack(stack_capture);
-      auto result = known_stacks_[known_stack_shard].insert(stack_trace);
+      auto result = known_stacks_[known_stack_shard].insert(
+          std::make_pair(absolute_stack_id, stack_trace));
       DCHECK(result.second);
       DCHECK(stack_trace->HasNoRefs());
       FOR_EACH_OBSERVER(Observer, observer_list_, OnNewStack(stack_trace));
     } else {
       already_cached = true;
-      stack_trace = *result;
+      stack_trace = result->second;
     }
     // Increment the reference count for this stack trace.
     if (!stack_trace->RefCountIsSaturated()) {
@@ -267,8 +267,6 @@ void StackCaptureCache::ReleaseStackTrace(
     // We own the stack so its fine to remove the const. We double check this
     // is the case in debug builds with the DCHECK.
     stack = const_cast<common::StackCapture*>(stack_capture);
-    DCHECK(known_stacks_[known_stack_shard].find(stack) !=
-        known_stacks_[known_stack_shard].end());
 
     stack->RemoveRef();
 
@@ -276,7 +274,8 @@ void StackCaptureCache::ReleaseStackTrace(
       add_to_reclaimed_list = true;
       // Remove this from the known stacks as we're going to reclaim it and
       // overwrite part of its data as we insert into the reclaimed_ list.
-      size_t num_erased = known_stacks_[known_stack_shard].erase(stack);
+      size_t num_erased = known_stacks_[known_stack_shard].erase(
+          stack_capture->absolute_stack_id());
       DCHECK_EQ(num_erased, 1u);
     }
   }
