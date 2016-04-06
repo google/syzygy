@@ -27,6 +27,8 @@
         'asan_parameters.cc',
         'asan_parameters.h',
         'assertions.h',
+        'binary_stream.cc',
+        'binary_stream.h',
         'buffer_parser.cc',
         'buffer_parser.h',
         'buffer_parser_impl.h',
@@ -74,6 +76,7 @@
       'sources': [
         'align_unittest.cc',
         'asan_parameters_unittest.cc',
+        'binary_stream_unittest.cc',
         'buffer_parser_unittest.cc',
         'buffer_writer_unittest.cc',
         'com_utils_unittest.cc',
