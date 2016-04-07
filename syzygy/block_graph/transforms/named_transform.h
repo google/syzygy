@@ -61,6 +61,24 @@ class NamedBasicBlockSubGraphTransformImpl
   }
 };
 
+// Implements the 'name' member function of ImageLayoutTransformInterface.
+// The user must define the static variable:
+//
+//   const char DerivedType::kTransformName[];
+//
+// @tparam DerivedType the type of the derived class.
+template<class DerivedType>
+class NamedImageLayoutTransformImpl
+  : public ImageLayoutTransformInterface {
+ public:
+  // Gets the name of this transform.
+  //
+  // @returns the name of this transform.
+  virtual const char* name() const override {
+    return DerivedType::kTransformName;
+  }
+};
+
 }  // namespace transforms
 }  // namespace block_graph
 

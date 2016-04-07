@@ -161,6 +161,37 @@ class MockBasicBlockSubGraphTransform :
                     BasicBlockSubGraph*));
 };
 
+
+class ApplyImageLayoutTransformTest : public testing::Test {
+public:
+  virtual void SetUp() {
+    BlockGraph block_graph_;
+    block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 10, "Block1");
+    block_graph_.AddBlock(BlockGraph::DATA_BLOCK, 20, "Block2");
+    image_layout_ = new pe::ImageLayout(&block_graph_);
+    ordered_block_graph_ = new OrderedBlockGraph(&block_graph_);
+  }
+
+protected:
+  DummyTransformPolicy policy_;
+  pe::ImageLayout* image_layout_;
+  OrderedBlockGraph* ordered_block_graph_;
+};
+
+class LenientMockImageLayoutTransform : public ImageLayoutTransformInterface {
+public:
+  virtual ~LenientMockImageLayoutTransform() { }
+
+  virtual const char* name() const { return "MockImageLayoutTransform"; }
+
+  MOCK_METHOD3(TransformImageLayout,
+               bool(const TransformPolicyInterface*,
+               const pe::ImageLayout*,
+               const OrderedBlockGraph*));
+};
+typedef testing::StrictMock<LenientMockImageLayoutTransform>
+    MockImageLayoutTransform;
+
 }  // namespace
 
 TEST_F(ApplyBlockGraphTransformTest, NormalTransformSucceeds) {
@@ -304,4 +335,37 @@ TEST_F(ApplyBasicBlockSubGraphTransformTest, VectorTransformSucceeds) {
                                                 &new_blocks));
 }
 
+TEST_F(ApplyImageLayoutTransformTest, NormalTransformSucceeds) {
+  MockImageLayoutTransform transform;
+  EXPECT_CALL(transform, TransformImageLayout(_, _, _)).Times(1).
+    WillOnce(Return(true));
+  EXPECT_TRUE(ApplyImageLayoutTransform(&transform,
+    &policy_,
+    image_layout_,
+    ordered_block_graph_));
+}
+
+TEST_F(ApplyImageLayoutTransformTest, VectorTransformSucceeds) {
+  MockImageLayoutTransform tx1, tx2, tx3;
+  std::vector<ImageLayoutTransformInterface*> txs;
+  txs.push_back(&tx1);
+  txs.push_back(&tx2);
+  txs.push_back(&tx3);
+
+  EXPECT_CALL(tx1, TransformImageLayout(&policy_,
+    image_layout_,
+    ordered_block_graph_))
+    .WillOnce(Return(true));
+  EXPECT_CALL(tx2, TransformImageLayout(&policy_,
+    image_layout_,
+    ordered_block_graph_))
+    .WillOnce(Return(true));
+  EXPECT_CALL(tx3, TransformImageLayout(&policy_,
+    image_layout_,
+    ordered_block_graph_))
+    .WillOnce(Return(true));
+
+  EXPECT_TRUE(ApplyImageLayoutTransforms(
+    txs, &policy_, image_layout_, ordered_block_graph_));
+}
 }  // namespace block_graph

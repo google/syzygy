@@ -39,15 +39,29 @@ PECoffRelinker::PECoffRelinker(const TransformPolicyInterface* transform_policy)
   DCHECK(transform_policy != NULL);
 }
 
-bool PECoffRelinker::AppendTransform(Transform* transform) {
+bool PECoffRelinker::AppendTransform(BlockGraphTransform* transform) {
   DCHECK(transform != NULL);
   transforms_.push_back(transform);
   return true;
 }
 
 bool PECoffRelinker::AppendTransforms(
-    const std::vector<Transform*>& transforms) {
+    const std::vector<BlockGraphTransform*>& transforms) {
   transforms_.insert(transforms_.end(), transforms.begin(), transforms.end());
+  return true;
+}
+
+bool PECoffRelinker::AppendLayoutTransform(ImageLayoutTransform* transform) {
+  DCHECK(transform != NULL);
+  layout_transforms_.push_back(transform);
+  return true;
+}
+
+bool PECoffRelinker::AppendLayoutTransforms(
+  const std::vector<ImageLayoutTransform*>& transforms) {
+  layout_transforms_.insert(layout_transforms_.end(),
+                            transforms.begin(),
+                            transforms.end());
   return true;
 }
 
@@ -66,6 +80,17 @@ bool PECoffRelinker::ApplyUserTransforms() {
   LOG(INFO) << "Transforming block graph.";
   if (!block_graph::ApplyBlockGraphTransforms(
            transforms_, transform_policy_, &block_graph_, headers_block_)) {
+    return false;
+  }
+  return true;
+}
+
+bool PECoffRelinker::ApplyUserLayoutTransforms(
+    pe::ImageLayout* image_layout,
+    OrderedBlockGraph* ordered_graph) {
+  LOG(INFO) << "Transforming layout.";
+  if (!block_graph::ApplyImageLayoutTransforms(
+      layout_transforms_, transform_policy_, image_layout, ordered_graph)) {
     return false;
   }
   return true;

@@ -34,7 +34,8 @@ class PECoffRelinker : public RelinkerInterface {
  public:
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BlockGraphOrdererInterface Orderer;
-  typedef block_graph::BlockGraphTransformInterface Transform;
+  typedef block_graph::BlockGraphTransformInterface BlockGraphTransform;
+  typedef block_graph::ImageLayoutTransformInterface ImageLayoutTransform;
   typedef block_graph::OrderedBlockGraph OrderedBlockGraph;
   typedef block_graph::TransformPolicyInterface TransformPolicyInterface;
 
@@ -71,17 +72,24 @@ class PECoffRelinker : public RelinkerInterface {
   bool allow_overwrite() const { return allow_overwrite_; }
 
   // @see RelinkerInterface::AppendTransform()
-  virtual bool AppendTransform(Transform* transform) override;
+  virtual bool AppendTransform(BlockGraphTransform* transform) override;
 
   // @see RelinkerInterface::AppendTransforms()
   virtual bool AppendTransforms(
-      const std::vector<Transform*>& transforms) override;
+      const std::vector<BlockGraphTransform*>& transforms) override;
 
   // @see RelinkerInterface::AppendOrderer()
   virtual bool AppendOrderer(Orderer* orderer) override;
 
   // @see RelinkerInterface::AppendOrderers()
   virtual bool AppendOrderers(const std::vector<Orderer*>& orderers) override;
+
+  // @see RelinkerInterface::AppendLayoutTransform()
+  virtual bool AppendLayoutTransform(ImageLayoutTransform* transform) override;
+
+  // @see RelinkerInterface::AppendLayoutTransforms()
+  virtual bool AppendLayoutTransforms(
+    const std::vector<ImageLayoutTransform*>& transforms) override;
 
   // The following accessors provide access to properties not initialized by
   // this class; they should be valid after the relinker has been
@@ -130,6 +138,11 @@ class PECoffRelinker : public RelinkerInterface {
   // @returns true on success, or false on failure.
   bool ApplyUserOrderers(OrderedBlockGraph* ordered_graph);
 
+  // Apply user supplied transforms to the layout of the PE image
+  // @returns true on success, or false on failure.
+  bool ApplyUserLayoutTransforms(pe::ImageLayout* image_layout,
+                                 OrderedBlockGraph* ordered_graph);
+
   // The policy that dictates how to apply transforms.
   const TransformPolicyInterface* transform_policy_;
 
@@ -143,10 +156,13 @@ class PECoffRelinker : public RelinkerInterface {
   bool allow_overwrite_;
 
   // Transforms to be applied, in order.
-  std::vector<Transform*> transforms_;
+  std::vector<BlockGraphTransform*> transforms_;
 
   // Orderers to be applied, in order.
   std::vector<Orderer*> orderers_;
+
+  // Layout transforms to be applied, in order.
+  std::vector<ImageLayoutTransform*> layout_transforms_;
 
   // Whether the relinker has been initialized.
   bool inited_;

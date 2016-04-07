@@ -28,6 +28,7 @@ namespace {
 using block_graph::BlockGraph;
 using block_graph::BlockGraphOrdererInterface;
 using block_graph::BlockGraphTransformInterface;
+using block_graph::ImageLayoutTransformInterface;
 using block_graph::OrderedBlockGraph;
 using block_graph::TransformPolicyInterface;
 
@@ -39,6 +40,7 @@ class TestPECoffRelinker : public PECoffRelinker {
 
   using PECoffRelinker::transforms_;
   using PECoffRelinker::orderers_;
+  using PECoffRelinker::layout_transforms_;
 
   virtual ImageFormat image_format() const override {
     return BlockGraph::PE_IMAGE;
@@ -62,6 +64,16 @@ class MockOrderer : public BlockGraphOrdererInterface {
   const char* name() const { return "MockOrderer"; }
   MOCK_METHOD2(OrderBlockGraph, bool(OrderedBlockGraph*, BlockGraph::Block*));
 };
+
+class MockLayoutTransform : public ImageLayoutTransformInterface {
+public:
+  const char* name() const { return "MockLayoutTransform"; }
+  MOCK_METHOD3(TransformImageLayout,
+               bool(const TransformPolicyInterface*,
+               const ImageLayout*,
+               const OrderedBlockGraph*));
+};
+
 
 }  // namespace
 
@@ -119,6 +131,24 @@ TEST(PECoffRelinkerTest, AppendOrderers) {
   expected.push_back(&orderer2);
 
   EXPECT_EQ(expected, relinker.orderers_);
+}
+
+TEST(PECoffRelinkerTest, AppendLayoutTransforms) {
+  testing::DummyTransformPolicy policy;
+  TestPECoffRelinker relinker(&policy);
+
+  MockLayoutTransform transform1, transform2;
+  std::vector<ImageLayoutTransformInterface*> transforms;
+  transforms.push_back(&transform2);
+
+  relinker.AppendLayoutTransform(&transform1);
+  relinker.AppendLayoutTransforms(transforms);
+
+  std::vector<ImageLayoutTransformInterface*> expected;
+  expected.push_back(&transform1);
+  expected.push_back(&transform2);
+
+  EXPECT_EQ(expected, relinker.layout_transforms_);
 }
 
 }  // namespace pe

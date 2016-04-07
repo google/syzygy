@@ -49,11 +49,26 @@ class MockNamedBasicBlockSubGraphTransform :
   static const char kTransformName[];
 };
 
+class MockNamedImageLayoutTransform :
+  public NamedImageLayoutTransformImpl<MockNamedImageLayoutTransform> {
+public:
+  bool TransformImageLayout(const TransformPolicyInterface* /*policy*/,
+                           const pe::ImageLayout* /*image_layout*/,
+                           const OrderedBlockGraph* /*ordered_block_graph*/) {
+    return true;
+  }
+
+  static const char kTransformName[];
+};
+
 const char MockNamedBlockGraphTransform::kTransformName[] =
     "MockNamedBlockGraphTransform";
 
 const char MockNamedBasicBlockSubGraphTransform::kTransformName[] =
     "MockNamedBasicBlockSubGraphTransform";
+
+const char MockNamedImageLayoutTransform::kTransformName[] =
+    "MockNamedImageLayoutTransform";
 
 }  // namespace
 
@@ -66,6 +81,11 @@ TEST(NamedBasicBlockSubGraphTransformTest, NameWorks) {
   MockNamedBasicBlockSubGraphTransform transform;
   EXPECT_EQ(std::string("MockNamedBasicBlockSubGraphTransform"),
             transform.name());
+}
+
+TEST(NamedImageLayoutTransformTest, NameWorks) {
+  MockNamedImageLayoutTransform transform;
+  EXPECT_EQ(std::string("MockNamedImageLayoutTransform"), transform.name());
 }
 
 }  // namespace transforms

@@ -197,6 +197,9 @@ bool PERelinker::Relink() {
     return false;
   }
 
+  if (!ApplyUserLayoutTransforms(&output_image_layout, &ordered_block_graph))
+    return false;
+
   // Write the image.
   if (!WriteImage(output_image_layout, output_path_))
     return false;

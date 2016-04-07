@@ -19,7 +19,9 @@
 
 #include "syzygy/block_graph/basic_block_subgraph.h"
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/block_graph/ordered_block_graph.h"
 #include "syzygy/block_graph/transform_policy.h"
+#include "syzygy/pe/image_layout.h"
 
 namespace block_graph {
 
@@ -137,6 +139,63 @@ bool ApplyBasicBlockSubGraphTransforms(
     BlockGraph* block_graph,
     BlockGraph::Block* block,
     BlockVector* new_blocks);
+
+// An ImageLayoutTransformInterface is a pure virtual base class defining the
+// PE image layout transform API
+class ImageLayoutTransformInterface {
+ public:
+  virtual ~ImageLayoutTransformInterface() { }
+
+  // Gets the name of this transform.
+  //
+  // @returns the name of this transform
+  virtual const char* name() const = 0;
+
+  // Applies this layout transform to the provided PE image. Contents of block
+  // data can be changed in-place, and references may be deleted, created and
+  // modified. However one cannot add, delete or reorder blocks and/or sections
+  // nor can the size of blocks or sections be changed by adding / deleting
+  // data bytes.
+  //
+  // @param policy The policy object restricting how the transform is applied.
+  // @param image_layout The PE image on which to apply the transform.
+  // @param ordered_block_graph A block graph view of the PE image
+  // @return true if successful, false otherwise
+  virtual bool TransformImageLayout(
+      const TransformPolicyInterface* policy,
+      const pe::ImageLayout* image_layout,
+      const OrderedBlockGraph* ordered_block_graph) = 0;
+};
+
+// Applies a single layout transform to a PE image. Checks if the transform
+// preserves the number of blocks, the size and order of all blocks in the
+// PE image.
+//
+// @param transform The transform to apply.
+// @param policy The policy object restricting how the transform is applied.
+// @param image_layout The PE image on which the transform is applied.
+// @param ordered_block_graph A block graph view of the PE image.
+// @return true if successful, false otherwise.
+bool ApplyImageLayoutTransform(
+    ImageLayoutTransformInterface* transform,
+    const TransformPolicyInterface* policy,
+    const pe::ImageLayout* image_layout,
+    const OrderedBlockGraph* ordered_block_graph);
+
+// Applies a series of layout transform to a PE image. Checks if the transforms
+// preserve the number of blocks, the size and order of all blocks in the
+// PE image.
+//
+// @param transforms The series of transforms to apply.
+// @param policy The policy object restricting how the transform is applied.
+// @param image_layout The PE image on which the transform is applied.
+// @param ordered_block_graph A block graph view of the PE image.
+// @return true if successful, false otherwise.
+bool ApplyImageLayoutTransforms(
+    const std::vector<ImageLayoutTransformInterface*>& transforms,
+    const TransformPolicyInterface* policy,
+    const pe::ImageLayout* image_layout,
+    const OrderedBlockGraph* ordered_block_graph);
 
 }  // namespace block_graph
 

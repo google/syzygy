@@ -32,7 +32,8 @@ class RelinkerInterface {
   typedef block_graph::BlockGraph BlockGraph;
   typedef block_graph::BlockGraph::ImageFormat ImageFormat;
   typedef block_graph::BlockGraphOrdererInterface Orderer;
-  typedef block_graph::BlockGraphTransformInterface Transform;
+  typedef block_graph::BlockGraphTransformInterface BlockGraphTransform;
+  typedef block_graph::ImageLayoutTransformInterface ImageLayoutTransform;
   typedef pdb::PdbMutatorInterface PdbMutator;
 
   // Virtual destructor for derived classes.
@@ -48,7 +49,7 @@ class RelinkerInterface {
   // @param transform a transform to be applied.
   // @returns true on success, or false if adding transforms is not
   //     supported.
-  virtual bool AppendTransform(Transform* transform) {
+  virtual bool AppendTransform(BlockGraphTransform* transform) {
     LOG(ERROR) << "Relinker does not support transforms.";
     return false;
   }
@@ -60,7 +61,8 @@ class RelinkerInterface {
   // @param transforms transforms to be applied, in order.
   // @returns true on success, or false if adding transforms is not
   //     supported.
-  virtual bool AppendTransforms(const std::vector<Transform*>& transforms) {
+  virtual bool AppendTransforms(
+      const std::vector<BlockGraphTransform*>& transforms) {
     LOG(ERROR) << "Relinker does not support transforms.";
     return false;
   }
@@ -86,6 +88,31 @@ class RelinkerInterface {
   //     supported.
   virtual bool AppendOrderers(const std::vector<Orderer*>& orderers) {
     LOG(ERROR) << "Relinker does not support orderers.";
+    return false;
+  }
+
+  // Add a layout transform to be applied. Transform objects must outlive the
+  // relinker. Each transform will be applied in the order added to the
+  // relinker, assuming all earlier transforms have succeeded.
+  //
+  // @param transform a layout transform to be applied.
+  // @returns true on success, or false if adding transforms is not
+  //     supported.
+  virtual bool AppendLayoutTransform(ImageLayoutTransform* transform) {
+    LOG(ERROR) << "Relinker does not support image layout transforms.";
+    return false;
+  }
+
+  // Add layout transforms to be applied. Transform objects must outlive the
+  // relinker. Each transform will be applied in the order added to the
+  // relinker, assuming all earlier transforms have succeeded.
+  //
+  // @param transforms layout transforms to be applied, in order.
+  // @returns true on success, or false if adding transforms is not
+  //     supported.
+  virtual bool AppendLayoutTransforms(
+    const std::vector<ImageLayoutTransform*>& transforms) {
+    LOG(ERROR) << "Relinker does not support image layout transforms.";
     return false;
   }
 

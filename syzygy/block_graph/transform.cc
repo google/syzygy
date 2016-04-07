@@ -20,6 +20,76 @@
 
 namespace block_graph {
 
+bool ApplyImageLayoutTransform(
+    ImageLayoutTransformInterface* transform,
+    const TransformPolicyInterface* policy,
+    const pe::ImageLayout* image_layout,
+    const OrderedBlockGraph* ordered_block_graph) {
+  DCHECK(transform != NULL);
+  DCHECK(transform->name() != NULL);
+  DCHECK(policy != NULL);
+  DCHECK_GT(strlen(transform->name()), 0u);
+  DCHECK(image_layout != NULL);
+  DCHECK(ordered_block_graph != NULL);
+
+  // Only the contents of block data can be changed in-place. References are
+  // allowed to change. However one cannot add, delete or reorder blocks and/or
+  // sections, nor can the size of blocks or sections be changed by adding or
+  // deteling data bytes.
+  // Get total number and the size of each block.
+  size_t no_blocks = image_layout->blocks.size();
+  std::vector<size_t> block_size;
+  auto block_it = image_layout->blocks.begin();
+  for (; block_it != image_layout->blocks.end(); ++block_it) {
+    block_size.push_back(block_it->first.size());
+  }
+
+  if (!transform->TransformImageLayout(policy, image_layout,
+      ordered_block_graph)) {
+    LOG(ERROR) << "Layout transform \"" << transform->name() << "\" failed.";
+    return false;
+  }
+
+  // Ensure the number of blocks and the size of each block has not changed
+  if (no_blocks != image_layout->blocks.size()) {
+    LOG(ERROR) << "Layout transform \"" << transform->name() << "\" changed "
+               << "number of blocks.";
+    return false;
+  }
+  block_it = image_layout->blocks.begin();
+  for (size_t i = 0; block_it != image_layout->blocks.end(); ++block_it, ++i) {
+    if (block_size[i] != block_it->first.size()) {
+      LOG(ERROR) << "Layout transform \"" << transform->name() << "\" changed "
+                 << "size of blocks.";
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool ApplyImageLayoutTransforms(
+    const std::vector<ImageLayoutTransformInterface*>& transforms,
+    const TransformPolicyInterface* policy,
+    const pe::ImageLayout* image_layout,
+    const OrderedBlockGraph* ordered_block_graph) {
+  DCHECK_NE(reinterpret_cast<TransformPolicyInterface*>(NULL), policy);
+  DCHECK_NE(reinterpret_cast<pe::ImageLayout*>(NULL), image_layout);
+  DCHECK_NE(reinterpret_cast<OrderedBlockGraph*>(NULL), ordered_block_graph);
+
+  // Apply the transforms sequentially.
+  for (size_t i = 0; i < transforms.size(); ++i) {
+    if (!ApplyImageLayoutTransform(transforms[i],
+        policy,
+        image_layout,
+        ordered_block_graph)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 bool ApplyBlockGraphTransform(BlockGraphTransformInterface* transform,
                               const TransformPolicyInterface* policy,
                               BlockGraph* block_graph,

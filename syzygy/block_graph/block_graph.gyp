@@ -114,6 +114,7 @@
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/core/core.gyp:core_lib',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
+        '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
       ],
