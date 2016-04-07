@@ -82,6 +82,8 @@
         'quarantines/size_limited_quarantine_impl.h',
         'reporters/breakpad_reporter.cc',
         'reporters/breakpad_reporter.h',
+        'reporters/crashpad_reporter.cc',
+        'reporters/crashpad_reporter.h',
         'reporters/exported_function.h',
         'reporters/kasko_reporter.cc',
         'reporters/kasko_reporter.h',
@@ -120,6 +122,7 @@
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
+        '<(src)/third_party/crashpad/files/client/client.gyp:crashpad_client',
       ],
       'export_dependent_settings': [
         # We depend on crashdata_lib, which means we can see the include
@@ -191,6 +194,7 @@
         'quarantines/sharded_quarantine_unittest.cc',
         'quarantines/size_limited_quarantine_unittest.cc',
         'reporters/breakpad_reporter_unittest.cc',
+        'reporters/crashpad_reporter_unittest.cc',
         'reporters/exported_function_unittest.cc',
         'reporters/kasko_reporter_unittest.cc',
         '<(src)/syzygy/testing/run_all_unittests.cc',
@@ -210,6 +214,7 @@
         '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger_lib',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/testing/gtest.gyp:gtest',
+        '<(src)/third_party/crashpad/files/client/client.gyp:crashpad_client',
        ],
       'msvs_settings': {
         'VCLinkerTool': {

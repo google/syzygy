@@ -45,6 +45,7 @@
 #include "syzygy/agent/asan/windows_heap_adapter.h"
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/agent/asan/reporters/breakpad_reporter.h"
+#include "syzygy/agent/asan/reporters/crashpad_reporter.h"
 #include "syzygy/agent/asan/reporters/kasko_reporter.h"
 #include "syzygy/crashdata/crashdata.h"
 #include "syzygy/trace/client/client_utils.h"
@@ -123,6 +124,10 @@ void SetEarlyCrashKeys(AsanRuntime* runtime) {
             runtime->crash_reporter());
   DCHECK_NE(0u, runtime->crash_reporter()->GetFeatures() &
       ReporterInterface::FEATURE_CRASH_KEYS);
+
+  runtime->crash_reporter()->SetCrashKey(
+      "asan-crash-reporter",
+      runtime->crash_reporter()->GetName());
 
   runtime->crash_reporter()->SetCrashKey(
       "asan-random-key",
@@ -382,6 +387,49 @@ void LaunchMessageBox(const base::StringPiece& message) {
   ::MessageBoxA(nullptr, message.data(), nullptr, MB_OK | MB_ICONEXCLAMATION);
 }
 
+scoped_ptr<ReporterInterface> CreateCrashReporter(AsanLogger* logger) {
+  scoped_ptr<ReporterInterface> reporter;
+
+  // First try to grab the preferred crash reporter, overridden by the
+  // environment.
+  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::string reporter_name;
+  if (env->GetVar("SYZYASAN_CRASH_REPORTER", &reporter_name)) {
+    if (reporter_name == "crashpad")
+      reporter.reset(reporters::CrashpadReporter::Create().release());
+    else if (reporter_name == "kasko")
+      reporter.reset(reporters::KaskoReporter::Create().release());
+    else if (reporter_name == "breakpad")
+      reporter.reset(reporters::BreakpadReporter::Create().release());
+
+    if (reporter.get() != nullptr) {
+      logger->Write(base::StringPrintf(
+          "Using requested \"%s\" crash reporter.", reporter_name));
+      return reporter;
+    } else {
+      logger->Write(base::StringPrintf(
+          "Unable to create requested \"%s\" crash reporter.", reporter_name));
+    }
+  }
+
+  // No crash reporter was explicitly specified, or it was unable to be
+  // initialized. Try all of them, starting with the most recent.
+
+  // Don't try grabbing a Crashpad reporter by default, as we're not yet
+  // ready to ship this.
+  // TODO(chrisha): Add Crashpad support behind a feature flag.
+
+  // Try to initialize a Kasko crash reporter.
+  if (reporter.get() == nullptr)
+    reporter.reset(reporters::KaskoReporter::Create().release());
+
+  // If that failed then try to initialize a Breakpad reporter.
+  if (reporter.get() == nullptr)
+    reporter.reset(reporters::BreakpadReporter::Create().release());
+
+  return reporter;
+}
+
 }  // namespace
 
 base::Lock AsanRuntime::lock_;
@@ -443,16 +491,8 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
 
   // The name 'disable_breakpad_reporting' is legacy; this actually means to
   // disable all external crash reporting integration.
-  if (!params_.disable_breakpad_reporting) {
-    // Try to set up a crash reporter, starting with the most modern first.
-
-    // Try to initialize a Kasko crash reporter first.
-    crash_reporter_.reset(reporters::KaskoReporter::Create().release());
-
-    // If that failed then try to initialize a Breakpad reporter.
-    if (crash_reporter_.get() == nullptr)
-      crash_reporter_.reset(reporters::BreakpadReporter::Create().release());
-  }
+  if (!params_.disable_breakpad_reporting)
+    crash_reporter_.reset(CreateCrashReporter(logger()).release());
 
   // Set up the appropriate error handler depending on whether or not
   // we successfully found a crash reporter.
@@ -469,6 +509,9 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Install the unhandled exception handler. This is only installed once
   // across all runtime instances in a process so we check that it hasn't
   // already been installed.
+  // TODO(chrisha): Conditionally install this based on the crash reporter in
+  // use. Eventually, Crashpad will provide us a callback instead of having us
+  // register the handler ourselves.
   if (!uef_installed_) {
     uef_installed_ = true;
     previous_uef_ = ::SetUnhandledExceptionFilter(&UnhandledExceptionFilter);

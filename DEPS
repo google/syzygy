@@ -62,6 +62,10 @@ deps = {
   # This brings in Clang. This is required to generate the project files.
   "src/tools/clang":
     Var("chromium_git") + "chromium/src/tools/clang@33c2e41",
+
+  # This brings in Crashpad, used by SyzyASan for crash reporting.
+  "src/third_party/crashpad/files":
+    "https://chromium.googlesource.com/crashpad/crashpad@74c3eb8d0f",
 }
 
 

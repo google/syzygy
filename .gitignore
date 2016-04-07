@@ -69,6 +69,7 @@
 /syzygy/internal
 /testing/
 /third_party/coverage_analyzer/
+/third_party/crashpad/
 /third_party/distorm/files
 /third_party/dromaeo/files
 /third_party/icu/
