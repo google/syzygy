@@ -315,21 +315,21 @@ struct AsanDeleteHelper {
   TestAsanRtl* asan_rtl_;
 };
 
-// A scoped_ptr specialization for the Asan allocations.
+// A std::unique_ptr specialization for the Asan allocations.
 template <typename T>
-class ScopedAsanAlloc : public scoped_ptr<T, AsanDeleteHelper> {
+class ScopedAsanAlloc : public std::unique_ptr<T, AsanDeleteHelper> {
  public:
   explicit ScopedAsanAlloc(TestAsanRtl* asan_rtl)
-      : scoped_ptr(NULL, AsanDeleteHelper(asan_rtl)) {
+      : std::unique_ptr<T, AsanDeleteHelper>(NULL, AsanDeleteHelper(asan_rtl)) {
   }
 
   ScopedAsanAlloc(TestAsanRtl* asan_rtl, size_t size)
-      : scoped_ptr(NULL, AsanDeleteHelper(asan_rtl)) {
+      : std::unique_ptr<T, AsanDeleteHelper>(NULL, AsanDeleteHelper(asan_rtl)) {
     Allocate(asan_rtl, size);
   }
 
   ScopedAsanAlloc(TestAsanRtl* asan_rtl, size_t size, const T* value)
-      : scoped_ptr(NULL, AsanDeleteHelper(asan_rtl)) {
+      : std::unique_ptr<T, AsanDeleteHelper>(NULL, AsanDeleteHelper(asan_rtl)) {
     Allocate(asan_rtl, size);
     ::memcpy(get(), value, size * sizeof(T));
   }
