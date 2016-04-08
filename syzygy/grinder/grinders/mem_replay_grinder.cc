@@ -245,7 +245,7 @@ bool MemReplayGrinder::Grind() {
     }
     std::make_heap(heap.begin(), heap.end());
 
-    // This is used to track known objects while they are alive.
+    // This is used to track known objects.
     ObjectMap object_map;
     // This is used to track synchronization points between threads.
     WaitedMap waited_map;
@@ -253,8 +253,9 @@ bool MemReplayGrinder::Grind() {
     // Prepopulate the object map with entries for all the process heaps that
     // existed at process startup.
     const ThreadDataIterator kDummyThreadDataIterator = {nullptr, 0};
+    const ObjectInfo kDummyObjectInfo(kDummyThreadDataIterator);
     for (auto heap : proc.second.existing_heaps)
-      object_map.insert(std::make_pair(heap, kDummyThreadDataIterator));
+      object_map.insert(std::make_pair(heap, kDummyObjectInfo));
 
     // Process all of the thread events in the serial order in which they
     // occurred. While doing so update object_map and waited_map, and encode
@@ -264,9 +265,13 @@ bool MemReplayGrinder::Grind() {
       auto thread_it = heap.back();
       heap.pop_back();
 
+      // Determine inputs and outputs of this event.
+      EventObjects objects;
+      GetEventObjects(thread_it, &objects);
+
       // Determine input dependencies for this event.
       Deps deps;
-      if (!GetDeps(thread_it, &deps))
+      if (!GetDeps(thread_it, objects, object_map, &deps))
         return false;
 
       // Encode dependencies as explicit synchronization points as required,
@@ -274,9 +279,9 @@ bool MemReplayGrinder::Grind() {
       if (!ApplyDeps(thread_it, object_map, deps, &waited_map))
         return false;
 
-      // Update the object map to reflect objects that have been destroyed or
-      // created.
-      if (!UpdateObjectMap(thread_it, &object_map))
+      // Update the object map to reflect objects that have been destroyed,
+      // created, or used.
+      if (!UpdateObjectMap(thread_it, objects, &object_map))
         return false;
 
       // Increment the thread event iterator and reinsert it in the heap if
@@ -305,10 +310,26 @@ bool MemReplayGrinder::OutputData(FILE* file) {
   if (!zout_stream.Init(9))
     return false;
 
+  // Save a magic header and version so that readers can validate the stream.
+  if (!out_archive.Save(bard::Story::kBardMagic))
+    return false;
+  if (!out_archive.Save(bard::Story::kBardVersion))
+    return false;
+
   // Serialize the stories, back to back.
   if (!out_archive.Save(static_cast<size_t>(process_data_map_.size())))
     return false;
   for (const auto& proc_data_pair : process_data_map_) {
+    // Output any existing heaps. The first of these is the process heap.
+    size_t heap_count = proc_data_pair.second.existing_heaps.size();
+    if (!out_archive.Save(heap_count))
+      return false;
+    for (const auto& heap : proc_data_pair.second.existing_heaps) {
+      if (!out_archive.Save(reinterpret_cast<uintptr_t>(heap)))
+        return false;
+    }
+
+    // Output the story.
     auto story = proc_data_pair.second.story;
     if (!story->Save(&out_archive))
       return false;
@@ -594,56 +615,160 @@ void MemReplayGrinder::EnsureLinkedEvent(const ThreadDataIterator& iter) {
   (*iter.plot_line())[iter.index] = linked_event;
 }
 
-bool MemReplayGrinder::GetDeps(const ThreadDataIterator& iter, Deps* deps) {
-  DCHECK_NE(static_cast<Deps*>(nullptr), deps);
-  DCHECK(deps->empty());
+void MemReplayGrinder::GetEventObjects(const ThreadDataIterator& iter,
+                                       EventObjects* objects) {
+  DCHECK_NE(static_cast<EventObjects*>(nullptr), objects);
 
   auto evt = iter.inner_event();
+  objects->created = nullptr;
+  objects->destroyed = nullptr;
+  objects->used.clear();
 
+  // Determine objects that are created, used or destroyed.
   switch (evt->type()) {
     case EventInterface::kHeapAllocEvent: {
       auto e =
           reinterpret_cast<const bard::events::HeapAllocEvent*>(iter.event());
-      deps->insert(e->trace_heap());
+      if (e->trace_heap())
+        objects->used.push_back(e->trace_heap());
+      objects->created = e->trace_alloc();
+      break;
+    }
+    case EventInterface::kHeapCreateEvent: {
+      auto e =
+          reinterpret_cast<const bard::events::HeapCreateEvent*>(iter.event());
+      objects->created = e->trace_heap();
       break;
     }
     case EventInterface::kHeapDestroyEvent: {
       auto e =
           reinterpret_cast<const bard::events::HeapDestroyEvent*>(iter.event());
-      deps->insert(e->trace_heap());
+      objects->destroyed = e->trace_heap();
       break;
     }
     case EventInterface::kHeapFreeEvent: {
       auto e =
           reinterpret_cast<const bard::events::HeapFreeEvent*>(iter.event());
-      deps->insert(e->trace_heap());
-      deps->insert(e->trace_alloc());
+      if (e->trace_heap())
+        objects->used.push_back(e->trace_heap());
+      objects->destroyed = e->trace_alloc();
       break;
     }
     case EventInterface::kHeapReAllocEvent: {
       auto e =
           reinterpret_cast<const bard::events::HeapReAllocEvent*>(iter.event());
-      deps->insert(e->trace_heap());
-      deps->insert(e->trace_alloc());
+      if (e->trace_heap())
+        objects->used.push_back(e->trace_heap());
+
+      if (e->trace_alloc() == e->trace_realloc()) {
+        // ReAllocs that return the original address are indistinguishable from
+        // a simple 'use' of that address. Encode it as such.
+        objects->used.push_back(e->trace_alloc());
+      } else {
+        objects->destroyed = e->trace_alloc();
+        objects->created = e->trace_realloc();
+      }
       break;
     }
     case EventInterface::kHeapSetInformationEvent: {
       auto e = reinterpret_cast<const bard::events::HeapSetInformationEvent*>(
           iter.event());
-      deps->insert(e->trace_heap());
+      if (e->trace_heap())
+        objects->used.push_back(e->trace_heap());
       break;
     }
     case EventInterface::kHeapSizeEvent: {
       auto e =
           reinterpret_cast<const bard::events::HeapSizeEvent*>(iter.event());
-      deps->insert(e->trace_heap());
-      deps->insert(e->trace_alloc());
+      if (e->trace_heap())
+        objects->used.push_back(e->trace_heap());
+      if (e->trace_alloc())
+        objects->used.push_back(const_cast<void*>(e->trace_alloc()));
       break;
     }
     default: break;
   }
+}
+
+bool MemReplayGrinder::GetDeps(const ThreadDataIterator& iter,
+                               const EventObjects& objects,
+                               const ObjectMap& object_map,
+                               Deps* deps) {
+  DCHECK_NE(static_cast<Deps*>(nullptr), deps);
+  DCHECK(deps->empty());
+
+  // If the object being created is aliased to one that has already existed
+  // then ensure a dependency to the previous destruction event is generated.
+  if (objects.created) {
+    auto it = object_map.find(objects.created);
+    if (it != object_map.end()) {
+      if (it->second.alive()) {
+        LOG(ERROR) << "Unable to create existing object: " << objects.created;
+        LOG(ERROR) << "  Timestamp: " << std::hex << iter.timestamp();
+        return false;
+      }
+      AddDep(iter, it->second.destroyed(), deps);
+    }
+  }
+
+  // For each used object, create an input dependency on the creation of that
+  // object.
+  for (auto used : objects.used) {
+    auto it = object_map.find(used);
+    if (it == object_map.end() || !it->second.alive()) {
+      LOG(ERROR) << "Unable to encode use dependency to dead or missing "
+                 << "object: " << used;
+      LOG(ERROR) << "  Timestamp: " << std::hex << iter.timestamp();
+      return false;
+    }
+    AddDep(iter, it->second.created(), deps);
+  }
+
+  if (objects.destroyed) {
+    // For a destroyed object, create an input dependency on the most recent
+    // use of that object on each other thread. This ensures that it won't be
+    // destroyed during playback until all contemporary uses of it have
+    // completed.
+    auto it = object_map.find(objects.destroyed);
+    if (it == object_map.end() || !it->second.alive()) {
+      LOG(ERROR) << "Unable to encode destruction depedendency to dead or "
+                 << "missing object: " << objects.destroyed;
+      LOG(ERROR) << "  Timestamp: " << std::hex << iter.timestamp();
+      return false;
+    }
+    for (auto thread_index_pair : it->second.last_use()) {
+      // Skip uses on this thread, as they are implicit.
+      if (thread_index_pair.first == iter.thread_data)
+        continue;
+      ThreadDataIterator dep = {thread_index_pair.first,
+                                thread_index_pair.second};
+      AddDep(iter, dep, deps);
+    }
+  }
 
   return true;
+}
+
+void MemReplayGrinder::AddDep(const ThreadDataIterator& iter,
+                              const ThreadDataIterator& input,
+                              Deps* deps) {
+  DCHECK_NE(static_cast<Deps*>(nullptr), deps);
+
+  // If the dependency is to an object on a dummy thread it doesn't need to be
+  // encoded. Such events represent creation events for objects that exist
+  // before the playback starts.
+  if (input.thread_data == nullptr)
+    return;
+
+  // Dependencies can only be to older events.
+  DCHECK_LT(input.timestamp(), iter.timestamp());
+
+  // Dependencies to events on the same thread are implicit and need not be
+  // encoded.
+  if (iter.thread_data->plot_line == input.thread_data->plot_line)
+    return;
+
+  deps->insert(input);
 }
 
 bool MemReplayGrinder::ApplyDeps(const ThreadDataIterator& iter,
@@ -653,30 +778,16 @@ bool MemReplayGrinder::ApplyDeps(const ThreadDataIterator& iter,
   DCHECK_NE(static_cast<WaitedMap*>(nullptr), waited_map);
 
   for (auto dep : deps) {
-    auto dep_it = object_map.find(dep);
-    if (dep_it == object_map.end()) {
-      LOG(ERROR) << "Unable to find required input object " << dep;
-      return false;
-    }
-
-    // If the object was created on a dummy thread then it exists at startup
-    // and doesn't need to be encoded as a dependency.
-    if (dep_it->second.thread_data == nullptr)
-      continue;
-
-    // If the object was created on the same thread as the current object
-    // being processed then an implicit dependency already exists.
-    if (iter.plot_line() == dep_it->second.plot_line())
-      continue;
-
     // Determine if there's already a sufficiently recent encoded dependency
     // between these two plot lines.
-    auto plot_line_pair =
-        PlotLinePair(iter.plot_line(), dep_it->second.plot_line());
+    // NOTE: This logic could be generalized to look for paths of dependencies,
+    // but that requires significantly more storage and computation. This
+    // catches the most common cases.
+    auto plot_line_pair = PlotLinePair(iter.plot_line(), dep.plot_line());
     auto waited_it = waited_map->lower_bound(plot_line_pair);
     if (waited_it != waited_map->end() && waited_it->first == plot_line_pair) {
-      DCHECK_EQ(dep_it->second.plot_line(), waited_it->second.plot_line());
-      if (waited_it->second.index >= dep_it->second.index)
+      DCHECK_EQ(dep.plot_line(), waited_it->second.plot_line());
+      if (waited_it->second.index >= dep.index)
         continue;
     }
 
@@ -684,85 +795,106 @@ bool MemReplayGrinder::ApplyDeps(const ThreadDataIterator& iter,
 
     // Update the |waiting_map| to reflect the dependency.
     if (waited_it != waited_map->end() && waited_it->first == plot_line_pair) {
-      waited_it->second = dep_it->second;
+      waited_it->second = dep;
     } else {
-      waited_map->insert(waited_it,
-                         std::make_pair(plot_line_pair, dep_it->second));
+      waited_map->insert(waited_it, std::make_pair(plot_line_pair, dep));
     }
 
     // Make ourselves and the dependency linked events if necessary.
     EnsureLinkedEvent(iter);
-    EnsureLinkedEvent(dep_it->second);
+    EnsureLinkedEvent(dep);
 
     // Finally, wire up the dependency.
     reinterpret_cast<bard::events::LinkedEvent*>(iter.event())
-        ->AddDep(dep_it->second.event());
+        ->AddDep(dep.event());
   }
 
   return true;
 }
 
 bool MemReplayGrinder::UpdateObjectMap(const ThreadDataIterator& iter,
+                                       const EventObjects& objects,
                                        ObjectMap* object_map) {
   DCHECK_NE(static_cast<ObjectMap*>(nullptr), object_map);
 
-  bool allow_existing = false;
-  void* created = nullptr;
-  void* destroyed = nullptr;
+  // Forward these for readability.
+  auto created = objects.created;
+  auto destroyed = objects.destroyed;
+  auto& used = objects.used;
 
-  auto evt = iter.inner_event();
-
-  // Determine which objects are created and/or destroyed by the event.
-  switch (evt->type()) {
-    case EventInterface::kHeapAllocEvent: {
-      auto e = reinterpret_cast<const bard::events::HeapAllocEvent*>(evt);
-      created = e->trace_alloc();
-      break;
-    }
-    case EventInterface::kHeapCreateEvent: {
-      auto e = reinterpret_cast<const bard::events::HeapCreateEvent*>(evt);
-      created = e->trace_heap();
-      break;
-    }
-    case EventInterface::kHeapDestroyEvent: {
-      auto e = reinterpret_cast<const bard::events::HeapDestroyEvent*>(evt);
-      destroyed = e->trace_heap();
-      break;
-    }
-    case EventInterface::kHeapFreeEvent: {
-      auto e = reinterpret_cast<const bard::events::HeapFreeEvent*>(evt);
-      destroyed = e->trace_alloc();
-      break;
-    }
-    case EventInterface::kHeapReAllocEvent: {
-      auto e = reinterpret_cast<const bard::events::HeapReAllocEvent*>(evt);
-      destroyed = e->trace_alloc();
-      created = e->trace_realloc();
-      break;
-    }
-    default: break;
-  }
-
+  // Update the object map to reflect any destroyed objects.
   if (destroyed) {
     auto it = object_map->find(destroyed);
     if (it == object_map->end()) {
-      // TODO(chrisha): Make events be able to represent themselves as
-      // strings and log detailed information here?
-      LOG(ERROR) << "Failed to destroy object " << destroyed;
+      LOG(ERROR) << "Unable to destroy missing object: " << destroyed;
       return false;
     }
-    object_map->erase(it);
+
+    ObjectInfo& info = it->second;
+    if (!info.alive()) {
+      LOG(ERROR) << "Unable to destroy dead object: " << destroyed;
+      return false;
+    }
+
+    // Update the object info to reflect the fact that it is now dead, and
+    // the event that destroyed it.
+    info.SetDestroyed(iter);
   }
 
+  // Update the object map to reflect any created objects.
   if (created) {
-    auto result = object_map->insert(std::make_pair(created, iter));
-    if (!result.second && !allow_existing) {
-      LOG(ERROR) << "Failed to create object " << created;
+    // Insert the created object.
+    auto result = object_map->insert(std::make_pair(created, ObjectInfo(iter)));
+
+    // Insertion failed, as the object already existed. This is fine if it was
+    // dead, but an error if it was alive.
+    if (!result.second) {
+      ObjectInfo& info = result.first->second;
+      if (info.alive()) {
+        LOG(ERROR) << "Unable to create alive object: " << created;
+        return false;
+      }
+
+      // Transition the object to being alive again.
+      info.SetCreated(iter);
+    }
+  }
+
+  // Update the object map to reflect any used objects.
+  for (auto object : used) {
+    auto it = object_map->find(object);
+    if (it == object_map->end()) {
+      LOG(ERROR) << "Unable to use missing object: " << object;
       return false;
     }
+    it->second.SetLastUse(iter);
   }
 
   return true;
+}
+
+MemReplayGrinder::ObjectInfo::ObjectInfo(const ThreadDataIterator& iter) {
+  SetCreated(iter);
+}
+
+void MemReplayGrinder::ObjectInfo::SetCreated(const ThreadDataIterator& iter) {
+  alive_ = true;
+  created_ = iter;
+  destroyed_ = {nullptr, 0};
+
+  last_use_.clear();
+  SetLastUse(iter);
+}
+
+void MemReplayGrinder::ObjectInfo::SetLastUse(const ThreadDataIterator& iter) {
+  last_use_[iter.thread_data] = iter.index;
+}
+
+void MemReplayGrinder::ObjectInfo::SetDestroyed(
+    const ThreadDataIterator& iter) {
+  alive_ = false;
+  destroyed_ = iter;
+  SetLastUse(iter);
 }
 
 }  // namespace grinders

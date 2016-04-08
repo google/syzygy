@@ -21,6 +21,7 @@
 #include "gtest/gtest.h"
 #include "syzygy/bard/events/heap_alloc_event.h"
 #include "syzygy/bard/events/linked_event.h"
+#include "syzygy/core/unittest_util.h"
 #include "syzygy/pe/unittest_util.h"
 
 namespace grinder {
@@ -223,6 +224,10 @@ TEST_F(MemReplayGrinderTest, GrindHarnessTrace) {
   TestMemReplayGrinder grinder;
   EXPECT_TRUE(grinder.ParseCommandLine(&cmd_line_));
 
+  // We don't control what happens on the main entry thread, so we specifically
+  // filter out events there. This ensures that the analysis of the other two
+  // threads in the harness remains distinct.
+
   trace::parser::Parser parser;
   ASSERT_TRUE(parser.Init(&grinder));
   base::FilePath trace_file =
@@ -262,7 +267,7 @@ TEST_F(MemReplayGrinderTest, GrindHarnessTrace) {
   EXPECT_EQ((*pl1)[2]->type(), bard::EventInterface::kLinkedEvent);
   EXPECT_EQ((*pl1)[3]->type(), bard::EventInterface::kLinkedEvent);
   EXPECT_EQ((*pl1)[4]->type(), bard::EventInterface::kHeapAllocEvent);
-  EXPECT_EQ((*pl1)[5]->type(), bard::EventInterface::kHeapFreeEvent);
+  EXPECT_EQ((*pl1)[5]->type(), bard::EventInterface::kLinkedEvent);
   EXPECT_EQ((*pl1)[6]->type(), bard::EventInterface::kHeapSetInformationEvent);
   EXPECT_EQ((*pl1)[7]->type(), bard::EventInterface::kHeapFreeEvent);
   EXPECT_EQ((*pl1)[8]->type(), bard::EventInterface::kHeapDestroyEvent);
@@ -275,7 +280,7 @@ TEST_F(MemReplayGrinderTest, GrindHarnessTrace) {
   EXPECT_EQ((*pl2)[4]->type(), bard::EventInterface::kHeapReAllocEvent);
   EXPECT_EQ((*pl2)[5]->type(), bard::EventInterface::kHeapFreeEvent);
   EXPECT_EQ((*pl2)[6]->type(), bard::EventInterface::kHeapFreeEvent);
-  EXPECT_EQ((*pl2)[7]->type(), bard::EventInterface::kHeapDestroyEvent);
+  EXPECT_EQ((*pl2)[7]->type(), bard::EventInterface::kLinkedEvent);
   EXPECT_EQ((*pl2)[8]->type(), bard::EventInterface::kHeapFreeEvent);
   EXPECT_EQ((*pl2)[9]->type(), bard::EventInterface::kHeapDestroyEvent);
 
@@ -291,6 +296,11 @@ TEST_F(MemReplayGrinderTest, GrindHarnessTrace) {
   EXPECT_EQ(pl13->event()->type(), bard::EventInterface::kHeapAllocEvent);
   EXPECT_TRUE(pl13->deps().empty());
 
+  bard::events::LinkedEvent* pl15 =
+      reinterpret_cast<bard::events::LinkedEvent*>((*pl1)[5]);
+  EXPECT_EQ(pl15->event()->type(), bard::EventInterface::kHeapFreeEvent);
+  EXPECT_TRUE(pl15->deps().empty());
+
   bard::events::LinkedEvent* pl22 =
       reinterpret_cast<bard::events::LinkedEvent*>((*pl2)[2]);
   EXPECT_EQ(pl22->event()->type(), bard::EventInterface::kHeapAllocEvent);
@@ -302,6 +312,16 @@ TEST_F(MemReplayGrinderTest, GrindHarnessTrace) {
   EXPECT_EQ(pl23->event()->type(), bard::EventInterface::kHeapSizeEvent);
   EXPECT_EQ(1u, pl23->deps().size());
   EXPECT_EQ((*pl1)[3], pl23->deps().front());
+
+  bard::events::LinkedEvent* pl27 =
+      reinterpret_cast<bard::events::LinkedEvent*>((*pl2)[7]);
+  EXPECT_EQ(pl27->event()->type(), bard::EventInterface::kHeapDestroyEvent);
+  EXPECT_EQ(1u, pl27->deps().size());
+  EXPECT_EQ((*pl1)[5], pl27->deps().front());
+
+  // Extra test: Ensure that serialization works for this more complicated
+  // story.
+  testing::TestSerialization(*proc.story);
 
   base::ScopedTempDir temp_dir;
   ASSERT_TRUE(temp_dir.CreateUniqueTempDir());

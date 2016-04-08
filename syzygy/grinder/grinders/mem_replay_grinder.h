@@ -74,17 +74,21 @@ class MemReplayGrinder : public GrinderInterface {
 
   // See below for comments and definitions.
   class PendingDetailedFunctionCall;
-  struct ThreadData;
+  class ObjectInfo;
+  struct EventObjects;
   struct ProcessData;
+  struct ThreadData;
   struct ThreadDataIterator;
+  struct ThreadDataIteratorHashFunctor;
 
   using PendingDetailedFunctionCalls = std::deque<PendingDetailedFunctionCall>;
   // Associates objects by addresses in the trace file to the event in which
-  // they are created. The event is encoded by the ThreadDataIterator
-  // referring to it.
-  using ObjectMap = std::unordered_map<const void*, ThreadDataIterator>;
+  // they are created/destroyed, and if they are alive or not. The event is
+  // encoded by the ThreadDataIterator referring to it.
+  using ObjectMap = std::unordered_map<const void*, ObjectInfo>;
   // A collection of objects describing a dependency.
-  using Deps = std::unordered_set<const void*>;
+  using Deps =
+      std::unordered_set<ThreadDataIterator, ThreadDataIteratorHashFunctor>;
   // Tracks dependencies that have already been explicitly encoded. A thread
   // |i| that has already waited on a thread |j| will store the most recent
   // event waited on in the map associated with key (i, j).
@@ -102,26 +106,65 @@ class MemReplayGrinder : public GrinderInterface {
   // Sets parse_error_ to true.
   void SetParseError();
   // Finds or creates the process data for a given process.
+  // @param process_id The ID of the process.
+  // @returns the associated ProcessData.
   ProcessData* FindOrCreateProcessData(DWORD process_id);
   // Finds or creates the thread data in the provided process data, for the
   // provided thread.
+  // @param proc_data The process data.
+  // @param thread_id The ID of the thread.
+  // @returns the associated ThreadData.
   ThreadData* FindOrCreateThreadData(ProcessData* proc_data, DWORD thread_id);
 
   // Ensures that the given event is a LinkedEvent, and thus able to support
   // dependencies.
+  // @param iter The iterator pointing to the event to be converted.
   void EnsureLinkedEvent(const ThreadDataIterator& iter);
+  // Populates the list of objects that are created/destroyed/used by a given
+  // event.
+  // @param iter The iterator pointing to the event to be queried.
+  // @param objects Pointer to the list of objects to be populated.
+  void GetEventObjects(const ThreadDataIterator& iter, EventObjects* objects);
   // Gets the set of dependencies for the given event from the given object
   // map.
-  bool GetDeps(const ThreadDataIterator& iter, Deps* deps);
+  // @param iter The iterator pointing to the event to be queried.
+  // @param objects The objects created/destroyed/used by the event.
+  // @param object_map The map describing the state of all known objects.
+  // @param deps A list of events that are dependencies to the event in
+  //     @p iter.
+  // @returns true on success, false otherwise.
+  bool GetDeps(const ThreadDataIterator& iter,
+               const EventObjects& objects,
+               const ObjectMap& object_map,
+               Deps* deps);
+  // Updates @p deps with a dependency from @p iter to the provided @p input.
+  // Does some analysis to omit adding redundant dependencies.
+  // @param iter The iterator pointing to the event with dependencies.
+  // @param input The iterator pointing to the input dependency event.
+  // @param deps The list of dependencies to be modified.
+  void AddDep(const ThreadDataIterator& iter,
+              const ThreadDataIterator& input,
+              Deps* deps);
   // Applies the given set of dependencies to provided event, updating the
   // @p waited_map.
+  // @param iter The iterator pointing to the event with dependencies.
+  // @param object_map The map describing the state of all known objects.
+  // @param deps The list of input dependencies.
+  // @param waited_map The map of already expressed dependencies to be updated.
   bool ApplyDeps(const ThreadDataIterator& iter,
                  const ObjectMap& object_map,
                  const Deps& deps,
                  WaitedMap* waited_map);
-  // Updates the provided @p object_map with information from the event pointed
-  // to by @p iter.
-  bool UpdateObjectMap(const ThreadDataIterator& iter, ObjectMap* object_map);
+  // Updates the provided @p live_object_map and @p dead_object_map with
+  // information from the event pointed to by @p iter.
+  // @param iter The iterator pointing to the event being processed.
+  // @param objects The list of objects touched by the event.
+  // @param object_map The map describing the state of all known objects that
+  //     is to be updated.
+  // @returns true on success, false otherwise.
+  bool UpdateObjectMap(const ThreadDataIterator& iter,
+                       const EventObjects& objects,
+                       ObjectMap* object_map);
 
   // A map of recognized function names to EventType. If it's name isn't
   // in this map before grinding starts then the function will not be parsed.
@@ -233,8 +276,63 @@ struct MemReplayGrinder::ThreadDataIterator {
     return index < thread_data->timestamps.size();
   }
 
+  // Comparison operator required for use in unordered_set.
+  bool operator==(const ThreadDataIterator& rhs) const {
+    return thread_data == rhs.thread_data && index == rhs.index;
+  }
+
   ThreadData* thread_data;
   size_t index;
+};
+
+struct MemReplayGrinder::ThreadDataIteratorHashFunctor {
+  size_t operator()(const ThreadDataIterator& tdi) const {
+    return reinterpret_cast<size_t>(tdi.thread_data) ^ tdi.index;
+  }
+};
+
+// A small structure for housing information about an object during
+// grinding.
+class MemReplayGrinder::ObjectInfo {
+ public:
+  using LastUseMap = std::unordered_map<ThreadData*, size_t>;
+
+  explicit ObjectInfo(const ThreadDataIterator& iter);
+
+  // Gets events associated with this object.
+  bool alive() const { return alive_; }
+  const ThreadDataIterator& created() const { return created_; }
+  const ThreadDataIterator& destroyed() const { return destroyed_; }
+  const LastUseMap& last_use() const { return last_use_; }
+
+  void SetCreated(const ThreadDataIterator& iter);
+  void SetLastUse(const ThreadDataIterator& iter);
+  void SetDestroyed(const ThreadDataIterator& iter);
+
+ private:
+  // Disallow use of the default constructor.
+  ObjectInfo() {}
+
+  // Indicates whether or not the object is alive.
+  bool alive_;
+
+  // The events that create and destroy this object.
+  ThreadDataIterator created_;
+  ThreadDataIterator destroyed_;
+
+  // Per thread, the most recent use of this object. This map uses an exploded
+  // ThreadDataIterator as key and value.
+  LastUseMap last_use_;
+
+  // Copy and assignment is allowed in order to keep this object compatible
+  // with STL containers.
+};
+
+// Houses inputs and outputs of an input, by type.
+struct MemReplayGrinder::EventObjects {
+  void* created;
+  void* destroyed;
+  std::vector<void*> used;
 };
 
 }  // namespace grinders
