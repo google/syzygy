@@ -69,10 +69,14 @@ def apply_syzygy_gyp_env(syzygy_src_path):
   if 'SKIP_SYZYGY_GYP_ENV' not in os.environ:
     # Update the environment based on syzygy.gyp_env
     path = os.path.join(syzygy_src_path, 'syzygy.gyp_env')
-    if (not apply_gyp_environment_from_file(path) or
-        not os.environ.get('GYP_GENERATORS')):
+    applied_env_from_file = apply_gyp_environment_from_file(path)
+    if (not applied_env_from_file or not os.environ.get('GYP_GENERATORS')):
       # Default to ninja if no generator has explicitly been set.
       os.environ['GYP_GENERATORS'] = 'ninja'
+    if (not applied_env_from_file or not os.environ.get('GYP_MSVS_VERSION')):
+      print 'Using VS2015 as the default toolchain.'
+      # Default to ninja if no generator has explicitly been set.
+      os.environ['GYP_MSVS_VERSION'] = '2015'
 
 
 if __name__ == '__main__':

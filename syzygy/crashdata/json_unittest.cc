@@ -101,7 +101,11 @@ TEST(CrashDataJsonTest, ValueLeafReal) {
   Value value;
   LeafSetReal(2.0e99, ValueGetLeaf(&value));
 
+#if _MSC_VER == 1800  // MSVS 2013.
   const char kExpected[] = "1.9999999999999999E+099";
+#elif _MSC_VER == 1900  // MSVS 2015.
+  const char kExpected[] = "1.9999999999999999E+99";
+#endif
   TestConversion(true, value, kExpected);
   TestConversion(false, value, kExpected);
 }
@@ -244,7 +248,11 @@ TEST(CrashDataJsonTest, AllTypes) {
       "{\n"
       "  \"int\": -42,\n"
       "  \"uint\": 42,\n"
+#if _MSC_VER == 1800  // MSVS 2013.
       "  \"real\": 1.9999999999999999E+099,\n"
+#elif _MSC_VER == 1900  // MSVS 2015.
+      "  \"real\": 1.9999999999999999E+99,\n"
+#endif
       "  \"string\": \"foobar\",\n"
       "  \"address\": \"0xDEADF00D\",\n"
       "  \"stack-trace\": [\n"
@@ -269,24 +277,28 @@ TEST(CrashDataJsonTest, AllTypes) {
 
   const char kExpectedCompact[] =
       "{"
-        "\"int\":-42,"
-        "\"uint\":42,"
-        "\"real\":1.9999999999999999E+099,"
-        "\"string\":\"foobar\","
-        "\"address\":\"0xDEADF00D\","
-        "\"stack-trace\":[\"0xBAADBEEF\"],"
-        "\"blob\":{"
-          "\"type\":\"blob\","
-          "\"address\":null,"
-          "\"size\":null,"
-          "\"data\":[\"0x68\",\"0x65\",\"0x79\"]"
-        "},"
-        "\"dict\":{"
-          "\"INT\":100"
-        "},"
-        "\"list\":["
-          "200"
-        "]"
+      "\"int\":-42,"
+      "\"uint\":42,"
+#if _MSC_VER == 1800  // MSVS 2013.
+      "\"real\":1.9999999999999999E+099,"
+#elif _MSC_VER == 1900  // MSVS 2015.
+      "\"real\":1.9999999999999999E+99,"
+#endif
+      "\"string\":\"foobar\","
+      "\"address\":\"0xDEADF00D\","
+      "\"stack-trace\":[\"0xBAADBEEF\"],"
+      "\"blob\":{"
+      "\"type\":\"blob\","
+      "\"address\":null,"
+      "\"size\":null,"
+      "\"data\":[\"0x68\",\"0x65\",\"0x79\"]"
+      "},"
+      "\"dict\":{"
+      "\"INT\":100"
+      "},"
+      "\"list\":["
+      "200"
+      "]"
       "}";
   TestConversion(false, value, kExpectedCompact);
 }

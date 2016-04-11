@@ -33,11 +33,18 @@ const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
 // test_dll.coff_obj-specific constants. Adjust to match current code in
 // test_dll.cc.
-const size_t kNumTextSections = 26;
 const size_t kNumDataSections = 2;
 const size_t kNumRDataSections = 14;  // Includes .rdata$r sections.
-const size_t kNumDebugSections = 28;  // Includes .debug$S and .debug$T.
+#if _MSC_VER == 1900 && defined(NDEBUG)
+// The VS2015 release builds contain an extra .bss section.
+const size_t kNumBssSections = 2;
+const size_t kNumTextSections = 31;
+const size_t kNumDebugSections = 33;  // Includes .debug$S and .debug$T.
+#else
 const size_t kNumBssSections = 1;
+const size_t kNumTextSections = 26;
+const size_t kNumDebugSections = 28;  // Includes .debug$S and .debug$T.
+#endif
 
 const size_t kNumFunctions = 14;
 const size_t kNumJumpLabelsInDllMain = 3;
@@ -73,6 +80,17 @@ TEST_F(CoffDecomposerTest, Decompose) {
   BlockGraph::Block* file_header_block =
       image_layout.blocks.GetBlockByAddress(RelativeAddress(0));
   ASSERT_TRUE(file_header_block != NULL);
+
+  std::vector<std::string> image_layout_names;
+  for (auto iter : image_layout.blocks.block_addresses())
+    image_layout_names.push_back(iter.first->name());
+
+  for (auto iter : block_graph.blocks()) {
+    if (std::find(image_layout_names.begin(), image_layout_names.end(),
+                  iter.second.name().c_str()) == image_layout_names.end()) {
+      LOG(ERROR) << iter.second.name() << " : " << iter.second.compiland_name();
+    }
+  }
 
   // There should be some blocks in the graph and in the layout, and the
   // same number in the block graph and image layout.

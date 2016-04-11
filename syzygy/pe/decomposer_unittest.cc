@@ -119,52 +119,74 @@ TEST_F(DecomposerTest, Decompose) {
   EXPECT_LT(0u, image_layout.blocks.size());
   EXPECT_EQ(block_graph.blocks().size(), image_layout.blocks.size());
 
+#if _MSC_VER == 1800  // MSVS 2013.
   EXPECT_EQ(6u, block_graph.sections().size());
   EXPECT_EQ(6u, image_layout.sections.size());
+#elif _MSC_VER == 1900  // MSVS 2015.
+  EXPECT_EQ(7u, block_graph.sections().size());
+  EXPECT_EQ(7u, image_layout.sections.size());
+#endif
 
-  EXPECT_EQ(".text", image_layout.sections[0].name);
-  EXPECT_NE(0U, image_layout.sections[0].addr.value());
-  EXPECT_NE(0U, image_layout.sections[0].size);
-  EXPECT_NE(0U, image_layout.sections[0].data_size);
+  size_t section_idx = 0;
+  EXPECT_EQ(".text", image_layout.sections[section_idx].name);
+  EXPECT_NE(0U, image_layout.sections[section_idx].addr.value());
+  EXPECT_NE(0U, image_layout.sections[section_idx].size);
+  EXPECT_NE(0U, image_layout.sections[section_idx].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ,
-            image_layout.sections[0].characteristics);
+            image_layout.sections[section_idx].characteristics);
+  section_idx++;
 
-  EXPECT_EQ(".rdata", image_layout.sections[1].name);
-  EXPECT_NE(0U, image_layout.sections[1].addr.value());
-  EXPECT_NE(0U, image_layout.sections[1].size);
-  EXPECT_NE(0U, image_layout.sections[1].data_size);
+  EXPECT_EQ(".rdata", image_layout.sections[section_idx].name);
+  EXPECT_NE(0U, image_layout.sections[section_idx].addr.value());
+  EXPECT_NE(0U, image_layout.sections[section_idx].size);
+  EXPECT_NE(0U, image_layout.sections[section_idx].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
-            image_layout.sections[1].characteristics);
+            image_layout.sections[section_idx].characteristics);
+  section_idx++;
 
-  EXPECT_EQ(".data", image_layout.sections[2].name);
-  EXPECT_NE(0U, image_layout.sections[2].addr.value());
-  EXPECT_NE(0U, image_layout.sections[2].size);
-  EXPECT_NE(0U, image_layout.sections[2].data_size);
+  EXPECT_EQ(".data", image_layout.sections[section_idx].name);
+  EXPECT_NE(0U, image_layout.sections[section_idx].addr.value());
+  EXPECT_NE(0U, image_layout.sections[section_idx].size);
+  EXPECT_NE(0U, image_layout.sections[section_idx].data_size);
   EXPECT_EQ(
       IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE,
-      image_layout.sections[2].characteristics);
+      image_layout.sections[section_idx].characteristics);
+  section_idx++;
 
-  EXPECT_EQ(".tls", image_layout.sections[3].name);
-  EXPECT_NE(0U, image_layout.sections[3].addr.value());
-  EXPECT_NE(0U, image_layout.sections[3].size);
-  EXPECT_NE(0U, image_layout.sections[3].data_size);
+  EXPECT_EQ(".tls", image_layout.sections[section_idx].name);
+  EXPECT_NE(0U, image_layout.sections[section_idx].addr.value());
+  EXPECT_NE(0U, image_layout.sections[section_idx].size);
+  EXPECT_NE(0U, image_layout.sections[section_idx].data_size);
   EXPECT_EQ(
       IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ | IMAGE_SCN_MEM_WRITE,
-      image_layout.sections[3].characteristics);
+      image_layout.sections[section_idx].characteristics);
+  section_idx++;
 
-  EXPECT_EQ(".rsrc", image_layout.sections[4].name);
-  EXPECT_NE(0U, image_layout.sections[4].addr.value());
-  EXPECT_NE(0U, image_layout.sections[4].size);
-  EXPECT_NE(0U, image_layout.sections[4].data_size);
+#if _MSC_VER == 1900  // MSVS2015
+  EXPECT_EQ(".gfids", image_layout.sections[section_idx].name);
+  EXPECT_NE(0U, image_layout.sections[section_idx].addr.value());
+  EXPECT_NE(0U, image_layout.sections[section_idx].size);
+  EXPECT_NE(0U, image_layout.sections[section_idx].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
-      image_layout.sections[4].characteristics);
+            image_layout.sections[section_idx].characteristics);
+  section_idx++;
+#endif
 
-  EXPECT_EQ(".reloc", image_layout.sections[5].name);
-  EXPECT_NE(0U, image_layout.sections[5].addr.value());
-  EXPECT_NE(0U, image_layout.sections[5].size);
-  EXPECT_NE(0U, image_layout.sections[5].data_size);
+  EXPECT_EQ(".rsrc", image_layout.sections[section_idx].name);
+  EXPECT_NE(0U, image_layout.sections[section_idx].addr.value());
+  EXPECT_NE(0U, image_layout.sections[section_idx].size);
+  EXPECT_NE(0U, image_layout.sections[section_idx].data_size);
+  EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
+            image_layout.sections[section_idx].characteristics);
+  section_idx++;
+
+  EXPECT_EQ(".reloc", image_layout.sections[section_idx].name);
+  EXPECT_NE(0U, image_layout.sections[section_idx].addr.value());
+  EXPECT_NE(0U, image_layout.sections[section_idx].size);
+  EXPECT_NE(0U, image_layout.sections[section_idx].data_size);
   EXPECT_EQ(IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_DISCARDABLE |
-      IMAGE_SCN_MEM_READ, image_layout.sections[5].characteristics);
+                IMAGE_SCN_MEM_READ,
+            image_layout.sections[section_idx].characteristics);
 
   // We expect the ImageLayout sections to agree with the BlockGraph sections
   // in number, id, name and characteristics.
@@ -203,6 +225,7 @@ TEST_F(DecomposerTest, Decompose) {
   }
 
   SectionCountMap expected_section_counts;
+#if _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
   expected_section_counts[static_cast<unsigned>(-1)] = 2;
@@ -233,9 +256,45 @@ TEST_F(DecomposerTest, Decompose) {
   expected_section_counts[5] = 1;
 #endif
 #endif
+#elif _MSC_VER == 1900  // MSVS 2015.
+#ifndef NDEBUG
+  // Debug build.
+  expected_section_counts[static_cast<unsigned>(-1)] = 2;
+  expected_section_counts[0] = 564;
+  expected_section_counts[1] = 886;
+  expected_section_counts[2] = 95;
+  expected_section_counts[3] = 1;
+  expected_section_counts[4] = 17;
+  expected_section_counts[5] = 1;
+  expected_section_counts[6] = 1;
+#else
+#ifndef OFFICIAL_BUILD
+  // Release build.
+  expected_section_counts[static_cast<unsigned>(-1)] = 2;
+  expected_section_counts[0] = 514;
+  expected_section_counts[1] = 863;
+  expected_section_counts[2] = 90;
+  expected_section_counts[3] = 1;
+  expected_section_counts[4] = 17;
+  expected_section_counts[5] = 1;
+  expected_section_counts[6] = 1;
+#else
+  // Official build.
+  expected_section_counts[static_cast<unsigned>(-1)] = 2;
+  expected_section_counts[0] = 545;
+  expected_section_counts[1] = 882;
+  expected_section_counts[2] = 92;
+  expected_section_counts[3] = 1;
+  expected_section_counts[4] = 16;
+  expected_section_counts[5] = 1;
+  expected_section_counts[6] = 1;
+#endif
+#endif
+#endif
   EXPECT_THAT(section_counts, ContainerEq(expected_section_counts));
 
   BlockTypeCountMap expected_block_type_counts;
+#if _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 323;
@@ -249,6 +308,23 @@ TEST_F(DecomposerTest, Decompose) {
   // Official build.
   expected_block_type_counts[BlockGraph::CODE_BLOCK] = 297;
   expected_block_type_counts[BlockGraph::DATA_BLOCK] = 814;
+#endif
+#endif
+#elif _MSC_VER == 1900  // MSVS 2015.
+#ifndef NDEBUG
+  // Debug build.
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 564;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 1003;
+#else
+#ifndef OFFICIAL_BUILD
+  // Release build.
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 514;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 975;
+#else
+  // Official build.
+  expected_block_type_counts[BlockGraph::CODE_BLOCK] = 297;
+  expected_block_type_counts[BlockGraph::DATA_BLOCK] = 814;
+#endif
 #endif
 #endif
   EXPECT_THAT(block_type_counts, ContainerEq(expected_block_type_counts));
@@ -399,6 +475,7 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   // Check the attribute counts.
   AttribCountMap expected_attrib_counts;
 
+#if _MSC_VER == 1800  // MSVS 2013.
 #ifndef NDEBUG
   // Debug build.
   expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 10;
@@ -430,6 +507,41 @@ TEST_F(DecomposerTest, LabelsAndAttributes) {
   expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
   expected_attrib_counts[BlockGraph::THUNK] = 7;
   expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#endif
+#endif
+#elif _MSC_VER == 1900  // MSVS 2015.
+#ifndef NDEBUG
+  // Debug build.
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 10;
+  expected_attrib_counts[BlockGraph::PE_PARSED] = 99;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1563;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 18;
+  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 152;
+  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 30;
+  expected_attrib_counts[BlockGraph::THUNK] = 8;
+  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#else
+#ifndef OFFICIAL_BUILD
+  // Release build.
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
+  expected_attrib_counts[BlockGraph::PE_PARSED] = 99;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1485;
+  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 152;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 16;
+  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 28;
+  expected_attrib_counts[BlockGraph::THUNK] = 8;
+  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#else
+  // Official build.
+  expected_attrib_counts[BlockGraph::NON_RETURN_FUNCTION] = 8;
+  expected_attrib_counts[BlockGraph::PE_PARSED] = 88;
+  expected_attrib_counts[BlockGraph::SECTION_CONTRIB] = 1107;
+  expected_attrib_counts[BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER] = 136;
+  expected_attrib_counts[BlockGraph::HAS_INLINE_ASSEMBLY] = 13;
+  expected_attrib_counts[BlockGraph::HAS_EXCEPTION_HANDLING] = 24;
+  expected_attrib_counts[BlockGraph::THUNK] = 7;
+  expected_attrib_counts[BlockGraph::COFF_GROUP] = 8;
+#endif
 #endif
 #endif
   EXPECT_THAT(attrib_counts, ContainerEq(expected_attrib_counts));

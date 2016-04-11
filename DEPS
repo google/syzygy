@@ -77,6 +77,19 @@ include_rules = [
 
 hooks = [
   {
+    # This clobbers when necessary (based on get_landmines.py). It must be the
+    # first hook so that other things that get/generate into the output
+    # directory will not subsequently be clobbered.
+    'name': 'landmines',
+    'pattern': '.',
+    'action': [
+        'python',
+        'src/build/landmines.py',
+        '--landmine-scripts',
+        'src\\syzygy\\build\\get_landmines.py',
+    ],
+  },
+  {
     "name": "run_gitdeps",
     "pattern": ".",
     "action": [Var("python_path"),
