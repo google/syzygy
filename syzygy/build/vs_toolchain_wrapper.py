@@ -45,9 +45,9 @@ from vs_toolchain import *
 def _GetSyzygyDesiredVsToolchainHashes():
   """Override for the vs_toolchain._GetDesiredVsToolchainHashes function to
   force it to use a specific version of the toolchain."""
-  if os.environ.get('GYP_MSVS_VERSION', '2015') == '2015':
-    # Update 2 with Debuggers, UCRT installers and ucrtbased.dll
-    return ['95ddda401ec5678f15eeed01d2bee08fcbc5ee97']
+  if os.environ.get('GYP_MSVS_VERSION', '2013') == '2015':
+    # Update 1 with Debuggers, UCRT installers and ucrtbased.dll
+    return ['b349b3cc596d5f7e13d649532ddd7e8db39db0cb']
   else:
     # Default to VS2013 the Win 10 SDK v10240.
     return ['9ff97c632ae1fee0c98bcd53e71770eb3a0d8deb']

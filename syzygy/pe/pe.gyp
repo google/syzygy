@@ -204,8 +204,6 @@
       ],
       'dependencies': [
         'pe_lib',
-        'test_dll',
-        'test_dll_x64',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/common.gyp:common_unittest_utils',
@@ -458,7 +456,6 @@
             '/Zi',  # Enable debug information in COFF+PDB.
             '/Fo<(PRODUCT_DIR)\\test_data\\test_dll.coff_obj',
             '/Fd<(PRODUCT_DIR)\\test_data\\test_dll.coff_obj.pdb',
-			'/VERBOSE',
             'test_dll.cc',
           ],
           'dependencies': [

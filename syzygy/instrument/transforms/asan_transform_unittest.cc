@@ -1736,13 +1736,8 @@ TEST_F(AsanTransformTest, FindHeapInitAndCrtHeapBlocks) {
   asan_transform_.FindHeapInitAndCrtHeapBlocks(&block_graph_);
 
   ASSERT_FALSE(asan_transform_.heap_init_blocks_.empty());
-  for (const auto& iter : asan_transform_.heap_init_blocks_) {
-#if _MSC_VER == 1800  // MSVS 2013.
+  for (const auto& iter : asan_transform_.heap_init_blocks_)
     EXPECT_NE(std::string::npos, iter->name().find("_heap_init"));
-#elif _MSC_VER == 1900  // MSVS 2015.
-    EXPECT_NE(std::string::npos, iter->name().find("_acrt_initialize_heap"));
-#endif
-  }
 }
 
 TEST_F(AsanTransformTest, ShouldSkipBlock) {
@@ -1800,10 +1795,8 @@ TEST_F(AsanTransformTest, PatchCRTHeapInitialization) {
       &get_process_heap_ref));
 
   for (const auto& iter : block_graph_.blocks()) {
-    if (iter.second.name().find("_heap_init") == std::string::npos &&
-        iter.second.name().find("_acrt_initialize_heap") == std::string::npos) {
+    if (iter.second.name().find("_heap_init") == std::string::npos)
       continue;
-    }
     for (const auto& ref : iter.second.references()) {
       if (ref.second == get_process_heap_ref)
         heap_init_blocks[&iter.second] = ref;

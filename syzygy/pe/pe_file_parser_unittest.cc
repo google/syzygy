@@ -276,11 +276,7 @@ TEST_F(PEFileParserTest, ParseImportDir) {
 
   // Test that we have the two import descriptors we expect, plus the sentinel.
   size_t num_descriptors = block->size() / sizeof(IMAGE_IMPORT_DESCRIPTOR);
-#if _MSC_VER == 1800  // MSVS 2013.
   ASSERT_EQ(3, num_descriptors);
-#elif _MSC_VER == 1900  // MSVS 2015.
-  ASSERT_EQ(4, num_descriptors);
-#endif
   ASSERT_TRUE(block->data() != NULL);
   ASSERT_EQ(block->size(), block->data_size());
 
@@ -333,15 +329,11 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   EXPECT_EQ(0, memcmp(sentinel, &zero, sizeof(zero)));
 
   std::set<std::string> expected;
-#if _MSC_VER == 1900  // MSVS 2015.
-  expected.insert("ADVAPI32.dll");
-#endif
   expected.insert("KERNEL32.dll");
   expected.insert("export_dll.dll");
   EXPECT_THAT(import_names, ContainerEq(expected));
 
   // The number of expected symbols imported from kernel32.dll.
-#if _MSC_VER == 1800  // MSVS 2013.
 #if defined(NDEBUG)
   // VC++ 2013 Release Build.
   static size_t kNumKernel32Symbols = 63;
@@ -349,27 +341,15 @@ TEST_F(PEFileParserTest, ParseImportDir) {
   // VC++ 2013 Debug/Coverage build.
   static size_t kNumKernel32Symbols = 64;
 #endif
-#elif _MSC_VER == 1900  // MSVS 2015.
-  static size_t kNumAdvApiSymbols = 1;
-  static size_t kNumKernel32Symbols = 70;
-#endif
   // The number of expected symbols imported from export_dll.dll.
   static const size_t kNumExportDllSymbols = 3;
 
   ImportMap expected_import_map;
-#if _MSC_VER == 1900  // MSVS 2015.
-  expected_import_map["ADVAPI32.dll"] = kNumAdvApiSymbols;
-#endif
   expected_import_map["KERNEL32.dll"] = kNumKernel32Symbols;
   expected_import_map["export_dll.dll"] = kNumExportDllSymbols;
   EXPECT_THAT(import_map_, ContainerEq(expected_import_map));
 
-#if _MSC_VER == 1800  // MSVS 2013.
   EXPECT_EQ(kNumKernel32Symbols + kNumExportDllSymbols, import_set_.size());
-#elif _MSC_VER == 1900  // MSVS 2015.
-  EXPECT_EQ(kNumKernel32Symbols + kNumExportDllSymbols + kNumAdvApiSymbols,
-            import_set_.size());
-#endif
   std::pair<std::string, std::string> exit_process_entry =
       std::make_pair(std::string("KERNEL32.dll"), std::string("ExitProcess"));
   EXPECT_THAT(import_set_, Contains(exit_process_entry));
