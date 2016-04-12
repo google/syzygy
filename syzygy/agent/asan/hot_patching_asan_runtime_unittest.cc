@@ -130,9 +130,9 @@ class HotPatchingAsanRuntimeTest : public testing::TestWithAsanLogger {
 // This test fails under coverage instrumentation.
 // TODO(sebmarchand): Fix this.
 #ifdef _COVERAGE_BUILD
-TEST_F(HotPatchingAsanRuntimeTest, TestRuntime) {
-#else
 TEST_F(HotPatchingAsanRuntimeTest, DISABLED_TestRuntime) {
+#else
+TEST_F(HotPatchingAsanRuntimeTest, TestRuntime) {
 #endif
   HotPatchingAsanRelinkHelper relink_helper;
   relink_helper.SetUp();
