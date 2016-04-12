@@ -383,7 +383,7 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
   DCHECK_EQ(GetLeafType(type_id), cci::LF_FIELDLIST);
 
   if (!type_info_enum_.SeekRecord(type_id))
-    return nullptr;
+    return false;
 
   size_t leaf_end = stream_->pos() + type_info_enum_.len();
 
@@ -508,7 +508,7 @@ bool TypeCreator::ReadArglist(TypeId type_id,
   DCHECK_EQ(GetLeafType(type_id), cci::LF_ARGLIST);
 
   if (!type_info_enum_.SeekRecord(type_id))
-    return nullptr;
+    return false;
 
   // Make our local copy of the data. This is necessary to avoid clutter with
   // deeper levels of recursion.
@@ -644,7 +644,7 @@ TypePtr TypeCreator::CreateArrayType(TypeId type_id) {
 
   ArrayTypePtr array_type = new ArrayType(type_info.size());
   if (!repository_->AddTypeWithId(array_type, type_id))
-    return false;
+    return nullptr;
 
   // Find the types in the repository.
   Type::Flags flags = kNoTypeFlags;
@@ -653,7 +653,7 @@ TypePtr TypeCreator::CreateArrayType(TypeId type_id) {
   TypePtr index_type = FindOrCreateIndexingType(index_id);
   TypePtr elem_type = FindOrCreateOptionallyModifiedType(elem_id, &flags);
   if (index_type == nullptr || elem_type == nullptr)
-    return false;
+    return nullptr;
 
   size_t num_elements = 0;
   // TODO(mopler): Once we load everything test against the size not being zero.
@@ -707,16 +707,17 @@ TypePtr TypeCreator::CreateFunctionType(TypeId type_id) {
 
   FunctionTypePtr function_type = new FunctionType(call_convention);
   if (!repository_->AddTypeWithId(function_type, type_id))
-    return false;
+    return nullptr;
 
   Type::Flags flags = kNoTypeFlags;
   TypePtr return_type =
       FindOrCreateOptionallyModifiedType(return_type_id, &flags);
   if (return_type == nullptr)
-    return false;
+    return nullptr;
 
   // If this is a member function parse the containing class.
-  if (containing_class_id != kNoTypeId) {
+  if (containing_class_id != kNoTypeId &&
+      containing_class_id != cci::T_NOTYPE) {
     TypePtr class_type = FindOrCreateStructuredType(containing_class_id);
     if (class_type == nullptr)
       return nullptr;
@@ -727,7 +728,7 @@ TypePtr TypeCreator::CreateFunctionType(TypeId type_id) {
   // Parse the argument list.
   FunctionType::Arguments arglist;
   if (!ReadArglist(arglist_id, &arglist))
-    return false;
+    return nullptr;
 
   function_type->Finalize(
       FunctionType::ArgumentType(flags, return_type->type_id()), arglist,
