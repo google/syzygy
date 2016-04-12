@@ -36,6 +36,7 @@
       '<(src)/syzygy/application/application.gyp:application_unittests',
 
       # Agent tests.
+      '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_hp_unittests',
       '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_unittests',
       '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
           'basic_block_entry_unittests',
@@ -111,6 +112,9 @@
 
       # Playback tests.
       '<(src)/syzygy/playback/playback.gyp:playback_unittests',
+
+      # Poirot unittests.
+      '<(src)/syzygy/poirot/poirot.gyp:poirot_unittests',
 
       # Refinery tests.
       '<(src)/syzygy/refinery/refinery.gyp:refinery_stack_unittests',
