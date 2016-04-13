@@ -42,9 +42,7 @@ bool DumpUnknownBlock(FILE* out,
     size_t bytes_to_read = len - bytes_read;
     if (bytes_to_read > kColumnCount)
       bytes_to_read = kColumnCount;
-    size_t bytes_just_read = 0;
-    if (!stream->ReadBytes(buffer, bytes_to_read, &bytes_just_read) ||
-        bytes_just_read != bytes_to_read) {
+    if (!stream->ReadBytes(buffer, bytes_to_read)) {
       LOG(ERROR) << "Unable to read stream.";
       return false;
     }
@@ -54,7 +52,7 @@ bool DumpUnknownBlock(FILE* out,
     for (size_t i = 0; i < kColumnCount; ++i) {
       if (i != 0 && i % kGroupSize == 0)
         ::fputc(' ', out);
-      if (i < bytes_just_read) {
+      if (i < bytes_to_read) {
         ::fprintf(out, "%02X ", buffer[i]);
       } else {
         ::fprintf(out, "   ");
@@ -63,7 +61,7 @@ bool DumpUnknownBlock(FILE* out,
     ::fputc(' ', out);
 
     // Dump the ASCII printable bytes.
-    for (size_t i = 0; i < bytes_just_read; ++i) {
+    for (size_t i = 0; i < bytes_to_read; ++i) {
       if (i != 0 && i % kGroupSize == 0)
         ::fputc(' ', out);
       if (buffer[i] < 32 || buffer[i] > 126) {
@@ -74,7 +72,7 @@ bool DumpUnknownBlock(FILE* out,
     }
     ::fprintf(out, "\n");
 
-    bytes_read += bytes_just_read;
+    bytes_read += bytes_to_read;
   }
 
   return true;

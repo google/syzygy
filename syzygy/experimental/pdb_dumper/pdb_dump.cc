@@ -77,22 +77,20 @@ bool WriteStreamToPath(PdbStream* pdb_stream,
     size_t bytes_to_read = pdb_stream->length() - bytes_read;
     if (bytes_to_read > sizeof(buffer))
       bytes_to_read = sizeof(buffer);
-    size_t bytes_just_read = 0;
-    if (!pdb_stream->ReadBytes(buffer, bytes_to_read, &bytes_just_read) ||
-        bytes_just_read == 0) {
+    if (!pdb_stream->ReadBytes(buffer, bytes_to_read)) {
       LOG(ERROR) << "Error reading " << bytes_to_read << " bytes at "
                  << "offset " << bytes_read << ".";
       return false;
     }
 
-    if (fwrite(buffer, 1, bytes_just_read, output_file.get()) !=
-        bytes_just_read) {
-      LOG(ERROR) << "Error writing " << bytes_just_read << " bytes at "
-          "offset " << bytes_read << ".";
+    if (fwrite(buffer, 1, bytes_to_read, output_file.get()) != bytes_to_read) {
+      LOG(ERROR) << "Error writing " << bytes_to_read << " bytes at "
+                                                         "offset " << bytes_read
+                 << ".";
       return false;
     }
 
-    bytes_read += bytes_just_read;
+    bytes_read += bytes_to_read;
   }
   return true;
 }

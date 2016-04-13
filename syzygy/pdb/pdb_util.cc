@@ -262,11 +262,13 @@ bool ReadString(PdbStream* stream, std::string* out) {
   std::string result;
   size_t start_pos = stream->pos();
   const size_t kBufferSize = 1024;
-  char buffer[kBufferSize];
+  char buffer[kBufferSize] = {};
+  while (true) {
+    size_t read_bytes = std::min(kBufferSize, stream->length() - stream->pos());
+    if (read_bytes == 0 || !stream->Read(buffer, read_bytes))
+      break;
 
-  size_t read_count = 0;
-  while (stream->Read(buffer, kBufferSize, &read_count) || read_count > 0) {
-    for (size_t i = 0; i < read_count; ++i) {
+    for (size_t i = 0; i < read_bytes; ++i) {
       if (buffer[i] == '\0') {
         out->swap(result);
         stream->Seek(start_pos + out->size() + 1);

@@ -1490,9 +1490,7 @@ bool PdbCrawler::GetVFTableRVAForSymbol(
   // Read the symbol.
   cci::PubSym32 symbol = {};
   size_t to_read = offsetof(cci::PubSym32, name);
-  size_t bytes_read = 0;
-  if (!symbol_stream->ReadBytes(&symbol, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  if (!symbol_stream->ReadBytes(&symbol, to_read)) {
     LOG(ERROR) << "Unable to read symbol.";
     return false;
   }

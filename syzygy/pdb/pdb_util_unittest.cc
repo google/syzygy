@@ -15,6 +15,7 @@
 #include "syzygy/pdb/pdb_util.h"
 
 #include <objbase.h>
+#include <vector>
 
 #include "base/command_line.h"
 #include "base/path_service.h"
@@ -161,14 +162,16 @@ class TestPdbStream : public PdbStream {
   explicit TestPdbStream(const T& t)
       : PdbStream(sizeof(T)), bytes_(reinterpret_cast<const uint8_t*>(&t)) {}
 
-  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) override {
-    if (pos() >= length())
+  explicit TestPdbStream(const std::vector<char>& data)
+      : PdbStream(data.size()),
+        bytes_(reinterpret_cast<const uint8_t*>(&data.at(0))) {}
+
+  bool ReadBytes(void* dest, size_t count) override {
+    if (count > length() - pos())
       return false;
-    size_t max_count = length() - pos();
-    *bytes_read = max_count < count ? max_count : count;
-    ::memcpy(dest, bytes_ + pos(), *bytes_read);
-    Seek(pos() + *bytes_read);
-    return *bytes_read == count;
+    ::memcpy(dest, bytes_ + pos(), count);
+    Seek(pos() + count);
+    return true;
   }
 
  private:
@@ -463,6 +466,26 @@ TEST_F(PdbUtilTest, ReadPdbHeader) {
       testing::kTestPdbFilePath);
   PdbInfoHeader70 pdb_header = {};
   EXPECT_TRUE(ReadPdbHeader(pdb_path, &pdb_header));
+}
+
+TEST_F(PdbUtilTest, ReadString) {
+  const size_t kLongStringLen = 0x102345;
+  // Create a long random string.
+  std::vector<char> long_string;
+  for (size_t i = 0; i < kLongStringLen; ++i) {
+    char chr = 'a' + rand() % 26;
+    long_string.push_back(chr);
+  }
+  // Zero terminate it.
+  long_string.push_back('\0');
+
+  scoped_refptr<PdbStream> stream = new TestPdbStream(long_string);
+
+  std::string read_string;
+  ASSERT_TRUE(ReadString(stream.get(), &read_string));
+  EXPECT_EQ(kLongStringLen, read_string.size());
+  EXPECT_EQ(
+      0, ::memcmp(&long_string.at(0), read_string.data(), long_string.size()));
 }
 
 TEST(EnsureStreamWritableTest, DoesNothingWhenAlreadyWritable) {

@@ -27,19 +27,14 @@ class TestMsfStream : public MsfStream {
   using MsfStream::pos;
 
   // A simple implementation of ReadBytes.
-  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+  bool ReadBytes(void* dest, size_t count) {
     DCHECK(dest != NULL);
-    DCHECK(bytes_read != NULL);
 
-    if (pos() == length()) {
-      *bytes_read = 0;
-      return true;
-    } else if (count > length() - pos()) {
+    if (count > length() - pos()) {
       return false;
     }
 
     Seek(pos() + count);
-    *bytes_read = count;
     return true;
   }
 };
@@ -82,9 +77,8 @@ TEST(MsfStreamTest, Read) {
 
   // Read to the end of the stream, using the version of read that reports
   // the number of items read.
-  size_t items_read = 0;
-  EXPECT_TRUE(stream->Read(&num8, 1, &items_read));  // 11
-  EXPECT_EQ(1u, items_read);
+  EXPECT_TRUE(stream->Read(&num8, 1));  // 11
+
   // Read over the end of the stream.
   EXPECT_FALSE(stream->Read(&num8, 4));
 }

@@ -105,25 +105,16 @@ bool MsfByteStreamImpl<T>::Init(MsfStreamImpl* stream, size_t length) {
 }
 
 template <MsfFileType T>
-bool MsfByteStreamImpl<T>::ReadBytes(void* dest,
-                                     size_t count,
-                                     size_t* bytes_read) {
+bool MsfByteStreamImpl<T>::ReadBytes(void* dest, size_t count) {
   DCHECK(dest != NULL);
-  DCHECK(bytes_read != NULL);
-
-  // Return 0 once we've reached the end of the stream.
-  if (pos() == length()) {
-    *bytes_read = 0;
-    return true;
-  }
 
   // Don't read beyond the end of the known stream length.
-  count = std::min(count, length() - pos());
+  if (count > length() - pos())
+    return false;
 
   // Read the stream.
   memcpy(dest, data() + pos(), count);
   Seek(pos() + count);
-  *bytes_read = count;
 
   return true;
 }

@@ -110,10 +110,8 @@ TEST_F(MsfFileStreamTest, ReadBytes) {
     for (uint32_t j = 0; j < arraysize(test_cases); ++j) {
       char* test_case = test_cases[j];
       size_t len = strlen(test_case);
-      size_t bytes_read = 0;
-      EXPECT_TRUE(stream->ReadBytes(&buffer, len, &bytes_read));
+      EXPECT_TRUE(stream->ReadBytes(&buffer, len));
       EXPECT_EQ(0, memcmp(buffer, test_case, len));
-      EXPECT_EQ(len, bytes_read);
     }
   }
 }

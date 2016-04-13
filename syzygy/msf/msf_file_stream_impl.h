@@ -42,21 +42,12 @@ MsfFileStreamImpl<T>::~MsfFileStreamImpl() {
 }
 
 template <MsfFileType T>
-bool MsfFileStreamImpl<T>::ReadBytes(void* dest,
-                                     size_t count,
-                                     size_t* bytes_read) {
+bool MsfFileStreamImpl<T>::ReadBytes(void* dest, size_t count) {
   DCHECK(dest != NULL);
-  DCHECK(bytes_read != NULL);
-
-  // Return 0 once we've reached the end of the stream.
-  if (pos() == length()) {
-    *bytes_read = 0;
-    return true;
-  }
 
   // Don't read beyond the end of the known stream length.
-  count = std::min(count, length() - pos());
-  *bytes_read = count;
+  if (count > length() - pos())
+    return false;
 
   // Read the stream.
   while (count > 0) {

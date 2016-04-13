@@ -36,19 +36,6 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
 
   // Reads @p count chunks of size sizeof(ItemType) into the destination buffer.
   // The caller is responsible for ensuring that the destination buffer has
-  // enough space to receive the data. Returns the number of items successfully
-  // read via @p items_read.
-  //
-  // @tparam ItemType the type of item to coerce the data to.
-  // @param dest the destination array.
-  // @param count the number of elements to read.
-  // @param items_read pointer to receive the number of items successfully read.
-  // @returns true if all @p count items are read, false otherwise.
-  template <typename ItemType>
-  bool Read(ItemType* dest, size_t count, size_t* items_read);
-
-  // Reads @p count chunks of size sizeof(ItemType) into the destination buffer.
-  // The caller is responsible for ensuring that the destination buffer has
   // enough space to receive the data.
   //
   // @tparam ItemType the type of item to coerce the data to.
@@ -85,15 +72,12 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
 
   // Reads @p count bytes of data into the destination buffer. The caller is
   // responsible for ensuring that the destination buffer has enough space to
-  // receive the data. @p bytes_read will hold the number of bytes read. If
-  // there was insufficient data but some bytes were read, returns false and
-  // returns the number of bytes read via @p bytes_read.
+  // receive the data.
   //
-  // @param dest the buffer to receive the data.
+  // @param dest the buffer to receive the data. May be modified on failure.
   // @param count the number of bytes to read.
-  // @param bytes_read pointer that will receive the number of bytes read.
   // @returns true if all @p count bytes are read, false otherwise.
-  virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) = 0;
+  virtual bool ReadBytes(void* dest, size_t count) = 0;
 
   // Returns a pointer to a WritableMsfStreamImpl if the underlying object
   // supports this interface. If this returns non-NULL, it is up to the user to

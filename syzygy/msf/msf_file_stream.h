@@ -67,7 +67,7 @@ class MsfFileStreamImpl : public MsfStreamImpl<T> {
                     size_t page_size);
 
   // MsfStreamImpl implementation.
-  bool ReadBytes(void* dest, size_t count, size_t* bytes_read);
+  bool ReadBytes(void* dest, size_t count);
 
  protected:
   // Protected to enforce reference counted pointers at compile time.

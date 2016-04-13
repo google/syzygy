@@ -34,37 +34,9 @@ const size_t kInvalidLength = 0xFFFFFFFF;
 
 template <MsfFileType T>
 template <typename ItemType>
-bool MsfStreamImpl<T>::Read(ItemType* dest, size_t count, size_t* items_read) {
-  DCHECK(dest != NULL);
-  DCHECK(items_read != NULL);
-
-  size_t requested_bytes = sizeof(ItemType) * count;
-  if (requested_bytes == 0) {
-    *items_read = count;
-    return true;
-  }
-
-  size_t seviceable_bytes = requested_bytes;
-  if (requested_bytes > bytes_left()) {
-    seviceable_bytes = bytes_left() - bytes_left() % sizeof(ItemType);
-  }
-  if (seviceable_bytes == 0) {
-    *items_read = 0;
-    return false;
-  }
-
-  size_t bytes_read = 0;
-  bool result = ReadBytes(dest, seviceable_bytes, &bytes_read);
-  *items_read = bytes_read / sizeof(ItemType);
-  return result && *items_read == count;
-}
-
-template <MsfFileType T>
-template <typename ItemType>
 bool MsfStreamImpl<T>::Read(ItemType* dest, size_t count) {
   DCHECK(dest != NULL);
-  size_t items_read = 0;
-  return Read(dest, count, &items_read) && items_read == count;
+  return ReadBytes(dest, sizeof(ItemType) * count);
 }
 
 template <MsfFileType T>
@@ -79,10 +51,7 @@ bool MsfStreamImpl<T>::Read(std::vector<ItemType>* dest, size_t count) {
   if (count == 0)
     return true;
 
-  size_t items_read = 0;
-  bool result = Read(&dest->at(0), count, &items_read);
-  dest->resize(items_read);
-  return result;
+  return Read(&dest->at(0), count);
 }
 
 template <MsfFileType T>

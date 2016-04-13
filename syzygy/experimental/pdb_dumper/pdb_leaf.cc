@@ -1339,11 +1339,8 @@ bool DumpLeafFunctionId(
     uint16_t len,
     uint8_t indent_level) {
   LeafFunctionId func_id = {};
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(
-          &func_id, offsetof(LeafFunctionId, name), &bytes_read)) {
+  if (!stream->ReadBytes(&func_id, offsetof(LeafFunctionId, name)))
     return false;
-  }
   std::string name;
   if (!ReadString(stream, &name))
     return false;
@@ -1360,11 +1357,8 @@ bool DumpLeafMemberFunctionId(
     uint16_t len,
     uint8_t indent_level) {
   LeafMemberFunctionId mfunc_id = {};
-  size_t read_unused = 0;
-  if (!stream->ReadBytes(
-          &mfunc_id, offsetof(LeafMemberFunctionId, name), &read_unused)) {
+  if (!stream->ReadBytes(&mfunc_id, offsetof(LeafMemberFunctionId, name)))
     return false;
-  }
   std::string name;
   if (!ReadString(stream, &name))
     return false;
@@ -1382,8 +1376,7 @@ bool DumpLeafStringId(
     uint16_t len,
     uint8_t indent_level) {
   LeafStringId str_id = {};
-  size_t read_unused = 0;
-  if (!stream->ReadBytes(&str_id, offsetof(LeafStringId, name), &read_unused))
+  if (!stream->ReadBytes(&str_id, offsetof(LeafStringId, name)))
     return false;
   std::string name;
   if (!ReadString(stream, &name))

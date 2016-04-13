@@ -204,11 +204,8 @@ _INIT_MIDDLE = """\
 
 bool {name}::Initialize(PdbStream* stream) {{
   size_t to_read = {bytes_to_read}
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&body_, to_read, &bytes_read) ||
-      bytes_read != to_read) {{
+  if (!stream->ReadBytes(&body_, to_read))
     return false;
-  }}
 """
 
 _INIT_CONDITION = """\

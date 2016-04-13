@@ -26,9 +26,7 @@ class DummyMsfStream : public MsfStream {
  public:
   DummyMsfStream() : MsfStream(10) { ++instance_count_; }
 
-  virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
-    return false;
-  }
+  virtual bool ReadBytes(void* dest, size_t count) { return false; }
 
   static size_t instance_count() { return instance_count_; }
 

@@ -93,24 +93,16 @@ class ReadOnlyMsfStream : public MsfStreamImpl<T> {
   ReadOnlyMsfStream(const void* data, size_t bytes)
       : MsfStreamImpl(bytes), data_(data) {}
 
-  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) override {
+  bool ReadBytes(void* dest, size_t count) override {
     DCHECK(dest != NULL);
-    DCHECK(bytes_read != NULL);
 
-    bool result = true;
-    size_t bytes_to_read = count;
-    size_t bytes_left = length() - pos();
-    if (bytes_left < bytes_to_read) {
-      bytes_to_read = bytes_left;
-      result = false;
-    }
+    if (count > length() - pos())
+      return false;
 
-    ::memcpy(dest, reinterpret_cast<const uint8_t*>(data_) + pos(),
-             bytes_to_read);
-    Seek(pos() + bytes_to_read);
+    ::memcpy(dest, reinterpret_cast<const uint8_t*>(data_) + pos(), count);
+    Seek(pos() + count);
 
-    *bytes_read = bytes_to_read;
-    return result;
+    return true;
   }
 
  private:
@@ -354,9 +346,7 @@ bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
     }
 
     // Read the buffer from the stream.
-    size_t bytes_read = 0;
-    if (!stream->ReadBytes(buffer, bytes_to_read, &bytes_read) ||
-        bytes_read != bytes_to_read) {
+    if (!stream->ReadBytes(buffer, bytes_to_read)) {
       size_t offset = stream->length() - bytes_left;
       LOG(ERROR) << "Failed to read " << bytes_to_read << " bytes at offset "
                  << offset << " of MSF stream.";
@@ -366,7 +356,7 @@ bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
     if (!AppendPage(buffer, pages_written, page_count, file_.get()))
       return false;
 
-    bytes_left -= bytes_read;
+    bytes_left -= bytes_to_read;
   }
   DCHECK_EQ(0u, bytes_left);
 

@@ -60,18 +60,14 @@ class TestPdbStream : public PdbStream {
       data[i] = i | mask;
   }
 
-  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
-    DCHECK(bytes_read != NULL);
+  bool ReadBytes(void* dest, size_t count) {
+    DCHECK(dest != NULL);
 
-    if (pos() == length()) {
-      *bytes_read = 0;
-      return true;
-    }
+    if (count > length() - pos())
+      return false;
 
-    count = std::min(count, length() - pos());
     ::memcpy(dest, data_.data() + pos(), count);
     Seek(pos() + count);
-    *bytes_read = count;
 
     return true;
   }

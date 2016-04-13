@@ -43,10 +43,8 @@ bool ReadSymbolAndName(PdbStream* stream,
   // Note the zero-terminated name field must be the trailing field
   // of the symbol.
   size_t to_read = offsetof(SymbolType, name);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(symbol_out, to_read, &bytes_read) ||
-      !ReadString(stream, name_out) ||
-      bytes_read != to_read) {
+  if (!stream->ReadBytes(symbol_out, to_read) ||
+      !ReadString(stream, name_out)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -87,14 +85,11 @@ bool DumpLvarAddrGaps(FILE* out,
   CvLvarAddrGap gap = {};
   size_t to_read = sizeof(CvLvarAddrGap);
   while (bytes_left >= to_read) {
-    size_t bytes_read = 0;
-    if (!stream->ReadBytes(&gap, to_read, &bytes_read) ||
-        bytes_read != to_read) {
+    if (!stream->ReadBytes(&gap, to_read)) {
       LOG(ERROR) << "Unable to read symbol record.";
       return false;
     }
-    bytes_left -= static_cast<uint16_t>(
-        bytes_read);  // Note: bytes_left >= to_read = bytes_read
+    bytes_left -= static_cast<uint16_t>(to_read);
     DumpIndentedText(out, indent_level + 1, "gapStartOffset: 0x%04X\n",
                      gap.gapStartOffset);
     DumpIndentedText(out, indent_level + 1, "cbRange: 0x%04X\n", gap.cbRange);
@@ -245,9 +240,7 @@ bool DumpAnnotationSym(FILE* out,
   cci::AnnotationSym symbol_info = {};
 
   size_t to_read = offsetof(cci::AnnotationSym, rgsz);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  if (!stream->ReadBytes(&symbol_info, to_read)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -359,10 +352,8 @@ bool DumpConstSym(FILE* out,
                   uint16_t len,
                   uint8_t indent_level) {
   size_t to_read = offsetof(cci::ConstSym, name);
-  size_t bytes_read = 0;
   cci::ConstSym symbol_info = {};
-  if (!stream->ReadBytes(&symbol_info, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  if (!stream->ReadBytes(&symbol_info, to_read)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -542,9 +533,7 @@ bool DumpCompileSymImpl(FILE* out,
   DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
 
   std::vector<char> data(len, 0);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(data.data(), len, &bytes_read) ||
-      bytes_read != len) {
+  if (!stream->ReadBytes(data.data(), len)) {
     return false;
   }
 
@@ -807,14 +796,12 @@ bool DumpDefrangeSymRegister(FILE* out,
 
   // Read the fixed part.
   size_t to_read = offsetof(DefrangeSymRegister, gaps);
-  size_t bytes_read = 0;
   DefrangeSymRegister sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= static_cast<uint16_t>(bytes_read);
+  bytes_left -= static_cast<uint16_t>(to_read);
 
   DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
   DumpIndentedText(out, indent_level, "attr.maybe: %d\n", sym.attr.maybe);
@@ -834,14 +821,12 @@ bool DumpDefRangeSymFramePointerRel(FILE* out,
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymFramePointerRel, gaps);
-  size_t bytes_read = 0;
   DefRangeSymFramePointerRel sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= static_cast<uint16_t>(bytes_read);
+  bytes_left -= static_cast<uint16_t>(to_read);
 
   DumpIndentedText(out, indent_level + 1, "offFramePointer: %d\n",
                    sym.offFramePointer);
@@ -861,14 +846,12 @@ bool DumpDefRangeSymSubfieldRegister(FILE* out,
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymSubfieldRegister, gaps);
-  size_t bytes_read = 0;
   DefRangeSymSubfieldRegister sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= static_cast<uint16_t>(bytes_read);
+  bytes_left -= static_cast<uint16_t>(to_read);
 
   DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
   DumpIndentedText(out, indent_level, "attr.maybe: %d\n", sym.attr.maybe);
@@ -901,14 +884,12 @@ bool DumpDefRangeSymRegisterRel(FILE* out,
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymRegisterRel, gaps);
-  size_t bytes_read = 0;
   DefRangeSymRegisterRel sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read, &bytes_read) ||
-      bytes_read != to_read) {
+  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= static_cast<uint16_t>(bytes_read);
+  bytes_left -= static_cast<uint16_t>(to_read);
 
   DumpIndentedText(out, indent_level, "baseReg: %d\n", sym.baseReg);
   DumpIndentedText(out, indent_level, "spilledUdtMember: %d\n",
@@ -931,20 +912,19 @@ bool DumpInlineSiteSym(FILE* out,
 
   // Read the fixed part.
   size_t to_read = offsetof(InlineSiteSym, binaryAnnotations);
-  size_t bytes_read = 0;
   InlineSiteSym sym;
-  if (!stream->ReadBytes(&sym, to_read, &bytes_read) || bytes_read != to_read) {
+  if (!stream->ReadBytes(&sym, to_read)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
-  bytes_left -= bytes_read;
+  bytes_left -= to_read;
 
   DumpIndentedText(out, indent_level, "pParent: 0x%08X\n", sym.pParent);
   DumpIndentedText(out, indent_level, "pEnd: 0x%08X\n", sym.pEnd);
   DumpIndentedText(out, indent_level, "inlinee: 0x%08X\n", sym.inlinee);
 
   DumpIndentedText(out, indent_level, "binaryAnnotations:\n");
-  return DumpUnknownBlock(out, stream, static_cast<uint16_t>(bytes_read),
+  return DumpUnknownBlock(out, stream, static_cast<uint16_t>(bytes_left),
                           indent_level + 1);
 }
 
@@ -1103,9 +1083,7 @@ bool DumpMSToolEnvV3(FILE* out,
 
   // Read the structure header.
   size_t to_read = offsetof(MSToolEnvV3, key_values);
-  size_t bytes_read = 0;
-  if (!stream->ReadBytes(&environment, to_read, &bytes_read) ||
-      bytes_read != to_read ||
+  if (!stream->ReadBytes(&environment, to_read) ||
       environment.leading_zero != 0) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;

@@ -35,19 +35,14 @@ class TestMsfStream : public MsfStream {
 
   virtual ~TestMsfStream() {}
 
-  bool ReadBytes(void* dest, size_t count, size_t* bytes_read) {
+  bool ReadBytes(void* dest, size_t count) {
     DCHECK(dest != NULL);
-    DCHECK(bytes_read != NULL);
 
-    if (pos() == length()) {
-      *bytes_read = 0;
-      return true;
-    }
+    if (count > length() - pos())
+      return false;
 
-    count = std::min(count, length() - pos());
     ::memset(dest, 0xFF, count);
     Seek(pos() + count);
-    *bytes_read = count;
 
     return true;
   }
@@ -111,13 +106,11 @@ TEST(MsfByteStreamTest, ReadBytes) {
   EXPECT_TRUE(stream->Init(test_stream.get()));
 
   int total_bytes = 0;
-  while (true) {
+  while (stream->length() != stream->pos()) {
     uint8_t buffer[4];
-    size_t bytes_read = 0;
-    EXPECT_TRUE(stream->ReadBytes(buffer, sizeof(buffer), &bytes_read));
-    if (bytes_read == 0)
-      break;
-    total_bytes += bytes_read;
+    size_t to_read = std::min(sizeof(buffer), stream->length() - stream->pos());
+    EXPECT_TRUE(stream->ReadBytes(buffer, to_read));
+    total_bytes += to_read;
   }
 
   EXPECT_EQ(len, total_bytes);

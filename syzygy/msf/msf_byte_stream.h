@@ -40,8 +40,8 @@ class MsfByteStreamImpl : public MsfStreamImpl<T> {
 
   // @name MsfStreamImpl implementation.
   // @{
-  virtual bool ReadBytes(void* dest, size_t count, size_t* bytes_read) override;
-  virtual scoped_refptr<WritableMsfStreamImpl<T>> GetWritableStream() override;
+  bool ReadBytes(void* dest, size_t count) override;
+  scoped_refptr<WritableMsfStreamImpl<T>> GetWritableStream() override;
   // @}
 
   // Gets the stream's data pointer.
