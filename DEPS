@@ -77,6 +77,17 @@ include_rules = [
 
 hooks = [
   {
+    # This clobbers when necessary (based on get_landmines.py). It must be the
+    # first hook so that other things that get/generate into the output
+    # directory will not subsequently be clobbered.
+    "name": "landmines",
+    "pattern": ".",
+    "action": [Var("python_path"),
+               "src\\build\\landmines.py",
+               "--landmine-scripts=src\\syzygy\\build\\get_landmines.py",
+               "--verbose"],
+  },
+  {
     "name": "run_gitdeps",
     "pattern": ".",
     "action": [Var("python_path"),
@@ -110,10 +121,10 @@ hooks = [
   },
   {
     # Update the Windows toolchain if necessary.
-    'name': 'win_toolchain',
-    'pattern': '.',
-    'action': [Var("python_path"), 'src/syzygy/build/vs_toolchain_wrapper.py',
-               'update'],
+    "name": "win_toolchain",
+    "pattern": ".",
+    "action": [Var("python_path"), "src/syzygy/build/vs_toolchain_wrapper.py",
+               "update"],
   },
   {
     "name": "run_gyp",
@@ -138,13 +149,13 @@ hooks = [
   },
   # Pull the Syzygy binaries, used for ASAN self-testing.
   {
-    'name': 'syzygy-binaries',
-    'pattern': '.',
-    'action': [Var("python_path"),
-               'src/syzygy/build/get_syzygy_binaries.py',
-               '--output-dir=src/syzygy/binaries',
-               '--revision=0645c685e783c6787acb8f6e1dade4f916605fc1',
-               '--overwrite',
+    "name": "syzygy-binaries",
+    "pattern": ".",
+    "action": [Var("python_path"),
+               "src/syzygy/build/get_syzygy_binaries.py",
+               "--output-dir=src/syzygy/binaries",
+               "--revision=0645c685e783c6787acb8f6e1dade4f916605fc1",
+               "--overwrite",
     ],
   },
 ]

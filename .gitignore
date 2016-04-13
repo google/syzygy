@@ -91,3 +91,6 @@
 
 # Ignore developer specific GYP configuration.
 syzygy.gyp_env
+
+# Ignore the landmines file.
+.landmines
