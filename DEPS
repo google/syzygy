@@ -77,17 +77,6 @@ include_rules = [
 
 hooks = [
   {
-    # This clobbers when necessary (based on get_landmines.py). It must be the
-    # first hook so that other things that get/generate into the output
-    # directory will not subsequently be clobbered.
-    "name": "landmines",
-    "pattern": ".",
-    "action": [Var("python_path"),
-               "src\\build\\landmines.py",
-               "--landmine-scripts=src\\syzygy\\build\\get_landmines.py",
-               "--verbose"],
-  },
-  {
     "name": "run_gitdeps",
     "pattern": ".",
     "action": [Var("python_path"),
@@ -95,6 +84,16 @@ hooks = [
                "src\\GITDEPS",
                "--output-dir=src",
                "--cache-dir", "src/.gitdeps-cache"],
+  },
+  {
+    # This clobbers when necessary (based on get_landmines.py). It must be
+    # called before any other hook that get/generate into the output directory.
+    "name": "landmines",
+    "pattern": ".",
+    "action": [Var("python_path"),
+               "src\\build\\landmines.py",
+               "--landmine-scripts=src\\syzygy\\build\\get_landmines.py",
+               "--verbose"],
   },
   {
     "name": "generate_lastchange",
