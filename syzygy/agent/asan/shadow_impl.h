@@ -30,6 +30,9 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr,
   index >>= 3;
   *size = 0;
 
+  if (index > length_)
+    return false;
+
   // Scan the input array 8 bytes at a time until we've found a NULL value or
   // we've reached the end of an accessible memory block.
   // TODO(sebmarchand): Look into doing this more efficiently.

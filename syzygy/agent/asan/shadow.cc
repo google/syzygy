@@ -355,6 +355,8 @@ bool Shadow::IsAccessible(const void* addr) const {
   uintptr_t start = index & 0x7;
 
   index >>= kShadowRatioLog;
+  if (index > length_)
+    return false;
 
   DCHECK_GT(length_, index);
   uint8_t shadow = shadow_[index];
@@ -365,6 +367,65 @@ bool Shadow::IsAccessible(const void* addr) const {
     return false;
 
   return start < shadow;
+}
+
+bool Shadow::IsRangeAccessible(const void* addr, size_t size) const {
+  DCHECK_NE(static_cast<const void*>(nullptr), addr);
+
+  // A zero byte access is always valid.
+  if (size == 0U)
+    return true;
+
+  uintptr_t start_addr = reinterpret_cast<uintptr_t>(addr);
+  uintptr_t start = start_addr;
+  start >>= kShadowRatioLog;
+
+  DCHECK_EQ(reinterpret_cast<uintptr_t>(addr),
+            (start << kShadowRatioLog) + (start_addr & (kShadowRatio - 1)));
+  if (start > length_)
+    return false;
+
+  // Validate that the start point is accessible.
+  uint8_t shadow = shadow_[start];
+  if (shadow != 0U) {
+    if (ShadowMarkerHelper::IsRedzone(shadow))
+      return false;
+    if (start < shadow)
+      return false;
+  }
+
+  uintptr_t end = reinterpret_cast<uintptr_t>(addr) + size;
+  // Overflow on addr + size.
+  if (start_addr > end)
+    return false;
+
+  size_t end_offs = end & (kShadowRatio - 1);
+  end >>= kShadowRatioLog;
+  if (end > length_)
+    return false;
+
+  // Now run over the shadow bytes from start to end, which all need to be
+  // zero.
+  // TODO(siggi): Optimize this loop to minimize the number of memory acesses.
+  for (size_t i = start; i < end; ++i) {
+    if (shadow_[i] != 0U)
+      return false;
+  }
+
+  // Finally test the end point if there's a tail offset.
+  if (end_offs == 0U)
+    return true;
+
+  shadow = shadow_[end];
+  if (shadow == 0U)
+    return true;
+
+  if (ShadowMarkerHelper::IsRedzone(shadow))
+    return false;
+  if (end_offs > shadow)
+    return false;
+
+  return true;
 }
 
 bool Shadow::IsLeftRedzone(const void* address) const {

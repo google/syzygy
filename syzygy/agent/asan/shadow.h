@@ -154,6 +154,13 @@ class Shadow {
   // @returns true if this address is accessible, false otherwise.
   bool IsAccessible(const void* addr) const;
 
+  // Returns true iff all the bytes from @p addr to @p addrs + size - 1 are
+  // not poisoned
+  // @param addr The address that we want to check.
+  // @param size the number of bytes we want to check.
+  // @returns true if this address is accessible, false otherwise.
+  bool IsRangeAccessible(const void* addr, size_t size) const;
+
   // @param address The address that we want to check.
   // @returns true if the byte at @p address is an active left redzone.
   bool IsLeftRedzone(const void* address) const;

@@ -102,64 +102,118 @@ TEST_F(ShadowTest, SetUpAndTearDown) {
     ASSERT_EQ(kHeapAddressableMarker, test_shadow.shadow_[i]);
 }
 
+namespace {
+
+const size_t kSizesToTest[] = {4, 7, 12, 15, 21, 87, 88};
+
+class ScopedAlignedArray {
+ public:
+  uint8_t* get_aligned_array() { return test_array_; }
+  size_t get_aligned_length() { return kArrayLength; }
+
+ private:
+  static const size_t kArrayLength = 0x100;
+
+  ALIGNAS(8) uint8_t test_array_[kArrayLength];
+};
+
+}  // namespace
+
 TEST_F(ShadowTest, GetNullTerminatedArraySize) {
-  const size_t kArrayLength = 100;
+  ScopedAlignedArray test_array;
+  uint8_t* aligned_test_array = test_array.get_aligned_array();
+  size_t aligned_array_length = test_array.get_aligned_length();
+
   const uint8_t kMarkerValue = 0xAA;
-
-  uint8_t test_array[kArrayLength];
-  uint8_t* aligned_test_array = reinterpret_cast<uint8_t*>(
-      ::common::AlignUp(reinterpret_cast<size_t>(test_array), kShadowRatio));
-  size_t aligned_array_length = ::common::AlignDown(kArrayLength -
-      (aligned_test_array - test_array), kShadowRatio);
-
   ::memset(aligned_test_array, kMarkerValue, aligned_array_length);
   test_shadow.Poison(
       aligned_test_array, aligned_array_length, kAsanReservedMarker);
 
-  size_t sizes_to_test[] = { 4, 7, 12, 15, 21, 87, 88 };
-
-  for (size_t i = 0; i < arraysize(sizes_to_test); ++i) {
-    test_shadow.Unpoison(aligned_test_array, sizes_to_test[i]);
+  for (size_t size_to_test : kSizesToTest) {
+    test_shadow.Unpoison(aligned_test_array, size_to_test);
     size_t size = 0;
 
     // Put a null byte at the end of the array and call the
     // GetNullTerminatedArraySize function with a 1-byte template argument. This
     // simulates the use of this function for a null terminated string.
-    aligned_test_array[sizes_to_test[i] - 1] = 0;
+    aligned_test_array[size_to_test - 1] = 0;
     EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8_t>(
         aligned_test_array, 0U, &size));
-    EXPECT_EQ(sizes_to_test[i], size);
+    EXPECT_EQ(size_to_test, size);
 
-    if (sizes_to_test[i] % sizeof(uint16_t) == 0) {
+    if (size_to_test % sizeof(uint16_t) == 0) {
       // Call the GetNullTerminatedArraySize with a 2-byte template argument.
       // As there is only one null byte at the end of the array we expect the
       // function to return false.
       EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint16_t>(
           aligned_test_array, 0U, &size));
-      EXPECT_EQ(sizes_to_test[i], size);
+      EXPECT_EQ(size_to_test, size);
       // Put a second null byte at the end of the array and call the function
       // again, this time we expect the function to succeed.
-      aligned_test_array[sizes_to_test[i] - sizeof(uint16_t)] = 0;
+      aligned_test_array[size_to_test - sizeof(uint16_t)] = 0;
       EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint16_t>(
           aligned_test_array, 0U, &size));
-      EXPECT_EQ(sizes_to_test[i], size);
-      aligned_test_array[sizes_to_test[i] - sizeof(uint16_t)] = kMarkerValue;
+      EXPECT_EQ(size_to_test, size);
+      aligned_test_array[size_to_test - sizeof(uint16_t)] = kMarkerValue;
     }
-    aligned_test_array[sizes_to_test[i] - 1] = kMarkerValue;
+    aligned_test_array[size_to_test - 1] = kMarkerValue;
 
-    aligned_test_array[sizes_to_test[i]] = kMarkerValue;
+    aligned_test_array[size_to_test] = kMarkerValue;
     EXPECT_FALSE(test_shadow.GetNullTerminatedArraySize<uint8_t>(
         aligned_test_array, 0U, &size));
-    EXPECT_EQ(sizes_to_test[i], size);
+    EXPECT_EQ(size_to_test, size);
     EXPECT_TRUE(test_shadow.GetNullTerminatedArraySize<uint8_t>(
-        aligned_test_array, sizes_to_test[i], &size));
+        aligned_test_array, size_to_test, &size));
 
-    test_shadow.Poison(
-        aligned_test_array,
-        ::common::AlignUp(sizes_to_test[i], kShadowRatio),
-        kAsanReservedMarker);
+    test_shadow.Poison(aligned_test_array,
+                       ::common::AlignUp(size_to_test, kShadowRatio),
+                       kAsanReservedMarker);
   }
   test_shadow.Unpoison(aligned_test_array, aligned_array_length);
+}
+
+TEST_F(ShadowTest, IsAccessibleRange) {
+  ScopedAlignedArray scoped_test_array;
+  const uint8_t* aligned_test_array = scoped_test_array.get_aligned_array();
+  size_t aligned_array_length = scoped_test_array.get_aligned_length();
+
+  // Poison the aligned array.
+  test_shadow.Poison(aligned_test_array, aligned_array_length,
+                     kAsanReservedMarker);
+
+  // Use a pointer into the array to allow for the header to be poisoned.
+  const uint8_t* test_array = aligned_test_array + kShadowRatio;
+  size_t test_array_length = aligned_array_length - kShadowRatio;
+  // Zero-length range is always accessible.
+  EXPECT_TRUE(test_shadow.IsRangeAccessible(test_array, 0U));
+
+  for (size_t size : kSizesToTest) {
+    ASSERT_GT(test_array_length, size);
+
+    test_shadow.Unpoison(test_array, size);
+
+    // An overflowing range is always inaccessible.
+    EXPECT_FALSE(
+        test_shadow.IsRangeAccessible(test_array + 3, static_cast<size_t>(-3)));
+
+    for (size_t i = 0; i < size; ++i) {
+      // Try valid ranges at every starting position inside the unpoisoned
+      // range.
+      EXPECT_TRUE(test_shadow.IsRangeAccessible(test_array + i, size - i));
+
+      // Try valid ranges ending at every poisition inside the unpoisoned range.
+      EXPECT_TRUE(test_shadow.IsRangeAccessible(test_array, size - i));
+    }
+
+    for (size_t i = 1; i < kShadowRatio; ++i) {
+      // Try invalid ranges at starting positions outside the unpoisoned range.
+      EXPECT_FALSE(test_shadow.IsRangeAccessible(test_array - i, size));
+
+      // Try invalid ranges at ending positions outside the unpoisoned range.
+      EXPECT_FALSE(test_shadow.IsRangeAccessible(test_array, size + i));
+    }
+  }
+  test_shadow.Unpoison(test_array, aligned_array_length);
 }
 
 TEST_F(ShadowTest, MarkAsFreed) {
