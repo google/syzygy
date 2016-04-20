@@ -18,7 +18,7 @@
 #ifndef SYZYGY_AGENT_ASAN_SHADOW_IMPL_H_
 #define SYZYGY_AGENT_ASAN_SHADOW_IMPL_H_
 
-template<typename type>
+template <typename type>
 bool Shadow::GetNullTerminatedArraySize(const void* addr,
                                         size_t max_size,
                                         size_t* size) const {
@@ -55,5 +55,68 @@ bool Shadow::GetNullTerminatedArraySize(const void* addr,
       return false;
   }
 }
+
+namespace internal {
+
+template <typename AccessType>
+const AccessType* AlignDown(const uint8_t* ptr) {
+  DCHECK(::common::IsPowerOfTwo(sizeof(AccessType)));
+  return reinterpret_cast<const AccessType*>(reinterpret_cast<uintptr_t>(ptr) &
+                                             ~(sizeof(AccessType) - 1));
+}
+
+template <typename AccessType>
+const AccessType* AlignUp(const uint8_t* ptr) {
+  DCHECK(::common::IsPowerOfTwo(sizeof(AccessType)));
+
+  return reinterpret_cast<const AccessType*>(
+      reinterpret_cast<uintptr_t>(ptr + sizeof(AccessType) - 1) &
+      ~(sizeof(AccessType) - 1));
+}
+
+// Returns true iff every byte in the range [@p start, @p end) is zero.
+// This function reads sizeof(AccessType) bytes at a time from memory at
+// natural alignment for AccessType. Note this may under- and over-read the
+// provided buffer by sizeof(AccessType)-1 bytes, but will never cross
+// sizeof(AccessType) boundary. The implementation is intended to allow the
+// compiler to inline it to the usage.
+// @param start the first byte to test.
+// @param end the byte after the last byte to test.
+// @returns true iff every byte from @p *start to @p *(end - 1) is zero.
+// @note this function is templatized to allow easily performance testing
+//     it with different AccessType parameters.
+template <typename AccessType>
+bool IsZeroBufferImpl(const uint8_t* start_in, const uint8_t* end_in) {
+  if (start_in == end_in)
+    return true;
+
+  // Round the start address downwards, and the end address upwards.
+  const AccessType* start = AlignDown<AccessType>(start_in);
+  const AccessType* end = AlignUp<AccessType>(end_in);
+
+  // Assuming start_in != end_in the alignment should leave us at least one
+  // element to check.
+  DCHECK_NE(start, end);
+  AccessType val = *start;
+
+  // Mask out the bytes read due to starting alignment.
+  const AccessType kMask = static_cast<AccessType>(-1LL);
+  val &= kMask << ((start_in - reinterpret_cast<const uint8_t*>(start)) * 8);
+  ++start;
+  while (start != end) {
+    if (val != 0U)
+      return false;
+    val = *start++;
+  }
+
+  // Mask out the bytes read due to end alignment.
+  val &= kMask >> ((reinterpret_cast<const uint8_t*>(end) - end_in) * 8);
+  if (val != 0U)
+    return false;
+
+  return true;
+}
+
+}  // namespace internal
 
 #endif  // SYZYGY_AGENT_ASAN_SHADOW_IMPL_H_

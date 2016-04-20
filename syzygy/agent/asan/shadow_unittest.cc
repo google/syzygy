@@ -16,6 +16,7 @@
 
 #include "base/rand_util.h"
 #include "base/memory/scoped_ptr.h"
+#include "base/strings/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
 #include "syzygy/testing/metrics.h"
@@ -24,6 +25,55 @@ namespace agent {
 namespace asan {
 
 namespace {
+
+template <typename AccessType>
+void ShadowUtilPerfTest() {
+  const size_t kBufSize = 10240;
+  ALIGNAS(8) uint8_t buf[kBufSize] = {};
+  uint8_t* end = buf + kBufSize;
+
+  uint64_t tnet = 0;
+  // Test all (mod 8) head and tail alignments.
+  for (size_t i = 0; i < 8; ++i) {
+    for (size_t j = 0; j < 8; ++j) {
+      ::memset(buf, 0xCC, i);
+      ::memset(buf + i, 0, kBufSize - i - j);
+      ::memset(end - j, 0xCC, j);
+      uint64_t t0 = ::__rdtsc();
+      ASSERT_TRUE(internal::IsZeroBufferImpl<AccessType>(buf + i, end - j));
+      uint64_t t1 = ::__rdtsc();
+      tnet += t1 - t0;
+    }
+  }
+
+  testing::EmitMetric(
+      base::StringPrintf("Syzygy.Asan.Shadow.IsZeroBufferImpl.%i",
+                         sizeof(AccessType)),
+      tnet);
+}
+
+template <typename AccessType>
+void ShadowUtilTest() {
+  const size_t kBufSize = 128;
+  ALIGNAS(8) uint8_t buf[kBufSize] = {};
+  uint8_t* end = buf + kBufSize;
+
+  // Test all (mod 8) head and tail alignments.
+  for (size_t i = 0; i < 8; ++i) {
+    for (size_t j = 0; j < 8; ++j) {
+      ::memset(buf, 0xCC, i);
+      ::memset(buf + i, 0, kBufSize - i - j);
+      ::memset(end - j, 0xCC, j);
+
+      // Test that a non-zero byte anywhere in the buffer is detected.
+      for (size_t k = i; k < kBufSize - j; ++k) {
+        buf[k] = 1;
+        ASSERT_FALSE(internal::IsZeroBufferImpl<AccessType>(buf + i, end - j));
+        buf[k] = 0;
+      }
+    }
+  }
+}
 
 // A derived class to expose protected members for unit-testing.
 class TestShadow : public Shadow {
@@ -49,6 +99,18 @@ class ShadowTest : public testing::Test {
 };
 
 }  // namespace
+
+TEST_F(ShadowTest, IsZeroBufferImplTest) {
+  ShadowUtilPerfTest<uint8_t>();
+  ShadowUtilPerfTest<uint16_t>();
+  ShadowUtilPerfTest<uint32_t>();
+  ShadowUtilPerfTest<uint64_t>();
+
+  ShadowUtilTest<uint8_t>();
+  ShadowUtilTest<uint16_t>();
+  ShadowUtilTest<uint32_t>();
+  ShadowUtilTest<uint64_t>();
+}
 
 TEST_F(ShadowTest, PoisonUnpoisonAccess) {
   for (size_t count = 0; count < 100; ++count) {
