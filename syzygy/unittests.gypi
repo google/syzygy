@@ -117,8 +117,11 @@
       '<(src)/syzygy/poirot/poirot.gyp:poirot_unittests',
 
       # Refinery tests.
-      '<(src)/syzygy/refinery/refinery.gyp:refinery_stack_unittests',
-      '<(src)/syzygy/refinery/refinery.gyp:refinery_unittests',
+      # TODO(sigg|manzagop): These tests are currently disabled because they're
+      # flaky as they rely on the machine they run on to have symbols they can
+      # work with.
+      #'<(src)/syzygy/refinery/refinery.gyp:refinery_stack_unittests',
+      #'<(src)/syzygy/refinery/refinery.gyp:refinery_unittests',
 
       # Relink tests.
       '<(src)/syzygy/relink/relink.gyp:relink_unittests',
