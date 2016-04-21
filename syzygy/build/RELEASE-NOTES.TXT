@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.16.0
+
+[0da823d284] Add support for more VEX encoded instructions.
+
 Version 0.8.15.0
 
 [0b7468bc3b] SyzyASan - Add option to offload trimming of the quarantine to
