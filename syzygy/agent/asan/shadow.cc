@@ -259,27 +259,13 @@ void Shadow::Unpoison(const void* addr, size_t size) {
 
 namespace {
 
-// An array of kFreedMarkers. This is used for constructing uint16_t, uint32_t
-// and
-// uint64_t byte variants of kHeapFreedMarker.
-static const uint8_t kFreedMarkers[] = {kHeapFreedMarker,
-                                        kHeapFreedMarker,
-                                        kHeapFreedMarker,
-                                        kHeapFreedMarker,
-                                        kHeapFreedMarker,
-                                        kHeapFreedMarker,
-                                        kHeapFreedMarker,
-                                        kHeapFreedMarker};
-static_assert(sizeof(kFreedMarkers) == sizeof(uint64_t),
-              "Wrong number of freed markers.");
-static const uint64_t& kFreedMarker64 =
-    *reinterpret_cast<const uint64_t*>(kFreedMarkers);
-static const uint32_t& kFreedMarker32 =
-    *reinterpret_cast<const uint32_t*>(kFreedMarkers);
-static const uint16_t& kFreedMarker16 =
-    *reinterpret_cast<const uint16_t*>(kFreedMarkers);
-static const uint8_t& kFreedMarker8 =
-    *reinterpret_cast<const uint8_t*>(kFreedMarkers);
+static const uint8_t kFreedMarker8 = kHeapFreedMarker;
+static const uint16_t kFreedMarker16 =
+    (static_cast<const uint16_t>(kFreedMarker8) << 8) | kFreedMarker8;
+static const uint32_t kFreedMarker32 =
+    (static_cast<const uint32_t>(kFreedMarker16) << 16) | kFreedMarker16;
+static const uint64_t kFreedMarker64 =
+    (static_cast<const uint64_t>(kFreedMarker32) << 32) | kFreedMarker32;
 
 // Marks the given range of shadow bytes as freed, preserving left and right
 // redzone bytes.
