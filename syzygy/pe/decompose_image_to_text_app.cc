@@ -14,6 +14,7 @@
 
 #include "syzygy/pe/decompose_image_to_text_app.h"
 
+#include "pcrecpp.h"
 #include "syzygy/block_graph/basic_block_decomposer.h"
 #include "syzygy/pe/decomposer.h"
 #include "syzygy/pe/pe_file.h"
@@ -33,15 +34,18 @@ using pe::PETransformPolicy;
 namespace {
 
 const char kUsageFormatStr[] =
-  "Usage: %ls [options]\n"
-  "\n"
-  "  A tool that decomposes a given image file, and decomposes it to a\n"
-  "  human-readable textual description.\n"
-  "\n"
-  "Available options\n"
-  "  --basic-blocks\n"
-  "    Breaks each function down to basic blocks and dumps it at that level.\n"
-  "  --image=<image file>\n";
+    "Usage: %ls [options]\n"
+    "\n"
+    "  A tool that decomposes a given image file, and decomposes it to a\n"
+    "  human-readable textual description.\n"
+    "\n"
+    "Available options\n"
+    "  --basic-blocks\n"
+    "    Breaks each function down to basic blocks and dumps it at that\n"
+    "    level.\n"
+    "  --image=<image file>\n"
+    "  --block-pattern=<regexp>\n"
+    "    Only dump blocks whose name matches regexp.\n";
 
 using block_graph::BlockGraph;
 using block_graph::BasicBlock;
@@ -128,6 +132,14 @@ bool DecomposeImageToTextApp::ParseCommandLine(
   }
 
   dump_basic_blocks_ = cmd_line->HasSwitch("basic-blocks");
+  regexp_ = cmd_line->GetSwitchValueASCII("block-pattern");
+  if (!regexp_.empty()) {
+    pcrecpp::RE re(regexp_);
+    if (!re.error().empty()) {
+      PrintUsage(cmd_line->GetProgram(), "Invalid regular expression.");
+      return false;
+    }
+  }
 
   return true;
 }
@@ -148,11 +160,15 @@ void DecomposeImageToTextApp::DumpAddressSpaceToText(
   BlockGraph::AddressSpace::RangeMap::const_iterator block_end(
     address_space.address_space_impl().ranges().end());
 
+  pcrecpp::RE re(regexp_);
+  DCHECK(regexp_.empty() || re.error().empty());
+
   for (; block_it != block_end; ++block_it) {
     const BlockGraph::Block* block = block_it->second;
-    RelativeAddress addr = block_it->first.start();
-
-    DumpBlockToText(addr, block);
+    if (regexp_.empty() || re.FullMatch(block->name())) {
+      RelativeAddress addr = block_it->first.start();
+      DumpBlockToText(addr, block);
+    }
   }
 }
 

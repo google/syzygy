@@ -80,6 +80,9 @@ class DecomposeImageToTextApp : public application::AppImplBase {
   // True if we're to dump basic block information.
   bool dump_basic_blocks_;
 
+  // If not empty, the regular expression used to filter the blocks to dump.
+  std::string regexp_;
+
   // Number of references we've encountered.
   size_t num_refs_;
 };

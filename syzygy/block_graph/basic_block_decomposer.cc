@@ -163,7 +163,11 @@ bool BasicBlockDecomposer::Decompose() {
   // decomposition may fail. However that is the only case in which this
   // should fail.
   if (!disassembled) {
-    CHECK(block_->attributes() & BlockGraph::HAS_INLINE_ASSEMBLY);
+    if (!(block_->attributes() & BlockGraph::HAS_INLINE_ASSEMBLY)) {
+      LOG(FATAL) << "Unexpectedly failed to disassemble block."
+                 << " Name: " << block_->name()
+                 << " Compiland: " << block_->compiland_name();
+    }
     return false;
   }
 
