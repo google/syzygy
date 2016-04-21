@@ -58,6 +58,7 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
     }
     case 0x02: {
       switch (ci->code[3]) {
+        case 0x13: return 5;  // vcvtps2ps
         case 0x36: return 5;  // vpermd
         case 0x5A: return 6;  // vbroadcasti128
         case 0x78: return 5;  // vpbroadcastb
@@ -68,6 +69,7 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
     case 0x03: {
       switch (ci->code[3]) {
         case 0x00: return 6;  // vpermq
+        case 0x1D: return 6;  // vcvtps2ph
         case 0x38: return 7;  // vinserti128
         case 0x39: return 6;  // vextracti128
         default: break;

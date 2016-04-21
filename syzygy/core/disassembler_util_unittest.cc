@@ -116,13 +116,15 @@ const uint8_t kSysExit[] = {0x0F, 0x35};
 const uint8_t kInt2[] = {0xCD, 0x02};
 const uint8_t kInt3[] = {0xCC};
 
-// Improperly handled 3-byte VEX encoded instructions.
+// Improperly handled VEX encoded instructions.
 const uint8_t kVpermq[] = {0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44};
 const uint8_t kVpermd[] = {0xC4, 0xE2, 0x4D, 0x36, 0xC0};
 const uint8_t kVbroadcasti128[] = {0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0};
 const uint8_t kVinserti128[] = {0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01};
 const uint8_t kVpbroadcastb[] = {0xC4, 0xE2, 0x79, 0x78, 0xC0};
 const uint8_t kVextracti128[] = {0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01};
+const uint8_t kVcvtps2ph[] = {0xC4, 0xE3, 0x79, 0x1D, 0xC8, 0x00};
+const uint8_t kVcvtps2ps[] = {0xC4, 0xE2, 0x79, 0x13, 0xE0};
 
 void TestBadlyDecodedInstruction(const uint8_t* code, size_t code_length) {
   _DInst inst[1] = {};
@@ -385,6 +387,16 @@ TEST(DisassemblerUtilTest, TestBadlyDecodedVpbroadcastb) {
 TEST(DisassemblerUtilTest, TestBadlyDecodedVextracti128) {
   EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
       kVextracti128, sizeof(kVextracti128)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVcvtps2ph) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVcvtps2ph, sizeof(kVcvtps2ph)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVcvtps2ps) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVcvtps2ps, sizeof(kVcvtps2ps)));
 }
 
 }  // namespace core
