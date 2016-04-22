@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.16.1
+
+[6b939a8bf7] Disabled some flaky unittests.
+
 Version 0.8.16.0
 
 [0da823d284] Add support for more VEX encoded instructions.
