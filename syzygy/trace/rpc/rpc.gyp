@@ -45,6 +45,8 @@
         '<(SHARED_INTERMEDIATE_DIR)/syzygy/trace/rpc/call_trace_rpc_s.cc',
       ],
       'process_outputs_as_sources': 1,
+      # This target exports a hard dependency because it generates header files.
+      'hard_dependency': 1,
     },
     {
       'target_name': 'logger_rpc_lib',
@@ -62,6 +64,8 @@
         '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
       ],
+      # This target exports a hard dependency because it generates header files.
+      'hard_dependency': 1,
     },
   ],
 }

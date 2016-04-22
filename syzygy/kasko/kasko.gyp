@@ -81,6 +81,9 @@
             ],
           },
         },
+        # This target exports a hard dependency because it generates header
+        # files.
+        'hard_dependency': 1,
       },
     },
     {
