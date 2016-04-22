@@ -13,6 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """A utility script to perform code coverage analysis."""
+import ast
 import glob
 import logging
 import optparse
@@ -52,7 +53,7 @@ _FILE_PATTERNS_TO_COPY = [
 ]
 
 _SYZYGY_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-
+_UNITTESTS_GYPI_FILE = os.path.join(_SYZYGY_DIR, 'unittests.gypi')
 
 # This is hardcoded to the Visual Studio default install location.
 _PERF_TOOLS_DIR = ('C:/Program Files (x86)/Microsoft Visual Studio 9.0/'
@@ -194,11 +195,11 @@ class _CodeCoverageRunnerBase(object):
       self._InstrumentOneFile(os.path.join(work_dir, dll))
 
   def _RunUnittests(self):
-    unittests = (glob.glob(os.path.join(self._work_dir, '*_unittests.exe')) +
-        glob.glob(os.path.join(self._work_dir, '*_unittests_4g.exe')) +
-        glob.glob(os.path.join(self._work_dir, '*_tests.exe')) +
-        glob.glob(os.path.join(self._work_dir, '*_tests_4g.exe')))
-    for unittest in unittests:
+    with open(_UNITTESTS_GYPI_FILE) as f:
+      gypi = ast.literal_eval(f.read())
+    unittests = [t.split(':')[1] for t in gypi['variables']['unittests']]
+
+    for unittest in sorted(unittests):
       _LOGGER.info('Running unittest "%s".', unittest)
       # Run single threaded, and with a 5 minute (in ms) timeout. This
       # conserves existing buildbot behaviour with the new sharded tests.
