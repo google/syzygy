@@ -91,7 +91,7 @@ hooks = [
     "name": "landmines",
     "pattern": ".",
     "action": [Var("python_path"),
-               "src\\build\\landmines.py",
+               "src\\syzygy\\build\\landmines_wrapper.py",
                "--landmine-scripts=src\\syzygy\\build\\get_landmines.py",
                "--verbose"],
   },
