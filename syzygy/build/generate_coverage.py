@@ -201,9 +201,10 @@ class _CodeCoverageRunnerBase(object):
 
     for unittest in sorted(unittests):
       _LOGGER.info('Running unittest "%s".', unittest)
+      unittest_exe = os.path.join(self._work_dir, '%s.exe' % unittest)
       # Run single threaded, and with a 5 minute (in ms) timeout. This
       # conserves existing buildbot behaviour with the new sharded tests.
-      _Subprocess([unittest,
+      _Subprocess([unittest_exe,
                    '--single-process-tests',
                    '--test-launcher-timeout=300000'],
                   'Unittests "%s" failed.' % os.path.basename(unittest))
