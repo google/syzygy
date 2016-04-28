@@ -148,7 +148,6 @@ class AsanRuntime {
 
   // @names Accessors.
   // {
-  AsanFeatureSet enabled_features() const { return enabled_features_; }
   uint64_t random_key() const { return random_key_; }
   // @}
 
@@ -192,6 +191,9 @@ class AsanRuntime {
   // Disables the deferred free thread.
   void DisableDeferredFreeThread();
 
+  // @returns the list of enabled features.
+  AsanFeatureSet GetEnabledFeatureSet();
+
  protected:
   // Propagate the values of the flags to the target modules.
   void PropagateParams();
@@ -217,21 +219,16 @@ class AsanRuntime {
   // Logs information about an Asan error.
   void LogAsanErrorInfo(AsanErrorInfo* error_info);
 
-  // Randomly enable some features.
   // @returns a value describing the state of the features that can be randomly
   //     enabled or disabled.
   AsanFeatureSet GenerateRandomFeatureSet();
 
+  // Randomly enable some features.
+  // @param feature_set The feature set indicating the features to update.
+  void PropagateFeatureSet(AsanFeatureSet feature_set);
+
   // The heap manager.
   scoped_ptr<heap_managers::BlockHeapManager> heap_manager_;  // Under lock_.
-
-  // Contains the state of the features that can be randomly enabled or
-  // disabled.
-  // TODO(sebmarchand): This variable should be deduced from an investigation of
-  // the |params_| variable but is temporarily kept here to make it easier
-  // to investigate on the current heap corruption bug, it should be removed
-  // once the problem gets fixed.
-  AsanFeatureSet enabled_features_;
 
  private:
   // Sets up the shadow memory.

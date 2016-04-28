@@ -136,7 +136,7 @@ void SetEarlyCrashKeys(AsanRuntime* runtime) {
   if (runtime->params().feature_randomization) {
     runtime->crash_reporter()->SetCrashKey(
         "asan-feature-set",
-        base::UintToString(runtime->enabled_features()).c_str());
+        base::UintToString(runtime->GetEnabledFeatureSet()).c_str());
   }
 }
 
@@ -483,8 +483,10 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
     return false;
   WindowsHeapAdapter::SetUp(heap_manager_.get());
 
-  if (params_.feature_randomization)
-    enabled_features_ = GenerateRandomFeatureSet();
+  if (params_.feature_randomization) {
+    AsanFeatureSet feature_set = GenerateRandomFeatureSet();
+    PropagateFeatureSet(feature_set);
+  }
 
   // Propagates the flags values to the different modules.
   PropagateParams();
@@ -554,7 +556,7 @@ void AsanRuntime::OnErrorImpl(AsanErrorInfo* error_info) {
 
   // Copy the parameters into the crash report.
   error_info->asan_parameters = params_;
-  error_info->feature_set = enabled_features_;
+  error_info->feature_set = GetEnabledFeatureSet();
 
   LogAsanErrorInfo(error_info);
 
@@ -963,14 +965,16 @@ AsanFeatureSet AsanRuntime::GenerateRandomFeatureSet() {
   AsanFeatureSet enabled_features =
       static_cast<AsanFeatureSet>(base::RandGenerator(ASAN_FEATURE_MAX));
   DCHECK_LT(enabled_features, ASAN_FEATURE_MAX);
-  enabled_features = static_cast<AsanFeatureSet>(
-      static_cast<size_t>(enabled_features) & kAsanValidFeatureMask);
-
-  heap_manager_->enable_page_protections_ =
-      (enabled_features & ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS) != 0;
-  params_.enable_large_block_heap =
-      (enabled_features & ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP) != 0;
+  enabled_features &= kAsanValidFeatures;
   return enabled_features;
+}
+
+void AsanRuntime::PropagateFeatureSet(AsanFeatureSet feature_set) {
+  DCHECK_EQ(0U, feature_set & ~kAsanValidFeatures);
+  heap_manager_->enable_page_protections_ =
+      (feature_set & ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS) != 0;
+  params_.enable_large_block_heap =
+      (feature_set & ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP) != 0;
 }
 
 void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
@@ -1187,6 +1191,16 @@ void AsanRuntime::EnableDeferredFreeThread() {
 void AsanRuntime::DisableDeferredFreeThread() {
   DCHECK(heap_manager_);
   heap_manager_->DisableDeferredFreeThread();
+}
+
+AsanFeatureSet AsanRuntime::GetEnabledFeatureSet() {
+  AsanFeatureSet enabled_features = static_cast<AsanFeatureSet>(0U);
+  if (heap_manager_->enable_page_protections_)
+    enabled_features |= ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS;
+  if (params_.enable_large_block_heap)
+    enabled_features |= ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP;
+
+  return enabled_features;
 }
 
 }  // namespace asan

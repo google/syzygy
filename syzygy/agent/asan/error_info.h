@@ -83,7 +83,7 @@ extern const char kHeapUnknownError[];
 extern const char kHeapCorruptBlock[];
 extern const char kCorruptHeap[];
 
-enum AsanFeatureSet {
+enum AsanFeature : uint32_t {
   ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS = (1 << 0),
   // This feature flag is currently deprecated and ignored.
   DEPRECATED_ASAN_FEATURE_ENABLE_CTMALLOC = (1 << 1),
@@ -92,12 +92,16 @@ enum AsanFeatureSet {
   DEPRECATED_ASAN_FEATURE_ENABLE_KASKO = (1 << 3),
   ASAN_FEATURE_MAX = (1 << 4),
 };
+using AsanFeatureSet = uint32_t;
 
-// Feature mask to be applied to the randomized feature set. This masks out
-// the deprecated features.
-const size_t kAsanValidFeatureMask = ~static_cast<size_t>(
+// Feature set for all valid features.
+const AsanFeatureSet kAsanValidFeatures =
+    ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS | ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP;
+
+// Feature set for all deprecated features.
+const AsanFeatureSet kAsanDeprecatedFeatures =
     DEPRECATED_ASAN_FEATURE_ENABLE_CTMALLOC |
-    DEPRECATED_ASAN_FEATURE_ENABLE_KASKO);
+    DEPRECATED_ASAN_FEATURE_ENABLE_KASKO;
 
 // Store the information that we want to report about a block.
 // TODO(sebmarchand): Rename this to avoid the confusion with the BlockInfo

@@ -42,8 +42,8 @@ class TestBlockHeapManager : public heap_managers::BlockHeapManager {
 class TestAsanRuntime : public AsanRuntime {
  public:
   using AsanRuntime::GenerateRandomFeatureSet;
+  using AsanRuntime::PropagateFeatureSet;
   using AsanRuntime::PropagateParams;
-  using AsanRuntime::enabled_features_;
   using AsanRuntime::heap_manager_;
 };
 
@@ -249,15 +249,8 @@ TEST_F(AsanRuntimeTest, GetHeapType) {
 }
 
 TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
-  ASSERT_NO_FATAL_FAILURE(
-      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
-
   const size_t kIterations = 10000;
-
   std::map<size_t, size_t> feature_group_frequency;
-  const size_t kFeatureMaskBitCount =
-      static_cast<size_t>(base::bits::Log2Floor(ASAN_FEATURE_MAX));
-  std::vector<size_t> feature_activation_count(kFeatureMaskBitCount, 0);
 
   for (size_t i = 0; i < kIterations; ++i) {
     AsanFeatureSet feature_group = asan_runtime_.GenerateRandomFeatureSet();
@@ -268,22 +261,12 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
     } else {
       feature_group_frequency[feature_group] = 0;
     }
-    TestBlockHeapManager* test_block_heap_manager =
-        static_cast<TestBlockHeapManager*>(asan_runtime_.heap_manager_.get());
-    if (test_block_heap_manager->enable_page_protections_) {
-      feature_activation_count[base::bits::Log2Floor(
-          ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS)]++;
-    }
-    if (asan_runtime_.params().enable_large_block_heap) {
-      feature_activation_count[base::bits::Log2Floor(
-          ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP)]++;
-    }
   }
 
   // Count the deprecated features.
   size_t number_of_deprecated_features = 0;
-  for (size_t i = 0; i < sizeof(kAsanValidFeatureMask) * 8; ++i) {
-    if ((kAsanValidFeatureMask & (1 << i)) == 0)
+  for (size_t i = 0; i < sizeof(kAsanDeprecatedFeatures) * 8; ++i) {
+    if ((kAsanDeprecatedFeatures & (1 << i)) != 0)
       number_of_deprecated_features++;
   }
 
@@ -293,31 +276,45 @@ TEST_F(AsanRuntimeTest, GenerateRandomFeatureSet) {
   // 1000 / 33 = 30 standard deviations. For |z| > 30, the p-value is < 0.00001
   // and can be considered as insignificant.
   const size_t kExpectedCount =
-    kIterations / (ASAN_FEATURE_MAX >> number_of_deprecated_features);
+      kIterations / (ASAN_FEATURE_MAX >> number_of_deprecated_features);
   const size_t kErrorMargin = kExpectedCount / 10;
   for (const auto& iter : feature_group_frequency) {
     EXPECT_LT(kExpectedCount - kErrorMargin, iter.second);
     EXPECT_GT(kExpectedCount + kErrorMargin, iter.second);
   }
+}
 
-  // Every feature has a 50% chance of being turned on, so we expect a standard
-  // deviation of sqrt(10000 * 0.5 * (1 - 0.5)) = 50. So with a 10% margin we're
-  // at 20 standard deviations. For |z| > 30, the p-value is < 0.0001 and can
-  // be considered as insignificant.
-  const size_t kExpectedFeatureFrequency = kIterations / 2;
-  const size_t kExpectedFeatureFrequencyErrorMargin =
-      kExpectedFeatureFrequency / 10;
-  for (size_t i = 0; i < feature_activation_count.size(); ++i) {
-    if ((kAsanValidFeatureMask & (1 << i)) != 0) {
-      EXPECT_LT(
-          kExpectedFeatureFrequency - kExpectedFeatureFrequencyErrorMargin,
-          feature_activation_count[i]);
-      EXPECT_GT(
-          kExpectedFeatureFrequency + kExpectedFeatureFrequencyErrorMargin,
-          feature_activation_count[i]);
-    } else {
-      EXPECT_EQ(0U, feature_activation_count[i]);
-    }
+TEST_F(AsanRuntimeTest, PropagateFeatureSet) {
+  ASSERT_NO_FATAL_FAILURE(
+      asan_runtime_.SetUp(current_command_line_.GetCommandLineString()));
+
+  AsanFeatureSet valid_feature_sets[] = {
+      0,
+      ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP,
+      ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS,
+      ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS |
+          ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP};
+
+  size_t number_of_valid_features = 0U;
+  for (size_t i = 0; i < sizeof(kAsanValidFeatures) * 8; ++i) {
+    if ((kAsanDeprecatedFeatures & (1 << i)) != 0U)
+      number_of_valid_features++;
+  }
+
+  EXPECT_EQ(arraysize(valid_feature_sets), 1 << number_of_valid_features);
+
+  for (auto feature_set : valid_feature_sets) {
+    asan_runtime_.PropagateFeatureSet(feature_set);
+    ::common::AsanParameters expected_params = {};
+    ::common::SetDefaultAsanParameters(&expected_params);
+    expected_params.enable_large_block_heap =
+        ((feature_set & ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP) != 0U);
+    EXPECT_EQ(0U, ::memcmp(&expected_params, &asan_runtime_.params(),
+                           sizeof(::common::AsanParameters)));
+    TestBlockHeapManager* test_block_heap_manager =
+        static_cast<TestBlockHeapManager*>(asan_runtime_.heap_manager_.get());
+    EXPECT_EQ(test_block_heap_manager->enable_page_protections_,
+              ((feature_set & ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS) != 0U));
   }
 
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());
@@ -337,7 +334,7 @@ TEST_F(AsanRuntimeTest, OnErrorSaveEnabledFeatureList) {
   RtlCaptureContext(&bad_access_info.context);
   AsanFeatureSet expected_feature_set = static_cast<AsanFeatureSet>(
       ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP);
-  asan_runtime_.enabled_features_ = expected_feature_set;
+  asan_runtime_.PropagateFeatureSet(expected_feature_set);
   asan_runtime_.OnError(&bad_access_info);
   EXPECT_TRUE(callback_called);
   EXPECT_EQ(expected_feature_set, callback_error_info.feature_set);
