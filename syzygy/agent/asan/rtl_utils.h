@@ -57,7 +57,7 @@ void ContextToAsanContext(const CONTEXT& context, AsanContext* asan_context);
 // @param access_mode The mode of the access.
 // @param access_size The size of the access.
 // @param asan_context The context of the access.
-void ReportBadMemoryAccess(void* location,
+void ReportBadMemoryAccess(const void* location,
                            AccessMode access_mode,
                            size_t access_size,
                            const AsanContext& asan_context);
@@ -65,7 +65,7 @@ void ReportBadMemoryAccess(void* location,
 // Report an invalid access to @p location.
 // @param location The memory address of the access.
 // @param access_mode The mode of the access.
-void ReportBadAccess(const uint8_t* location, AccessMode access_mode);
+void ReportBadAccess(const void* location, AccessMode access_mode);
 
 // Test that a memory range is accessible. Report an error if it's not.
 // @param shadow The shadow memory to use.

@@ -151,7 +151,7 @@ struct AsanCorruptBlockRange {
 // Store the information about a bad memory access.
 struct AsanErrorInfo {
   // The address where the bad access happened.
-  void* location;
+  const void* location;
   // The context prior to the crash.
   CONTEXT context;
   // The ID of the crash stack, this is needed to be able to blacklist some

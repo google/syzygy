@@ -392,11 +392,8 @@ bool Shadow::IsRangeAccessible(const void* addr, size_t size) const {
 
   // Now run over the shadow bytes from start to end, which all need to be
   // zero.
-  // TODO(siggi): Optimize this loop to minimize the number of memory acesses.
-  for (size_t i = start; i < end; ++i) {
-    if (shadow_[i] != 0U)
+  if (!internal::IsZeroBufferImpl<uint64_t>(&shadow_[start], &shadow_[end]))
       return false;
-  }
 
   // Finally test the end point if there's a tail offset.
   if (end_offs == 0U)
@@ -412,6 +409,67 @@ bool Shadow::IsRangeAccessible(const void* addr, size_t size) const {
     return false;
 
   return true;
+}
+
+const void* Shadow::FindFirstPoisonedByte(const void* addr, size_t size) const {
+  DCHECK_NE(static_cast<const void*>(nullptr), addr);
+
+  // A zero byte access is always valid.
+  if (size == 0U)
+    return nullptr;
+
+  const uint8_t* out_addr = reinterpret_cast<const uint8_t*>(addr);
+  uintptr_t start_addr = reinterpret_cast<uintptr_t>(addr);
+  uintptr_t start = start_addr;
+  size_t start_offs = start & (kShadowRatio - 1);
+  start >>= kShadowRatioLog;
+
+  DCHECK_EQ(reinterpret_cast<uintptr_t>(addr),
+            (start << kShadowRatioLog) + (start_offs));
+  if (start > length_)
+    return out_addr;
+
+  // Validate that the start point is accessible.
+  uint8_t shadow = shadow_[start];
+  if (shadow != 0U) {
+    if (ShadowMarkerHelper::IsRedzone(shadow))
+      return out_addr;
+    if (start_offs > shadow)
+      return out_addr;
+  }
+
+  uintptr_t end = reinterpret_cast<uintptr_t>(addr) + size;
+  // Overflow on addr + size.
+  if (start_addr > end)
+    return out_addr;
+
+  size_t end_offs = end & (kShadowRatio - 1);
+  end >>= kShadowRatioLog;
+  if (end > length_)
+    return out_addr;
+
+  for (size_t curr = start; curr < end; ++curr, out_addr += kShadowRatio) {
+    shadow = shadow_[curr];
+    if (ShadowMarkerHelper::IsRedzone(shadow))
+      return out_addr;
+    if (shadow != 0)
+      return out_addr + shadow;
+  }
+
+  // Finally test the end point if there's a tail offset.
+  if (end_offs == 0U)
+    return nullptr;
+
+  shadow = shadow_[end];
+  if (shadow == 0U)
+    return nullptr;
+
+  if (ShadowMarkerHelper::IsRedzone(shadow))
+    return out_addr;
+  if (end_offs > shadow)
+    return out_addr + shadow;
+
+  return nullptr;
 }
 
 bool Shadow::IsLeftRedzone(const void* address) const {

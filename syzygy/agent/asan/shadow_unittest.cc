@@ -275,7 +275,55 @@ TEST_F(ShadowTest, IsAccessibleRange) {
       EXPECT_FALSE(test_shadow.IsRangeAccessible(test_array, size + i));
     }
   }
-  test_shadow.Unpoison(test_array, aligned_array_length);
+  test_shadow.Unpoison(aligned_test_array, aligned_array_length);
+}
+
+TEST_F(ShadowTest, FindFirstPoisonedByte) {
+  ScopedAlignedArray scoped_test_array;
+  const uint8_t* aligned_test_array = scoped_test_array.get_aligned_array();
+  size_t aligned_array_length = scoped_test_array.get_aligned_length();
+
+  // Poison the aligned array.
+  test_shadow.Poison(aligned_test_array, aligned_array_length,
+                     kAsanReservedMarker);
+
+  // Use a pointer into the array to allow for the header to be poisoned.
+  const uint8_t* test_array = aligned_test_array + kShadowRatio;
+  size_t test_array_length = aligned_array_length - kShadowRatio;
+  // Zero-length range is always accessible.
+  EXPECT_EQ(nullptr, test_shadow.FindFirstPoisonedByte(test_array, 0U));
+
+  for (size_t size : kSizesToTest) {
+    ASSERT_GT(test_array_length, size);
+
+    test_shadow.Unpoison(test_array, size);
+
+    // An overflowing range is always inaccessible.
+    EXPECT_EQ(test_array + 3, test_shadow.FindFirstPoisonedByte(
+                                  test_array + 3, static_cast<size_t>(-3)));
+
+    for (size_t i = 0; i < size; ++i) {
+      // Try valid ranges at every starting position inside the unpoisoned
+      // range.
+      EXPECT_EQ(nullptr,
+                test_shadow.FindFirstPoisonedByte(test_array + i, size - i));
+
+      // Try valid ranges ending at every poisition inside the unpoisoned range.
+      EXPECT_EQ(nullptr,
+                test_shadow.FindFirstPoisonedByte(test_array, size - i));
+    }
+
+    for (size_t i = 1; i < kShadowRatio; ++i) {
+      // Try invalid ranges at starting positions outside the unpoisoned range.
+      EXPECT_EQ(test_array - i,
+                test_shadow.FindFirstPoisonedByte(test_array - i, size));
+
+      // Try invalid ranges at ending positions outside the unpoisoned range.
+      EXPECT_EQ(test_array + size,
+                test_shadow.FindFirstPoisonedByte(test_array, size + i));
+    }
+  }
+  test_shadow.Unpoison(aligned_test_array, aligned_array_length);
 }
 
 TEST_F(ShadowTest, MarkAsFreed) {

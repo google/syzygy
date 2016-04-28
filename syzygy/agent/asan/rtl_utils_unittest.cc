@@ -131,12 +131,12 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
                   access_mode);
   EXPECT_FALSE(memory_error_detected);
 
-  // Test the second half of the buffer, we should get an invalid access on its
-  // last byte.
+  // Test the second half of the buffer, we should get an invalid access on the
+  // first poisoned byte.
   TestMemoryRange(runtime.shadow(), test_buffer.get(), kTestBufferSize,
                   access_mode);
   EXPECT_TRUE(memory_error_detected);
-  EXPECT_EQ(test_buffer.get() + kTestBufferSize - 1, last_error_info.location);
+  EXPECT_EQ(test_buffer.get() + kTestBufferSize / 2, last_error_info.location);
   EXPECT_EQ(access_mode, last_error_info.access_mode);
 
   runtime.shadow()->Unpoison(test_buffer.get(), kTestBufferSize);

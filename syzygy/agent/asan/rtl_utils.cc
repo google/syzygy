@@ -39,7 +39,7 @@ void SetAsanRuntimeInstance(AsanRuntime* runtime) {
   asan_runtime = runtime;
 }
 
-void ReportBadMemoryAccess(void* location,
+void ReportBadMemoryAccess(const void* location,
                            AccessMode access_mode,
                            size_t access_size,
                            const AsanContext& asan_context) {
@@ -131,13 +131,12 @@ void ContextToAsanContext(const CONTEXT& context, AsanContext* asan_context) {
   asan_context->original_esp = context.Esp;
 }
 
-void ReportBadAccess(const uint8_t* location, AccessMode access_mode) {
+void ReportBadAccess(const void* location, AccessMode access_mode) {
   AsanContext asan_context = {};
   CONTEXT context = {};
   ::RtlCaptureContext(&context);
   ContextToAsanContext(context, &asan_context);
-  ReportBadMemoryAccess(const_cast<uint8_t*>(location), access_mode, 1U,
-                        asan_context);
+  ReportBadMemoryAccess(location, access_mode, 1U, asan_context);
 }
 
 void TestMemoryRange(Shadow* shadow,
@@ -153,12 +152,12 @@ void TestMemoryRange(Shadow* shadow,
   //     address to be touched (via the shadow memory, 8 bytes at a time).
   if (!shadow->IsAccessible(memory) ||
       !shadow->IsAccessible(memory + size - 1)) {
-    const uint8_t* location = NULL;
-    if (!shadow->IsAccessible(memory)) {
-      location = memory;
-    } else {
-      location = memory + size - 1;
-    }
+    const void* location = shadow->FindFirstPoisonedByte(memory, size);
+    // If this check hits, either you've lucked on a time-of-check race, and
+    // there's a genuine bug in the call stack above, or else there's a bug
+    // in the runtime.
+    CHECK(location != nullptr);
+
     ReportBadAccess(location, access_mode);
   }
 }

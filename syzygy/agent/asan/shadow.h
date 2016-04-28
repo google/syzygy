@@ -161,6 +161,14 @@ class Shadow {
   // @returns true if this address is accessible, false otherwise.
   bool IsRangeAccessible(const void* addr, size_t size) const;
 
+  // Returns the address of the first poisoned byte in the range
+  // [@p addrs, @p addr + size), or nullptr if none are poisoned.
+  // @param addr The address that we want to check.
+  // @param size the number of bytes we want to check.
+  // @returns the address of the first byte that's not accessible, or nullptr
+  //     if all bytes in the range are accessible.
+  const void* FindFirstPoisonedByte(const void* addr, size_t size) const;
+
   // @param address The address that we want to check.
   // @returns true if the byte at @p address is an active left redzone.
   bool IsLeftRedzone(const void* address) const;

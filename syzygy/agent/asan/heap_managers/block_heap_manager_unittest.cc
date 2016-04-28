@@ -1010,9 +1010,8 @@ TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantine) {
 
     EXPECT_EQ(1u, errors_.size());
     EXPECT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
-    EXPECT_EQ(
-        reinterpret_cast<BlockHeader*>(mem) - 1,
-        reinterpret_cast<BlockHeader*>(errors_[0].location));
+    EXPECT_EQ(reinterpret_cast<const BlockHeader*>(mem) - 1,
+              reinterpret_cast<const BlockHeader*>(errors_[0].location));
 
     break;
   }
@@ -1050,8 +1049,8 @@ TEST_F(BlockHeapManagerTest, CorruptAsExitsQuarantineOnHeapDestroy) {
 
     EXPECT_EQ(1u, errors_.size());
     EXPECT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
-    EXPECT_EQ(reinterpret_cast<BlockHeader*>(mem) - 1,
-              reinterpret_cast<BlockHeader*>(errors_[0].location));
+    EXPECT_EQ(reinterpret_cast<const BlockHeader*>(mem) - 1,
+              reinterpret_cast<const BlockHeader*>(errors_[0].location));
 
     break;
   }
@@ -1089,8 +1088,8 @@ TEST_F(BlockHeapManagerTest, CorruptHeapOnTrimQuarantine) {
 
     EXPECT_EQ(1u, errors_.size());
     EXPECT_EQ(CORRUPT_BLOCK, errors_[0].error_type);
-    EXPECT_EQ(reinterpret_cast<BlockHeader*>(mem) - 1,
-              reinterpret_cast<BlockHeader*>(errors_[0].location));
+    EXPECT_EQ(reinterpret_cast<const BlockHeader*>(mem) - 1,
+              reinterpret_cast<const BlockHeader*>(errors_[0].location));
 
     break;
   }
