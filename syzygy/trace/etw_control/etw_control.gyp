@@ -40,6 +40,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
     },
   ],
