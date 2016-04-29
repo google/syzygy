@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.17.1
+
+[460e0d1319] Fixed the build configuration.
+
 Version 0.8.17.0
 
 [577a26edc4] Improved reporting for mem* instrumentation by reporting first
