@@ -31,6 +31,18 @@ namespace agent {
 namespace asan {
 namespace {
 
+struct AsanFeatureName {
+  AsanFeature flag;
+  const char* name;
+};
+
+static const AsanFeatureName kAsanFeatureNames[] = {
+    {ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS, "SyzyASANPageProtections"},
+    {DEPRECATED_ASAN_FEATURE_ENABLE_CTMALLOC, nullptr},
+    {ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP, "SyzyASANLargeBlockHeap"},
+    {DEPRECATED_ASAN_FEATURE_ENABLE_KASKO, nullptr},
+};
+
 // This lock guards against IAT patching on multiple threads concurrently.
 base::Lock patch_lock;
 
@@ -203,6 +215,31 @@ VOID WINAPI asan_EnableDeferredFreeThread() {
 // the thread was started.
 VOID WINAPI asan_DisableDeferredFreeThread() {
   asan_runtime->DisableDeferredFreeThread();
+}
+
+void WINAPI asan_EnumExperiments(AsanExperimentCallback callback) {
+  DCHECK(callback != nullptr);
+
+  // Under the current implementation, each randomized feature is considered an
+  // individual experiment, with two groups "Enabled" and "Disabled"
+  AsanFeatureSet enabled_features = asan_runtime->GetEnabledFeatureSet();
+  for (const auto& feature : kAsanFeatureNames) {
+    if (feature.name) {
+      const char* state = "Disabled";
+      if ((enabled_features & feature.flag) != 0)
+        state = "Enabled";
+      callback(feature.name, state);
+    } else {
+      // Deprecated features should never be enabled.
+      DCHECK_EQ(0U, enabled_features & feature.flag);
+    }
+
+    // Mask out this feature.
+    enabled_features &= ~feature.flag;
+  }
+
+  // Check that we had names for all the features.
+  DCHECK_EQ(0U, enabled_features);
 }
 
 }  // extern "C"

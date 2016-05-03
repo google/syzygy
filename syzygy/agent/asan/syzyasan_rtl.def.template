@@ -124,3 +124,6 @@ EXPORTS
   ; Functions exposed to enable/disable the deferred trimming mechanism.
   asan_EnableDeferredFreeThread
   asan_DisableDeferredFreeThread
+
+  ; Exposed to allow the user to enumerate runtime experiments.
+  asan_EnumExperiments

@@ -628,5 +628,43 @@ TEST_F(AsanRtlTest, AllocationFilterFlag) {
   EXPECT_TRUE(runtime->allocation_filter_flag());
 }
 
+namespace {
+
+using ExperimentMap = std::map<std::string, std::string>;
+
+ExperimentMap* experiment_map = nullptr;
+
+static void WINAPI
+ExperimentCallback(const char* feature_name, const char* feature_state) {
+  ASSERT_TRUE(experiment_map != nullptr);
+
+  // We mandate only one call per named feature.
+  bool inserted = experiment_map->insert(std::make_pair(feature_name,
+                                                        feature_state)).second;
+  ASSERT_TRUE(inserted);
+}
+
+}  // namespace
+
+TEST_F(AsanRtlTest, EnumFeatures) {
+  typedef void(WINAPI * EnumExperimentsFn)(AsanExperimentCallback callback);
+
+  EnumExperimentsFn enum_experiments_fn = reinterpret_cast<EnumExperimentsFn>(
+      ::GetProcAddress(asan_rtl_, "asan_EnumExperiments"));
+  ASSERT_TRUE(enum_experiments_fn != nullptr);
+
+  ExperimentMap experiments;
+  experiment_map = &experiments;
+  enum_experiments_fn(ExperimentCallback);
+  experiment_map = nullptr;
+
+  EXPECT_EQ("Enabled", experiments["SyzyASANPageProtections"]);
+  EXPECT_EQ("Enabled", experiments["SyzyASANLargeBlockHeap"]);
+
+  // This implicitly asserts the full contents of the map by asserting
+  // on the size after looking up the expected keys.
+  EXPECT_EQ(2U, experiments.size());
+}
+
 }  // namespace asan
 }  // namespace agent

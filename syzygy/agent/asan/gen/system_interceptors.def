@@ -128,6 +128,9 @@ EXPORTS
   asan_EnableDeferredFreeThread
   asan_DisableDeferredFreeThread
 
+  ; Exposed to allow the user to enumerate runtime experiments.
+  asan_EnumExperiments
+
   ; Generated system intercepts
   asan_ReadFile
   asan_ReadFileEx

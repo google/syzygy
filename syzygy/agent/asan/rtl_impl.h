@@ -96,6 +96,21 @@ typedef void (*OnExceptionCallback)(EXCEPTION_POINTERS*);
 void WINAPI asan_SetOnExceptionCallback(OnExceptionCallback callback);
 // @}
 
+// @name Experiment state enumerator, used to expose SyzyASAN experiments to
+//     the client and from there to e.g. finch.
+// @{
+// Called once for each experiment.
+// @param experiment_name the name of the experiement.
+// @param experiment_group the selected group for this instance of this
+//    experiement.
+typedef void(WINAPI* AsanExperimentCallback)(const char* experiment_name,
+                                             const char* experiment_group);
+// Calls @p callback once for each experiement this runtime is performing.
+// @param callback a function that will be invoked recursively zero or more
+//     times to enumerate the experiments and their state.
+void WINAPI asan_EnumExperiments(AsanExperimentCallback callback);
+// @}
+
 int asan_CrashForException(EXCEPTION_POINTERS* exception);
 
 }  // extern "C"
