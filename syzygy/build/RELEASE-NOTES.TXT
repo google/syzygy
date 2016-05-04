@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.18.0
+
+[b00d18bfd7] SyzyASAN - Add an experiment enumeration export on the runtime.
+
 Version 0.8.17.1
 
 [460e0d1319] Fixed the build configuration.
