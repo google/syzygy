@@ -16,8 +16,10 @@
 are brought in.
 """
 
+import glob
 import os
 import shlex
+import shutil
 import sys
 import vs_toolchain_wrapper
 
@@ -51,7 +53,7 @@ def apply_gyp_environment_from_file(file_path):
   return True
 
 
-def GetOutputDirectory():
+def get_output_directory():
   """Returns the output directory that GYP will use."""
 
   # Handle generator flags from the environment.
@@ -73,6 +75,23 @@ def apply_syzygy_gyp_env(syzygy_src_path):
         not os.environ.get('GYP_GENERATORS')):
       # Default to ninja if no generator has explicitly been set.
       os.environ['GYP_GENERATORS'] = 'ninja'
+
+
+def compare_files_timestamp(first_file, second_file):
+  # Check if two files have the same timestamp.
+  #
+  # Returns True if both files exist and have the same timestamp, False
+  # otherwise.
+  if not os.path.exists(first_file) or not os.path.exists(second_file):
+    return False
+  # The Windows file system supports nanosecond resolution for the file stamps,
+  # however, utimes (and indirectly shutil.copy2) only supports microsecond
+  # resolution. Because of this the timestamp of 2 files that have been copied
+  # with shutil.copy2 might be slightly different. Rounding this to the closest
+  # second fix this and gives us a pretty good resolution.
+  if int(os.stat(first_file).st_mtime) != int(os.stat(second_file).st_mtime):
+    return False
+  return True
 
 
 if __name__ == '__main__':
@@ -110,7 +129,20 @@ if __name__ == '__main__':
   if vs_runtime_dll_dirs:
     x64_runtime, x86_runtime = vs_runtime_dll_dirs
     vs_toolchain_wrapper.CopyVsRuntimeDlls(
-        os.path.join(src_dir, GetOutputDirectory()),
+        os.path.join(src_dir, get_output_directory()),
         (x86_runtime, x64_runtime))
+
+  win_sdk_dir = os.environ.get('WINDOWSSDKDIR')
+  if win_sdk_dir:
+    dbg_dlls_dir = os.path.join(win_sdk_dir, 'Debuggers', 'x86')
+    out_dir = os.path.join(src_dir, get_output_directory())
+    for f in glob.glob(os.path.join(dbg_dlls_dir, 'dbg*.dll')):
+      for c in ('Debug', 'Release'):
+        out_name = os.path.join(out_dir, c, os.path.basename(f))
+        if not compare_files_timestamp(f, out_name):
+          shutil.copy2(f, out_name)
+  else:
+    print ('Unable to locate the Windows SDK directory, please manually copy '
+           '\{win_sdk_dir\}/Debuggers/x86/dbg*.dll to the build directory.')
 
   execfile(gyp_main)
