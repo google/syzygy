@@ -136,10 +136,13 @@ if __name__ == '__main__':
   if win_sdk_dir:
     dbg_dlls_dir = os.path.join(win_sdk_dir, 'Debuggers', 'x86')
     out_dir = os.path.join(src_dir, get_output_directory())
-    for f in glob.glob(os.path.join(dbg_dlls_dir, 'dbg*.dll')):
+    for f in glob.glob(os.path.join(dbg_dlls_dir, '*.dll')):
+      if not f.lower().startswith('dbg'):
+        continue
       for c in ('Debug', 'Release'):
         out_name = os.path.join(out_dir, c, os.path.basename(f))
         if not compare_files_timestamp(f, out_name):
+          print 'Copying %s to %s.' % (f, out_name)
           shutil.copy2(f, out_name)
   else:
     print ('Unable to locate the Windows SDK directory, please manually copy '
