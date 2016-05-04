@@ -23,6 +23,12 @@ import shutil
 import sys
 import vs_toolchain_wrapper
 
+script_dir = os.path.dirname(os.path.realpath(__file__))
+syzygy_src = os.path.abspath(os.path.join(script_dir, os.pardir, os.pardir))
+
+sys.path.insert(0, os.path.join(syzygy_src, 'tools', 'gyp', 'pylib'))
+import gyp
+
 
 def apply_gyp_environment_from_file(file_path):
   """Reads in a *.gyp_env file and applies the valid keys to os.environ."""
@@ -106,26 +112,13 @@ if __name__ == '__main__':
     print 'ERROR: The \'msvs\' configuration isn\'t supported anymore.'
     sys.exit(1)
 
-  # Get the path to src/build. This contains a bunch of gyp
-  # 'plugins' that get called by common.gypi and base.gyp.
-  build_dir = os.path.join(src_dir, 'build')
-
-  # Get the path to the downloaded version of gyp.
-  gyp_dir = os.path.join(src_dir, 'tools', 'gyp')
-
-  # Get the path to the gyp module directoy, and the gyp_main
-  # that we'll defer to.
-  gyp_pylib = os.path.join(gyp_dir, 'pylib')
-  gyp_main = os.path.join(gyp_dir, 'gyp_main.py')
-
-  # Ensure the gyp plugin and module directories are in the module path
-  # before passing execution to gyp_main.
-  sys.path.append(gyp_pylib)
-  sys.path.append(build_dir)
-
   # Setup the VS toolchain.
   vs_runtime_dll_dirs =  \
       vs_toolchain_wrapper.SetEnvironmentAndGetRuntimeDllDirs()
+
+  gyp_rc = gyp.main(sys.argv[1:])
+
+  # Copy the VS runtime DLLs to the build directories.
   if vs_runtime_dll_dirs:
     x64_runtime, x86_runtime = vs_runtime_dll_dirs
     vs_toolchain_wrapper.CopyVsRuntimeDlls(
@@ -137,7 +130,7 @@ if __name__ == '__main__':
     dbg_dlls_dir = os.path.join(win_sdk_dir, 'Debuggers', 'x86')
     out_dir = os.path.join(src_dir, get_output_directory())
     for f in glob.glob(os.path.join(dbg_dlls_dir, '*.dll')):
-      if not f.lower().startswith('dbg'):
+      if not os.path.basename(f).lower().startswith('dbg'):
         continue
       for c in ('Debug', 'Release'):
         out_name = os.path.join(out_dir, c, os.path.basename(f))
@@ -148,4 +141,4 @@ if __name__ == '__main__':
     print ('Unable to locate the Windows SDK directory, please manually copy '
            '\{win_sdk_dir\}/Debuggers/x86/dbg*.dll to the build directory.')
 
-  execfile(gyp_main)
+  sys.exit(gyp_rc)
