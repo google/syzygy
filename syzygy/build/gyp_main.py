@@ -16,10 +16,8 @@
 are brought in.
 """
 
-import glob
 import os
 import shlex
-import shutil
 import sys
 import vs_toolchain_wrapper
 
@@ -83,23 +81,6 @@ def apply_syzygy_gyp_env(syzygy_src_path):
       os.environ['GYP_GENERATORS'] = 'ninja'
 
 
-def compare_files_timestamp(first_file, second_file):
-  # Check if two files have the same timestamp.
-  #
-  # Returns True if both files exist and have the same timestamp, False
-  # otherwise.
-  if not os.path.exists(first_file) or not os.path.exists(second_file):
-    return False
-  # The Windows file system supports nanosecond resolution for the file stamps,
-  # however, utimes (and indirectly shutil.copy2) only supports microsecond
-  # resolution. Because of this the timestamp of 2 files that have been copied
-  # with shutil.copy2 might be slightly different. Rounding this to the closest
-  # second fix this and gives us a pretty good resolution.
-  if int(os.stat(first_file).st_mtime) != int(os.stat(second_file).st_mtime):
-    return False
-  return True
-
-
 if __name__ == '__main__':
   # Get the path of the root 'src' directory.
   self_dir = os.path.abspath(os.path.dirname(__file__))
@@ -124,21 +105,5 @@ if __name__ == '__main__':
     vs_toolchain_wrapper.CopyVsRuntimeDlls(
         os.path.join(src_dir, get_output_directory()),
         (x86_runtime, x64_runtime))
-
-  win_sdk_dir = os.environ.get('WINDOWSSDKDIR')
-  if win_sdk_dir:
-    dbg_dlls_dir = os.path.join(win_sdk_dir, 'Debuggers', 'x86')
-    out_dir = os.path.join(src_dir, get_output_directory())
-    for f in glob.glob(os.path.join(dbg_dlls_dir, '*.dll')):
-      if not os.path.basename(f).lower().startswith('dbg'):
-        continue
-      for c in ('Debug', 'Release'):
-        out_name = os.path.join(out_dir, c, os.path.basename(f))
-        if not compare_files_timestamp(f, out_name):
-          print 'Copying %s to %s.' % (f, out_name)
-          shutil.copy2(f, out_name)
-  else:
-    print ('Unable to locate the Windows SDK directory, please manually copy '
-           '\{win_sdk_dir\}/Debuggers/x86/dbg*.dll to the build directory.')
 
   sys.exit(gyp_rc)
