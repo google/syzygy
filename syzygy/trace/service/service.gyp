@@ -86,6 +86,7 @@
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
+        '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
       'msvs_settings': {
         'VCLinkerTool': {
