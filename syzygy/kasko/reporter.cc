@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include "base/bind.h"
@@ -24,6 +25,7 @@
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/files/file_util.h"
+#include "base/memory/ptr_util.h"
 #include "base/process/process.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/platform_thread.h"
@@ -160,7 +162,7 @@ const base::char16* const Reporter::kKaskoUploadedByVersion =
     L"kasko-uploaded-by-version";
 
 // static
-scoped_ptr<Reporter> Reporter::Create(
+std::unique_ptr<Reporter> Reporter::Create(
     const base::string16& endpoint_name,
     const base::string16& url,
     const base::FilePath& data_directory,
@@ -168,14 +170,14 @@ scoped_ptr<Reporter> Reporter::Create(
     const base::TimeDelta& upload_interval,
     const base::TimeDelta& retry_interval,
     const OnUploadCallback& on_upload_callback) {
-  scoped_ptr<WaitableTimer> waitable_timer(
+  std::unique_ptr<WaitableTimer> waitable_timer(
       WaitableTimerImpl::Create(upload_interval));
   if (!waitable_timer) {
     LOG(ERROR) << "Failed to create a timer for the upload process.";
-    return scoped_ptr<Reporter>();
+    return std::unique_ptr<Reporter>();
   }
 
-  scoped_ptr<ReportRepository> report_repository(new ReportRepository(
+  std::unique_ptr<ReportRepository> report_repository(new ReportRepository(
       data_directory, retry_interval, base::Bind(&base::Time::Now),
       base::Bind(&UploadCrashReport, on_upload_callback, url),
       base::Bind(&HandlePermanentFailure, permanent_failure_directory)));
@@ -183,23 +185,23 @@ scoped_ptr<Reporter> Reporter::Create(
   // It's safe to pass an Unretained reference to |report_repository| because
   // the Reporter instance will shut down |upload_thread| before destroying
   // |report_repository|.
-  scoped_ptr<UploadThread> upload_thread = UploadThread::Create(
+  std::unique_ptr<UploadThread> upload_thread = UploadThread::Create(
       data_directory, std::move(waitable_timer),
       base::Bind(base::IgnoreResult(&ReportRepository::UploadPendingReport),
                  base::Unretained(report_repository.get())));
 
   if (!upload_thread) {
     LOG(ERROR) << "Failed to initialize background upload process.";
-    return scoped_ptr<Reporter>();
+    return std::unique_ptr<Reporter>();
   }
 
-  scoped_ptr<Reporter> instance(
+  std::unique_ptr<Reporter> instance(
       new Reporter(std::move(report_repository), std::move(upload_thread),
                    endpoint_name, data_directory.Append(kTemporarySubdir)));
   if (!instance->service_bridge_.Run()) {
     LOG(ERROR) << "Failed to start the Kasko RPC service using protocol "
                << kRpcProtocol << " and endpoint name " << endpoint_name << ".";
-    return scoped_ptr<Reporter>();
+    return std::unique_ptr<Reporter>();
   }
 
   instance->upload_thread_->Start();
@@ -218,7 +220,7 @@ void Reporter::SendReportForProcess(base::ProcessHandle process_handle,
 }
 
 // static
-void Reporter::Shutdown(scoped_ptr<Reporter> instance) {
+void Reporter::Shutdown(std::unique_ptr<Reporter> instance) {
   instance->upload_thread_->Stop();  // Non-blocking.
   instance->service_bridge_.Stop();  // Blocking.
   instance->upload_thread_->Join();  // Blocking.
@@ -256,8 +258,8 @@ bool Reporter::UploadCrashReport(
   return true;
 }
 
-Reporter::Reporter(scoped_ptr<ReportRepository> report_repository,
-                   scoped_ptr<UploadThread> upload_thread,
+Reporter::Reporter(std::unique_ptr<ReportRepository> report_repository,
+                   std::unique_ptr<UploadThread> upload_thread,
                    const base::string16& endpoint_name,
                    const base::FilePath& temporary_minidump_directory)
     : report_repository_(std::move(report_repository)),
@@ -266,9 +268,9 @@ Reporter::Reporter(scoped_ptr<ReportRepository> report_repository,
       service_bridge_(
           kRpcProtocol,
           endpoint_name,
-          make_scoped_ptr(new ServiceImpl(temporary_minidump_directory_,
-                                          report_repository_.get(),
-                                          upload_thread_.get()))) {
+          base::WrapUnique(new ServiceImpl(temporary_minidump_directory_,
+                                           report_repository_.get(),
+                                           upload_thread_.get()))) {
 }
 
 }  // namespace kasko

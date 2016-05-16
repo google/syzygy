@@ -185,7 +185,7 @@ bool SendHttpUpload(HttpAgent* agent,
   std::string request_body = GenerateMultipartHttpRequestBody(
       parameters, upload_file, file_part_name, boundary);
 
-  scoped_ptr<HttpResponse> response =
+  std::unique_ptr<HttpResponse> response =
       agent->Post(host, port, path, secure, content_type_header, request_body);
   if (!response) {
     LOG(ERROR) << "Request to " << url << " failed.";

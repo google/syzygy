@@ -473,7 +473,7 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
   DCHECK_NE(static_cast<bard::Story::PlotLine*>(nullptr),
             thread_data->plot_line);
 
-  scoped_ptr<bard::EventInterface> evt;
+  std::unique_ptr<bard::EventInterface> evt;
 
   switch (function->second) {
     case EventType::kHeapAllocEvent: {
@@ -554,7 +554,7 @@ bool MemReplayGrinder::ParseDetailedFunctionCall(
     }
   }
 
-  thread_data->plot_line->push_back(std::move(evt));
+  thread_data->plot_line->push_back(evt.release());
   thread_data->timestamps.push_back(data->timestamp);
   return true;
 }
@@ -583,11 +583,11 @@ MemReplayGrinder::ProcessData* MemReplayGrinder::FindOrCreateProcessData(
   if (it != process_data_map_.end() && it->first == process_id)
     return &it->second;
 
-  scoped_ptr<bard::Story> story(new bard::Story());
+  std::unique_ptr<bard::Story> story(new bard::Story());
   it = process_data_map_.insert(it, std::make_pair(process_id, ProcessData()));
   it->second.process_id = process_id;
   it->second.story = story.get();
-  stories_.push_back(std::move(story));
+  stories_.push_back(story.release());
   return &it->second;
 }
 
@@ -610,8 +610,8 @@ void MemReplayGrinder::EnsureLinkedEvent(const ThreadDataIterator& iter) {
   if (iter.event()->type() == EventInterface::kLinkedEvent)
     return;
 
-  bard::events::LinkedEvent* linked_event =
-      new bard::events::LinkedEvent(scoped_ptr<EventInterface>(iter.event()));
+  bard::events::LinkedEvent* linked_event = new bard::events::LinkedEvent(
+      std::unique_ptr<EventInterface>(iter.event()));
   (*iter.plot_line())[iter.index] = linked_event;
 }
 

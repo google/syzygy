@@ -16,9 +16,9 @@
 #define SYZYGY_AGENT_ASAN_REPORTERS_CRASHPAD_REPORTER_H_
 
 #include <windows.h>
+#include <memory>
 
 #include "base/callback.h"
-#include "base/memory/scoped_ptr.h"
 #include "client/crashpad_info.h"
 #include "syzygy/agent/asan/reporter.h"
 
@@ -35,7 +35,7 @@ class CrashpadReporter : public ReporterInterface {
   // the exports of the running executable, and looking for Crashpad's expected
   // exports.
   // @returns an allocated CrashpadReporter
-  static scoped_ptr<CrashpadReporter> Create();
+  static std::unique_ptr<CrashpadReporter> Create();
 
   virtual ~CrashpadReporter() {}
 
@@ -64,8 +64,8 @@ class CrashpadReporter : public ReporterInterface {
   explicit CrashpadReporter(crashpad::CrashpadInfo* crashpad_info);
 
   crashpad::CrashpadInfo* crashpad_info_;
-  scoped_ptr<crashpad::SimpleAddressRangeBag> crash_ranges_;
-  scoped_ptr<crashpad::SimpleStringDictionary> crash_keys_;
+  std::unique_ptr<crashpad::SimpleAddressRangeBag> crash_ranges_;
+  std::unique_ptr<crashpad::SimpleStringDictionary> crash_keys_;
 
   DISALLOW_COPY_AND_ASSIGN(CrashpadReporter);
 };

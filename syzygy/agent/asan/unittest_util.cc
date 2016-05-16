@@ -183,7 +183,7 @@ void TestWithAsanLogger::SetUp() {
   CHECK(logger_stderr_file_);
 
   // Save the environment we found.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   env->GetVar(kSyzygyRpcInstanceIdEnvVar, &old_logger_env_);
 
   // Configure the environment (to pass the instance id to the agent DLL).
@@ -202,7 +202,7 @@ void TestWithAsanLogger::TearDown() {
   StopLogger();
 
   // Restore the environment variable as we found it.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   env->SetVar(kSyzygyRpcInstanceIdEnvVar, old_logger_env_);
 }
 
@@ -280,7 +280,7 @@ void TestWithAsanLogger::ResetLog() {
 
 void TestWithAsanLogger::AppendToLoggerEnv(const std::string &instance) {
   std::string instance_id;
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   env->GetVar(kSyzygyRpcInstanceIdEnvVar, &instance_id);
 
   instance_id.append(";");

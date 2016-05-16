@@ -24,11 +24,11 @@
 namespace kasko {
 
 // static
-scoped_ptr<UploadThread> UploadThread::Create(
+std::unique_ptr<UploadThread> UploadThread::Create(
     const base::FilePath& exclusive_path,
-    scoped_ptr<WaitableTimer> waitable_timer,
+    std::unique_ptr<WaitableTimer> waitable_timer,
     const base::Closure& uploader) {
-  scoped_ptr<UploadThread> instance;
+  std::unique_ptr<UploadThread> instance;
 
   // '\' is the only character not permitted in mutex names.
   base::string16 escaped_path;
@@ -135,7 +135,7 @@ void UploadThread::ThreadImpl::Run() {
 UploadThread::UploadThread(base::win::ScopedHandle mutex,
                            base::win::ScopedHandle stop_event,
                            base::win::ScopedHandle wake_event,
-                           scoped_ptr<WaitableTimer> waitable_timer,
+                           std::unique_ptr<WaitableTimer> waitable_timer,
                            const base::Closure& uploader)
     : mutex_(mutex.Take()),
       stop_event_(stop_event.Take()),

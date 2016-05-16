@@ -277,7 +277,7 @@ class HeatMapSimulationTest : public testing::PELibUnitTest {
     return random_input;
   }
 
-  scoped_ptr<HeatMapSimulation> simulation_;
+  std::unique_ptr<HeatMapSimulation> simulation_;
 
   Time time;
   MockBlockInfo blocks_[9];

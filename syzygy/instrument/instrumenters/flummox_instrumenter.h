@@ -17,13 +17,13 @@
 #ifndef SYZYGY_INSTRUMENT_INSTRUMENTERS_FLUMMOX_INSTRUMENTER_H_
 #define SYZYGY_INSTRUMENT_INSTRUMENTERS_FLUMMOX_INSTRUMENTER_H_
 
+#include <memory>
 #include <set>
 #include <string>
 
 #include "base/command_line.h"
 #include "base/macros.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/instrument/instrumenters/instrumenter_with_relinker.h"
 #include "syzygy/instrument/transforms/filler_transform.h"
 
@@ -94,7 +94,7 @@ class FlummoxInstrumenter : public InstrumenterWithRelinker {
   FlummoxConfig config_;
 
   // The main transformer.
-  scoped_ptr<instrument::transforms::FillerTransform> flummox_transform_;
+  std::unique_ptr<instrument::transforms::FillerTransform> flummox_transform_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(FlummoxInstrumenter);

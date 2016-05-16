@@ -56,9 +56,9 @@ class EntryCallInstrumenter : public InstrumenterWithAgent {
   // @}
 
   // The transforms for this agent.
-  scoped_ptr<instrument::transforms::EntryCallTransform>
+  std::unique_ptr<instrument::transforms::EntryCallTransform>
       entry_thunk_transform_;
-  scoped_ptr<instrument::transforms::ThunkImportReferencesTransform>
+  std::unique_ptr<instrument::transforms::ThunkImportReferencesTransform>
       import_thunk_tx_;
 };
 

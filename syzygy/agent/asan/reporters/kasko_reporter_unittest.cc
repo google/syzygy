@@ -103,7 +103,7 @@ class KaskoReporterTest : public testing::Test {
   }
   // @}
 
-  scoped_ptr<KaskoReporter> reporter_;
+  std::unique_ptr<KaskoReporter> reporter_;
   KaskoReporter::KaskoFunctions kasko_functions_;
   MockKaskoFunctions mock_;
 };

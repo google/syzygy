@@ -514,7 +514,7 @@ bool ChildVisitor::EnumerateChildren(IDiaEnumSymbols* children) {
     HRESULT hr = children->Next(1, child.Receive(), &fetched);
     if (FAILED(hr)) {
       DCHECK_EQ(0U, fetched);
-      DCHECK(child == NULL);
+      DCHECK(child.get() != nullptr);
       LOG(ERROR) << "Unable to iterate children: " << common::LogHr(hr);
       return false;
     }
@@ -522,7 +522,7 @@ bool ChildVisitor::EnumerateChildren(IDiaEnumSymbols* children) {
       break;
 
     DCHECK_EQ(1U, fetched);
-    DCHECK(child != NULL);
+    DCHECK(child.get() != nullptr);
 
     if (!VisitChild(child.get()))
       return false;
@@ -590,7 +590,7 @@ bool LineVisitor::EnumerateCompilandSource(IDiaSymbol* compiland,
     hr = line_numbers->Next(1, line_number.Receive(), &fetched);
     if (FAILED(hr)) {
       DCHECK_EQ(0U, fetched);
-      DCHECK(line_number == NULL);
+      DCHECK(line_number.get() != nullptr);
       LOG(ERROR) << "Unable to iterate line numbers: " << common::LogHr(hr);
       return false;
     }
@@ -598,7 +598,7 @@ bool LineVisitor::EnumerateCompilandSource(IDiaSymbol* compiland,
       break;
 
     DCHECK_EQ(1U, fetched);
-    DCHECK(line_number != NULL);
+    DCHECK(line_number.get() != nullptr);
 
     if (!VisitSourceLine(line_number.get()))
       return false;

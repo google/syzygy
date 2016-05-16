@@ -101,7 +101,7 @@ class ArchiveInstrumenterTest : public testing::PELibUnitTest {
   base::FilePath zlib_lib_;
   base::FilePath output_image_;
 
-  scoped_ptr<base::CommandLine> command_line_;
+  std::unique_ptr<base::CommandLine> command_line_;
 };
 
 }  // namespace

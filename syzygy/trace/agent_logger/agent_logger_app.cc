@@ -141,7 +141,7 @@ bool RunApp(const base::CommandLine& command_line,
             HANDLE interruption_event,
             int* exit_code) {
   DCHECK(exit_code != NULL);
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   CHECK(env != NULL);
 
   // Put |instance_id| as the first value.

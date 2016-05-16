@@ -15,8 +15,8 @@
 #include "syzygy/refinery/analyzers/exception_analyzer.h"
 
 #include <dbghelp.h>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/refinery/analyzers/analyzer_util.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"

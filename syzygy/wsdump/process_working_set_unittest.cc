@@ -15,11 +15,11 @@
 #include "syzygy/wsdump/process_working_set.h"
 
 #include <psapi.h>
+#include <memory>
 #include <set>
 #include <vector>
 
 #include "base/at_exit.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/win/scoped_handle.h"
 #include "gtest/gtest.h"

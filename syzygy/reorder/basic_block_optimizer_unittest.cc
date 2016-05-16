@@ -122,7 +122,7 @@ class BasicBlockOrdererTest : public testing::BasicBlockTest {
   static const size_t kBasicBlockOffsets[kNumCodeBasicBlocks];
 
   IndexedFrequencyInformation entry_counts_;
-  scoped_ptr<TestBasicBlockOrderer> orderer_;
+  std::unique_ptr<TestBasicBlockOrderer> orderer_;
 };
 
 const size_t BasicBlockOrdererTest::kBasicBlockOffsets[kNumCodeBasicBlocks] =

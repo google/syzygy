@@ -324,10 +324,10 @@ class BlockGraphSerializerTest : public ::testing::Test {
 
   // Streams and archives.
   std::vector<uint8_t> v_;
-  scoped_ptr<core::OutStream> os_;
-  scoped_ptr<core::InStream> is_;
-  scoped_ptr<core::OutArchive> oa_;
-  scoped_ptr<core::InArchive> ia_;
+  std::unique_ptr<core::OutStream> os_;
+  std::unique_ptr<core::InStream> is_;
+  std::unique_ptr<core::OutArchive> oa_;
+  std::unique_ptr<core::InArchive> ia_;
 
   static const uint8_t kCode1Data[16];
   static const uint8_t kCode2Data[16];

@@ -16,11 +16,11 @@
 #define SYZYGY_KASKO_REPORTER_H_
 
 #include <map>
+#include <memory>
 
 #include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/process/process_handle.h"
 #include "base/strings/string16.h"
 #include "base/threading/platform_thread.h"
@@ -83,7 +83,7 @@ class Reporter {
   //     single crash report.
   // @param on_upload_callback The callback to notify when an upload completes.
   // @returns a Reporter instance if successful.
-  static scoped_ptr<Reporter> Create(
+  static std::unique_ptr<Reporter> Create(
       const base::string16& endpoint_name,
       const base::string16& url,
       const base::FilePath& data_directory,
@@ -107,7 +107,7 @@ class Reporter {
   // Shuts down and destroys a Reporter process. Blocks until all background
   // tasks have terminated.
   // @param instance The Reporter process instance to shut down.
-  static void Shutdown(scoped_ptr<Reporter> instance);
+  static void Shutdown(std::unique_ptr<Reporter> instance);
 
   // Uploads a crash report containing the minidump at @p minidump_path and
   // @p crash_keys to @p upload_url. Returns true if successful.
@@ -131,16 +131,16 @@ class Reporter {
   // @param endpoint_name The RPC endpoint name to listen on.
   // @param temporary_minidump_directory A directory where minidumps may be
   //     temporarily stored before uploading.
-  Reporter(scoped_ptr<ReportRepository> report_repository,
-           scoped_ptr<UploadThread> upload_thread,
+  Reporter(std::unique_ptr<ReportRepository> report_repository,
+           std::unique_ptr<UploadThread> upload_thread,
            const base::string16& endpoint_name,
            const base::FilePath& temporary_minidump_directory);
 
   // A repository for generated reports.
-  scoped_ptr<ReportRepository> report_repository_;
+  std::unique_ptr<ReportRepository> report_repository_;
 
   // A background upload scheduler.
-  scoped_ptr<UploadThread> upload_thread_;
+  std::unique_ptr<UploadThread> upload_thread_;
 
   // The directory where minidumps will be initially created.
   base::FilePath temporary_minidump_directory_;

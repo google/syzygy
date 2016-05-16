@@ -22,9 +22,9 @@
 namespace kasko {
 
 // static
-scoped_ptr<WaitableTimer> WaitableTimerImpl::Create(
+std::unique_ptr<WaitableTimer> WaitableTimerImpl::Create(
     const base::TimeDelta& interval) {
-  scoped_ptr<WaitableTimer> result;
+  std::unique_ptr<WaitableTimer> result;
   base::win::ScopedHandle handle(::CreateWaitableTimer(NULL, TRUE, NULL));
   if (handle.IsValid())
     result.reset(new WaitableTimerImpl(std::move(handle), interval));

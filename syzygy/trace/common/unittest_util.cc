@@ -14,6 +14,8 @@
 
 #include "syzygy/trace/common/unittest_util.h"
 
+#include <memory>
+
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/process/kill.h"
@@ -92,7 +94,7 @@ void CallTraceService::Stop() {
 void CallTraceService::SetEnvironment() {
   // The instance id needs to be in the environment to be picked up by the
   // client library.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_FALSE(env.get() == NULL);
 
   // Get the existing value.

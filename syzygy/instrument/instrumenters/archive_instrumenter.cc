@@ -92,7 +92,7 @@ bool ArchiveInstrumenter::ProcessingArchive() const {
 bool ArchiveInstrumenter::InstrumentPassthrough() {
   DCHECK_NE(reinterpret_cast<InstrumenterFactoryFunction>(NULL), factory_);
 
-  scoped_ptr<InstrumenterInterface> instrumenter(factory_());
+  std::unique_ptr<InstrumenterInterface> instrumenter(factory_());
   DCHECK_NE(reinterpret_cast<InstrumenterInterface*>(NULL),
             instrumenter.get());
 
@@ -160,7 +160,7 @@ bool ArchiveInstrumenter::InstrumentFile(const base::FilePath& input_path,
   command_line.AppendSwitchPath(kOutputImage, output_path);
 
   // Create, initialize and run an instrumenter.
-  scoped_ptr<InstrumenterInterface> instrumenter(factory_());
+  std::unique_ptr<InstrumenterInterface> instrumenter(factory_());
   DCHECK_NE(reinterpret_cast<InstrumenterInterface*>(NULL),
             instrumenter.get());
   if (!instrumenter->ParseCommandLine(&command_line))

@@ -182,7 +182,7 @@ TEST_F(ArWriterTest, TestArWriterRoundTripWeakSymbols) {
   ScopedVector<DataBuffer> buffers;
   while (reader1.HasNext()) {
     ParsedArFileHeader header;
-    scoped_ptr<DataBuffer> contents(new DataBuffer);
+    std::unique_ptr<DataBuffer> contents(new DataBuffer);
     ASSERT_TRUE(reader1.ExtractNext(&header, contents.get()));
     EXPECT_TRUE(writer.AddFile(header.name, header.timestamp, header.mode,
                                contents.get()));
@@ -207,7 +207,7 @@ TEST_F(ArWriterTest, TestArWriterRoundTripRepeatedFileNames) {
   ScopedVector<DataBuffer> buffers;
   while (reader1.HasNext()) {
     ParsedArFileHeader header;
-    scoped_ptr<DataBuffer> contents(new DataBuffer);
+    std::unique_ptr<DataBuffer> contents(new DataBuffer);
     ASSERT_TRUE(reader1.ExtractNext(&header, contents.get()));
     EXPECT_TRUE(writer.AddFile(header.name, header.timestamp, header.mode,
                                contents.get()));

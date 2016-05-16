@@ -80,12 +80,12 @@
 //      this mechanism must be used in a controlled environment.
 
 #include "syzygy/agent/basic_block_entry/basic_block_entry.h"
+#include <memory>
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/lazy_instance.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/agent/common/agent.h"

@@ -17,6 +17,7 @@
 #include <stdint.h>
 
 #include <map>
+#include <memory>
 #include <vector>
 
 #include "base/bind.h"
@@ -24,7 +25,6 @@
 #include "base/environment.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/time/time.h"
 #include "base/win/scoped_handle.h"
@@ -78,7 +78,7 @@ void InvokeOnUploadProc(
 // returns the specified default. Only allows positive values.
 int64_t GetIntegerFromEnvironment(const char* key_name,
                                   int64_t default_value) {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   std::string value;
   if (!env->GetVar(key_name, &value))
     return default_value;
@@ -201,7 +201,7 @@ void SendReportForProcess(base::ProcessHandle process_handle,
 }
 
 void ShutdownReporter() {
-  scoped_ptr<Reporter> reporter(g_reporter);
+  std::unique_ptr<Reporter> reporter(g_reporter);
   g_reporter = nullptr;
   Reporter::Shutdown(std::move(reporter));
 

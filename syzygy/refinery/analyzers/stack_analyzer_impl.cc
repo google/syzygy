@@ -15,11 +15,11 @@
 #include "syzygy/refinery/analyzers/stack_analyzer_impl.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/numerics/safe_conversions.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_util.h"

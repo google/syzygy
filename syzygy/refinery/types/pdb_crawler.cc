@@ -1414,7 +1414,8 @@ bool PdbCrawler::InitializeForFile(const base::FilePath& path) {
   scoped_refptr<pdb::PdbStream> dbi_stream_raw =
       pdb_file.GetStream(pdb::kDbiStream);
   pdb::DbiStream dbi_stream;
-  if (dbi_stream_raw == nullptr || !dbi_stream.Read(dbi_stream_raw.get())) {
+  if (dbi_stream_raw.get() == nullptr ||
+      !dbi_stream.Read(dbi_stream_raw.get())) {
     LOG(ERROR) << "No Dbi stream.";
     return false;
   }

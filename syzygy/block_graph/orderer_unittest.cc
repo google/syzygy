@@ -57,7 +57,7 @@ class BlockGraphOrdererTest : public testing::Test {
   BlockGraph block_graph_;
   BlockGraph::Block* header_block_;
 
-  scoped_ptr<OrderedBlockGraph> ordered_block_graph_;
+  std::unique_ptr<OrderedBlockGraph> ordered_block_graph_;
 };
 
 }  // namespace

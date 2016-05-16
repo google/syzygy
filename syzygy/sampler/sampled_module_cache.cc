@@ -91,7 +91,7 @@ bool SampledModuleCache::AddModule(HANDLE process,
   // Create or find the process object. We don't actually insert it into the
   // map until everything has succeeded, saving us the cleanup on failure.
   DWORD pid = ::GetProcessId(process);
-  scoped_ptr<Process> scoped_proc;
+  std::unique_ptr<Process> scoped_proc;
   Process* proc = NULL;
   ProcessMap::iterator proc_it = processes_.find(pid);
   if (proc_it == processes_.end()) {
@@ -212,7 +212,8 @@ bool SampledModuleCache::Process::AddModule(HMODULE module_handle,
 
   // Create a new module object. We don't actually insert it into the map until
   // everything has succeeded, saving us the cleanup on failure.
-  scoped_ptr<Module> mod(new Module(this, module_handle, log2_bucket_size));
+  std::unique_ptr<Module> mod(
+      new Module(this, module_handle, log2_bucket_size));
 
   if (!mod->Init())
     return false;

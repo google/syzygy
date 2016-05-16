@@ -15,9 +15,10 @@
 #ifndef SYZYGY_REORDER_REORDER_APP_H_
 #define SYZYGY_REORDER_REORDER_APP_H_
 
+#include <memory>
+
 #include "base/command_line.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_piece.h"
 #include "base/time/time.h"
 #include "syzygy/application/application.h"
@@ -58,7 +59,7 @@ class ReorderApp : public application::AppImplBase {
   // @}
 
   Mode mode_;
-  scoped_ptr<Reorderer::OrderGenerator> order_generator_;
+  std::unique_ptr<Reorderer::OrderGenerator> order_generator_;
 
   // @name Command-line parameters.
   // @{

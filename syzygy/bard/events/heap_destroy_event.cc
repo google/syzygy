@@ -42,7 +42,7 @@ bool HeapDestroyEvent::Save(const EventInterface* const event,
          out_archive->Save(derived_event->trace_succeeded_);
 }
 
-scoped_ptr<HeapDestroyEvent> HeapDestroyEvent::Load(
+std::unique_ptr<HeapDestroyEvent> HeapDestroyEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
@@ -51,7 +51,7 @@ scoped_ptr<HeapDestroyEvent> HeapDestroyEvent::Load(
   BOOL trace_succeeded = 0;
   if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
       in_archive->Load(&trace_succeeded)) {
-    return scoped_ptr<HeapDestroyEvent>(new HeapDestroyEvent(
+    return std::unique_ptr<HeapDestroyEvent>(new HeapDestroyEvent(
         stack_trace_id, reinterpret_cast<HANDLE>(trace_heap), trace_succeeded));
   }
   return nullptr;

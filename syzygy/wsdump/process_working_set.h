@@ -19,10 +19,9 @@
 #define SYZYGY_WSDUMP_PROCESS_WORKING_SET_H_
 
 #include <windows.h>
+#include <memory>
 #include <string>
 #include <vector>
-
-#include "base/memory/scoped_ptr.h"
 
 namespace core {
   template <typename AddressType, typename SizeType, typename ItemType>
@@ -73,7 +72,7 @@ class ProcessWorkingSet {
 
  protected:
   // These are protected members to allow unittesting them.
-  typedef scoped_ptr<PSAPI_WORKING_SET_INFORMATION> ScopedWsPtr;
+  typedef std::unique_ptr<PSAPI_WORKING_SET_INFORMATION> ScopedWsPtr;
   static bool CaptureWorkingSet(HANDLE process, ScopedWsPtr* working_set);
 
   typedef core::AddressSpace<size_t, size_t, std::wstring> ModuleAddressSpace;

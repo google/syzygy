@@ -444,8 +444,8 @@ class DiaBrowser::PatternBuilder {
   SymTagBitSet sym_tags_;
   MatchCallback push_callback_;
   MatchCallback pop_callback_;
-  scoped_ptr<PatternBuilder> pb0_;
-  scoped_ptr<PatternBuilder> pb1_;
+  std::unique_ptr<PatternBuilder> pb0_;
+  std::unique_ptr<PatternBuilder> pb1_;
 
   DISALLOW_COPY_AND_ASSIGN(PatternBuilder);
 };
@@ -474,7 +474,7 @@ bool DiaBrowser::AddPattern(const builder::Proxy& pattern_builder_proxy,
   // room for a special root node at the beginning of the pattern.
   ++pattern_length;
   size_t pattern_id = patterns_.size();
-  scoped_ptr<PatternElement[]> pattern(new PatternElement[pattern_length]);
+  std::unique_ptr<PatternElement[]> pattern(new PatternElement[pattern_length]);
   std::vector<PatternElement*> in_exits(1, pattern.get());
   std::vector<PatternElement*> out_exits;
   pattern_builder.Build(pattern.get(), 1, in_exits, &out_exits);

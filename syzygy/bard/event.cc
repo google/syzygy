@@ -73,7 +73,8 @@ bool EventInterface::Save(const EventInterface* event,
 }
 
 // static
-scoped_ptr<EventInterface> EventInterface::Load(core::InArchive* in_archive) {
+std::unique_ptr<EventInterface> EventInterface::Load(
+    core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
   uint16_t type = 0;

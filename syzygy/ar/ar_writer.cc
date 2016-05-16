@@ -19,11 +19,11 @@
 
 #include <windows.h>
 #include <sys/stat.h>
+#include <memory>
 
 #include "base/logging.h"
 #include "base/sys_byteorder.h"
 #include "base/files/file_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/common/align.h"
@@ -580,7 +580,7 @@ bool ArWriter::AddFile(const base::FilePath& path) {
     return false;
   }
 
-  scoped_ptr<DataBuffer> buffer(new DataBuffer(stat.st_size));
+  std::unique_ptr<DataBuffer> buffer(new DataBuffer(stat.st_size));
   int read = base::ReadFile(
       path,
       reinterpret_cast<char*>(buffer->data()),

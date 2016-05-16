@@ -52,7 +52,7 @@ TEST(AnalysisRunnerTest, BasicSuccessTest) {
   // A runner with 2 analyzers that should run and succeed.
   AnalysisRunner runner;
   for (size_t i = 0; i < 2; ++i) {
-    scoped_ptr<Analyzer> analyzer(
+    std::unique_ptr<Analyzer> analyzer(
         CreateMockAnalyzer(Analyzer::ANALYSIS_COMPLETE));
     runner.AddAnalyzer(std::move(analyzer));
   }
@@ -68,7 +68,8 @@ TEST(AnalysisRunnerTest, BasicSuccessTest) {
 TEST(AnalysisRunnerTest, BasicErrorTest) {
   // A runner with 1 analyzer that should run and return an error.
   AnalysisRunner runner;
-  scoped_ptr<Analyzer> analyzer(CreateMockAnalyzer(Analyzer::ANALYSIS_ERROR));
+  std::unique_ptr<Analyzer> analyzer(
+      CreateMockAnalyzer(Analyzer::ANALYSIS_ERROR));
   runner.AddAnalyzer(std::move(analyzer));
 
   ProcessState process_state;

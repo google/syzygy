@@ -175,12 +175,13 @@ int OptimizeApp::Run() {
   ChainedSubgraphTransforms chains(&profile);
 
   // Declare transforms we may apply.
-  scoped_ptr<BasicBlockReorderingTransform> basic_block_reordering_transform;
-  scoped_ptr<BlockAlignmentTransform> block_alignment_transform;
-  scoped_ptr<FuzzingTransform> fuzzing_transform;
-  scoped_ptr<InliningTransform> inlining_transform;
-  scoped_ptr<PeepholeTransform> peephole_transform;
-  scoped_ptr<UnreachableBlockTransform> unreachable_block_transform;
+  std::unique_ptr<BasicBlockReorderingTransform>
+      basic_block_reordering_transform;
+  std::unique_ptr<BlockAlignmentTransform> block_alignment_transform;
+  std::unique_ptr<FuzzingTransform> fuzzing_transform;
+  std::unique_ptr<InliningTransform> inlining_transform;
+  std::unique_ptr<PeepholeTransform> peephole_transform;
+  std::unique_ptr<UnreachableBlockTransform> unreachable_block_transform;
 
   // If block block reordering is enabled, add it to the chain.
   if (peephole_) {

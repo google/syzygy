@@ -102,12 +102,12 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
   TestIndexedFrequencyDataSerializer serializer;
 
   // It should fail if the outermost JSON object is not a list.
-  scoped_ptr<Value> int_value(new base::FundamentalValue(7));
+  std::unique_ptr<Value> int_value(new base::FundamentalValue(7));
   ASSERT_FALSE(serializer.PopulateFromJsonValue(int_value.get(),
                                                 &frequency_map));
 
   // It should fail if the outermost list does not contain dictionaries.
-  scoped_ptr<ListValue> list_value(new ListValue());
+  std::unique_ptr<ListValue> list_value(new ListValue());
   list_value->Append(new base::FundamentalValue(true));
   ASSERT_FALSE(serializer.PopulateFromJsonValue(list_value.get(),
                                                 &frequency_map));
@@ -147,8 +147,10 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
       "}\n";
 
   std::string error_msg;
-  scoped_ptr<Value> metadata(JSONReader().ReadAndReturnError(
-      kMetadataStr, true, NULL, &error_msg));
+  std::unique_ptr<Value> metadata(
+      JSONReader()
+          .ReadAndReturnError(kMetadataStr, true, NULL, &error_msg)
+          .release());
   EXPECT_EQ(std::string(), error_msg);
   ASSERT_TRUE(metadata.get() != NULL);
   dict_value->Set("metadata", metadata.release());
@@ -165,8 +167,10 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
       "  \"frequency_size\": 4\n"
       "}\n";
 
-  scoped_ptr<Value> information(JSONReader().ReadAndReturnError(
-      kDescriptionStr, true, NULL, &error_msg));
+  std::unique_ptr<Value> information(
+      JSONReader()
+          .ReadAndReturnError(kDescriptionStr, true, NULL, &error_msg)
+          .release());
   EXPECT_EQ(std::string(), error_msg);
   ASSERT_TRUE(information.get() != NULL);
   dict_value->Set("description", information.release());
@@ -189,7 +193,7 @@ TEST_F(IndexedFrequencyDataSerializerTest, PopulateFromJsonValueFails) {
   IndexedFrequencyMap expected_values;
   frequencies->Clear();
   for (int i = 0; i < static_cast<int>(expected_values.size()); ++i) {
-    scoped_ptr<ListValue> entry(new ListValue());
+    std::unique_ptr<ListValue> entry(new ListValue());
     entry->Append(new base::FundamentalValue(i * i));
     entry->Append(new base::FundamentalValue(100 * i));
     entry->Append(new base::FundamentalValue(100 * i + 1));

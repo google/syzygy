@@ -16,9 +16,9 @@
 #define SYZYGY_KASKO_HTTP_AGENT_H_
 
 #include <stdint.h>
+#include <memory>
 #include <string>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 
 namespace kasko {
@@ -40,12 +40,13 @@ class HttpAgent {
   // @param body The request body.
   // @returns NULL if the request fails for any reason. Otherwise, returns an
   //     HttpResponse that may be used to access the HTTP response.
-  virtual scoped_ptr<HttpResponse> Post(const base::string16& host,
-                                        uint16_t port,
-                                        const base::string16& path,
-                                        bool secure,
-                                        const base::string16& extra_headers,
-                                        const std::string& body) = 0;
+  virtual std::unique_ptr<HttpResponse> Post(
+      const base::string16& host,
+      uint16_t port,
+      const base::string16& path,
+      bool secure,
+      const base::string16& extra_headers,
+      const std::string& body) = 0;
 };
 
 }  // namespace kasko

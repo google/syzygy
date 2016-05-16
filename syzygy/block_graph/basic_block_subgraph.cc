@@ -17,8 +17,7 @@
 #include "syzygy/block_graph/basic_block_subgraph.h"
 
 #include <algorithm>
-
-#include "base/memory/scoped_ptr.h"
+#include <memory>
 
 namespace block_graph {
 
@@ -75,7 +74,8 @@ block_graph::BasicCodeBlock* BasicBlockSubGraph::AddBasicCodeBlock(
   DCHECK(!name.empty());
 
   BlockId id = next_block_id_++;
-  scoped_ptr<BasicCodeBlock> new_code_block(new BasicCodeBlock(this, name, id));
+  std::unique_ptr<BasicCodeBlock> new_code_block(
+      new BasicCodeBlock(this, name, id));
   bool inserted = basic_blocks_.insert(new_code_block.get()).second;
   DCHECK(inserted);
 
@@ -89,7 +89,7 @@ block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
   DCHECK(!name.empty());
 
   BlockId id = next_block_id_++;
-  scoped_ptr<BasicDataBlock> new_data_block(
+  std::unique_ptr<BasicDataBlock> new_data_block(
       new BasicDataBlock(this, name, id, data, size));
   bool inserted = basic_blocks_.insert(new_data_block.get()).second;
   DCHECK(inserted);
@@ -99,8 +99,7 @@ block_graph::BasicDataBlock* BasicBlockSubGraph::AddBasicDataBlock(
 
 block_graph::BasicEndBlock* BasicBlockSubGraph::AddBasicEndBlock() {
   BlockId id = next_block_id_++;
-  scoped_ptr<BasicEndBlock> new_end_block(
-      new BasicEndBlock(this, id));
+  std::unique_ptr<BasicEndBlock> new_end_block(new BasicEndBlock(this, id));
   bool inserted = basic_blocks_.insert(new_end_block.get()).second;
   DCHECK(inserted);
 

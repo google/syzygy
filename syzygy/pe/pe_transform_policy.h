@@ -75,7 +75,7 @@ class PETransformPolicy : public block_graph::TransformPolicyInterface {
   // Block IDs are stable, unique and can't be reused. That makes them perfect
   // for a cache ID.
   typedef std::map<const BlockGraph::BlockId, bool> BlockResultCache;
-  scoped_ptr<BlockResultCache> block_result_cache_;
+  std::unique_ptr<BlockResultCache> block_result_cache_;
 
   // Determines whether or not we will allow decomposition of blocks with
   // inline assembly.

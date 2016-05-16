@@ -17,9 +17,9 @@
 #ifndef SYZYGY_BARD_EVENTS_LINKED_EVENT_H_
 #define SYZYGY_BARD_EVENTS_LINKED_EVENT_H_
 
+#include <memory>
 #include <set>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/waitable_event.h"
 #include "syzygy/bard/event.h"
 
@@ -32,7 +32,7 @@ class LinkedEvent : public EventInterface {
  public:
   // Constructor.
   // @param event Wrapped event.
-  explicit LinkedEvent(scoped_ptr<EventInterface> event);
+  explicit LinkedEvent(std::unique_ptr<EventInterface> event);
   ~LinkedEvent() override {}
 
   // @name EventInterface implementation.
@@ -48,7 +48,7 @@ class LinkedEvent : public EventInterface {
   // deps.
   static bool Save(const EventInterface* const event,
                    core::OutArchive* out_archive);
-  static scoped_ptr<LinkedEvent> Load(core::InArchive* in_archive);
+  static std::unique_ptr<LinkedEvent> Load(core::InArchive* in_archive);
   // @}
 
   // Adds a dependency to this event.
@@ -67,10 +67,10 @@ class LinkedEvent : public EventInterface {
  private:
   // This is only allocated if this event becomes an output dependency of any
   // others.
-  scoped_ptr<base::WaitableEvent> waitable_event_;
+  std::unique_ptr<base::WaitableEvent> waitable_event_;
 
   // The event that this LinkedEvent refers to.
-  scoped_ptr<EventInterface> event_;
+  std::unique_ptr<EventInterface> event_;
   // The list of input dependencies. These are events that must be played
   // before this event is played.
   std::vector<LinkedEvent*> deps_;

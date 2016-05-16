@@ -56,8 +56,8 @@ struct TraceIndexedFrequencyDataDeleter {
     delete[] reinterpret_cast<uint8_t*>(ptr);
   }
 };
-typedef scoped_ptr<TraceIndexedFrequencyData,
-                   TraceIndexedFrequencyDataDeleter> ScopedFrequencyData;
+typedef std::unique_ptr<TraceIndexedFrequencyData,
+                        TraceIndexedFrequencyDataDeleter> ScopedFrequencyData;
 
 class TestIndexedFrequencyDataGrinder : public IndexedFrequencyDataGrinder {
  public:

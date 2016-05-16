@@ -157,14 +157,14 @@ bool WriteSyzygyHistoryStream(const base::FilePath& input_path,
                                  name_stream_map,
                                  pdb_file);
 
-  if (history_reader == NULL) {
+  if (history_reader.get() == nullptr) {
     LOG(ERROR) << "Failed to get the history stream.";
     return false;
   }
 
   scoped_refptr<WritablePdbStream> history_writer =
       history_reader->GetWritableStream();
-  DCHECK(history_writer.get() != NULL);
+  DCHECK(history_writer.get() != nullptr);
 
   // Get the metadata.
   Metadata metadata;
@@ -253,7 +253,7 @@ bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
                                  name_stream_map,
                                  pdb_file);
 
-  if (block_graph_reader == NULL) {
+  if (block_graph_reader.get() == nullptr) {
     LOG(ERROR) << "Failed to get the block-graph stream.";
     return false;
   }
@@ -276,7 +276,7 @@ bool WriteSyzygyBlockGraphStream(const PEFile& pe_file,
   core::OutStream* out_stream = &pdb_out_stream;
 
   // If requested, compress the output.
-  scoped_ptr<core::ZOutStream> zip_stream;
+  std::unique_ptr<core::ZOutStream> zip_stream;
   if (compress) {
     zip_stream.reset(new core::ZOutStream(&pdb_out_stream));
     out_stream = zip_stream.get();

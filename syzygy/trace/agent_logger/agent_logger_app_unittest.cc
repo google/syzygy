@@ -16,13 +16,13 @@
 
 #include <psapi.h>
 #include <userenv.h>
+#include <memory>
 
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/path_service.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/strings/string_util.h"

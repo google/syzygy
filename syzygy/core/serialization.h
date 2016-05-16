@@ -105,13 +105,13 @@
 #include <stdint.h>
 #include <iterator>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 
 namespace core {
 
@@ -198,8 +198,8 @@ class InStream {
   // @returns true if the stream is reusable, false if it is errored.
   virtual bool ReadImpl(size_t length, Byte* bytes, size_t* bytes_read) = 0;
 };
-typedef scoped_ptr<OutStream> ScopedOutStreamPtr;
-typedef scoped_ptr<InStream> ScopedInStreamPtr;
+typedef std::unique_ptr<OutStream> ScopedOutStreamPtr;
+typedef std::unique_ptr<InStream> ScopedInStreamPtr;
 
 // A simple OutStream wrapper for FILE pointers.
 class FileOutStream : public OutStream {

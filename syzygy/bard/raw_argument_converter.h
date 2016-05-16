@@ -19,9 +19,9 @@
 #define SYZYGY_BARD_RAW_ARGUMENT_CONVERTER_H_
 
 #include <stdint.h>
+#include <memory>
 
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 
 namespace bard {
 

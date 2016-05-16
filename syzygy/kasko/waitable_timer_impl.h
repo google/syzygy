@@ -17,8 +17,9 @@
 
 #include <windows.h>
 
+#include <memory>
+
 #include "base/macros.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/kasko/waitable_timer.h"
 
@@ -35,7 +36,7 @@ class WaitableTimerImpl : public WaitableTimer {
   // started, it will become signaled after the given interval elapses.
   // @param interval The fixed timer interval.
   // @returns a WaitableTimer instance, or NULL in case of an error.
-  static scoped_ptr<WaitableTimer> Create(const base::TimeDelta& interval);
+  static std::unique_ptr<WaitableTimer> Create(const base::TimeDelta& interval);
 
   ~WaitableTimerImpl() override;
 

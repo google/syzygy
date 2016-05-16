@@ -15,9 +15,10 @@
 #ifndef SYZYGY_KASKO_UPLOAD_THREAD_H_
 #define SYZYGY_KASKO_UPLOAD_THREAD_H_
 
+#include <memory>
+
 #include "base/callback.h"
 #include "base/macros.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/threading/simple_thread.h"
 #include "base/win/scoped_handle.h"
 
@@ -47,9 +48,9 @@ class UploadThread {
   // @param uploader A callback that will be invoked periodically to upload
   //     crash reports, if any.
   // @returns an UploadThread instance if successful.
-  static scoped_ptr<UploadThread> Create(
+  static std::unique_ptr<UploadThread> Create(
       const base::FilePath& exclusive_path,
-      scoped_ptr<WaitableTimer> waitable_timer,
+      std::unique_ptr<WaitableTimer> waitable_timer,
       const base::Closure& uploader);
 
   ~UploadThread();
@@ -102,13 +103,13 @@ class UploadThread {
   UploadThread(base::win::ScopedHandle mutex,
                base::win::ScopedHandle stop_event,
                base::win::ScopedHandle wake_event,
-               scoped_ptr<WaitableTimer> waitable_timer,
+               std::unique_ptr<WaitableTimer> waitable_timer,
                const base::Closure& uploader);
 
   base::win::ScopedHandle mutex_;
   base::win::ScopedHandle stop_event_;
   base::win::ScopedHandle wake_event_;
-  scoped_ptr<WaitableTimer> waitable_timer_;
+  std::unique_ptr<WaitableTimer> waitable_timer_;
   base::Closure uploader_;
   ThreadImpl thread_impl_;
 

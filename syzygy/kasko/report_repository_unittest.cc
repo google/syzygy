@@ -271,7 +271,7 @@ class ReportRepositoryTest : public testing::Test {
   base::Time time_;
 
   // The instance under test.
-  scoped_ptr<ReportRepository> repository_;
+  std::unique_ptr<ReportRepository> repository_;
 
   DISALLOW_COPY_AND_ASSIGN(ReportRepositoryTest);
 };

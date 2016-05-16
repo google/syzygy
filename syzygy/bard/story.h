@@ -65,9 +65,9 @@ class Story {
 
   // Add a PlotLine to the Story. Story takes ownership of all the PlotLines
   // that it stores.
-  // @param event a scoped_ptr to the PlotLine to be added to the Story.
+  // @param event a std::unique_ptr to the PlotLine to be added to the Story.
   // @returns a pointer to the stored PlotLine.
-  PlotLine* AddPlotLine(scoped_ptr<PlotLine> plot_line);
+  PlotLine* AddPlotLine(std::unique_ptr<PlotLine> plot_line);
 
   // Creates a plotline, adding it to this story.
   // @returns a pointer to the created plotline.

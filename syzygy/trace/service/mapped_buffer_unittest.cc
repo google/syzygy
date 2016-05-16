@@ -82,9 +82,9 @@ class MappedBufferTest : public testing::Test {
   // However, I don't need them to be actually running as MappedBuffer
   // interaction with BufferPool is limited to the memory mapped file handle.
   DummyBufferConsumerFactory dummy_buffer_consumer_factory;
-  scoped_ptr<Service> service;
+  std::unique_ptr<Service> service;
   scoped_refptr<Session> session;
-  scoped_ptr<BufferPool> pool;
+  std::unique_ptr<BufferPool> pool;
   Buffer* b1;
   Buffer* b2;
 };

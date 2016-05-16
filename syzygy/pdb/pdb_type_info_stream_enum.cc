@@ -46,7 +46,7 @@ bool TypeInfoEnumerator::Init(PdbStream* stream) {
   // We are making in memory copy of the whole stream.
   scoped_refptr<PdbByteStream> byte_stream = new PdbByteStream();
   byte_stream->Init(stream);
-  stream_ = byte_stream;
+  stream_ = byte_stream.get();
 
   // Reads the header of the stream.
   if (!stream_->Seek(0) || !stream_->Read(&type_info_header_, 1)) {

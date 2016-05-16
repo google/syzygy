@@ -59,7 +59,7 @@ bool ArTransform::Transform() {
   for (size_t i = 0; i < reader.offsets().size(); ++i) {
     // Extract the next file.
     ParsedArFileHeader header;
-    scoped_ptr<DataBuffer> buffer(new DataBuffer());
+    std::unique_ptr<DataBuffer> buffer(new DataBuffer());
     if (!reader.ExtractNext(&header, buffer.get()))
       return false;
 

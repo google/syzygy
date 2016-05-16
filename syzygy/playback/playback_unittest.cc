@@ -85,7 +85,7 @@ class PlaybackTest : public testing::PELibUnitTest {
     return parser_->Init(parse_event_handler_.get());
   }
 
-  scoped_ptr<Playback> playback_;
+  std::unique_ptr<Playback> playback_;
 
   base::FilePath module_path_;
   base::FilePath instrumented_path_;
@@ -95,8 +95,8 @@ class PlaybackTest : public testing::PELibUnitTest {
   block_graph::BlockGraph block_graph_;
   pe::ImageLayout image_layout_;
 
-  scoped_ptr<MockParseEventHandler> parse_event_handler_;
-  scoped_ptr<TestParser> parser_;
+  std::unique_ptr<MockParseEventHandler> parse_event_handler_;
+  std::unique_ptr<TestParser> parser_;
 };
 
 }  // namespace

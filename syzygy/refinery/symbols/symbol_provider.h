@@ -15,10 +15,11 @@
 #ifndef SYZYGY_REFINERY_SYMBOLS_SYMBOL_PROVIDER_H_
 #define SYZYGY_REFINERY_SYMBOLS_SYMBOL_PROVIDER_H_
 
+#include <memory>
+
 #include "base/macros.h"
 #include "base/containers/hash_tables.h"
 #include "base/memory/ref_counted.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 #include "syzygy/pe/pe_file.h"
 #include "syzygy/refinery/core/address.h"

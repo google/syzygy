@@ -48,7 +48,7 @@ bool HeapFreeEvent::Save(const EventInterface* const event,
          out_archive->Save(derived_event->trace_succeeded_);
 }
 
-scoped_ptr<HeapFreeEvent> HeapFreeEvent::Load(
+std::unique_ptr<HeapFreeEvent> HeapFreeEvent::Load(
     core::InArchive* in_archive) {
   uint32_t stack_trace_id = 0;
   uintptr_t trace_heap = 0;
@@ -58,7 +58,7 @@ scoped_ptr<HeapFreeEvent> HeapFreeEvent::Load(
   if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
       in_archive->Load(&flags) && in_archive->Load(&trace_alloc) &&
       in_archive->Load(&trace_succeeded)) {
-    return scoped_ptr<HeapFreeEvent>(new HeapFreeEvent(
+    return std::unique_ptr<HeapFreeEvent>(new HeapFreeEvent(
         stack_trace_id, reinterpret_cast<HANDLE>(trace_heap), flags,
         reinterpret_cast<LPVOID>(trace_alloc), trace_succeeded));
   }

@@ -17,7 +17,8 @@
 #ifndef SYZYGY_CORE_ZSTREAM_H_
 #define SYZYGY_CORE_ZSTREAM_H_
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "syzygy/core/serialization.h"
 
 // Forward declaration.
@@ -80,7 +81,7 @@ class ZOutStream : public OutStream {
 
   bool FlushBuffer();
 
-  scoped_ptr<z_stream_s, z_stream_s_close> zstream_;
+  std::unique_ptr<z_stream_s, z_stream_s_close> zstream_;
   OutStream* out_stream_;
   std::vector<uint8_t> buffer_;
 };
@@ -113,7 +114,7 @@ class ZInStream : public InStream {
     inline void operator()(z_stream_s* zstream) const;
   };
 
-  scoped_ptr<z_stream_s, z_stream_s_close> zstream_;
+  std::unique_ptr<z_stream_s, z_stream_s_close> zstream_;
   InStream* in_stream_;
   std::vector<uint8_t> buffer_;
 };

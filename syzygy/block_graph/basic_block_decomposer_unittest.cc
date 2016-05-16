@@ -17,12 +17,12 @@
 #include "syzygy/block_graph/basic_block_decomposer.h"
 
 #include <algorithm>
+#include <memory>
 #include <vector>
 
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/files/file_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/basic_block_test_util.h"

@@ -14,8 +14,9 @@
 
 #include "syzygy/agent/asan/shadow.h"
 
+#include <memory>
+
 #include "base/rand_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "gtest/gtest.h"
 #include "syzygy/common/align.h"
@@ -515,7 +516,7 @@ TEST_F(ShadowTest, IsLeftOrRightRedzone) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, kAllocSize, 0, 0,
                               &layout));
 
-  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   BlockInfo info = {};
   BlockInitialize(layout, data.get(), false, &info);
 
@@ -630,7 +631,7 @@ TEST_F(ShadowTest, IsBeginningOfBlockBody) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
 
   size_t data_size = l.block_size;
-  scoped_ptr<uint8_t> data(new uint8_t[data_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[data_size]);
 
   BlockInfo block_info = {};
   BlockInitialize(l, data.get(), false, &block_info);
@@ -654,7 +655,7 @@ TEST_F(ShadowTest, IsBeginningOfBlockBodyForBlockOfSizeZero) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 0, 0, 0, &l));
 
   size_t data_size = l.block_size;
-  scoped_ptr<uint8_t> data(new uint8_t[data_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[data_size]);
 
   BlockInfo block_info = {};
   BlockInitialize(l, data.get(), false, &block_info);

@@ -118,8 +118,8 @@ class InstrumenterWithRelinker : public InstrumenterInterface {
  private:
   // They are used as containers for holding policy and relinker objects that
   // are allocated by our default Get* implementations above.
-  scoped_ptr<block_graph::TransformPolicyInterface> policy_object_;
-  scoped_ptr<pe::RelinkerInterface> relinker_object_;
+  std::unique_ptr<block_graph::TransformPolicyInterface> policy_object_;
+  std::unique_ptr<pe::RelinkerInterface> relinker_object_;
 
   DISALLOW_COPY_AND_ASSIGN(InstrumenterWithRelinker);
 };

@@ -52,7 +52,7 @@ bool EnsureCrashpadConnected() {
   initialized = true;
 
   // Get the name of the crashpad endpoint, failing if none exists.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   std::string pipe_name;
   if (!env->GetVar(kCrashpadPipeNameVar, &pipe_name))
     return false;
@@ -71,14 +71,14 @@ bool EnsureCrashpadConnected() {
 }  // namespace
 
 // static
-scoped_ptr<CrashpadReporter> CrashpadReporter::Create() {
+std::unique_ptr<CrashpadReporter> CrashpadReporter::Create() {
   // Create a crashpad reporter only if a crashpad instance is running for this
   // process.
   if (!EnsureCrashpadConnected())
     return nullptr;
 
   auto crashpad_info = crashpad::CrashpadInfo::GetCrashpadInfo();
-  return scoped_ptr<CrashpadReporter>(new CrashpadReporter(crashpad_info));
+  return std::unique_ptr<CrashpadReporter>(new CrashpadReporter(crashpad_info));
 }
 
 const char* CrashpadReporter::GetName() const {
@@ -119,7 +119,7 @@ bool CrashpadReporter::SetMemoryRanges(const MemoryRanges& memory_ranges) {
     return false;
 
   // Create a local bag of address ranges and populate it.
-  scoped_ptr<crashpad::SimpleAddressRangeBag> ranges(
+  std::unique_ptr<crashpad::SimpleAddressRangeBag> ranges(
       new crashpad::SimpleAddressRangeBag());
 
   // Copy over as many ranges as will fit in the constrained

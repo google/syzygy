@@ -149,7 +149,7 @@ class PEHackerApp : public application::AppImplBase {
   base::DictionaryValue variables_;
 
   // The configuration file is parsed as a JSON file and stored here.
-  scoped_ptr<base::DictionaryValue> config_;
+  std::unique_ptr<base::DictionaryValue> config_;
 
   // These house the modules that are being transformed by the pipeline.
   ScopedVector<ImageInfo> image_infos_;

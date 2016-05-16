@@ -51,7 +51,7 @@ bool AsanInstrumenter::InstrumentPrepare() {
 
 bool AsanInstrumenter::InstrumentImpl() {
   // Parse the filter if one was provided.
-  scoped_ptr<pe::ImageFilter> filter;
+  std::unique_ptr<pe::ImageFilter> filter;
   if (!filter_path_.empty()) {
     filter.reset(new pe::ImageFilter());
     if (!filter->LoadFromJSON(filter_path_)) {

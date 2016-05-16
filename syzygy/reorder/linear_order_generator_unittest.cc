@@ -14,7 +14,8 @@
 
 #include "syzygy/reorder/linear_order_generator.h"
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "base/time/time.h"
 #include "gtest/gtest.h"
 #include "syzygy/block_graph/block_graph.h"

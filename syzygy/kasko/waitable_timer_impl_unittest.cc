@@ -15,8 +15,8 @@
 #include "syzygy/kasko/waitable_timer_impl.h"
 
 #include <windows.h>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/time/time.h"
 #include "gtest/gtest.h"
 
@@ -24,7 +24,7 @@ namespace kasko {
 
 TEST(WaitableTimerImplTest, BasicTest) {
   base::Time start = base::Time::Now();
-  scoped_ptr<WaitableTimer> instance =
+  std::unique_ptr<WaitableTimer> instance =
       WaitableTimerImpl::Create(base::TimeDelta::FromMilliseconds(100));
   ASSERT_TRUE(instance);
   instance->Start();

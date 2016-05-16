@@ -23,10 +23,10 @@
 #include "syzygy/trace/service/session.h"
 
 #include <time.h>
+#include <memory>
 
 #include "base/command_line.h"
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
@@ -94,7 +94,7 @@ Session::~Session() {
   //     (the services view of the number of active sessions) to the lifetime
   //     of the objects in memory. Arguably, this applies to all of the above
   //     code.
-  if (buffer_consumer_ != NULL) {
+  if (buffer_consumer_.get() != nullptr) {
     buffer_consumer_->Close(this);
     buffer_consumer_ = static_cast<BufferConsumer*>(NULL);
   }
@@ -334,7 +334,7 @@ bool Session::AllocateBufferPool(
   *out_pool = NULL;
 
   // Allocate the record for the shared memory buffer.
-  scoped_ptr<BufferPool> pool(new BufferPool());
+  std::unique_ptr<BufferPool> pool(new BufferPool());
   if (pool.get() == NULL) {
     LOG(ERROR) << "Failed to allocate shared memory buffer.";
     return false;

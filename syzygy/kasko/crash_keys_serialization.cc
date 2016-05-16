@@ -14,13 +14,14 @@
 
 #include "syzygy/kasko/crash_keys_serialization.h"
 
+#include <memory>
+
 #include "base/logging.h"
 #include "base/values.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 
 namespace kasko {
@@ -35,7 +36,8 @@ bool ReadCrashKeysFromFile(
     return false;
   }
 
-  scoped_ptr<base::Value> value(base::JSONReader::Read(file_contents));
+  std::unique_ptr<base::Value> value(
+      base::JSONReader::Read(file_contents).release());
   base::DictionaryValue* dictionary = nullptr;
   if (!value || !value->GetAsDictionary(&dictionary)) {
     LOG(ERROR) << "The crash keys file contents from " << file_path.value()

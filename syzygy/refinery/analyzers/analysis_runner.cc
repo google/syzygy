@@ -25,7 +25,7 @@ AnalysisRunner::~AnalysisRunner() {
   STLDeleteElements(&analyzers_);
 }
 
-void AnalysisRunner::AddAnalyzer(scoped_ptr<Analyzer> analyzer) {
+void AnalysisRunner::AddAnalyzer(std::unique_ptr<Analyzer> analyzer) {
   DCHECK(analyzer);
   analyzers_.push_back(analyzer.release());
 }

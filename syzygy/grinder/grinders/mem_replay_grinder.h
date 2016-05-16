@@ -20,6 +20,7 @@
 
 #include <deque>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -27,7 +28,6 @@
 #include <utility>
 #include <vector>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/bard/event.h"
 #include "syzygy/bard/story.h"
 #include "syzygy/bard/events/linked_event.h"

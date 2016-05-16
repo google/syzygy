@@ -18,8 +18,8 @@
 #include <tlhelp32.h>
 #include <algorithm>
 #include <map>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_handle.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/core/address_space.h"
@@ -142,7 +142,7 @@ bool ProcessWorkingSet::CaptureWorkingSet(HANDLE process,
     return false;
   }
 
-  scoped_ptr<PSAPI_WORKING_SET_INFORMATION> buffer;
+  std::unique_ptr<PSAPI_WORKING_SET_INFORMATION> buffer;
   DWORD number_of_entries = counters.WorkingSetSize / kPageSize;
   int retries = 5;
   for (;;) {

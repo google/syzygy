@@ -176,7 +176,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   // Consume the body of the trace file.
   uint64_t next_segment =
       AlignUp64(file_header->header_size, file_header->block_size);
-  scoped_ptr<uint8_t> buffer;
+  std::unique_ptr<uint8_t> buffer;
   size_t buffer_size = 0;
   while (true) {
     if (::_fseeki64(trace_file.get(), next_segment, SEEK_SET) != 0) {

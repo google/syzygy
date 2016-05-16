@@ -20,6 +20,7 @@
 
 #include <cstdio>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 #include "base/logging.h"
@@ -114,7 +115,7 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
   scoped_refptr<MsfFileStreamImpl<T>> dir_page_stream(
       new MsfFileStreamImpl<T>(file.get(), num_dir_pages * sizeof(uint32_t),
                                header.root_pages, header.page_size));
-  scoped_ptr<uint32_t[]> dir_pages(new uint32_t[num_dir_pages]);
+  std::unique_ptr<uint32_t[]> dir_pages(new uint32_t[num_dir_pages]);
   if (dir_pages.get() == NULL) {
     LOG(ERROR) << "Failed to allocate directory pages.";
     return false;

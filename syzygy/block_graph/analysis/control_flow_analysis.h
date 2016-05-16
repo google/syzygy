@@ -107,7 +107,7 @@ class ControlFlowAnalysis {
 
   // Forward declaration.
   class StructuralNode;
-  typedef scoped_ptr<StructuralNode> StructuralTree;
+  typedef std::unique_ptr<StructuralNode> StructuralTree;
 
   // Constructor.
   ControlFlowAnalysis() { }

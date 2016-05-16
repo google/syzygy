@@ -99,7 +99,7 @@ namespace kasko {
 
 ServiceBridge::ServiceBridge(const base::string16& protocol,
                              const base::string16& endpoint,
-                             scoped_ptr<Service> service)
+                             std::unique_ptr<Service> service)
     : protocol_(protocol),
       endpoint_(endpoint),
       service_(std::move(service)),
@@ -136,7 +136,7 @@ bool ServiceBridge::Run() {
     LOG(ERROR) << "Failed to init RPC protocol: " << ::common::LogWe(status)
                << ".";
   } else {
-    scoped_ptr<common::rpc::ScopedRpcInterfaceRegistration>
+    std::unique_ptr<common::rpc::ScopedRpcInterfaceRegistration>
         interface_registration(new common::rpc::ScopedRpcInterfaceRegistration(
             KaskoService_Kasko_v1_0_s_ifspec));
 

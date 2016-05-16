@@ -151,9 +151,8 @@ bool StackFrameAnalyzer::AnalyzeFrame(StackFrameRecordPtr frame_record,
 bool StackFrameAnalyzer::SetSymbolInformation(
     Address instruction_pointer,
     const ProcessAnalysis& process_analysis) {
-  DCHECK(process_analysis.process_state() != nullptr);
-  DCHECK(process_analysis.symbol_provider() != nullptr);
-  DCHECK(process_analysis.dia_symbol_provider() != nullptr);
+  DCHECK(process_analysis.symbol_provider().get() != nullptr);
+  DCHECK(process_analysis.dia_symbol_provider().get() != nullptr);
 
   dia_session_.Release();
   typename_index_ = nullptr;

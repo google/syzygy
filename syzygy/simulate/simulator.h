@@ -80,11 +80,11 @@ class Simulator : public trace::parser::ParseEventHandlerImpl {
 
   // A Playback, which would decompose the given image and call the On...
   // functions on this Simulator.
-  scoped_ptr<Playback> playback_;
+  std::unique_ptr<Playback> playback_;
 
   // The call-trace log file parser. This can be preset to a custom parser
   // prior to calling Simulator.
-  scoped_ptr<Parser> parser_;
+  std::unique_ptr<Parser> parser_;
 
   // A pointer to a simulation, that is to be used.
   SimulationEventHandler* simulation_;

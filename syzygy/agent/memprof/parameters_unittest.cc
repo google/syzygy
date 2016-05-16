@@ -58,7 +58,7 @@ TEST(ParametersTest, ParseMaximalCommandLine) {
 }
 
 TEST(ParametersTest, ParseNoEnvironment) {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(nullptr, env.get());
   env->UnSetVar(kParametersEnvVar);
 
@@ -71,7 +71,7 @@ TEST(ParametersTest, ParseNoEnvironment) {
 }
 
 TEST(ParametersTest, ParseEmptyEnvironment) {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(nullptr, env.get());
   env->SetVar(kParametersEnvVar, "");
 
@@ -84,7 +84,7 @@ TEST(ParametersTest, ParseEmptyEnvironment) {
 }
 
 TEST(ParametersTest, ParseInvalidEnvironment) {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(nullptr, env.get());
   env->SetVar(kParametersEnvVar, "--stack-trace-tracking=foo");
 
@@ -94,7 +94,7 @@ TEST(ParametersTest, ParseInvalidEnvironment) {
 }
 
 TEST(ParametersTest, ParseValidEnvironment) {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(nullptr, env.get());
   env->SetVar(kParametersEnvVar,
               "--stack-trace-tracking=emit --serialize-timestamps");

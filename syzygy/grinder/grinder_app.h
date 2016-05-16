@@ -53,7 +53,7 @@ class GrinderApp : public application::AppImplBase {
   std::vector<base::FilePath> trace_files_;
   base::FilePath output_file_;
   Mode mode_;
-  scoped_ptr<GrinderInterface> grinder_;
+  std::unique_ptr<GrinderInterface> grinder_;
 };
 
 }  // namespace grinder

@@ -17,13 +17,13 @@
 #include <windows.h>
 #include <winhttp.h>
 
+#include <memory>
 #include <string>
 
 #include "base/file_version_info.h"
 #include "base/logging.h"
 #include "base/macros.h"
 #include "base/sys_info.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 #include "base/win/scoped_handle.h"
 #include "base/win/windows_version.h"
@@ -212,13 +212,14 @@ class HttpResponseImpl : public HttpResponse {
   // Issues the request defined by its parameters and, if successful, returns an
   // HttpResponse that may be used to access the response. See HttpAgent::Post
   // for a description of the parameters.
-  static scoped_ptr<HttpResponse> Create(const base::string16& user_agent,
-                                         const base::string16& host,
-                                         uint16_t port,
-                                         const base::string16& path,
-                                         bool secure,
-                                         const base::string16& extra_headers,
-                                         const std::string& body);
+  static std::unique_ptr<HttpResponse> Create(
+      const base::string16& user_agent,
+      const base::string16& host,
+      uint16_t port,
+      const base::string16& path,
+      bool secure,
+      const base::string16& extra_headers,
+      const std::string& body);
 
   // HttpResponse implementation.
   bool GetStatusCode(uint16_t* status_code) override;
@@ -252,7 +253,7 @@ class HttpResponseImpl : public HttpResponse {
 HttpResponseImpl::~HttpResponseImpl() {}
 
 // static
-scoped_ptr<HttpResponse> HttpResponseImpl::Create(
+std::unique_ptr<HttpResponse> HttpResponseImpl::Create(
     const base::string16& user_agent,
     const base::string16& host,
     uint16_t port,
@@ -263,11 +264,11 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
   // Retrieve the user's proxy configuration.
   AutoWinHttpProxyConfig proxy_config;
   if (!proxy_config.Load())
-    return scoped_ptr<HttpResponse>();
+    return std::unique_ptr<HttpResponse>();
 
   // Tentatively create an instance. We will return it if we are able to
   // successfully initialize it.
-  scoped_ptr<HttpResponseImpl> instance(new HttpResponseImpl);
+  std::unique_ptr<HttpResponseImpl> instance(new HttpResponseImpl);
 
   // Open a WinHTTP session.
   instance->session_.Set(
@@ -275,7 +276,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
                     proxy_config.proxy(), proxy_config.proxy_bypass(), 0));
   if (!instance->session_.IsValid()) {
     LOG(ERROR) << "WinHttpOpen() failed: " << ::common::LogWe();
-    return scoped_ptr<HttpResponse>();
+    return std::unique_ptr<HttpResponse>();
   }
 
   // Look up URL-specific proxy settings. If this fails, we will fall back to
@@ -290,7 +291,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
   if (!instance->connection_.IsValid()) {
     LOG(ERROR) << "WinHttpConnect() failed with host " << host << " and port "
                << port << ": " << ::common::LogWe();
-    return scoped_ptr<HttpResponse>();
+    return std::unique_ptr<HttpResponse>();
   }
 
   // Initiate a request. This doesn't actually send the request yet.
@@ -303,7 +304,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
   if (!instance->connection_.IsValid()) {
     LOG(ERROR) << "WinHttpConnect() failed with host " << host << " and port "
                << port << ": " << ::common::LogWe();
-    return scoped_ptr<HttpResponse>();
+    return std::unique_ptr<HttpResponse>();
   }
 
   // Disable cookies and authentication. This request should be completely
@@ -315,7 +316,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
     LOG(ERROR) << "WinHttpSetOption(WINHTTP_DISABLE_COOKIES | "
                   "WINHTTP_DISABLE_AUTHENTICATION) failed: "
                << ::common::LogWe();
-    return scoped_ptr<HttpResponse>();
+    return std::unique_ptr<HttpResponse>();
   }
 
   // If this URL is configured to use a proxy, set that up now.
@@ -325,7 +326,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
                             sizeof(*url_proxy_config.get()))) {
       LOG(ERROR) << "WinHttpSetOption(WINHTTP_OPTION_PROXY) failed: "
                  << ::common::LogWe();
-      return scoped_ptr<HttpResponse>();
+      return std::unique_ptr<HttpResponse>();
     }
   }
 
@@ -337,7 +338,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
                             static_cast<DWORD>(body.size()), NULL)) {
     LOG(ERROR) << "Failed to send HTTP request to host " << host << " and port "
                << port << ": " << ::common::LogWe();
-    return scoped_ptr<HttpResponse>();
+    return std::unique_ptr<HttpResponse>();
   }
 
   // This seems to read at least all headers from the response. The remainder of
@@ -345,7 +346,7 @@ scoped_ptr<HttpResponse> HttpResponseImpl::Create(
   if (!::WinHttpReceiveResponse(instance->request_.Get(), 0)) {
     LOG(ERROR) << "Failed to complete HTTP request to host " << host
                << " and port " << port << ": " << ::common::LogWe();
-    return scoped_ptr<HttpResponse>();
+    return std::unique_ptr<HttpResponse>();
   }
 
   return std::move(instance);
@@ -456,7 +457,7 @@ bool HttpResponseImpl::QueryHeader(DWORD info_level,
 base::string16 GetWinHttpVersion() {
   HMODULE win_http_module = nullptr;
   if (::GetModuleHandleEx(0, L"winhttp.dll", &win_http_module)) {
-    scoped_ptr<FileVersionInfo> win_http_module_version_info(
+    std::unique_ptr<FileVersionInfo> win_http_module_version_info(
         FileVersionInfo::CreateFileVersionInfoForModule(win_http_module));
     ::FreeLibrary(win_http_module);
     if (win_http_module_version_info)
@@ -502,7 +503,7 @@ HttpAgentImpl::HttpAgentImpl(const base::string16& product_name,
 
 HttpAgentImpl::~HttpAgentImpl() {}
 
-scoped_ptr<HttpResponse> HttpAgentImpl::Post(
+std::unique_ptr<HttpResponse> HttpAgentImpl::Post(
     const base::string16& host,
     uint16_t port,
     const base::string16& path,

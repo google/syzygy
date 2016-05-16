@@ -49,7 +49,7 @@ bool HeapSizeEvent::Save(const EventInterface* const event,
          out_archive->Save(derived_event->trace_size_);
 }
 
-scoped_ptr<HeapSizeEvent> HeapSizeEvent::Load(
+std::unique_ptr<HeapSizeEvent> HeapSizeEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
@@ -61,7 +61,7 @@ scoped_ptr<HeapSizeEvent> HeapSizeEvent::Load(
   if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
       in_archive->Load(&flags) && in_archive->Load(&trace_alloc) &&
       in_archive->Load(&trace_size)) {
-    return scoped_ptr<HeapSizeEvent>(new HeapSizeEvent(
+    return std::unique_ptr<HeapSizeEvent>(new HeapSizeEvent(
         stack_trace_id, reinterpret_cast<HANDLE>(trace_heap), flags,
         reinterpret_cast<LPVOID>(trace_alloc), trace_size));
   }

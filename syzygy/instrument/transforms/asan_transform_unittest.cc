@@ -237,7 +237,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
   std::map<HookMapEntryKey, BlockGraph::Block*> hooks_check_access_;
   BasicBlockSubGraph subgraph_;
   BasicCodeBlock* basic_block_;
-  scoped_ptr<block_graph::BasicBlockAssembler> bb_asm_;
+  std::unique_ptr<block_graph::BasicBlockAssembler> bb_asm_;
   base::FilePath relinked_path_;
 };
 

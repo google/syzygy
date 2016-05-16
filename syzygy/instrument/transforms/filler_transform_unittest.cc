@@ -14,9 +14,9 @@
 
 #include "syzygy/instrument/transforms/filler_transform.h"
 
+#include <memory>
 #include <vector>
 
-#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/assm/assembler_base.h"
 #include "syzygy/block_graph/basic_block.h"
@@ -87,7 +87,7 @@ class FillerBasicBlockTransformTest : public testing::Test {
   }
 
  protected:
-  scoped_ptr<BasicBlock::Instructions> instructions_;
+  std::unique_ptr<BasicBlock::Instructions> instructions_;
 };
 
 class TestFillerTransform : public FillerTransform {

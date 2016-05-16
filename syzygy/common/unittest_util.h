@@ -17,6 +17,7 @@
 #ifndef SYZYGY_COMMON_UNITTEST_UTIL_H_
 #define SYZYGY_COMMON_UNITTEST_UTIL_H_
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -24,7 +25,6 @@
 #include "base/logging.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 
 namespace testing {
@@ -158,7 +158,7 @@ class ScopedEnvironmentVariable {
   bool should_restore_;
   std::string restore_value_;
 
-  scoped_ptr<base::Environment> env_;
+  std::unique_ptr<base::Environment> env_;
 
   DISALLOW_COPY_AND_ASSIGN(ScopedEnvironmentVariable);
 };

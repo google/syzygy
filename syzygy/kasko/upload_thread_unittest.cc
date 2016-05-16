@@ -14,6 +14,8 @@
 
 #include "syzygy/kasko/upload_thread.h"
 
+#include <memory>
+
 #include "base/bind.h"
 #include "base/bind_helpers.h"
 #include "base/callback.h"
@@ -21,7 +23,7 @@
 #include "base/macros.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/memory/scoped_ptr.h"
+#include "base/memory/ptr_util.h"
 #include "base/message_loop/message_loop.h"
 #include "base/synchronization/lock.h"
 #include "base/synchronization/waitable_event.h"
@@ -101,14 +103,14 @@ class TestInstance {
     exclusive_path_dir_.CreateUniqueTempDir();
     timer_ = new WaitableTimerMock();
     instance_ = UploadThread::Create(exclusive_path_dir_.path(),
-                                     make_scoped_ptr(timer_), uploader);
+                                     base::WrapUnique(timer_), uploader);
   }
 
   // Creates an UploadThread that shares the same exclusive path as |other|.
   TestInstance(const TestInstance& other, const base::Closure& uploader) {
     timer_ = new WaitableTimerMock();
     instance_ = UploadThread::Create(other.exclusive_path_dir_.path(),
-                                     make_scoped_ptr(timer_), uploader);
+                                     base::WrapUnique(timer_), uploader);
   }
 
   ~TestInstance() {}
@@ -119,7 +121,7 @@ class TestInstance {
  private:
   // The exclusive path.
   base::ScopedTempDir exclusive_path_dir_;
-  scoped_ptr<UploadThread> instance_;
+  std::unique_ptr<UploadThread> instance_;
   WaitableTimerMock* timer_;
 
   DISALLOW_COPY_AND_ASSIGN(TestInstance);

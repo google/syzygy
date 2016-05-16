@@ -73,7 +73,7 @@ typedef Instruction::BasicBlockReferenceMap BasicBlockReferenceMap;
 typedef BasicBlockSubGraph::BBCollection BBCollection;
 typedef BasicBlock::Instructions Instructions;
 typedef BlockGraph::Offset Offset;
-typedef scoped_ptr<BasicBlockSubGraph> ScopedSubgraph;
+typedef std::unique_ptr<BasicBlockSubGraph> ScopedSubgraph;
 
 enum MatchKind {
   kInvalidMatch,

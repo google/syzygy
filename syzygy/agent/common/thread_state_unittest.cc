@@ -171,7 +171,7 @@ class ThreadStateTest : public testing::Test {
   base::Thread worker_thread_;
 
   // The thread state manager under test.
-  scoped_ptr<TestThreadStateManager> manager_;
+  std::unique_ptr<TestThreadStateManager> manager_;
 };
 
 }  // namespace

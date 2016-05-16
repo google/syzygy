@@ -14,11 +14,12 @@
 
 #include "syzygy/agent/asan/rtl_utils.h"
 
+#include <memory>
+
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/logging.h"
 #include "base/debug/alias.h"
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/heap_checker.h"
 #include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/shadow.h"

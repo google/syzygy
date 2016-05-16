@@ -15,6 +15,7 @@
 #include "syzygy/kasko/crash_keys_serialization.h"
 
 #include <map>
+#include <memory>
 
 #include "base/values.h"
 #include "base/files/file_path.h"
@@ -22,7 +23,6 @@
 #include "base/files/scoped_temp_dir.h"
 #include "base/json/json_reader.h"
 #include "base/json/json_writer.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 #include "gtest/gtest.h"
 
@@ -62,7 +62,7 @@ TEST(CrashKeysSerializationTest, InvalidFile) {
 
 TEST(CrashKeysSerializationTest, IllegalDictionaryContents) {
   base::DictionaryValue dictionary;
-  scoped_ptr<base::ListValue> list(new base::ListValue);
+  std::unique_ptr<base::ListValue> list(new base::ListValue);
   list->AppendString("value 1");
   dictionary.Set("name", list.release());
   base::ScopedTempDir temp_dir;

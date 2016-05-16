@@ -56,7 +56,7 @@ class InstrumentApp : public application::AppImplBase {
   void ParseDeprecatedMode(const base::CommandLine* command_line);
 
   // The instrumenter we delegate to.
-  scoped_ptr<InstrumenterInterface> instrumenter_;
+  std::unique_ptr<InstrumenterInterface> instrumenter_;
 };
 
 }  // namespace instrument

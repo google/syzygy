@@ -54,8 +54,8 @@ void HotPatchingAsanRuntime::SetUp() {
 
 void HotPatchingAsanRuntime::SetUpLogger() {
   // Setup variables we're going to use.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  scoped_ptr<AsanLogger> client(new AsanLogger);
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<AsanLogger> client(new AsanLogger);
   CHECK(env.get() != NULL);
   CHECK(client.get() != NULL);
 

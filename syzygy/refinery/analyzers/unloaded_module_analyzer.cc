@@ -15,8 +15,8 @@
 #include "syzygy/refinery/analyzers/unloaded_module_analyzer.h"
 
 #include <dbghelp.h>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"
 
 namespace refinery {

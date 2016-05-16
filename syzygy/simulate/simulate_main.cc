@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
   if (trace_paths.empty())
     return Usage("You must specify at least one trace file.");
 
-  scoped_ptr<SimulationEventHandler> simulation;
+  std::unique_ptr<SimulationEventHandler> simulation;
 
   if (simulate_method == "pagefault") {
     PageFaultSimulation* page_fault_simulation = new PageFaultSimulation();

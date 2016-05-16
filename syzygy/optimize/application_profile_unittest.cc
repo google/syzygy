@@ -266,7 +266,7 @@ TEST_F(ApplicationProfileTest, ComputeSubGraphProfile) {
   ASSERT_TRUE(decomposer.Decompose());
 
   // Build subgraph profile.
-  scoped_ptr<SubGraphProfile> subgraph_profile;
+  std::unique_ptr<SubGraphProfile> subgraph_profile;
   ASSERT_NO_FATAL_FAILURE(
       app.ComputeSubGraphProfile(&subgraph, &subgraph_profile));
 

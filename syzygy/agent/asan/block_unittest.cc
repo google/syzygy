@@ -14,11 +14,11 @@
 
 #include "syzygy/agent/asan/block.h"
 
+#include <memory>
 #include <set>
 
 #include "windows.h"
 
-#include "base/memory/scoped_ptr.h"
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/page_protection_helpers.h"
 #include "syzygy/agent/asan/runtime.h"
@@ -183,7 +183,7 @@ TEST_F(BlockTest, EndToEnd) {
   BlockInfo block_info = {};
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 4, 0, 0, &layout));
-  scoped_ptr<uint8_t> block_data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t> block_data(new uint8_t[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
   ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data.get(), false, &block_info);
@@ -224,7 +224,7 @@ TEST_F(BlockTest, GetHeaderFromBody) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
-  scoped_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
 
   // First try navigating a block without header padding.
@@ -299,7 +299,7 @@ TEST_F(BlockTest, ConvertBlockInfo) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
-  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
 
   BlockInfo expanded = {};
@@ -326,7 +326,7 @@ TEST_F(BlockTest, BlockInfoFromMemory) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
-  scoped_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
 
   // First recover a block without header padding.
@@ -393,7 +393,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10,
       4 * sizeof(BlockHeader), 0, &layout));
 
-  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
 
   BlockInfo info = {};
@@ -436,7 +436,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
-  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   BlockInfo block_info = {};
   BlockInitialize(layout, data.get(), true, &block_info);
 
@@ -450,7 +450,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryForNestedBlock) {
 TEST_F(BlockTest, ChecksumWorksForAllStates) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
-  scoped_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
   BlockInfo info = {};
   BlockInitialize(layout, data.get(), false, &info);

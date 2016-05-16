@@ -17,12 +17,12 @@
 #include <algorithm>
 #include <cstring>
 #include <map>
+#include <memory>
 #include <queue>
 #include <string>
 #include <vector>
 
 #include "base/macros.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_tokenizer.h"
 #include "base/strings/string_util.h"
@@ -56,22 +56,22 @@ class MockHttpAgent : public HttpAgent {
   ~MockHttpAgent() override;
 
   Expectations& expectations();
-  void set_response(scoped_ptr<HttpResponse> response);
+  void set_response(std::unique_ptr<HttpResponse> response);
   void set_expect_invocation(bool expect_invocation) {
     invoked_ = !expect_invocation;
   }
 
   // HttpAgent implementation
-  scoped_ptr<HttpResponse> Post(const base::string16& host,
-                                uint16_t port,
-                                const base::string16& path,
-                                bool secure,
-                                const base::string16& extra_headers,
-                                const std::string& body) override;
+  std::unique_ptr<HttpResponse> Post(const base::string16& host,
+                                     uint16_t port,
+                                     const base::string16& path,
+                                     bool secure,
+                                     const base::string16& extra_headers,
+                                     const std::string& body) override;
 
  private:
   Expectations expectations_;
-  scoped_ptr<HttpResponse> response_;
+  std::unique_ptr<HttpResponse> response_;
   bool invoked_;
 
   DISALLOW_COPY_AND_ASSIGN(MockHttpAgent);
@@ -88,11 +88,11 @@ MockHttpAgent::Expectations& MockHttpAgent::expectations() {
   return expectations_;
 }
 
-void MockHttpAgent::set_response(scoped_ptr<HttpResponse> response) {
+void MockHttpAgent::set_response(std::unique_ptr<HttpResponse> response) {
   response_ = std::move(response);
 }
 
-scoped_ptr<HttpResponse> MockHttpAgent::Post(
+std::unique_ptr<HttpResponse> MockHttpAgent::Post(
     const base::string16& host,
     uint16_t port,
     const base::string16& path,
@@ -323,7 +323,7 @@ TEST_F(UploadTest, PostFails) {
 TEST_F(UploadTest, PostSucceeds) {
   const std::string kResponse = "hello world";
 
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::vector<std::string> data;
   data.push_back(kResponse);
   data.push_back(std::string());
@@ -340,7 +340,7 @@ TEST_F(UploadTest, PostSucceeds) {
 TEST_F(UploadTest, PostSucceedsSecure) {
   const std::string kResponse = "hello world";
 
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::vector<std::string> data;
   data.push_back(kResponse);
   data.push_back(std::string());
@@ -381,7 +381,7 @@ TEST_F(UploadTest, BadScheme) {
 TEST_F(UploadTest, GetStatusFails) {
   const std::string kResponse = "hello world";
 
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   mock_response->set_status_code(false, 500);
   agent().set_response(std::move(mock_response));
 
@@ -391,7 +391,7 @@ TEST_F(UploadTest, GetStatusFails) {
 }
 
 TEST_F(UploadTest, PostSucceedsInMultiplePackets) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   const std::string kResponse1 = "hello ";
   const std::string kResponse2 = "world";
   std::vector<std::string> data;
@@ -409,7 +409,7 @@ TEST_F(UploadTest, PostSucceedsInMultiplePackets) {
 }
 
 TEST_F(UploadTest, PostFailsInMultiplePackets) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   const std::string kResponse1 = "hello ";
   const std::string kResponse2 = "world";
   std::vector<std::string> data;
@@ -426,7 +426,7 @@ TEST_F(UploadTest, PostFailsInMultiplePackets) {
 }
 
 TEST_F(UploadTest, TooMuchData) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::vector<std::string> data;
   data.push_back(std::string(8192, 'x'));
   data.push_back(std::string());
@@ -439,7 +439,7 @@ TEST_F(UploadTest, TooMuchData) {
 }
 
 TEST_F(UploadTest, CorrectContentLength) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -456,7 +456,7 @@ TEST_F(UploadTest, CorrectContentLength) {
 }
 
 TEST_F(UploadTest, UnderContentLength) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -471,7 +471,7 @@ TEST_F(UploadTest, UnderContentLength) {
 }
 
 TEST_F(UploadTest, OverContentLength) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -486,7 +486,7 @@ TEST_F(UploadTest, OverContentLength) {
 }
 
 TEST_F(UploadTest, OverContentLengthTwoPackets) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -502,7 +502,7 @@ TEST_F(UploadTest, OverContentLengthTwoPackets) {
 }
 
 TEST_F(UploadTest, CorrectContentTypeAndCharset) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -519,7 +519,7 @@ TEST_F(UploadTest, CorrectContentTypeAndCharset) {
 }
 
 TEST_F(UploadTest, UnsupportedCharset) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   unsigned char kResponseArray[] = {'0', '1', '2', '3', 128, 0};
   std::string kResponse = reinterpret_cast<char*>(kResponseArray);
   std::vector<std::string> data;
@@ -536,7 +536,7 @@ TEST_F(UploadTest, UnsupportedCharset) {
 }
 
 TEST_F(UploadTest, ASCIISubsetOfLatin1) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   char kResponseArray[] = {'0', '1', '2', '3', 127, 0};
   std::string kResponse = kResponseArray;
   std::vector<std::string> data;
@@ -555,7 +555,7 @@ TEST_F(UploadTest, ASCIISubsetOfLatin1) {
 }
 
 TEST_F(UploadTest, UnsupportedContentType) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "<html><body>0123456789</body></html>";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -570,7 +570,7 @@ TEST_F(UploadTest, UnsupportedContentType) {
 }
 
 TEST_F(UploadTest, TextLabeledAsHTML) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -587,7 +587,7 @@ TEST_F(UploadTest, TextLabeledAsHTML) {
 }
 
 TEST_F(UploadTest, CorrectContentTypeNoCharset) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   std::string kResponse = "0123456789";
   std::vector<std::string> data;
   data.push_back(kResponse);
@@ -604,7 +604,7 @@ TEST_F(UploadTest, CorrectContentTypeNoCharset) {
 }
 
 TEST_F(UploadTest, WideResponse) {
-  scoped_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
+  std::unique_ptr<MockHttpResponse> mock_response(new MockHttpResponse);
   base::string16 kResponse = L"0123456789";
   std::vector<std::string> data;
   data.push_back(std::string(reinterpret_cast<const char*>(kResponse.data()),

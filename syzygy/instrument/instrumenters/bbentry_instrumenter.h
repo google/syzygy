@@ -56,11 +56,11 @@ class BasicBlockEntryInstrumenter : public InstrumenterWithAgent {
   // @}
 
   // The transform for this agent.
-  scoped_ptr<instrument::transforms::BasicBlockEntryHookTransform>
+  std::unique_ptr<instrument::transforms::BasicBlockEntryHookTransform>
       bbentry_transform_;
 
   // The PDB mutator for this agent.
-  scoped_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
+  std::unique_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
       add_bb_addr_stream_mutator_;
 };
 

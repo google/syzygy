@@ -68,9 +68,9 @@ class LinkedEventTest : public testing::Test {
   // address.
   LinkedEventTest()
       : empty_backdrop_(reinterpret_cast<void*>(0xBAADF00D)),
-        linked_event1_(scoped_ptr<EventInterface>(new TestEvent())),
-        linked_event2_(scoped_ptr<EventInterface>(new TestEvent())),
-        linked_event3_(scoped_ptr<EventInterface>(new TestEvent())),
+        linked_event1_(std::unique_ptr<EventInterface>(new TestEvent())),
+        linked_event2_(std::unique_ptr<EventInterface>(new TestEvent())),
+        linked_event3_(std::unique_ptr<EventInterface>(new TestEvent())),
         runner1_(&linked_event1_, empty_backdrop_),
         runner2_(&linked_event2_, empty_backdrop_),
         runner3_(&linked_event3_, empty_backdrop_) {}

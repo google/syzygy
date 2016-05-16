@@ -15,12 +15,12 @@
 #include <Windows.h>  // NOLINT
 #include <DbgHelp.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
 #include "base/debug/alias.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/threading/platform_thread.h"
 #include "base/win/scoped_com_initializer.h"
 #include "gtest/gtest.h"
@@ -122,7 +122,7 @@ class StackAndFrameAnalyzersTest : public testing::Test {
       return false;
 
     AnalysisRunner runner;
-    scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
+    std::unique_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
     runner.AddAnalyzer(std::move(analyzer));
     analyzer.reset(new refinery::ThreadAnalyzer());
     runner.AddAnalyzer(std::move(analyzer));

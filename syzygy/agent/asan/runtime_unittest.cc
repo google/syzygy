@@ -15,12 +15,12 @@
 #include "syzygy/agent/asan/runtime.h"
 
 #include <map>
+#include <memory>
 
 #include "base/bind.h"
 #include "base/bits.h"
 #include "base/command_line.h"
 #include "base/environment.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
@@ -79,7 +79,7 @@ class AsanRuntimeTest : public testing::TestWithAsanLogger {
   base::CommandLine current_command_line_;
 
   // The process environment.
-  scoped_ptr<base::Environment> env_;
+  std::unique_ptr<base::Environment> env_;
 };
 
 bool callback_called = false;

@@ -17,12 +17,12 @@
 #ifndef SYZYGY_AGENT_ASAN_RUNTIME_H_
 #define SYZYGY_AGENT_ASAN_RUNTIME_H_
 
+#include <memory>
 #include <set>
 #include <string>
 
 #include "base/callback.h"
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/lock.h"
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap_checker.h"
@@ -228,7 +228,8 @@ class AsanRuntime {
   void PropagateFeatureSet(AsanFeatureSet feature_set);
 
   // The heap manager.
-  scoped_ptr<heap_managers::BlockHeapManager> heap_manager_;  // Under lock_.
+  std::unique_ptr<heap_managers::BlockHeapManager>
+      heap_manager_;  // Under lock_.
 
  private:
   // Sets up the shadow memory.
@@ -290,18 +291,18 @@ class AsanRuntime {
   // @}
 
   // The shadow memory used by this runtime.
-  scoped_ptr<Shadow> shadow_;
+  std::unique_ptr<Shadow> shadow_;
 
   // The shared memory notifier that will be used to update the shadow memory
   // with redzones for internally allocated memory.
-  scoped_ptr<MemoryNotifierInterface> memory_notifier_;
+  std::unique_ptr<MemoryNotifierInterface> memory_notifier_;
 
   // The shared logger instance that will be used to report errors and runtime
   // information.
-  scoped_ptr<AsanLogger> logger_;
+  std::unique_ptr<AsanLogger> logger_;
 
   // The shared stack cache instance that will be used by all the heaps.
-  scoped_ptr<StackCaptureCache> stack_cache_;
+  std::unique_ptr<StackCaptureCache> stack_cache_;
 
   // The asan error callback functor.
   AsanOnErrorCallBack asan_error_callback_;
@@ -324,7 +325,7 @@ class AsanRuntime {
 
   // The crash reporter in use. This will be left null if no crash reporter
   // is available.
-  scoped_ptr<ReporterInterface> crash_reporter_;
+  std::unique_ptr<ReporterInterface> crash_reporter_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

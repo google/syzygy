@@ -16,8 +16,8 @@
 #define SYZYGY_AGENT_ASAN_REPORTERS_KASKO_REPORTER_H_
 
 #include <windows.h>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/reporter.h"
 #include "syzygy/agent/asan/reporters/exported_function.h"
 
@@ -56,7 +56,7 @@ class KaskoReporter : public ReporterInterface {
   // the exports of the running executable, and looking for Kasko's expected
   // exports.
   // @returns an allocated KaskoReporter
-  static scoped_ptr<KaskoReporter> Create();
+  static std::unique_ptr<KaskoReporter> Create();
 
   // Helper to determine if a given set of functions is valid.
   // @param kasko_functions The functions to evaluate.

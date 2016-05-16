@@ -18,6 +18,7 @@
 #include <Dbgeng.h>
 #include <Rpc.h>
 
+#include <memory>
 #include <string>
 
 #include "base/base_switches.h"
@@ -25,7 +26,6 @@
 #include "base/command_line.h"
 #include "base/files/file_path.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/strings/string16.h"
@@ -219,7 +219,7 @@ class ReporterTest : public ::testing::Test {
 
 TEST_F(ReporterTest, BasicTest) {
   base::string16 report_id;
-  scoped_ptr<Reporter> instance(Reporter::Create(
+  std::unique_ptr<Reporter> instance(Reporter::Create(
       endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
       data_directory(), permanent_failure_directory(),
@@ -264,7 +264,7 @@ TEST_F(ReporterTest, BasicTest) {
 }
 
 TEST_F(ReporterTest, NoCallback) {
-  scoped_ptr<Reporter> instance(Reporter::Create(
+  std::unique_ptr<Reporter> instance(Reporter::Create(
       endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
       data_directory(), permanent_failure_directory(),
@@ -293,7 +293,7 @@ TEST_F(ReporterTest, NoCallback) {
 
 TEST_F(ReporterTest, SendReportForProcessTest) {
   base::string16 report_id;
-  scoped_ptr<Reporter> instance(Reporter::Create(
+  std::unique_ptr<Reporter> instance(Reporter::Create(
       endpoint(),
       L"http://127.0.0.1:" + base::UintToString16(server_port()) + L"/crash",
       data_directory(), permanent_failure_directory(),
@@ -325,7 +325,7 @@ TEST_F(ReporterTest, SendReportForProcessTest) {
 
 TEST_F(ReporterTest, PermanentFailureTest) {
   base::string16 report_id;
-  scoped_ptr<Reporter> instance(Reporter::Create(
+  std::unique_ptr<Reporter> instance(Reporter::Create(
       endpoint(), L"http://127.0.0.1:" + base::UintToString16(server_port()) +
                       L"/crash_failure",
       data_directory(), permanent_failure_directory(),

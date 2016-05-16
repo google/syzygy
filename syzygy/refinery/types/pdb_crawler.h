@@ -17,11 +17,11 @@
 
 #include <windows.h>  // NOLINT
 #include <dbghelp.h>
+#include <memory>
 #include <vector>
 
 #include "base/containers/hash_tables.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/refinery/core/address.h"

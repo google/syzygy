@@ -16,8 +16,8 @@
 #define SYZYGY_AGENT_ASAN_REPORTERS_BREAKPAD_REPORTER_H_
 
 #include <windows.h>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/reporter.h"
 #include "syzygy/agent/asan/reporters/exported_function.h"
 
@@ -53,7 +53,7 @@ class BreakpadReporter : public ReporterInterface {
   // the exports of the running executable, and looking for Breakpad's expected
   // exports.
   // @returns an allocated BreakpadReporter
-  static scoped_ptr<BreakpadReporter> Create();
+  static std::unique_ptr<BreakpadReporter> Create();
 
   // Helper to determine if a given set of functions is valid.
   // @param breakpad_functions The functions to evaluate.

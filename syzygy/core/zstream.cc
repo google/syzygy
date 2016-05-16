@@ -52,7 +52,7 @@ bool ZOutStream::Init(int level) {
   if (zstream_ != NULL)
     return true;
 
-  scoped_ptr<z_stream_s> zstream(new z_stream_s);
+  std::unique_ptr<z_stream_s> zstream(new z_stream_s);
   ::memset(zstream.get(), 0, sizeof(*zstream.get()));
 
   int ret = deflateInit(zstream.get(), level);
@@ -160,7 +160,7 @@ bool ZInStream::Init() {
   if (zstream_.get() != NULL)
     return true;
 
-  scoped_ptr<z_stream_s> zstream(new z_stream_s);
+  std::unique_ptr<z_stream_s> zstream(new z_stream_s);
   ::memset(zstream.get(), 0, sizeof(*zstream.get()));
 
   int ret = inflateInit(zstream.get());

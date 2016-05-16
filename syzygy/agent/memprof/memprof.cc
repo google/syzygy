@@ -33,7 +33,7 @@ void SetUpAtExitManager() {
 namespace agent {
 namespace memprof {
 
-scoped_ptr<MemoryProfiler> memory_profiler;
+std::unique_ptr<MemoryProfiler> memory_profiler;
 
 }  // namespace memprof
 }  // namespace agent

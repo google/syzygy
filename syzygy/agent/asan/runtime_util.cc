@@ -191,7 +191,7 @@ bool SetUpAsanRuntime(AsanRuntime** asan_runtime) {
     LOG(ERROR) << "Error while trying to find embedded Asan parameters.";
   }
 
-  scoped_ptr<AsanRuntime> runtime(new AsanRuntime());
+  std::unique_ptr<AsanRuntime> runtime(new AsanRuntime());
   if (runtime.get() == nullptr)
     return false;
 

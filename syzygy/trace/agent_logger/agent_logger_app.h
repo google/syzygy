@@ -137,7 +137,7 @@ class LoggerApp : public application::AppImplBase {
   base::CommandLine logger_command_line_;
 
   // The command-line parameters pertaining to the subprocess to exec.
-  scoped_ptr<base::CommandLine> app_command_line_;
+  std::unique_ptr<base::CommandLine> app_command_line_;
 
   // Members to hold the logger's parsed command-line parameters
   // @{

@@ -14,11 +14,11 @@
 #include "syzygy/pe/dia_browser.h"
 
 #include <diacreate.h>
+#include <memory>
 
 #include "base/bind.h"
 #include "base/path_service.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"

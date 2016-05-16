@@ -121,7 +121,7 @@ class ChainedSubgraphTransformsTest : public testing::Test {
   BlockGraph::Block* block3_;
   ImageLayout image_;
   ApplicationProfile profile_;
-  scoped_ptr<SubGraphProfile> subgraph_profile_;
+  std::unique_ptr<SubGraphProfile> subgraph_profile_;
 };
 
 }  // namespace

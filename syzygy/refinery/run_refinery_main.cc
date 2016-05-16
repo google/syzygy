@@ -15,11 +15,11 @@
 // Runs the refinery over a minidump and outputs the validation report.
 
 #include <iostream>
+#include <memory>
 
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analysis_runner.h"
@@ -67,7 +67,7 @@ bool ParseCommandLine(const base::CommandLine* cmd,
 bool Analyze(const Minidump& minidump, ProcessState* process_state) {
   AnalysisRunner runner;
 
-  scoped_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
+  std::unique_ptr<Analyzer> analyzer(new refinery::MemoryAnalyzer());
   runner.AddAnalyzer(std::move(analyzer));
   analyzer.reset(new refinery::ThreadAnalyzer());
   runner.AddAnalyzer(std::move(analyzer));

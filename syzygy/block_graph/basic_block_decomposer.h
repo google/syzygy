@@ -262,7 +262,7 @@ class BasicBlockDecomposer {
 
   // If no explicit subgraph was provided then we need to use one as scratch
   // space in order to do some work.
-  scoped_ptr<BasicBlockSubGraph> scratch_subgraph_;
+  std::unique_ptr<BasicBlockSubGraph> scratch_subgraph_;
 
   // Decomposition failure flags.
   bool contains_unsupported_instructions_;

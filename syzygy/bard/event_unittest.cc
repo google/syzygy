@@ -29,52 +29,53 @@ namespace bard {
 // A template class for generating a test instance of an event. Specializations
 // for each event type are below.
 template <typename EventType>
-scoped_ptr<EventInterface> CreateTestEvent();
+std::unique_ptr<EventInterface> CreateTestEvent();
 
 template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::HeapAllocEvent>() {
-  return scoped_ptr<EventInterface>(
+std::unique_ptr<EventInterface> CreateTestEvent<events::HeapAllocEvent>() {
+  return std::unique_ptr<EventInterface>(
       new events::HeapAllocEvent(0, reinterpret_cast<HANDLE>(0x1000), 0x1, 47,
                                  reinterpret_cast<LPVOID>(0x2000)));
 }
 
 template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::HeapCreateEvent>() {
-  return scoped_ptr<EventInterface>(new events::HeapCreateEvent(
+std::unique_ptr<EventInterface> CreateTestEvent<events::HeapCreateEvent>() {
+  return std::unique_ptr<EventInterface>(new events::HeapCreateEvent(
       0, 0, 100, 200, reinterpret_cast<HANDLE>(0x1000)));
 }
 
 template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::HeapDestroyEvent>() {
-  return scoped_ptr<EventInterface>(
+std::unique_ptr<EventInterface> CreateTestEvent<events::HeapDestroyEvent>() {
+  return std::unique_ptr<EventInterface>(
       new events::HeapDestroyEvent(0, reinterpret_cast<HANDLE>(0x1000), true));
 }
 
 template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::HeapFreeEvent>() {
-  return scoped_ptr<EventInterface>(
+std::unique_ptr<EventInterface> CreateTestEvent<events::HeapFreeEvent>() {
+  return std::unique_ptr<EventInterface>(
       new events::HeapFreeEvent(0, reinterpret_cast<HANDLE>(0x1000), 0,
                                 reinterpret_cast<LPVOID>(0x2000), true));
 }
 
 template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::HeapReAllocEvent>() {
-  return scoped_ptr<EventInterface>(new events::HeapReAllocEvent(
+std::unique_ptr<EventInterface> CreateTestEvent<events::HeapReAllocEvent>() {
+  return std::unique_ptr<EventInterface>(new events::HeapReAllocEvent(
       0, reinterpret_cast<HANDLE>(0x1000), 0, reinterpret_cast<LPVOID>(0x2000),
       123, reinterpret_cast<LPVOID>(0x3000)));
 }
 
 template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::HeapSetInformationEvent>() {
-  return scoped_ptr<EventInterface>(new events::HeapSetInformationEvent(
+std::unique_ptr<EventInterface>
+CreateTestEvent<events::HeapSetInformationEvent>() {
+  return std::unique_ptr<EventInterface>(new events::HeapSetInformationEvent(
       0, reinterpret_cast<HANDLE>(0x1000),
       static_cast<HEAP_INFORMATION_CLASS>(0), reinterpret_cast<PVOID>(0x2000),
       100, false));
 }
 
 template <>
-scoped_ptr<EventInterface> CreateTestEvent<events::HeapSizeEvent>() {
-  return scoped_ptr<EventInterface>(
+std::unique_ptr<EventInterface> CreateTestEvent<events::HeapSizeEvent>() {
+  return std::unique_ptr<EventInterface>(
       new events::HeapSizeEvent(0, reinterpret_cast<HANDLE>(0x1000), 0,
                                 reinterpret_cast<LPCVOID>(0x2000), 233));
 }
@@ -87,14 +88,15 @@ void EventSerializationTest() {
   core::ScopedOutStreamPtr out_stream;
   out_stream.reset(core::CreateByteOutStream(std::back_inserter(bytes)));
   core::NativeBinaryOutArchive out_archive(out_stream.get());
-  scoped_ptr<EventInterface> e0 = CreateTestEvent<EventType>();
+  std::unique_ptr<EventInterface> e0 = CreateTestEvent<EventType>();
   EXPECT_TRUE(EventInterface::Save(e0.get(), &out_archive));
   EXPECT_TRUE(out_archive.Flush());
 
   core::ScopedInStreamPtr in_stream;
   in_stream.reset(core::CreateByteInStream(bytes.begin(), bytes.end()));
   core::NativeBinaryInArchive in_archive(in_stream.get());
-  scoped_ptr<EventInterface> e1 = std::move(EventInterface::Load(&in_archive));
+  std::unique_ptr<EventInterface> e1 =
+      std::move(EventInterface::Load(&in_archive));
   EXPECT_NE(static_cast<EventInterface*>(nullptr), e1.get());
 
   EXPECT_TRUE(e0->Equals(e1.get()));

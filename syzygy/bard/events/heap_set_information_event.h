@@ -17,8 +17,8 @@
 #define SYZYGY_BARD_EVENTS_HEAP_SET_INFORMATION_EVENT_H_
 
 #include <windows.h>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/bard/event.h"
 
 namespace bard {
@@ -46,7 +46,7 @@ class HeapSetInformationEvent : public EventInterface {
   // @{
   static bool Save(const EventInterface* const event,
                    core::OutArchive* out_archive);
-  static scoped_ptr<HeapSetInformationEvent> Load(
+  static std::unique_ptr<HeapSetInformationEvent> Load(
       core::InArchive* in_archive);
   // @}
 

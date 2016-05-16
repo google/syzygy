@@ -17,8 +17,8 @@
 #define SYZYGY_BARD_EVENTS_HEAP_SIZE_EVENT_H_
 
 #include <windows.h>
+#include <memory>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/bard/event.h"
 
 namespace bard {
@@ -45,7 +45,7 @@ class HeapSizeEvent : public EventInterface {
   // @{
   static bool Save(const EventInterface* const event,
                    core::OutArchive* out_archive);
-  static scoped_ptr<HeapSizeEvent> Load(core::InArchive* in_archive);
+  static std::unique_ptr<HeapSizeEvent> Load(core::InArchive* in_archive);
   // @}
 
   // @name Accessors.

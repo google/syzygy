@@ -82,7 +82,7 @@ class ApplicationProfile {
   // @param subgraph subgraph for which to calculate profiler information.
   // @param profile receives the profile information.
   void ComputeSubGraphProfile(const BasicBlockSubGraph* subgraph,
-                              scoped_ptr<SubGraphProfile>* profile);
+                              std::unique_ptr<SubGraphProfile>* profile);
 
   // Import the frequency information of an application.
   // @param frequencies the branches frequencies.
@@ -108,7 +108,7 @@ class ApplicationProfile {
   ProfileMap profiles_;
 
   // A empty profile used for all block never executed.
-  scoped_ptr<BlockProfile> empty_profile_;
+  std::unique_ptr<BlockProfile> empty_profile_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(ApplicationProfile);
@@ -182,7 +182,7 @@ class SubGraphProfile {
   BasicBlockProfileMap basic_blocks_;
 
   // An empty profile used for all basic blocks never executed.
-  scoped_ptr<BasicBlockProfile> empty_profile_;
+  std::unique_ptr<BasicBlockProfile> empty_profile_;
 };
 
 // This class contains profile information for a basic-block.

@@ -595,7 +595,7 @@ class BlockGraphMapper {
 
  private:
   // Internally, most of the work is done by the FeatureIndex objects.
-  scoped_ptr<FeatureIndex> feature_indices_[kFeatureCount];
+  std::unique_ptr<FeatureIndex> feature_indices_[kFeatureCount];
 
   // Maps the two given blocks, using these blocks as a starting point to find
   // other mappings.

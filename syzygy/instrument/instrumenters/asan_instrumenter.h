@@ -65,10 +65,10 @@ class AsanInstrumenter : public InstrumenterWithAgent {
   common::InflatedAsanParameters asan_params_;
 
   // The transform for this agent.
-  scoped_ptr<instrument::transforms::AsanTransform> asan_transform_;
+  std::unique_ptr<instrument::transforms::AsanTransform> asan_transform_;
 
   // The image filter (optional).
-  scoped_ptr<pe::ImageFilter> filter_;
+  std::unique_ptr<pe::ImageFilter> filter_;
 
   // Path to the JSON configuration file for the AllocationFilter transform.
   // The AllocationFilter tranform is only applied if this config file is
@@ -77,7 +77,8 @@ class AsanInstrumenter : public InstrumenterWithAgent {
 
   // The AllocationFilter transform.
   // TODO(sebmarchand): Write some integration tests for this.
-  scoped_ptr<instrument::transforms::AllocationFilterTransform> af_transform_;
+  std::unique_ptr<instrument::transforms::AllocationFilterTransform>
+      af_transform_;
 };
 
 }  // namespace instrumenters

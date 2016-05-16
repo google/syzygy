@@ -14,13 +14,14 @@
 
 #include "syzygy/trace/service/session.h"
 
+#include <memory>
+
 #include "base/atomicops.h"
 #include "base/bind.h"
 #include "base/callback.h"
 #include "base/environment.h"
 #include "base/files/file_util.h"
 #include "base/files/scoped_temp_dir.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/stringprintf.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/threading/thread.h"
@@ -324,7 +325,7 @@ class SessionTest : public ::testing::Test {
 
     // The instance id needs to be in the environment to be picked up by the
     // client library. We prefix the existing environment variable, if any.
-    scoped_ptr<base::Environment> env(base::Environment::Create());
+    std::unique_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_FALSE(env.get() == NULL);
     std::string env_var;
     env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &env_var);

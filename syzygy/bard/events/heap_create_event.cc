@@ -48,7 +48,7 @@ bool HeapCreateEvent::Save(const EventInterface* const event,
              reinterpret_cast<uintptr_t>(derived_event->trace_heap_));
 }
 
-scoped_ptr<HeapCreateEvent> HeapCreateEvent::Load(
+std::unique_ptr<HeapCreateEvent> HeapCreateEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
@@ -60,7 +60,7 @@ scoped_ptr<HeapCreateEvent> HeapCreateEvent::Load(
   if (in_archive->Load(&stack_trace_id) && in_archive->Load(&options) &&
       in_archive->Load(&initial_size) && in_archive->Load(&maximum_size) &&
       in_archive->Load(&trace_heap)) {
-    return scoped_ptr<HeapCreateEvent>(
+    return std::unique_ptr<HeapCreateEvent>(
         new HeapCreateEvent(stack_trace_id, options, initial_size, maximum_size,
                             reinterpret_cast<HANDLE>(trace_heap)));
   }

@@ -16,10 +16,10 @@
 
 #include <dbghelp.h>
 
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"

@@ -15,6 +15,7 @@
 #ifndef SYZYGY_KASKO_HTTP_AGENT_IMPL_H_
 #define SYZYGY_KASKO_HTTP_AGENT_IMPL_H_
 
+#include "base/macros.h"
 #include "base/strings/string16.h"
 #include "syzygy/kasko/http_agent.h"
 
@@ -32,12 +33,13 @@ class HttpAgentImpl : public HttpAgent {
   ~HttpAgentImpl() override;
 
   // HttpAgent implementation
-  virtual scoped_ptr<HttpResponse> Post(const base::string16& host,
-                                        uint16_t port,
-                                        const base::string16& path,
-                                        bool secure,
-                                        const base::string16& extra_headers,
-                                        const std::string& body) override;
+  virtual std::unique_ptr<HttpResponse> Post(
+      const base::string16& host,
+      uint16_t port,
+      const base::string16& path,
+      bool secure,
+      const base::string16& extra_headers,
+      const std::string& body) override;
 
  private:
   base::string16 user_agent_;

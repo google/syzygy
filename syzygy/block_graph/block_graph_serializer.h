@@ -172,7 +172,7 @@ class BlockGraphSerializer {
   // @param save_block_data_callback the callback to be used.
   void set_save_block_data_callback(
       const SaveBlockDataCallback& save_block_data_callback) {
-    save_block_data_callback_ = scoped_ptr<SaveBlockDataCallback>(
+    save_block_data_callback_ = std::unique_ptr<SaveBlockDataCallback>(
         new SaveBlockDataCallback(save_block_data_callback));
   }
 
@@ -189,7 +189,7 @@ class BlockGraphSerializer {
   // @param load_block_data_callback the callback to be used.
   void set_load_block_data_callback(
       const LoadBlockDataCallback& load_block_data_callback) {
-    load_block_data_callback_ = scoped_ptr<LoadBlockDataCallback>(
+    load_block_data_callback_ = std::unique_ptr<LoadBlockDataCallback>(
         new LoadBlockDataCallback(load_block_data_callback));
   }
 
@@ -263,8 +263,8 @@ class BlockGraphSerializer {
   Attributes attributes_;
 
   // Optional callbacks.
-  scoped_ptr<SaveBlockDataCallback> save_block_data_callback_;
-  scoped_ptr<LoadBlockDataCallback> load_block_data_callback_;
+  std::unique_ptr<SaveBlockDataCallback> save_block_data_callback_;
+  std::unique_ptr<LoadBlockDataCallback> load_block_data_callback_;
 
  private:
   // A helper function that implements loading of block properties. The

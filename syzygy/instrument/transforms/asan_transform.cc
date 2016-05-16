@@ -794,7 +794,7 @@ bool PatchCRTHeapInitialization(
   // This scoped pointer will only be used if we need to dynamically allocate
   // the kernel32 module to make sure that it gets correctly freed.
   const char* kKernel32 = "kernel32.dll";
-  scoped_ptr<ImportedModule> scoped_get_process_heap_module;
+  std::unique_ptr<ImportedModule> scoped_get_process_heap_module;
   if (base::CompareCaseInsensitiveASCII(heap_create_dll_name,
                                         kKernel32) != 0) {
     scoped_get_process_heap_module.reset(new ImportedModule(kKernel32));

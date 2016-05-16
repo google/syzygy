@@ -49,7 +49,7 @@ bool HeapAllocEvent::Save(const EventInterface* const event,
              reinterpret_cast<uintptr_t>(derived_event->trace_alloc_));
 }
 
-scoped_ptr<HeapAllocEvent> HeapAllocEvent::Load(
+std::unique_ptr<HeapAllocEvent> HeapAllocEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
@@ -61,7 +61,7 @@ scoped_ptr<HeapAllocEvent> HeapAllocEvent::Load(
   if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
       in_archive->Load(&flags) && in_archive->Load(&bytes) &&
       in_archive->Load(&trace_alloc)) {
-    return scoped_ptr<HeapAllocEvent>(new HeapAllocEvent(
+    return std::unique_ptr<HeapAllocEvent>(new HeapAllocEvent(
         stack_trace_id, reinterpret_cast<HANDLE>(trace_heap), flags, bytes,
         reinterpret_cast<LPVOID>(trace_alloc)));
   }

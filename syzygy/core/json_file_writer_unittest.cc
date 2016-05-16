@@ -109,11 +109,11 @@ class JSONFileWriterTest: public testing::Test {
  private:
   // This is static so that a single temp directory is made for all of the
   // unittests, rather than one per instance.
-  static scoped_ptr<base::ScopedTempDir> temp_dir_;
+  static std::unique_ptr<base::ScopedTempDir> temp_dir_;
   base::ScopedFILE file_;
 };
 
-scoped_ptr<base::ScopedTempDir> JSONFileWriterTest::temp_dir_;
+std::unique_ptr<base::ScopedTempDir> JSONFileWriterTest::temp_dir_;
 
 // A utility class that can convert a string literal to any of
 //   * const char*,

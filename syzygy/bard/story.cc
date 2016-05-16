@@ -33,9 +33,9 @@ using events::LinkedEvent;
 
 }  // namespace
 
-Story::PlotLine* Story::AddPlotLine(scoped_ptr<PlotLine> plot_line) {
+Story::PlotLine* Story::AddPlotLine(std::unique_ptr<PlotLine> plot_line) {
   PlotLine* pl = plot_line.get();
-  plot_lines_.push_back(std::move(plot_line));
+  plot_lines_.push_back(plot_line.release());
   return pl;
 }
 
@@ -103,14 +103,14 @@ bool Story::Load(core::InArchive* in_archive) {
 
   // Read the plot lines.
   for (size_t i = 0; i < plot_line_count; ++i) {
-    scoped_ptr<PlotLine> plot_line(new PlotLine());
+    std::unique_ptr<PlotLine> plot_line(new PlotLine());
 
     // Read the events.
     size_t event_count = 0;
     if (!in_archive->Load(&event_count))
       return false;
     for (size_t j = 0; j < event_count; ++j) {
-      scoped_ptr<EventInterface> event = EventInterface::Load(in_archive);
+      std::unique_ptr<EventInterface> event = EventInterface::Load(in_archive);
       if (!event.get())
         return false;
 
@@ -119,10 +119,10 @@ bool Story::Load(core::InArchive* in_archive) {
         linked_events_by_id.push_back(linked_event);
       }
 
-      plot_line->push_back(std::move(event));
+      plot_line->push_back(event.release());
     }
 
-    plot_lines_.push_back(std::move(plot_line));
+    plot_lines_.push_back(plot_line.release());
   }
 
   // Deserialize event dependencies.

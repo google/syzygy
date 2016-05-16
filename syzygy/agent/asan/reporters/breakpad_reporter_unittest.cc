@@ -76,7 +76,7 @@ class BreakpadReporterTest : public testing::Test {
     reporter_.reset(new BreakpadReporter(breakpad_functions_));
   }
 
-  scoped_ptr<BreakpadReporter> reporter_;
+  std::unique_ptr<BreakpadReporter> reporter_;
   BreakpadReporter::BreakpadFunctions breakpad_functions_;
   MockBreakpadFunctions mock_;
 };

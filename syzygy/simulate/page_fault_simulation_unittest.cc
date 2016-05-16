@@ -250,7 +250,7 @@ class PageFaultSimulatorTest : public testing::PELibUnitTest {
   }
 
  protected:
-  scoped_ptr<PageFaultSimulation> simulation_;
+  std::unique_ptr<PageFaultSimulation> simulation_;
 
   base::FilePath temp_dir_;
   MockBlockInfo blocks_[4];
@@ -385,7 +385,7 @@ TEST_F(PageFaultSimulatorTest, JSONSucceeds) {
   std::string file_string;
   ASSERT_TRUE(base::ReadFileToString(path, &file_string));
 
-  scoped_ptr<Value> value(base::JSONReader::Read(file_string));
+  std::unique_ptr<Value> value(base::JSONReader::Read(file_string).release());
   ASSERT_TRUE(value.get() != NULL);
   ASSERT_TRUE(value->IsType(Value::TYPE_DICTIONARY));
 

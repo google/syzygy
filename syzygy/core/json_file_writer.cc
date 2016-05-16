@@ -19,12 +19,12 @@
 #include "syzygy/core/json_file_writer.h"
 
 #include <stdarg.h>
+#include <memory>
 
 #include "base/logging.h"
 #include "base/values.h"
 #include "base/json/json_writer.h"
 #include "base/json/string_escape.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 
 namespace core {

@@ -22,11 +22,11 @@
 #define SYZYGY_AGENT_ASAN_HOT_PATCHING_ASAN_RUNTIME_H_
 
 #include <windows.h>
+#include <memory>
 #include <string>
 #include <unordered_set>
 
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/memory/singleton.h"
 #include "syzygy/agent/common/entry_frame.h"
 
@@ -79,7 +79,7 @@ class HotPatchingAsanRuntime {
 
   // The shared logger instance that will be used to report errors and runtime
   // information.
-  scoped_ptr<AsanLogger> logger_;
+  std::unique_ptr<AsanLogger> logger_;
 
   // Set of modules that have already been hot patched. We don't want to hot
   // patch the same module twice.

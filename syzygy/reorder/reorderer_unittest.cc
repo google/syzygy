@@ -346,7 +346,7 @@ class ReordererTest : public testing::PELibUnitTest {
   }
 
   // A reorderer will be initialized, in SetUp(), for each test run.
-  scoped_ptr<TestReorderer> test_reorderer_;
+  std::unique_ptr<TestReorderer> test_reorderer_;
 
   // The reorderer needs to be set up to use a custom parse engine before a
   // call to Reorder. This must be heap allocated and the responsibility for

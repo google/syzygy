@@ -15,10 +15,10 @@
 #ifndef SYZYGY_REFINERY_ANALYZERS_ANALYSIS_RUNNER_H_
 #define SYZYGY_REFINERY_ANALYZERS_ANALYSIS_RUNNER_H_
 
+#include <memory>
 #include <vector>
 
 #include "base/macros.h"
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/minidump/minidump.h"
 #include "syzygy/refinery/analyzers/analyzer.h"
 #include "syzygy/refinery/process_state/process_state.h"
@@ -37,7 +37,7 @@ class AnalysisRunner {
   // Adds @p analyzer to the runner.
   // @param analyzer an analyzer to take ownership of. Deleted on runner's
   //   destruction.
-  void AddAnalyzer(scoped_ptr<Analyzer> analyzer);
+  void AddAnalyzer(std::unique_ptr<Analyzer> analyzer);
 
   // Runs analyzers over @p minidump and updates the ProcessState supplied
   // through @p process_analysis.

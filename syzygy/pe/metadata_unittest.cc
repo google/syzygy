@@ -75,9 +75,9 @@ bool TestJSONSerialization(bool pretty_print) {
 
   // Parse the JSON, extracting the root dictionary.
   DictionaryValue* metadata_dict = NULL;
-  scoped_ptr<Value> value;
+  std::unique_ptr<Value> value;
   if (success) {
-    value = std::move(base::JSONReader::Read(file_string));
+    value.reset(base::JSONReader::Read(file_string).release());
     EXPECT_TRUE(success =
         (value.get() != NULL && value->GetType() == Value::TYPE_DICTIONARY));
     if (success)

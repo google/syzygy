@@ -15,9 +15,9 @@
 #include "syzygy/refinery/analyzers/memory_analyzer.h"
 
 #include <dbghelp.h>
+#include <memory>
 #include <string>
 
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/core/address_space.h"
 #include "syzygy/refinery/process_state/process_state_util.h"
 #include "syzygy/refinery/process_state/refinery.pb.h"

@@ -40,8 +40,9 @@ void OperationTest::TearDown() {
 }
 
 void OperationTest::InitConfig(const char* config) {
-  scoped_ptr<base::Value> value(base::JSONReader::Read(
-      config, base::JSON_ALLOW_TRAILING_COMMAS));
+  std::unique_ptr<base::Value> value(
+      base::JSONReader::Read(config, base::JSON_ALLOW_TRAILING_COMMAS)
+          .release());
   ASSERT_TRUE(value.get() != NULL);
   base::DictionaryValue* dict = NULL;
   ASSERT_TRUE(value->GetAsDictionary(&dict));

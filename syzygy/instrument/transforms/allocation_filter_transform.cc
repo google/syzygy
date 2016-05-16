@@ -295,7 +295,7 @@ bool AllocationFilterTransform::ReadFromJSON(const base::FilePath& path,
 bool AllocationFilterTransform::ReadFromJSON(const std::string& json,
     FunctionNameOffsetMap* targets) {
   DCHECK_NE(static_cast<FunctionNameOffsetMap*>(NULL), targets);
-  scoped_ptr<Value> value(base::JSONReader::Read(json));
+  std::unique_ptr<Value> value(base::JSONReader::Read(json).release());
   if (value.get() == NULL) {
     LOG(INFO) << "Ignoring invalid or empty allocation filter file.";
     return true;

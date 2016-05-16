@@ -72,9 +72,9 @@ class EntryThunkInstrumenter : public InstrumenterWithAgent {
   Mode instrumentation_mode_;
 
   // The transforms for this agent.
-  scoped_ptr<instrument::transforms::EntryThunkTransform>
+  std::unique_ptr<instrument::transforms::EntryThunkTransform>
       entry_thunk_transform_;
-  scoped_ptr<instrument::transforms::ThunkImportReferencesTransform>
+  std::unique_ptr<instrument::transforms::ThunkImportReferencesTransform>
       import_thunk_tx_;
 };
 

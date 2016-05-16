@@ -18,9 +18,11 @@
 #define SYZYGY_PDB_PDB_TYPE_INFO_STREAM_ENUM_H_
 
 #include <stdint.h>
+#include <memory>
 #include <unordered_map>
 
 #include "base/callback.h"
+#include "base/memory/ref_counted.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"

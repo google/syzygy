@@ -41,7 +41,7 @@ const char* reporters::KaskoReporter:: SetCrashKeyValueImpl::name_ =
 namespace reporters {
 
 // static
-scoped_ptr<KaskoReporter> KaskoReporter::Create() {
+std::unique_ptr<KaskoReporter> KaskoReporter::Create() {
   // Initialize the required reporter functions
   KaskoFunctions kasko_functions;
   kasko_functions.set_crash_key_value_impl.Lookup();
@@ -50,7 +50,7 @@ scoped_ptr<KaskoReporter> KaskoReporter::Create() {
   if (!AreValid(kasko_functions))
     return nullptr;
 
-  return scoped_ptr<KaskoReporter>(new KaskoReporter(kasko_functions));
+  return std::unique_ptr<KaskoReporter>(new KaskoReporter(kasko_functions));
 }
 
 // static
@@ -156,7 +156,7 @@ bool KaskoReporter::SupportsEarlyCrashKeys() {
     return false;
   }
 
-  scoped_ptr<FileVersionInfo> version_info(
+  std::unique_ptr<FileVersionInfo> version_info(
       FileVersionInfo::CreateFileVersionInfo(path));
   if (!version_info.get())
     return false;

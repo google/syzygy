@@ -17,7 +17,7 @@
 namespace bard {
 namespace events {
 
-LinkedEvent::LinkedEvent(scoped_ptr<EventInterface> event) {
+LinkedEvent::LinkedEvent(std::unique_ptr<EventInterface> event) {
   DCHECK_NE(static_cast<EventInterface*>(nullptr), event.get());
   event_ = std::move(event);
 }
@@ -76,10 +76,10 @@ bool LinkedEvent::Save(const EventInterface* const event,
 }
 
 // static
-scoped_ptr<LinkedEvent> LinkedEvent::Load(core::InArchive* in_archive) {
+std::unique_ptr<LinkedEvent> LinkedEvent::Load(core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
-  scoped_ptr<EventInterface> e = EventInterface::Load(in_archive);
-  return scoped_ptr<LinkedEvent>(new LinkedEvent(std::move(e)));
+  std::unique_ptr<EventInterface> e = EventInterface::Load(in_archive);
+  return std::unique_ptr<LinkedEvent>(new LinkedEvent(std::move(e)));
 }
 
 bool LinkedEvent::AddDep(EventInterface* dep) {

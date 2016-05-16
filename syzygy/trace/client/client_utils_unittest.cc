@@ -14,8 +14,9 @@
 
 #include "syzygy/trace/client/client_utils.h"
 
+#include <memory>
+
 #include "base/environment.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
 #include "syzygy/core/file_util.h"
@@ -48,7 +49,7 @@ class GetInstanceIdForModuleTest : public testing::Test {
   }
 
   base::FilePath path_;
-  scoped_ptr<base::Environment> env_;
+  std::unique_ptr<base::Environment> env_;
 };
 
 class IsRpcSessionMandatoryTest : public testing::Test {
@@ -70,7 +71,7 @@ class IsRpcSessionMandatoryTest : public testing::Test {
   }
 
   base::FilePath path_;
-  scoped_ptr<base::Environment> env_;
+  std::unique_ptr<base::Environment> env_;
 };
 
 }  // namespace
@@ -130,7 +131,7 @@ TEST(GetInstanceIdForThisModuleTest, WorksAsExpected) {
   std::wstring env_var(self_path.value());
   env_var.append(L",1");
 
-  scoped_ptr<base::Environment> env;
+  std::unique_ptr<base::Environment> env;
   env.reset(base::Environment::Create());
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcInstanceIdEnvVar,
                           base::WideToUTF8(env_var)));
@@ -180,7 +181,7 @@ TEST(IsRpcSessionMandatoryThisModuleTest, WorksAsExpected) {
   std::wstring env_var(self_path.value());
   env_var.append(L",1");
 
-  scoped_ptr<base::Environment> env;
+  std::unique_ptr<base::Environment> env;
   env.reset(base::Environment::Create());
   ASSERT_TRUE(env->SetVar(::kSyzygyRpcSessionMandatoryEnvVar,
                           base::WideToUTF8(env_var)));
@@ -192,7 +193,7 @@ TEST(InitializeRpcSessionTest, FailureSessionNotMandatory) {
   base::FilePath self_path =
       ::testing::GetExeRelativePath(L"rpc_client_lib_unittests.exe");
 
-  scoped_ptr<base::Environment> env;
+  std::unique_ptr<base::Environment> env;
   env.reset(base::Environment::Create());
 
   std::wstring env_var(self_path.value());

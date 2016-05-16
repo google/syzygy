@@ -104,7 +104,7 @@ class EntryCallInstrumenterTest : public testing::PELibUnitTest {
   // @}
 
   // The fake instrumenter we delegate to.
-  scoped_ptr<TestEntryCallInstrumenter> instrumenter_;
+  std::unique_ptr<TestEntryCallInstrumenter> instrumenter_;
 };
 
 }  // namespace

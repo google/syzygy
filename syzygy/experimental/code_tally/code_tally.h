@@ -172,7 +172,7 @@ class CodeTally {
 
   // The file version for image_file_, valid after a successful call to
   // TallyLines.
-  scoped_ptr<FileVersionInfo> image_file_version_;
+  std::unique_ptr<FileVersionInfo> image_file_version_;
 
   // The DIA session this instance works with.
   base::win::ScopedComPtr<IDiaSession> session_;
@@ -200,7 +200,7 @@ struct CodeTally::LineInfo {
 
 // Data maintained per function in an object file during tally.
 struct CodeTally::FunctionInfo {
-  FunctionInfo(const wchar_t* n) : name(n) {
+  explicit FunctionInfo(const wchar_t* n) : name(n) {
   }
 
   // Name of this function.

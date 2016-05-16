@@ -32,12 +32,12 @@
 #include <limits.h>
 #include <windows.h>
 #include <bitset>
+#include <memory>
 #include <set>
 #include <utility>
 #include <vector>
 
 #include "base/callback.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/win/scoped_comptr.h"
 
 namespace pe {
@@ -195,7 +195,7 @@ class DiaBrowser {
   // The search patterns we're using. All patterns stored here must be valid.
   // We manually manage memory because we require a 'delete []' to be called
   // on each pattern, something which scoped_array does not do. Similarly,
-  // scoped_ptr is unsuitable for use in a std::vector.
+  // std::unique_ptr is unsuitable for use in a std::vector.
   std::vector<PatternElement*> patterns_;
 
   // Stores the path of matched symbol tags.

@@ -15,10 +15,10 @@
 // Implementation of disassembler.
 #include "syzygy/core/disassembler.h"
 
+#include <memory>
 #include <vector>
 
 #include "base/bind.h"
-#include "base/memory/scoped_ptr.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

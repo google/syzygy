@@ -21,9 +21,10 @@
 
 #include "syzygy/trace/service/service.h"
 
+#include <memory>
+
 #include "base/bind.h"
 #include "base/callback.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_util.h"
 #include "syzygy/common/align.h"
 #include "syzygy/common/com_utils.h"

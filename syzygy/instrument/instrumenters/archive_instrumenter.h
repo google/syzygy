@@ -23,9 +23,10 @@
 #ifndef SYZYGY_INSTRUMENT_INSTRUMENTERS_ARCHIVE_INSTRUMENTER_H_
 #define SYZYGY_INSTRUMENT_INSTRUMENTERS_ARCHIVE_INSTRUMENTER_H_
 
+#include <memory>
+
 #include "base/logging.h"
 #include "base/files/file_path.h"
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/ar/ar_common.h"
 #include "syzygy/instrument/instrumenter.h"
 
@@ -78,7 +79,7 @@ class ArchiveInstrumenter : public InstrumenterInterface {
   InstrumenterFactoryFunction factory_;
 
   // A copy of the command-line that we originally parsed.
-  scoped_ptr<base::CommandLine> command_line_;
+  std::unique_ptr<base::CommandLine> command_line_;
 
   // Bits of the command-line that we've parsed.
   base::FilePath input_image_;

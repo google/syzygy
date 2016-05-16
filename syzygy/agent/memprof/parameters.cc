@@ -92,7 +92,7 @@ bool ParseParameters(const base::StringPiece& param_string,
 bool ParseParametersFromEnv(Parameters* parameters) {
   DCHECK_NE(static_cast<Parameters*>(nullptr), parameters);
 
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   DCHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
 
   std::string value;

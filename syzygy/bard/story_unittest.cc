@@ -111,27 +111,32 @@ TEST(StoryTest, CreatePlotLine) {
   EXPECT_EQ(1u, s.plot_lines().size());
 
   Story::PlotLine* pl2 = new Story::PlotLine();
-  EXPECT_EQ(pl2, s.AddPlotLine(scoped_ptr<Story::PlotLine>(pl2)));
+  EXPECT_EQ(pl2, s.AddPlotLine(std::unique_ptr<Story::PlotLine>(pl2)));
   EXPECT_EQ(2u, s.plot_lines().size());
 }
 
 TEST(StoryTest, TestSerialization) {
-  scoped_ptr<EventInterface> event1(
+  std::unique_ptr<EventInterface> event1(
       new HeapCreateEvent(0, kOptions, kInitialSize, kMaximumSize, kTraceHeap));
-  scoped_ptr<EventInterface> event2(
+  std::unique_ptr<EventInterface> event2(
       new HeapAllocEvent(0, kTraceHeap, kFlags, kBytes, kTraceAlloc));
-  scoped_ptr<EventInterface> event3(
+  std::unique_ptr<EventInterface> event3(
       new HeapSizeEvent(0, kTraceHeap, kFlags, kTraceAlloc, kSize));
-  scoped_ptr<EventInterface> event4(
+  std::unique_ptr<EventInterface> event4(
       new HeapFreeEvent(0, kTraceHeap, kFlags, kTraceAlloc, true));
-  scoped_ptr<EventInterface> event5(new HeapDestroyEvent(0, kTraceHeap, true));
+  std::unique_ptr<EventInterface> event5(
+      new HeapDestroyEvent(0, kTraceHeap, true));
 
   // The following events will either be cross plot line dependencies or have
   // such dependencies.
-  scoped_ptr<LinkedEvent> linked_event1(new LinkedEvent(std::move(event1)));
-  scoped_ptr<LinkedEvent> linked_event2(new LinkedEvent(std::move(event2)));
-  scoped_ptr<LinkedEvent> linked_event4(new LinkedEvent(std::move(event4)));
-  scoped_ptr<LinkedEvent> linked_event5(new LinkedEvent(std::move(event5)));
+  std::unique_ptr<LinkedEvent> linked_event1(
+      new LinkedEvent(std::move(event1)));
+  std::unique_ptr<LinkedEvent> linked_event2(
+      new LinkedEvent(std::move(event2)));
+  std::unique_ptr<LinkedEvent> linked_event4(
+      new LinkedEvent(std::move(event4)));
+  std::unique_ptr<LinkedEvent> linked_event5(
+      new LinkedEvent(std::move(event5)));
 
   // Alloc depends on Create, as it would be on another thread.
   linked_event2->AddDep(linked_event1.get());
@@ -140,17 +145,17 @@ TEST(StoryTest, TestSerialization) {
   // completed.
   linked_event5->AddDep(linked_event4.get());
 
-  scoped_ptr<Story::PlotLine> plot_line1(new Story::PlotLine());
-  scoped_ptr<Story::PlotLine> plot_line2(new Story::PlotLine());
+  std::unique_ptr<Story::PlotLine> plot_line1(new Story::PlotLine());
+  std::unique_ptr<Story::PlotLine> plot_line2(new Story::PlotLine());
 
   // One plot line creates and frees the heap.
-  plot_line1->push_back(std::move(linked_event1));
-  plot_line1->push_back(std::move(linked_event5));
+  plot_line1->push_back(linked_event1.release());
+  plot_line1->push_back(linked_event5.release());
 
   // Another plot line owns the allocation.
-  plot_line2->push_back(std::move(linked_event2));
-  plot_line2->push_back(std::move(event3));
-  plot_line2->push_back(std::move(linked_event4));
+  plot_line2->push_back(linked_event2.release());
+  plot_line2->push_back(event3.release());
+  plot_line2->push_back(linked_event4.release());
 
   // Create a story to wrap it all up.
   Story story;

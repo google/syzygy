@@ -92,7 +92,7 @@ bool GetNtdllTypes(TypeRepository* repo) {
   pe::PEFile::Signature ntdll_sig(L"ntdll.dll", core::AbsoluteAddress(0),
                                   0x141000, 0, 0x560D708C);
 
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   std::string search_path;
   if (!env->GetVar("_NT_SYMBOL_PATH", &search_path)) {
     // TODO(siggi): Set a default when it's missing.

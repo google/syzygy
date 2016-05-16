@@ -387,12 +387,12 @@ void LaunchMessageBox(const base::StringPiece& message) {
   ::MessageBoxA(nullptr, message.data(), nullptr, MB_OK | MB_ICONEXCLAMATION);
 }
 
-scoped_ptr<ReporterInterface> CreateCrashReporter(AsanLogger* logger) {
-  scoped_ptr<ReporterInterface> reporter;
+std::unique_ptr<ReporterInterface> CreateCrashReporter(AsanLogger* logger) {
+  std::unique_ptr<ReporterInterface> reporter;
 
   // First try to grab the preferred crash reporter, overridden by the
   // environment.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   std::string reporter_name;
   if (env->GetVar("SYZYASAN_CRASH_REPORTER", &reporter_name)) {
     if (reporter_name == "crashpad")
@@ -685,8 +685,8 @@ bool AsanRuntime::SetUpLogger() {
   DCHECK_EQ(static_cast<AsanLogger*>(nullptr), logger_.get());
 
   // Setup variables we're going to use.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
-  scoped_ptr<AsanLogger> client(new AsanLogger);
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<AsanLogger> client(new AsanLogger);
   CHECK(env.get() != NULL);
   CHECK(client.get() != NULL);
 
@@ -779,7 +779,7 @@ void AsanRuntime::TearDownHeapManager() {
 }
 
 bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   if (env.get() == NULL) {
     LOG(ERROR) << "base::Environment::Create returned NULL.";
     return false;

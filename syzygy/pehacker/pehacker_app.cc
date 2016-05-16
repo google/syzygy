@@ -230,9 +230,10 @@ bool PEHackerApp::ParseConfigFile() {
   VLOG(1) << "Parsing configuration file contents.";
   int error_code = 0;
   std::string error_message;
-  scoped_ptr<base::Value> config(base::JSONReader::ReadAndReturnError(
-                   json, base::JSON_ALLOW_TRAILING_COMMAS, &error_code,
-                   &error_message));
+  std::unique_ptr<base::Value> config(
+      base::JSONReader::ReadAndReturnError(
+          json, base::JSON_ALLOW_TRAILING_COMMAS, &error_code, &error_message)
+          .release());
   if (config.get() == NULL) {
     LOG(ERROR) << "Failed to parse configuration file: "
                << error_message << "(" << error_code << ").";
@@ -391,7 +392,7 @@ bool PEHackerApp::ProcessOperation(bool dry_run,
   }
 
   // Dispatch to the appropriate operation implementation.
-  scoped_ptr<OperationInterface> operation_impl;
+  std::unique_ptr<OperationInterface> operation_impl;
   if (type == "none") {
     // The 'none' operation is always defined, and does nothing. This is
     // mainly there for simple unittesting of configuration files.
@@ -445,7 +446,7 @@ PEHackerApp::ImageInfo* PEHackerApp::GetImageInfo(
     return it->second;
 
   // Initialize a new ImageInfo struct.
-  scoped_ptr<ImageInfo> image_info(new ImageInfo());
+  std::unique_ptr<ImageInfo> image_info(new ImageInfo());
   image_info->input_module = input_module;
   image_info->output_module = output_module;
   image_info->input_pdb = input_pdb;

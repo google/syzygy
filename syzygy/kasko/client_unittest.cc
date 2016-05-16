@@ -50,7 +50,7 @@ TEST(ClientTest, BasicTest) {
   base::string16 endpoint = GetTestEndpoint();
   ServiceBridge instance(
       protocol, endpoint,
-      scoped_ptr<Service>(new testing::MockService(&call_log)));
+      std::unique_ptr<Service>(new testing::MockService(&call_log)));
   ASSERT_TRUE(instance.Run());
 
   base::ScopedClosureRunner stop_service_bridge(

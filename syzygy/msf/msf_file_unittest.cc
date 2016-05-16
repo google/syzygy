@@ -14,7 +14,8 @@
 
 #include "syzygy/msf/msf_file.h"
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
@@ -64,7 +65,7 @@ TEST(MsfFileTest, Clear) {
 }
 
 TEST(MsfFileTest, WorksAsExpected) {
-  scoped_ptr<MsfFile> msf(new MsfFile());
+  std::unique_ptr<MsfFile> msf(new MsfFile());
   EXPECT_EQ(0u, msf->StreamCount());
   EXPECT_EQ(0u, DummyMsfStream::instance_count());
 

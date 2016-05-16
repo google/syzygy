@@ -15,7 +15,8 @@
 #ifndef SYZYGY_BARD_UNITTEST_UTIL_H_
 #define SYZYGY_BARD_UNITTEST_UTIL_H_
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "gtest/gtest.h"
 #include "syzygy/bard/event.h"
 #include "syzygy/bard/trace_live_map.h"
@@ -63,7 +64,7 @@ void TestEventSerialization(const Event& original_data) {
   core::ScopedInStreamPtr in_stream;
   in_stream.reset(core::CreateByteInStream(bytes.begin(), bytes.end()));
   core::NativeBinaryInArchive in_archive(in_stream.get());
-  scoped_ptr<Event> data_copy = std::move(Event::Load(&in_archive));
+  std::unique_ptr<Event> data_copy = std::move(Event::Load(&in_archive));
   EXPECT_NE(static_cast<Event*>(nullptr), data_copy.get());
 
   // Expect equality.

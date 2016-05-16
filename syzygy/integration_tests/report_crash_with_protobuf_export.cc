@@ -47,7 +47,7 @@ extern "C" void __declspec(dllexport)
     ::Exit(97);
 
   // A useful debugging hack.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   if (env->HasVar("SYZYGY_ASAN_DUMP_PROTOBUF_ON_CRASH")) {
     std::string json;
     crashdata::ToJson(true, &value, &json);

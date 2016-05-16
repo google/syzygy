@@ -409,7 +409,7 @@ class ScopedHeap {
   HeapId heap_id_;
 
   // The allocation functor.
-  scoped_ptr<AllocateFromHeapManagerHelper> alloc_functor_;
+  std::unique_ptr<AllocateFromHeapManagerHelper> alloc_functor_;
 };
 
 // A value-parameterized test class for testing the BlockHeapManager class.

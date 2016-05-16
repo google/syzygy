@@ -359,7 +359,7 @@ bool RunAnalyzerApplication::AddAnalyzers(
     refinery::AnalysisRunner* runner) {
   AnalyzerNames analyzers = SplitStringList(analyzer_names_);
   for (const auto& analyzer_name : analyzers) {
-    scoped_ptr<refinery::Analyzer> analyzer(
+    std::unique_ptr<refinery::Analyzer> analyzer(
         factory.CreateAnalyzer(analyzer_name));
     if (analyzer) {
       runner->AddAnalyzer(std::move(analyzer));

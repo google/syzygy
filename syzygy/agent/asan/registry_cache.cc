@@ -15,11 +15,11 @@
 #include "syzygy/agent/asan/registry_cache.h"
 
 #include <map>
+#include <memory>
 
 #include "base/base_paths.h"
 #include "base/file_version_info_win.h"
 #include "base/path_service.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_number_conversions.h"
 #include "base/strings/stringprintf.h"
 #include "syzygy/pe/metadata.h"
@@ -129,7 +129,7 @@ bool RegistryCache::InitModuleInfo() {
   // Get the module version. We start by grabbing the product version from the
   // file version information.
   module_version_.clear();
-  scoped_ptr<FileVersionInfo> version_info(
+  std::unique_ptr<FileVersionInfo> version_info(
       FileVersionInfo::CreateFileVersionInfo(file_path));
   if (version_info)
     module_version_ = version_info->product_version();

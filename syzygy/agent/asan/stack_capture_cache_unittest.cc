@@ -14,7 +14,7 @@
 
 #include "syzygy/agent/asan/stack_capture_cache.h"
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/logger.h"
 #include "syzygy/agent/asan/memory_notifiers/null_memory_notifier.h"

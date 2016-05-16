@@ -36,7 +36,7 @@ using base::Value;
 
 bool FlummoxInstrumenter::FlummoxConfig::ReadFromJSON(const std::string& json) {
   bool input_add_copy = false;
-  scoped_ptr<Value> value(base::JSONReader::Read(json));
+  std::unique_ptr<Value> value(base::JSONReader::Read(json).release());
   if (value.get() == nullptr) {
     LOG(ERROR) << "Invalid or empty configuration JSON.";
     return false;

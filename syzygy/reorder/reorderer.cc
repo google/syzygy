@@ -571,7 +571,7 @@ bool Reorderer::Order::LoadFromJSON(const PEFile& pe,
 
   // Read in the JSON file. It should be a dictionary.
   const DictionaryValue* outer_dict = NULL;
-  scoped_ptr<Value> value(base::JSONReader::Read(file_string));
+  std::unique_ptr<Value> value(base::JSONReader::Read(file_string).release());
   if (value.get() == NULL || !value->GetAsDictionary(&outer_dict)) {
     LOG(ERROR) << "Order file does not contain a valid JSON dictionary.";
     return false;
@@ -635,7 +635,7 @@ bool Reorderer::Order::GetOriginalModulePath(const base::FilePath& path,
     return false;
   }
 
-  scoped_ptr<Value> value(base::JSONReader::Read(file_string));
+  std::unique_ptr<Value> value(base::JSONReader::Read(file_string).release());
   if (value.get() == NULL || value->GetType() != Value::TYPE_DICTIONARY) {
     LOG(ERROR) << "Order file does not contain a valid JSON dictionary.";
     return false;

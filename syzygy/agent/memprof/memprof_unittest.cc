@@ -149,7 +149,7 @@ class MemoryProfilerTest : public testing::Test {
   }
 
   void ExpectedRecordsSeenTest(bool emit_stack_traces) {
-    scoped_ptr<base::Environment> env(base::Environment::Create());
+    std::unique_ptr<base::Environment> env(base::Environment::Create());
     DCHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
     if (emit_stack_traces) {
       env->SetVar(kParametersEnvVar,

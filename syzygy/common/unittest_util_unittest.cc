@@ -39,7 +39,7 @@ void ScopedEnvironmentVariableTestImpl(bool is_variable_set) {
   const char kVariableValue[] = "initial";
   const char kVariableOverrideValue[] = "override";
 
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
 
   // Ensure the variable isn't set.
   std::string initial_value;
@@ -50,7 +50,7 @@ void ScopedEnvironmentVariableTestImpl(bool is_variable_set) {
     ASSERT_TRUE(env->SetVar(kVariableName, kVariableValue));
 
   // Override the variable.
-  scoped_ptr<ScopedEnvironmentVariable> override(
+  std::unique_ptr<ScopedEnvironmentVariable> override(
       new ScopedEnvironmentVariable(kVariableName, kVariableOverrideValue));
   std::string retrieved_value;
   ASSERT_TRUE(env->GetVar(kVariableName, &retrieved_value));

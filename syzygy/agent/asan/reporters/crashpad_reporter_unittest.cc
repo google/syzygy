@@ -46,8 +46,8 @@ class CrashpadReporterTest : public testing::Test {
     return reporter_->crash_keys_.get();
   }
 
-  scoped_ptr<crashpad::CrashpadInfo> crashpad_info_;
-  scoped_ptr<CrashpadReporter> reporter_;
+  std::unique_ptr<crashpad::CrashpadInfo> crashpad_info_;
+  std::unique_ptr<CrashpadReporter> reporter_;
 };
 
 TEST_F(CrashpadReporterTest, CreateFails) {

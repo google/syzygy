@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <iostream>
+#include <memory>
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
@@ -21,7 +22,6 @@
 #include "base/path_service.h"
 #include "base/files/file_path.h"
 #include "base/files/file_util.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/process/kill.h"
 #include "base/process/launch.h"
 #include "base/strings/string_number_conversions.h"
@@ -126,7 +126,7 @@ bool RunApp(const base::CommandLine& command_line,
             const std::wstring& instance_id,
             int* exit_code) {
   DCHECK(exit_code != NULL);
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   CHECK(env != NULL);
   env->SetVar(kSyzygyRpcInstanceIdEnvVar, base::WideToUTF8(instance_id));
 
@@ -154,7 +154,7 @@ bool RunApp(const base::CommandLine& command_line,
 }
 
 bool RunService(const base::CommandLine* cmd_line,
-                const scoped_ptr<base::CommandLine>* app_cmd_line) {
+                const std::unique_ptr<base::CommandLine>* app_cmd_line) {
   DCHECK(cmd_line != NULL);
   DCHECK(app_cmd_line != NULL);
 
@@ -353,7 +353,7 @@ extern "C" int main(int argc, char** argv) {
   DCHECK(cmd_line != NULL);
 
   base::CommandLine calltrace_command_line(base::CommandLine::NO_PROGRAM);
-  scoped_ptr<base::CommandLine> app_command_line;
+  std::unique_ptr<base::CommandLine> app_command_line;
   if (!trace::common::SplitCommandLine(
           cmd_line,
           &calltrace_command_line,

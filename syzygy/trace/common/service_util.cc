@@ -103,7 +103,7 @@ bool ScopedConsoleCtrlHandler::Init(PHANDLER_ROUTINE handler) {
 
 bool SplitCommandLine(const base::CommandLine* orig_command_line,
                       base::CommandLine* logger_command_line,
-                      scoped_ptr<base::CommandLine>* app_command_line) {
+                      std::unique_ptr<base::CommandLine>* app_command_line) {
   DCHECK(orig_command_line != NULL);
   DCHECK(!orig_command_line->argv().empty());
   DCHECK(logger_command_line != NULL);

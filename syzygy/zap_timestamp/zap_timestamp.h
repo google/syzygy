@@ -134,7 +134,7 @@ class ZapTimestamp {
   PatchAddressSpace pe_file_addr_space_;
 
   // Populated by LoadPdbFile and modified by UpdatePdbFile.
-  scoped_ptr<pdb::PdbFile> pdb_file_;
+  std::unique_ptr<pdb::PdbFile> pdb_file_;
 
   // These house the new values to be written when the image is zapped.
   DWORD timestamp_data_;

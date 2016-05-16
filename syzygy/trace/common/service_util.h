@@ -17,8 +17,9 @@
 #ifndef SYZYGY_TRACE_COMMON_SERVICE_UTIL_H_
 #define SYZYGY_TRACE_COMMON_SERVICE_UTIL_H_
 
+#include <memory>
+
 #include "base/command_line.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_piece.h"
 #include "base/win/scoped_handle.h"
 
@@ -51,7 +52,7 @@ bool InitEvent(const base::StringPiece16& event_name,
 // before we get a chance to inspect it.).
 bool SplitCommandLine(const base::CommandLine* orig_command_line,
                       base::CommandLine* logger_command_line,
-                      scoped_ptr<base::CommandLine>* app_command_line);
+                      std::unique_ptr<base::CommandLine>* app_command_line);
 
 // A helper class to manage a console handler for Control-C.
 class ScopedConsoleCtrlHandler {

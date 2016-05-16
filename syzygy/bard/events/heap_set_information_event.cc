@@ -52,7 +52,7 @@ bool HeapSetInformationEvent::Save(const EventInterface* const event,
          out_archive->Save(derived_event->trace_succeeded_);
 }
 
-scoped_ptr<HeapSetInformationEvent> HeapSetInformationEvent::Load(
+std::unique_ptr<HeapSetInformationEvent> HeapSetInformationEvent::Load(
     core::InArchive* in_archive) {
   DCHECK_NE(static_cast<core::InArchive*>(nullptr), in_archive);
 
@@ -65,7 +65,7 @@ scoped_ptr<HeapSetInformationEvent> HeapSetInformationEvent::Load(
   if (in_archive->Load(&stack_trace_id) && in_archive->Load(&trace_heap) &&
       in_archive->Load(&info_class) && in_archive->Load(&info) &&
       in_archive->Load(&info_length) && in_archive->Load(&trace_succeeded)) {
-    return scoped_ptr<HeapSetInformationEvent>(new HeapSetInformationEvent(
+    return std::unique_ptr<HeapSetInformationEvent>(new HeapSetInformationEvent(
         stack_trace_id, reinterpret_cast<HANDLE>(trace_heap),
         static_cast<HEAP_INFORMATION_CLASS>(info_class),
         reinterpret_cast<PVOID>(info), info_length, trace_succeeded));

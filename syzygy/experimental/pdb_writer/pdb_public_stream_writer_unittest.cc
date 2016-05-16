@@ -87,26 +87,18 @@ const uint8_t kExpectedPublicStream[] = {
 
 TEST(PdbPublicStreamWriterTest, WritePublicStream) {
   SymbolVector symbols;
-  symbols.push_back(scoped_ptr<Symbol>(new symbols::ImageSymbol(
-      Microsoft_Cci_Pdb::S_PUB32,
-      core::SectionOffsetAddress(5, 184),
-      Microsoft_Cci_Pdb::T_SEGMENT,
-      "__imp____crtTerminateProcess")));
-  symbols.push_back(scoped_ptr<Symbol>(new symbols::ImageSymbol(
-      Microsoft_Cci_Pdb::S_PUB32,
-      core::SectionOffsetAddress(5, 220),
-      Microsoft_Cci_Pdb::T_SEGMENT,
-      "__imp___initterm_e")));
-  symbols.push_back(scoped_ptr<Symbol>(new symbols::ImageSymbol(
-      Microsoft_Cci_Pdb::S_PUB32,
-      core::SectionOffsetAddress(5, 248),
-      Microsoft_Cci_Pdb::T_SEGMENT,
-      "__imp___CrtDbgReportW")));
-  symbols.push_back(scoped_ptr<Symbol>(new symbols::ImageSymbol(
-      Microsoft_Cci_Pdb::S_LDATA32,
-      core::SectionOffsetAddress(5, 320),
-      Microsoft_Cci_Pdb::T_SEGMENT,
-      "__imp___NotPublic")));
+  symbols.push_back(std::unique_ptr<Symbol>(new symbols::ImageSymbol(
+      Microsoft_Cci_Pdb::S_PUB32, core::SectionOffsetAddress(5, 184),
+      Microsoft_Cci_Pdb::T_SEGMENT, "__imp____crtTerminateProcess")));
+  symbols.push_back(std::unique_ptr<Symbol>(new symbols::ImageSymbol(
+      Microsoft_Cci_Pdb::S_PUB32, core::SectionOffsetAddress(5, 220),
+      Microsoft_Cci_Pdb::T_SEGMENT, "__imp___initterm_e")));
+  symbols.push_back(std::unique_ptr<Symbol>(new symbols::ImageSymbol(
+      Microsoft_Cci_Pdb::S_PUB32, core::SectionOffsetAddress(5, 248),
+      Microsoft_Cci_Pdb::T_SEGMENT, "__imp___CrtDbgReportW")));
+  symbols.push_back(std::unique_ptr<Symbol>(new symbols::ImageSymbol(
+      Microsoft_Cci_Pdb::S_LDATA32, core::SectionOffsetAddress(5, 320),
+      Microsoft_Cci_Pdb::T_SEGMENT, "__imp___NotPublic")));
 
   SymbolOffsets symbol_offsets;
   symbol_offsets.push_back(0);

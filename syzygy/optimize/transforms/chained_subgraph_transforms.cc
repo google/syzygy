@@ -140,7 +140,7 @@ bool ChainedSubgraphTransforms::TransformBlockGraph(
       return false;
 
     // Update subgraph profile.
-    scoped_ptr<SubGraphProfile> subgraph_profile;
+    std::unique_ptr<SubGraphProfile> subgraph_profile;
     profile_->ComputeSubGraphProfile(&subgraph, &subgraph_profile);
 
     // Apply the series of basic block transforms to this block.

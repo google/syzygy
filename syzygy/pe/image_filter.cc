@@ -366,8 +366,8 @@ bool ImageFilter::LoadFromJSON(FILE* file) {
   }
 
   base::JSONReader json_reader;
-  scoped_ptr<base::Value> value(
-      json_reader.Read(base::StringPiece(json.data(), json.size())));
+  std::unique_ptr<base::Value> value(
+      json_reader.Read(base::StringPiece(json.data(), json.size())).release());
   if (value.get() == NULL) {
     LOG(ERROR) << "Failed to parse JSON from file.";
     return false;

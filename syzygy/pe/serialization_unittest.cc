@@ -127,10 +127,10 @@ class SerializationTest : public testing::PELibUnitTest {
 
   // Streams and archives.
   std::vector<uint8_t> v_;
-  scoped_ptr<core::OutStream> os_;
-  scoped_ptr<core::InStream> is_;
-  scoped_ptr<core::OutArchive> oa_;
-  scoped_ptr<core::InArchive> ia_;
+  std::unique_ptr<core::OutStream> os_;
+  std::unique_ptr<core::InStream> is_;
+  std::unique_ptr<core::OutArchive> oa_;
+  std::unique_ptr<core::InArchive> ia_;
 };
 
 }  // namespace

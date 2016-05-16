@@ -15,11 +15,12 @@
 // Implementation of the code coverage DLL.
 #include "syzygy/agent/coverage/coverage.h"
 
+#include <memory>
+
 #include "base/at_exit.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/lazy_instance.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/utf_string_conversions.h"
 #include "syzygy/agent/common/agent.h"
 #include "syzygy/agent/common/process_utils.h"

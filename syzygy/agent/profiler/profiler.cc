@@ -17,13 +17,13 @@
 
 #include <windows.h>
 #include <algorithm>
+#include <memory>
 
 #include "base/at_exit.h"
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/environment.h"
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "base/win/pe_image.h"

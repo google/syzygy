@@ -197,7 +197,7 @@ void PdbTypeDumpApp::DumpArgument(refinery::FunctionType::ArgumentType argument,
 }
 
 void PdbTypeDumpApp::DumpNames(refinery::TypePtr type, uint8_t indent_level) {
-  DCHECK(type != nullptr);
+  DCHECK(type.get() != nullptr);
 
   DumpIndentedText(out(), indent_level, "Name: %S\n", type->GetName().c_str());
   DumpIndentedText(out(), indent_level, "Decorated name: %S\n",
@@ -206,7 +206,7 @@ void PdbTypeDumpApp::DumpNames(refinery::TypePtr type, uint8_t indent_level) {
 
 void PdbTypeDumpApp::DumpBasicType(refinery::TypePtr type,
                                    uint8_t indent_level) {
-  DCHECK(type != nullptr);
+  DCHECK(type.get() != nullptr);
 
   // Always print names of basic types.
   DumpNames(type, indent_level);
@@ -214,7 +214,7 @@ void PdbTypeDumpApp::DumpBasicType(refinery::TypePtr type,
 
 void PdbTypeDumpApp::DumpUserDefinedType(refinery::UserDefinedTypePtr type,
                                          uint8_t indent_level) {
-  DCHECK(type != nullptr);
+  DCHECK(type.get() != nullptr);
 
   DumpIndentedText(out(), indent_level, "UDT kind: %s\n",
                    GetUdtKindName(type->udt_kind()));
@@ -239,7 +239,7 @@ void PdbTypeDumpApp::DumpUserDefinedType(refinery::UserDefinedTypePtr type,
 
 void PdbTypeDumpApp::DumpArrayType(refinery::ArrayTypePtr type,
                                    uint8_t indent_level) {
-  DCHECK(type != nullptr);
+  DCHECK(type.get() != nullptr);
 
   DumpIndentedText(out(), indent_level, "Properties:\n");
   DumpFlags(type->is_const(), type->is_volatile(), indent_level + 1);
@@ -257,7 +257,7 @@ void PdbTypeDumpApp::DumpArrayType(refinery::ArrayTypePtr type,
 
 void PdbTypeDumpApp::DumpPointerType(refinery::PointerTypePtr type,
                                      uint8_t indent_level) {
-  DCHECK(type != nullptr);
+  DCHECK(type.get() != nullptr);
 
   DumpIndentedText(out(), indent_level, "Properties:\n");
 
@@ -275,7 +275,7 @@ void PdbTypeDumpApp::DumpPointerType(refinery::PointerTypePtr type,
 
 void PdbTypeDumpApp::DumpFunctionType(refinery::FunctionTypePtr type,
                                       uint8_t indent_level) {
-  DCHECK(type != nullptr);
+  DCHECK(type.get() != nullptr);
 
   DumpIndentedText(out(), indent_level, "Call convention: %s\n",
                    GetCallConventionName(type->call_convention()));
@@ -299,7 +299,7 @@ void PdbTypeDumpApp::DumpFunctionType(refinery::FunctionTypePtr type,
 }
 
 void PdbTypeDumpApp::DumpType(refinery::TypePtr type, uint8_t indent_level) {
-  DCHECK(type != nullptr);
+  DCHECK(type.get() != nullptr);
 
   // Dump common properties.
   DumpIndentedText(out(), indent_level, "Type ID %d:\n", type->type_id());

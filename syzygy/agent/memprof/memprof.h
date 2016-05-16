@@ -15,7 +15,8 @@
 #ifndef SYZYGY_AGENT_MEMPROF_MEMPROF_H_
 #define SYZYGY_AGENT_MEMPROF_MEMPROF_H_
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "syzygy/agent/memprof/memory_profiler.h"
 
 namespace agent {
@@ -23,7 +24,7 @@ namespace memprof {
 
 // A static global memory profiler instance. This is initialized in DllMain
 // and exposed so that the various shims can access it.
-extern scoped_ptr<MemoryProfiler> memory_profiler;
+extern std::unique_ptr<MemoryProfiler> memory_profiler;
 
 }  // namespace memprof
 }  // namespace agent

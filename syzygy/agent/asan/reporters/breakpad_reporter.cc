@@ -30,7 +30,7 @@ const char* reporters::BreakpadReporter:: SetCrashKeyValueImpl::name_ =
 namespace reporters {
 
 // static
-scoped_ptr<BreakpadReporter> BreakpadReporter::Create() {
+std::unique_ptr<BreakpadReporter> BreakpadReporter::Create() {
   // Initialize the required reporter functions
   BreakpadFunctions breakpad_functions;
   breakpad_functions.crash_for_exception.Lookup();
@@ -39,7 +39,8 @@ scoped_ptr<BreakpadReporter> BreakpadReporter::Create() {
   if (!AreValid(breakpad_functions))
     return nullptr;
 
-  return scoped_ptr<BreakpadReporter>(new BreakpadReporter(breakpad_functions));
+  return std::unique_ptr<BreakpadReporter>(
+      new BreakpadReporter(breakpad_functions));
 }
 
 // static

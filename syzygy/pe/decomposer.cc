@@ -916,7 +916,7 @@ bool Decomposer::LoadBlockGraphFromPdbStream(
 
   // If the stream is compressed insert the decompression filter.
   core::InStream* in_stream = pdb_in_stream.get();
-  scoped_ptr<core::ZInStream> zip_in_stream;
+  std::unique_ptr<core::ZInStream> zip_in_stream;
   if (compressed != 0) {
     zip_in_stream.reset(new core::ZInStream(in_stream));
     if (!zip_in_stream->Init()) {

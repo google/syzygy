@@ -18,6 +18,7 @@
 #include "syzygy/trace/client/client_utils.h"
 
 #include <psapi.h>
+#include <memory>
 
 #include "base/environment.h"
 #include "base/logging.h"
@@ -59,7 +60,7 @@ bool GetModuleValueFromEnvVar(const char* env_var_name,
   ReturnType best_value = default_value;
 
   // Get the environment variable. If it's empty, we can return early.
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   std::string env_var;
   env->GetVar(env_var_name, &env_var);
   if (env_var.empty())
@@ -380,7 +381,7 @@ bool InitializeRpcSession(RpcSession* rpc_session, TraceFileSegment* segment) {
 
   LOG(ERROR) << "RPC instance ID is \"" << id << "\".";
 
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   DCHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
   std::string var;
   if (env->GetVar(::kSyzygyRpcInstanceIdEnvVar, &var)) {

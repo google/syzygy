@@ -55,7 +55,7 @@ class StaticAnalyzerFactoryTest : public testing::Test {
 TEST_F(StaticAnalyzerFactoryTest,
        CreateAnalyzersSucceedsForValidAnalyzerNames) {
   for (const auto& name : analyzer_names()) {
-    scoped_ptr<Analyzer> analyzer(list().CreateAnalyzer(name));
+    std::unique_ptr<Analyzer> analyzer(list().CreateAnalyzer(name));
 
     ASSERT_TRUE(analyzer.get());
     ASSERT_EQ(name, analyzer->name());
@@ -63,7 +63,8 @@ TEST_F(StaticAnalyzerFactoryTest,
 }
 
 TEST_F(StaticAnalyzerFactoryTest, CreateAnalyzerFailsForInvalidAnalyzerName) {
-  scoped_ptr<Analyzer> analyzer(list().CreateAnalyzer(kInvalidAnalyzerName));
+  std::unique_ptr<Analyzer> analyzer(
+      list().CreateAnalyzer(kInvalidAnalyzerName));
   ASSERT_FALSE(analyzer.get());
 }
 

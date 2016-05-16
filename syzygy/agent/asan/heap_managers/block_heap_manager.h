@@ -19,11 +19,11 @@
 
 #include <windows.h>
 
+#include <memory>
 #include <unordered_map>
 #include <utility>
 
 #include "base/logging.h"
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/agent/asan/block_utils.h"
 #include "syzygy/agent/asan/error_info.h"
 #include "syzygy/agent/asan/heap.h"
@@ -405,8 +405,8 @@ class BlockHeapManager : public HeapManagerInterface {
   HeapId process_heap_id_;
 
   // The heap that gets used for allocation of internal data structures.
-  scoped_ptr<HeapInterface> internal_win_heap_;
-  scoped_ptr<HeapInterface> internal_heap_;
+  std::unique_ptr<HeapInterface> internal_win_heap_;
+  std::unique_ptr<HeapInterface> internal_heap_;
 
   // Hold the single ZebraBlockHeap instance used by this heap manager.
   // The lifetime management of the zebra heap is provided by the
@@ -441,7 +441,7 @@ class BlockHeapManager : public HeapManagerInterface {
   // asynchronously.
   base::Lock deferred_free_thread_lock_;
   // Under deferred_free_thread_lock_.
-  scoped_ptr<DeferredFreeThread> deferred_free_thread_;
+  std::unique_ptr<DeferredFreeThread> deferred_free_thread_;
 
   DISALLOW_COPY_AND_ASSIGN(BlockHeapManager);
 };

@@ -18,7 +18,8 @@
 #ifndef SYZYGY_BARD_EVENT_H_
 #define SYZYGY_BARD_EVENT_H_
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "syzygy/core/serialization.h"
 
 namespace bard {
@@ -76,8 +77,8 @@ class EventInterface {
   // Deserialize an event from an InArchive.
   // @param in_archive from where to deserialize this event.
   // @returns a scoped__ptr to the newly created event on success,
-  //     an nullptr scoped_ptr otherwise.
-  // static scoped_ptr<DerivedEvent> Load(core::InArchive* in_archive);
+  //     an nullptr std::unique_ptr otherwise.
+  // static std::unique_ptr<DerivedEvent> Load(core::InArchive* in_archive);
   //
   // NOTE: A DerivedEvent event should NOT save its own type in the Save method.
   // That should be done by a root serialization, which will need to read the
@@ -86,7 +87,7 @@ class EventInterface {
   // Serialization of an event. These will automatically dispatch to the
   // appropriately typed serialization mechanism.
   static bool Save(const EventInterface* event, core::OutArchive* out_archive);
-  static scoped_ptr<EventInterface> Load(core::InArchive* in_archive);
+  static std::unique_ptr<EventInterface> Load(core::InArchive* in_archive);
 };
 
 }  // namespace bard

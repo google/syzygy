@@ -197,9 +197,9 @@ bool ApplicationProfile::ImportFrequencies(
 
 void ApplicationProfile::ComputeSubGraphProfile(
     const BasicBlockSubGraph* subgraph,
-    scoped_ptr<SubGraphProfile>* profile) {
+    std::unique_ptr<SubGraphProfile>* profile) {
   DCHECK_NE(reinterpret_cast<const BasicBlockSubGraph*>(NULL), subgraph);
-  DCHECK_NE(reinterpret_cast<scoped_ptr<SubGraphProfile>*>(NULL), profile);
+  DCHECK_NE(reinterpret_cast<std::unique_ptr<SubGraphProfile>*>(NULL), profile);
 
   // Create the resulting subgraph profile.
   profile->reset(new SubGraphProfile());

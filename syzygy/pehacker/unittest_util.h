@@ -38,7 +38,7 @@ class OperationTest : public testing::PELibUnitTest {
 
  protected:
   int previous_log_level_;
-  scoped_ptr<base::DictionaryValue> config_;
+  std::unique_ptr<base::DictionaryValue> config_;
 };
 
 }  // namespace testing

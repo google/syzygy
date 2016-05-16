@@ -15,8 +15,9 @@
 #ifndef SYZYGY_KASKO_SERVICE_BRIDGE_H_
 #define SYZYGY_KASKO_SERVICE_BRIDGE_H_
 
+#include <memory>
+
 #include "base/macros.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/strings/string16.h"
 
 #include "syzygy/kasko/kasko_rpc.h"
@@ -41,8 +42,9 @@ class ServiceBridge {
  public:
   // Instantiates a ServiceBridge configured to use |protocol| and |endpoint|
   // and to forwards requests to |service|.
-  ServiceBridge(const base::string16& protocol, const base::string16& endpoint,
-                scoped_ptr<Service> service);
+  ServiceBridge(const base::string16& protocol,
+                const base::string16& endpoint,
+                std::unique_ptr<Service> service);
   ~ServiceBridge();
 
   // Starts serving requests. Returns immediately. The return value indicates
@@ -62,9 +64,9 @@ class ServiceBridge {
       handle_t IDL_handle,
       MinidumpRequest request);
 
-  scoped_ptr<common::rpc::ScopedRpcInterfaceRegistration>
+  std::unique_ptr<common::rpc::ScopedRpcInterfaceRegistration>
       interface_registration_;
-  scoped_ptr<Service> service_;
+  std::unique_ptr<Service> service_;
 
   base::string16 protocol_;
   base::string16 endpoint_;

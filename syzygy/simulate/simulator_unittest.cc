@@ -77,7 +77,7 @@ class SimulatorTest : public testing::PELibUnitTest {
   TraceFileList trace_files_;
   testing::StrictMock<MockSimulationEventHandler> simulation_event_handler_;
 
-  scoped_ptr<Simulator> simulator_;
+  std::unique_ptr<Simulator> simulator_;
 };
 
 }  // namespace

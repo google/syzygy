@@ -14,7 +14,8 @@
 
 #include "syzygy/agent/common/stack_capture.h"
 
-#include "base/memory/scoped_ptr.h"
+#include <memory>
+
 #include "gtest/gtest.h"
 #include "testing/gmock/include/gmock/gmock.h"
 

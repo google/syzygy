@@ -19,10 +19,10 @@
 #define SYZYGY_EXPERIMENTAL_PDB_WRITER_SYMBOL_H_
 
 #include <windows.h>
+#include <memory>
 #include <vector>
 
 #include "base/compiler_specific.h"
-#include "base/memory/scoped_ptr.h"
 #include "syzygy/pdb/pdb_decl.h"
 #include "third_party/cci/Files/CvInfo.h"
 
@@ -78,7 +78,7 @@ class TypedSymbolImpl : public SymbolBaseImpl {
    Microsoft_Cci_Pdb::SYM type_;
 };
 
-typedef std::vector<scoped_ptr<Symbol>> SymbolVector;
+typedef std::vector<std::unique_ptr<Symbol>> SymbolVector;
 
 }  // namespace pdb
 

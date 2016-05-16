@@ -156,7 +156,7 @@ class ChildProcess {
   base::ScopedTempDir data_directory_;
   testing::TestServer server_;
   bool on_upload_invoked_;
-  scoped_ptr<testing::UploadObserver> observer_;
+  std::unique_ptr<testing::UploadObserver> observer_;
 
   DISALLOW_COPY_AND_ASSIGN(ChildProcess);
 };

@@ -112,7 +112,7 @@ class EntryThunkInstrumenterTest : public testing::PELibUnitTest {
   // @}
 
   // The fake instrumenter we delegate to.
-  scoped_ptr<TestEntryThunkInstrumenter> instrumenter_;
+  std::unique_ptr<TestEntryThunkInstrumenter> instrumenter_;
 };
 
 }  // namespace

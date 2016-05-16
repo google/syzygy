@@ -14,8 +14,9 @@
 
 #include "syzygy/agent/asan/heap_managers/deferred_free_thread.h"
 
+#include <memory>
+
 #include "base/bind.h"
-#include "base/memory/scoped_ptr.h"
 #include "base/synchronization/waitable_event.h"
 #include "gtest/gtest.h"
 
@@ -62,7 +63,7 @@ class DeferredFreeThreadTest : public testing::Test {
  private:
   base::Lock nb_callbacks_lock_;
   size_t nb_callbacks_;
-  scoped_ptr<DeferredFreeThread> deferred_free_thread_;
+  std::unique_ptr<DeferredFreeThread> deferred_free_thread_;
   base::WaitableEvent callback_event_;
 };
 

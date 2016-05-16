@@ -32,7 +32,7 @@ bool GetEnvVar(const char* name, base::string16* value) {
   DCHECK(value != NULL);
   value->clear();
 
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   if (env.get() == NULL) {
     LOG(ERROR) << "base::Environment::Create returned NULL.";
     return false;

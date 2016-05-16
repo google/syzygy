@@ -489,7 +489,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ScopedAgentLogger logger(temp_dir_);
     logger.Start();
 
-    scoped_ptr<base::Environment> env(base::Environment::Create());
+    std::unique_ptr<base::Environment> env(base::Environment::Create());
     CHECK_NE(static_cast<base::Environment*>(nullptr), env.get());
 
     // Update the instance ID environment variable to specifically aim the
@@ -1206,7 +1206,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 
     // Make sure that a minidump gets produced by the logger when a bug occurs.
-    scoped_ptr<base::Environment> env(base::Environment::Create());
+    std::unique_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_NE(env.get(), nullptr);
     if (expect_corrupt_heap) {
       env->SetVar(::common::kSyzyAsanOptionsEnvVar, "--minidump_on_failure");
@@ -1470,7 +1470,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
 
 TEST_F(InstrumentAppIntegrationTest,
        AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
-  scoped_ptr<base::Environment> env(base::Environment::Create());
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(env.get(), nullptr);
   env->SetVar(::common::kSyzyAsanOptionsEnvVar,
               "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "

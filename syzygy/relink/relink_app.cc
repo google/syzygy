@@ -217,14 +217,14 @@ int RelinkApp::Run() {
   }
 
   // Transforms that may be used.
-  scoped_ptr<pe::transforms::ExplodeBasicBlocksTransform> bb_explode;
-  scoped_ptr<reorder::transforms::BasicBlockLayoutTransform> bb_layout;
-  scoped_ptr<block_graph::transforms::FuzzingTransform> fuzzing_transform;
+  std::unique_ptr<pe::transforms::ExplodeBasicBlocksTransform> bb_explode;
+  std::unique_ptr<reorder::transforms::BasicBlockLayoutTransform> bb_layout;
+  std::unique_ptr<block_graph::transforms::FuzzingTransform> fuzzing_transform;
 
   // Orderers that may be used.
   reorder::Reorderer::Order order;
-  scoped_ptr<block_graph::orderers::OriginalOrderer> orig_orderer;
-  scoped_ptr<block_graph::BlockGraphOrdererInterface> orderer;
+  std::unique_ptr<block_graph::orderers::OriginalOrderer> orig_orderer;
+  std::unique_ptr<block_graph::BlockGraphOrdererInterface> orderer;
 
   // If fuzzing is enabled, add it to the relinker.
   if (fuzz_) {

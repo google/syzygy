@@ -74,10 +74,10 @@ class CompareFilePathsTest : public testing::Test {
 
   // This is static so that it is only initialized once for this whole group
   // of tests.
-  static scoped_ptr<base::ScopedTempDir> temp_dir_;
+  static std::unique_ptr<base::ScopedTempDir> temp_dir_;
 };
 
-scoped_ptr<base::ScopedTempDir> CompareFilePathsTest::temp_dir_;
+std::unique_ptr<base::ScopedTempDir> CompareFilePathsTest::temp_dir_;
 
 }  // namespace
 

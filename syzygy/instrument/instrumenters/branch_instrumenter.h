@@ -50,10 +50,11 @@ class BranchInstrumenter : public InstrumenterWithAgent {
   // @}
 
   // The transform for this agent.
-  scoped_ptr<instrument::transforms::BranchHookTransform> branch_transform_;
+  std::unique_ptr<instrument::transforms::BranchHookTransform>
+      branch_transform_;
 
   // The PDB mutator for this agent.
-  scoped_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
+  std::unique_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
       add_bb_addr_stream_mutator_;
 
   // @name Command-line parameters.

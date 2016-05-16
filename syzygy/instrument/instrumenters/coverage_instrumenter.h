@@ -45,11 +45,11 @@ class CoverageInstrumenter : public InstrumenterWithAgent {
   // @}
 
   // The transform for this agent.
-  scoped_ptr<instrument::transforms::CoverageInstrumentationTransform>
+  std::unique_ptr<instrument::transforms::CoverageInstrumentationTransform>
       coverage_transform_;
 
   // The PDB mutator transform for this agent.
-  scoped_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
+  std::unique_ptr<instrument::mutators::AddIndexedDataRangesStreamPdbMutator>
       add_bb_addr_stream_mutator_;
 };
 

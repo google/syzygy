@@ -311,9 +311,10 @@ bool IndexedFrequencyDataSerializer::LoadFromJson(
 
   base::JSONReader json_reader;
   std::string error_msg;
-  scoped_ptr<base::Value> json_value(
-      json_reader.ReadAndReturnError(
-          json_string, base::JSON_ALLOW_TRAILING_COMMAS, NULL, &error_msg));
+  std::unique_ptr<base::Value> json_value(
+      json_reader.ReadAndReturnError(json_string,
+                                     base::JSON_ALLOW_TRAILING_COMMAS, NULL,
+                                     &error_msg).release());
   if (json_value.get() == NULL) {
     LOG(ERROR) << "Failed to parse '" << path.value() << "' as JSON ("
                << error_msg << ").";
