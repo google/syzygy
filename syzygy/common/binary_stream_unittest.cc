@@ -45,13 +45,18 @@ TEST_F(BinaryBufferStreamReaderTest, EmptyConstruction) {
 
 TEST_F(BinaryBufferStreamReaderTest, BufferAndLenConstruction) {
   BinaryBufferStreamReader reader(kTestString, sizeof(kTestString));
+  EXPECT_EQ(0U, reader.Position());
+  EXPECT_FALSE(reader.AtEnd());
   // Read the string in one slurp.
   EXPECT_TRUE(reader.Read(sizeof(kTestString), buf()));
+  EXPECT_EQ(sizeof(kTestString), reader.Position());
+  EXPECT_TRUE(reader.AtEnd());
 
   EXPECT_EQ(0, ::memcmp(kTestString, buf(), sizeof(kTestString)));
   // Should be unable to read more bytes.
   EXPECT_FALSE(reader.Read(1, buf()));
 }
+
 
 TEST_F(BinaryBufferStreamReaderTest, StringPieceConstruction) {
   BinaryBufferStreamReader reader(
@@ -69,6 +74,8 @@ using BinaryStreamParserTest = BinaryBufferStreamReaderTest;
 TEST_F(BinaryStreamParserTest, ReadEmpty) {
   BinaryBufferStreamReader empty(nullptr, 0);
   BinaryStreamParser parser(&empty);
+
+  EXPECT_EQ(&empty, parser.stream_reader());
 
   char chr = 0x1C;
   EXPECT_FALSE(parser.Read(&chr));

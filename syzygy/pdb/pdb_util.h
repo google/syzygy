@@ -21,11 +21,28 @@
 #include <vector>
 
 #include "base/files/file_path.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
+
+// An adapter class that implements a BinaryStreamReader on a PdbStream.
+class PdbStreamReader : public common::BinaryStreamReader {
+ public:
+  explicit PdbStreamReader(PdbStream* stream);
+
+  // @name BinaryStreamReader implementation.
+  // @{
+  bool Read(size_t len, void* out) override;
+  size_t Position() const override;
+  bool AtEnd() const override;
+  // @}
+
+ private:
+  scoped_refptr<PdbStream> stream_;
+};
 
 // A map of names to stream IDs, stored in the header stream.
 typedef std::map<std::string, uint32_t> NameStreamMap;

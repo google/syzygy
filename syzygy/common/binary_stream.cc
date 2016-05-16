@@ -41,35 +41,70 @@ bool ReadStringImpl(const BinaryStreamParser* reader, StringType* str) {
 }  // namespace
 
 BinaryBufferStreamReader::BinaryBufferStreamReader(const void* data, size_t len)
-    : data_(reinterpret_cast<const uint8_t*>(data)), bytes_remaining_(len) {
+    : data_(reinterpret_cast<const uint8_t*>(data)), pos_(0), len_(len) {
 }
 
 BinaryBufferStreamReader::BinaryBufferStreamReader(
     const base::StringPiece& data)
     : data_(reinterpret_cast<const uint8_t*>(data.data())),
-      bytes_remaining_(data.length()) {
+      pos_(0),
+      len_(data.length()) {
 }
 
 bool BinaryBufferStreamReader::Read(size_t len, void* out) {
   DCHECK(IsValid());
 
-  if (bytes_remaining_ < len)
+  if (bytes_remaining() < len)
     return false;
 
-  DCHECK_GE(bytes_remaining_, len);
+  DCHECK_GE(bytes_remaining(), len);
 
-  memcpy(out, data_, len);
-  data_ += len;
-  bytes_remaining_ -= len;
+  ::memcpy(out, data_ + pos_, len);
+  pos_ += len;
 
   return true;
 }
 
+size_t BinaryBufferStreamReader::Position() const {
+  return pos_;
+}
+
+bool BinaryBufferStreamReader::AtEnd() const {
+  return bytes_remaining() == 0;
+}
+
 bool BinaryBufferStreamReader::IsValid() {
-  if (data_ == nullptr && bytes_remaining_ != 0)
+  if (data_ == nullptr && bytes_remaining() != 0)
     return false;
 
   return true;
+}
+
+BinaryVectorStreamReader::BinaryVectorStreamReader(std::vector<uint8_t>* data)
+    : position_(0U), data_(data) {
+  DCHECK(data);
+}
+
+bool BinaryVectorStreamReader::Read(size_t len, void* out) {
+  DCHECK(len == 0 || out != nullptr);
+  DCHECK(data_);
+
+  if (data_->size() < position_ + len)
+    return false;
+
+  ::memcpy(out, &data_->at(position_), len);
+  position_ += len;
+
+  return true;
+}
+
+size_t BinaryVectorStreamReader::Position() const {
+  return position_;
+}
+
+bool BinaryVectorStreamReader::AtEnd() const {
+  // Cater for the case where the vector shrinks from under the reader.
+  return position_ >= data_->size();
 }
 
 BinaryStreamParser::BinaryStreamParser(BinaryStreamReader* stream_reader)
