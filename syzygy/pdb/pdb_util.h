@@ -32,12 +32,19 @@ namespace pdb {
 class PdbStreamReader : public common::BinaryStreamReader {
  public:
   explicit PdbStreamReader(PdbStream* stream);
+  PdbStreamReader();
 
   // @name BinaryStreamReader implementation.
   // @{
   bool Read(size_t len, void* out) override;
   size_t Position() const override;
   bool AtEnd() const override;
+  // @}
+
+  // @name Accessors.
+  // @{
+  scoped_refptr<PdbStream> stream() const { return stream_; }
+  void set_stream(PdbStream* stream) { stream_ = stream; }
   // @}
 
  private:

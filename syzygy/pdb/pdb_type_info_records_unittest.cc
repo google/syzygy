@@ -17,8 +17,8 @@
 #include "base/files/file_util.h"
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/unittest_util.h"
 
 namespace pdb {
@@ -27,25 +27,23 @@ namespace {
 
 class PdbTypeInfoRecordsTest : public testing::Test {
  protected:
-  void SetUp() override {
-    stream_ = new PdbByteStream;
-    write_stream_ = stream_->GetWritableStream();
-  }
+  PdbTypeInfoRecordsTest()
+      : writer_(&data_), reader_(&data_), parser_(&reader_) {}
 
   void WriteUnsignedNumeric(uint64_t value) {
     void* data_pointer = &value;
 
     if (value < Microsoft_Cci_Pdb::LF_NUMERIC) {
-      ASSERT_TRUE(write_stream_->Write(2, data_pointer));
+      ASSERT_TRUE(writer_.Write(2, data_pointer));
     } else if (value <= UINT16_MAX) {
       WriteData<uint16_t>(Microsoft_Cci_Pdb::LF_USHORT);
-      ASSERT_TRUE(write_stream_->Write(2, data_pointer));
+      ASSERT_TRUE(writer_.Write(2, data_pointer));
     } else if (value <= UINT32_MAX) {
       WriteData<uint16_t>(Microsoft_Cci_Pdb::LF_ULONG);
-      ASSERT_TRUE(write_stream_->Write(4, data_pointer));
+      ASSERT_TRUE(writer_.Write(4, data_pointer));
     } else if (value <= UINT64_MAX) {
       WriteData<uint16_t>(Microsoft_Cci_Pdb::LF_UQUADWORD);
-      ASSERT_TRUE(write_stream_->Write(8, data_pointer));
+      ASSERT_TRUE(writer_.Write(8, data_pointer));
     } else {
       FAIL();
     }
@@ -55,16 +53,18 @@ class PdbTypeInfoRecordsTest : public testing::Test {
     std::string narrow_string;
     ASSERT_TRUE(base::WideToUTF8(wide_string.c_str(), wide_string.length(),
                                  &narrow_string));
-    ASSERT_TRUE(write_stream_->WriteString(narrow_string));
+    ASSERT_TRUE(writer_.WriteString(narrow_string));
   }
 
   template <typename T>
   void WriteData(const T& value) {
-    ASSERT_TRUE(write_stream_->Write(value));
+    ASSERT_TRUE(writer_.Write(value));
   }
 
-  scoped_refptr<PdbByteStream> stream_;
-  scoped_refptr<WritablePdbStream> write_stream_;
+  std::vector<uint8_t> data_;
+  common::VectorBufferWriter writer_;
+  common::BinaryVectorStreamReader reader_;
+  common::BinaryStreamParser parser_;
 };
 
 }  // namespace
@@ -75,12 +75,12 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafArglist) {
   LeafArgList type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kCount);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kCount, type_record.body().count);
 }
@@ -94,7 +94,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafArray) {
   LeafArray type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kElemType);
@@ -102,7 +102,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafArray) {
   WriteUnsignedNumeric(kSize);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kElemType, type_record.body().elemtype);
   EXPECT_EQ(kIndexType, type_record.body().idxtype);
@@ -118,14 +118,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafBClass) {
   LeafBClass type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
   WriteData(kType);
   WriteUnsignedNumeric(kOffset);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().index);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
@@ -140,14 +140,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafBitfield) {
   LeafBitfield type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kType);
   WriteData(kLength);
   WriteData(kPosition);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().type);
   EXPECT_EQ(kLength, type_record.body().length);
@@ -168,7 +168,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
   LeafClass type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kCount);
@@ -180,7 +180,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafClass) {
   WriteWideString(kName);
   WriteWideString(kDecoratedName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kCount, type_record.body().count);
   EXPECT_EQ(kProperty.raw, type_record.property().raw);
@@ -205,7 +205,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafEnum) {
   LeafEnum type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kCount);
@@ -215,7 +215,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafEnum) {
   WriteWideString(kName);
   WriteWideString(kDecoratedName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kCount, type_record.body().count);
   EXPECT_EQ(kProperty.raw, type_record.property().raw);
@@ -233,14 +233,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafEnumerate) {
   LeafEnumerate type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
   WriteUnsignedNumeric(kValue);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
   EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, type_record.value().kind());
@@ -255,13 +255,13 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafFriendCls) {
   LeafFriendCls type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kPad);
   WriteData(kType);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kPad, type_record.body().pad0);
   EXPECT_EQ(kType, type_record.body().index);
@@ -275,14 +275,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafFriendFcn) {
   LeafFriendFcn type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kPad);
   WriteData(kType);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kPad, type_record.body().pad0);
   EXPECT_EQ(kType, type_record.body().index);
@@ -296,13 +296,13 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafIndex) {
   LeafIndex type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kPad);
   WriteData(kType);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kPad, type_record.body().pad0);
   EXPECT_EQ(kType, type_record.body().index);
@@ -317,7 +317,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
   LeafMember type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
@@ -325,7 +325,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMember) {
   WriteUnsignedNumeric(kOffset);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().index);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
@@ -341,14 +341,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMethod) {
   LeafMethod type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kCount);
   WriteData(kMlist);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kCount, type_record.body().count);
   EXPECT_EQ(kMlist, type_record.body().mList);
@@ -368,7 +368,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMFunction) {
   LeafMFunction type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kReturnType);
@@ -380,7 +380,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMFunction) {
   WriteData(kArglistType);
   WriteData(kThisAdjust);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kReturnType, type_record.body().rvtype);
   EXPECT_EQ(kClassType, type_record.body().classtype);
@@ -399,13 +399,13 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafModifier) {
   LeafModifier type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kType);
   WriteData(kAttr);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().type);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
@@ -419,14 +419,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafNestType) {
   LeafNestType type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
   WriteData(kType);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
   EXPECT_EQ(kType, type_record.body().index);
@@ -444,7 +444,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafOneMethod) {
   LeafOneMethod type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
@@ -452,7 +452,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafOneMethod) {
   WriteData(kVbaseOff);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
   EXPECT_EQ(kType, type_record.body().index);
@@ -468,13 +468,13 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafPointer) {
   LeafPointer type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kType);
   WriteData(kAttr);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().utype);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
@@ -493,7 +493,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMemberPointer) {
   LeafPointer type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kType);
@@ -501,7 +501,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafMemberPointer) {
   WriteData(kContainingClass);
   WriteData(kPmtype);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().utype);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
@@ -521,7 +521,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafProcedure) {
   LeafProcedure type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kReturnType);
@@ -530,7 +530,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafProcedure) {
   WriteData(kParamCount);
   WriteData(kArglistType);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kReturnType, type_record.body().rvtype);
   EXPECT_EQ(kCallConvention, type_record.body().calltype);
@@ -547,14 +547,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafSTMember) {
   LeafSTMember type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
   WriteData(kType);
   WriteWideString(kName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().index);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
@@ -573,7 +573,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafUnion) {
   LeafUnion type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kCount);
@@ -583,7 +583,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafUnion) {
   WriteWideString(kName);
   WriteWideString(kDecoratedName);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kCount, type_record.body().count);
   EXPECT_EQ(kProperty.raw, type_record.property().raw);
@@ -604,7 +604,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
   LeafVBClass type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
@@ -613,7 +613,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVBClass) {
   WriteUnsignedNumeric(kVbpoff);
   WriteUnsignedNumeric(kVboff);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().index);
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
@@ -630,14 +630,14 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncOff) {
   LeafVFuncOff type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kPad);
   WriteData(kType);
   WriteData(kOffset);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().type);
   EXPECT_EQ(kOffset, type_record.body().offset);
@@ -650,13 +650,13 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVFuncTab) {
   LeafVFuncTab type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kPad);
   WriteData(kType);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kType, type_record.body().type);
 }
@@ -667,12 +667,12 @@ TEST_F(PdbTypeInfoRecordsTest, ReadLeafVTShape) {
   LeafVTShape type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kCount);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kCount, type_record.body().count);
 }
@@ -688,7 +688,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadMethodListRecord) {
   MethodListRecord type_record;
 
   // Fail reading from an empty stream.
-  EXPECT_FALSE(type_record.Initialize(stream_.get()));
+  EXPECT_FALSE(type_record.Initialize(&parser_));
 
   // Fill the stream.
   WriteData(kAttr);
@@ -696,7 +696,7 @@ TEST_F(PdbTypeInfoRecordsTest, ReadMethodListRecord) {
   WriteData(kType);
   WriteData(kVbaseOff);
 
-  ASSERT_TRUE(type_record.Initialize(stream_.get()));
+  ASSERT_TRUE(type_record.Initialize(&parser_));
 
   EXPECT_EQ(kAttr.raw, type_record.attr().raw);
   EXPECT_EQ(kType, type_record.body().index);

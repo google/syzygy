@@ -30,6 +30,7 @@
 #include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_stream_record.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
+#include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/cvinfo_ext.h"
 #include "syzygy/refinery/types/type.h"
 #include "syzygy/refinery/types/type_repository.h"
@@ -38,6 +39,16 @@
 namespace refinery {
 
 namespace {
+
+bool ReadUnsignedNumeric(pdb::PdbStream* stream, uint64_t* data_field) {
+  DCHECK_NE(static_cast<pdb::PdbStream*>(nullptr), stream);
+  DCHECK_NE(static_cast<uint64_t*>(nullptr), data_field);
+
+  pdb::PdbStreamReader reader(stream);
+  common::BinaryStreamParser parser(&reader);
+
+  return pdb::ReadUnsignedNumeric(&parser, data_field);
+}
 
 std::vector<TypePtr> GetTypesBySuffix(TypeRepository* types,
                                       const base::string16& suffix) {
@@ -148,7 +159,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
 
       // Read the value, we are not interested in signed values.
       uint64_t value;
-      if (!pdb::ReadUnsignedNumeric(sym_record_stream.get(), &value))
+      if (!ReadUnsignedNumeric(sym_record_stream.get(), &value))
         continue;
 
       // And its name.

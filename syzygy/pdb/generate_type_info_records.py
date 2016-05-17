@@ -62,8 +62,8 @@
 #   "types": {
 #     // Keys are referenced from the struct entries.
 #     "UnsignedNumeric": {
-#       // Name of function with the signature bool(PdbStream*, type*) which
-#       // populates object of the given type from the PdbStream.
+#       // Name of function with the signature bool(common::BinaryStreamParser*, type*) which
+#       // populates object of the given type from the common::BinaryStreamParser.
 #       "parser": "ReadUnsignedNumeric",
 #       // Optional entry containing True if type can be returned by value.
 #       "ret_by_value": "True",
@@ -105,7 +105,7 @@ _HEADER_H = """\
 #define SYZYGY_PDB_GEN_PDB_TYPE_INFO_RECORDS_H_
 
 #include "base/strings/string16.h"
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_stream_record.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
@@ -172,7 +172,7 @@ _CLASS_MIDDLE = """\
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -202,9 +202,9 @@ _INIT_HEADER = """\
 _INIT_MIDDLE = """\
  {{}}
 
-bool {name}::Initialize(PdbStream* stream) {{
+bool {name}::Initialize(common::BinaryStreamParser* stream) {{
   size_t to_read = {bytes_to_read}
-  if (!stream->ReadBytes(&body_, to_read))
+  if (!stream->ReadBytes(to_read, &body_))
     return false;
 """
 

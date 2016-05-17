@@ -46,7 +46,7 @@ const uint16_t kNoLeafType = static_cast<uint16_t>(-1);
 
 class TypeCreator {
  public:
-  explicit TypeCreator(TypeRepository* repository);
+  TypeCreator(TypeRepository* repository, pdb::PdbStream* stream);
   ~TypeCreator();
 
   // Crawls @p stream, creates all types and assigns names to pointers.
@@ -245,6 +245,8 @@ class TypeCreator {
   pdb::TypeInfoEnumerator type_info_enum_;
 
   // Direct access to the Pdb stream inside the type info enumerator.
+  pdb::PdbStreamReader reader_;
+  common::BinaryStreamParser parser_;
   scoped_refptr<pdb::PdbStream> stream_;
 
   // Hash to map forward references to the right UDT records. For each unique
@@ -270,7 +272,7 @@ TypePtr TypeCreator::CreatePointerType(TypeId type_id) {
     return nullptr;
 
   pdb::LeafPointer type_info;
-  if (!type_info.Initialize(stream_.get())) {
+  if (!type_info.Initialize(&parser_)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -342,7 +344,7 @@ TypePtr TypeCreator::ReadPointer(TypeId type_id, Type::Flags* flags) {
     return nullptr;
 
   pdb::LeafPointer type_info;
-  if (!type_info.Initialize(stream_.get())) {
+  if (!type_info.Initialize(&parser_)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -361,7 +363,7 @@ TypePtr TypeCreator::ReadModifier(TypeId type_id, Type::Flags* flags) {
     return nullptr;
 
   pdb::LeafModifier type_info;
-  if (!type_info.Initialize(stream_.get())) {
+  if (!type_info.Initialize(&parser_)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -392,6 +394,8 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
   scoped_refptr<pdb::PdbByteStream> local_stream(new pdb::PdbByteStream());
   local_stream->Init(stream_.get());
 
+  pdb::PdbStreamReader local_reader(local_stream.get());
+  common::BinaryStreamParser local_parser(&local_reader);
   while (local_stream->pos() < leaf_end) {
     uint16_t leaf_type = 0;
     if (!local_stream->Read(&leaf_type, 1)) {
@@ -402,7 +406,7 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
     switch (leaf_type) {
       case cci::LF_MEMBER: {
         pdb::LeafMember type_info;
-        if (!type_info.Initialize(local_stream.get()) ||
+        if (!type_info.Initialize(&local_parser) ||
             !ProcessMember(&type_info, fields)) {
           return false;
         }
@@ -410,7 +414,7 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
       }
       case cci::LF_BCLASS: {
         pdb::LeafBClass type_info;
-        if (!type_info.Initialize(local_stream.get()) ||
+        if (!type_info.Initialize(&local_parser) ||
             !ProcessBClass(&type_info, fields)) {
           return false;
         }
@@ -419,31 +423,31 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
       case cci::LF_VBCLASS:
       case cci::LF_IVBCLASS: {
         pdb::LeafVBClass type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(&local_parser))
           return false;
         break;
       }
       case cci::LF_ENUMERATE: {
         pdb::LeafEnumerate type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(&local_parser))
           return false;
         break;
       }
       case cci::LF_FRIENDFCN: {
         pdb::LeafFriendFcn type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(&local_parser))
           return false;
         break;
       }
       case cci::LF_STMEMBER: {
         pdb::LeafSTMember type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(&local_parser))
           return false;
         break;
       }
       case cci::LF_METHOD: {
         pdb::LeafMethod type_info;
-        if (!type_info.Initialize(local_stream.get()) ||
+        if (!type_info.Initialize(&local_parser) ||
             !ProcessMethod(&type_info, functions)) {
           return false;
         }
@@ -451,26 +455,26 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
       }
       case cci::LF_NESTTYPE: {
         pdb::LeafNestType type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(&local_parser))
           return false;
         break;
       }
       case cci::LF_VFUNCTAB: {
         pdb::LeafVFuncTab type_info;
-        if (!type_info.Initialize(local_stream.get()) ||
+        if (!type_info.Initialize(&local_parser) ||
             !ProcessVFuncTab(&type_info, fields))
           return false;
         break;
       }
       case cci::LF_FRIENDCLS: {
         pdb::LeafFriendCls type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(&local_parser))
           return false;
         break;
       }
       case cci::LF_ONEMETHOD: {
         pdb::LeafOneMethod type_info;
-        if (!type_info.Initialize(local_stream.get()) ||
+        if (!type_info.Initialize(&local_parser) ||
             !ProcessOneMethod(&type_info, functions)) {
           return false;
         }
@@ -478,14 +482,14 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
       }
       case cci::LF_VFUNCOFF: {
         pdb::LeafVFuncOff type_info;
-        if (!type_info.Initialize(local_stream.get()) ||
-          !ProcessVFuncOff(&type_info, fields))
+        if (!type_info.Initialize(&local_parser) ||
+            !ProcessVFuncOff(&type_info, fields))
           return false;
         break;
       }
       case cci::LF_INDEX: {
         pdb::LeafIndex type_info;
-        if (!type_info.Initialize(local_stream.get()))
+        if (!type_info.Initialize(&local_parser))
           return false;
         // This is always the last record of the fieldlist.
         // TODO(manzagop): ask siggi@ if he thinks this optimization is wise.
@@ -554,7 +558,7 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
   if (type_info_enum_.type() == cci::LF_CLASS ||
       type_info_enum_.type() == cci::LF_STRUCTURE) {
     pdb::LeafClass type_info;
-    if (!type_info.Initialize(stream_.get())) {
+    if (!type_info.Initialize(&parser_)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -565,7 +569,7 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
     decorated_name = type_info.decorated_name();
   } else if (type_info_enum_.type() == cci::LF_UNION) {
     pdb::LeafUnion type_info;
-    if (!type_info.Initialize(stream_.get())) {
+    if (!type_info.Initialize(&parser_)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -637,7 +641,7 @@ TypePtr TypeCreator::CreateArrayType(TypeId type_id) {
     return nullptr;
 
   pdb::LeafArray type_info;
-  if (!type_info.Initialize(stream_.get())) {
+  if (!type_info.Initialize(&parser_)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -679,7 +683,7 @@ TypePtr TypeCreator::CreateFunctionType(TypeId type_id) {
   if (type_info_enum_.type() == cci::LF_PROCEDURE) {
     // Load the procedure record.
     pdb::LeafProcedure type_info;
-    if (!type_info.Initialize(stream_.get())) {
+    if (!type_info.Initialize(&parser_)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -691,7 +695,7 @@ TypePtr TypeCreator::CreateFunctionType(TypeId type_id) {
   } else if (type_info_enum_.type() == cci::LF_MFUNCTION) {
     // Load the member function record.
     pdb::LeafMFunction type_info;
-    if (!type_info.Initialize(stream_.get())) {
+    if (!type_info.Initialize(&parser_)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -749,7 +753,7 @@ TypePtr TypeCreator::ReadBitfield(TypeId type_id,
     return nullptr;
 
   pdb::LeafBitfield type_info;
-  if (!type_info.Initialize(stream_.get())) {
+  if (!type_info.Initialize(&parser_)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -770,8 +774,8 @@ TypePtr TypeCreator::ReadBitfield(TypeId type_id,
   return FindOrCreateBitfieldType(underlying_id, flags);
 }
 
-TypeCreator::TypeCreator(TypeRepository* repository)
-    : repository_(repository) {
+TypeCreator::TypeCreator(TypeRepository* repository, pdb::PdbStream* stream)
+    : repository_(repository), parser_(&reader_) {
   DCHECK(repository);
 }
 
@@ -844,12 +848,16 @@ bool TypeCreator::ProcessMethod(pdb::LeafMethod* method,
 
   // We need a local copy of the data in order to load the records.
   scoped_refptr<pdb::PdbByteStream> local_stream(new pdb::PdbByteStream());
-  local_stream->Init(stream_.get());
+  local_stream->Init(type_info_enum_.GetDataStream().get());
+
+  // TODO(siggi): Eliminate the copy above.
+  pdb::PdbStreamReader reader(local_stream.get());
+  common::BinaryStreamParser parser(&reader);
 
   uint16_t count = method->body().count;
   while (count > 0) {
     pdb::MethodListRecord method_record;
-    if (!method_record.Initialize(local_stream.get())) {
+    if (!method_record.Initialize(&parser)) {
       LOG(ERROR) << "Unable to read method list record.";
       return false;
     }
@@ -1327,7 +1335,7 @@ bool TypeCreator::PrepareData() {
     if (type_info_enum_.type() == cci::LF_CLASS ||
         type_info_enum_.type() == cci::LF_STRUCTURE) {
       pdb::LeafClass type_info;
-      if (!type_info.Initialize(stream_.get())) {
+      if (!type_info.Initialize(&parser_)) {
         LOG(ERROR) << "Unable to read type info record.";
         return false;
       }
@@ -1375,6 +1383,7 @@ bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
   }
 
   stream_ = type_info_enum_.GetDataStream();
+  reader_.set_stream(stream_.get());
 
   // Create the map of forward declarations and populate the process queue.
   if (!PrepareData())
@@ -1472,7 +1481,7 @@ bool PdbCrawler::GetTypes(TypeRepository* types) {
   DCHECK(types);
   DCHECK(tpi_stream_);
 
-  TypeCreator creator(types);
+  TypeCreator creator(types, tpi_stream_.get());
 
   return creator.CreateTypes(tpi_stream_);
 }

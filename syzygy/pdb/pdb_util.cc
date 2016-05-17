@@ -161,7 +161,9 @@ struct NamedStreamInfo {
 }  // namespace
 
 PdbStreamReader::PdbStreamReader(PdbStream* stream) : stream_(stream) {
-  DCHECK(stream_);
+}
+
+PdbStreamReader::PdbStreamReader() : stream_(nullptr) {
 }
 
 bool PdbStreamReader::Read(size_t len, void* out) {
@@ -170,10 +172,12 @@ bool PdbStreamReader::Read(size_t len, void* out) {
 }
 
 size_t PdbStreamReader::Position() const {
+  DCHECK(stream_);
   return stream_->pos();
 }
 
 bool PdbStreamReader::AtEnd() const {
+  DCHECK(stream_);
   DCHECK_LE(stream_->pos(), stream_->length());
   return stream_->pos() == stream_->length();
 }

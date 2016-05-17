@@ -27,19 +27,28 @@ bool ReadWideString(PdbStream* stream, base::string16* string_field) {
   DCHECK(stream);
   DCHECK(string_field);
 
+  PdbStreamReader reader(stream);
+  common::BinaryStreamParser parser(&reader);
+
+  return ReadWideString(&parser, string_field);
+}
+
+bool ReadWideString(common::BinaryStreamParser* parser,
+                    base::string16* string_field) {
   std::string narrow_string;
-  if (!ReadString(stream, &narrow_string))
+  if (!parser->ReadString(&narrow_string))
     return false;
   return base::UTF8ToWide(narrow_string.c_str(), narrow_string.length(),
                           string_field);
 }
 
-bool ReadUnsignedNumeric(PdbStream* stream, uint64_t* data_field) {
-  DCHECK(stream);
-  DCHECK(data_field);
+bool ReadUnsignedNumeric(common::BinaryStreamParser* parser,
+                         uint64_t* data_field) {
+  DCHECK_NE(static_cast<common::BinaryStreamParser*>(nullptr), parser);
+  DCHECK_NE(static_cast<uint64_t*>(nullptr), data_field);
 
   NumericConstant numeric;
-  if (!ReadNumericConstant(stream, &numeric))
+  if (!ReadNumericConstant(parser, &numeric))
     return false;
 
   if (numeric.kind() != NumericConstant::CONSTANT_UNSIGNED)
@@ -49,12 +58,13 @@ bool ReadUnsignedNumeric(PdbStream* stream, uint64_t* data_field) {
   return true;
 }
 
-bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
-  DCHECK(stream);
-  DCHECK(constant);
+bool ReadNumericConstant(common::BinaryStreamParser* parser,
+                         NumericConstant* constant) {
+  DCHECK_NE(static_cast<common::BinaryStreamParser*>(nullptr), parser);
+  DCHECK_NE(static_cast<NumericConstant*>(nullptr), constant);
 
   uint16_t value_type = 0;
-  if (!stream->Read(&value_type, 1))
+  if (!parser->Read(&value_type))
     return false;
 
   // If the value is small then it's simply this value.
@@ -68,7 +78,7 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
   switch (value_type) {
     case Microsoft_Cci_Pdb::LF_CHAR: {
       int8_t value = 0;
-      if (!stream->Read(&value, 1))
+      if (!parser->Read(&value))
         return false;
       constant->kind_ = NumericConstant::CONSTANT_SIGNED;
       constant->signed_value_ = value;
@@ -76,7 +86,7 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
     }
     case Microsoft_Cci_Pdb::LF_USHORT: {
       uint16_t value = 0;
-      if (!stream->Read(&value, 1))
+      if (!parser->Read(&value))
         return false;
       constant->kind_ = NumericConstant::CONSTANT_UNSIGNED;
       constant->unsigned_value_ = value;
@@ -84,7 +94,7 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
     }
     case Microsoft_Cci_Pdb::LF_ULONG: {
       uint32_t value = 0;
-      if (!stream->Read(&value, 1))
+      if (!parser->Read(&value))
         return false;
       constant->kind_ = NumericConstant::CONSTANT_UNSIGNED;
       constant->unsigned_value_ = value;
@@ -92,7 +102,7 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
     }
     case Microsoft_Cci_Pdb::LF_UQUADWORD: {
       uint64_t value = 0;
-      if (!stream->Read(&value, 1))
+      if (!parser->Read(&value))
         return false;
       constant->kind_ = NumericConstant::CONSTANT_UNSIGNED;
       constant->unsigned_value_ = value;
@@ -100,7 +110,7 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
     }
     case Microsoft_Cci_Pdb::LF_SHORT: {
       int16_t value = 0;
-      if (!stream->Read(&value, 1))
+      if (!parser->Read(&value))
         return false;
       constant->kind_ = NumericConstant::CONSTANT_SIGNED;
       constant->unsigned_value_ = value;
@@ -108,7 +118,7 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
     }
     case Microsoft_Cci_Pdb::LF_LONG: {
       int32_t value = 0;
-      if (!stream->Read(&value, 1))
+      if (!parser->Read(&value))
         return false;
       constant->kind_ = NumericConstant::CONSTANT_SIGNED;
       constant->unsigned_value_ = value;
@@ -116,7 +126,7 @@ bool ReadNumericConstant(PdbStream* stream, NumericConstant* constant) {
     }
     case Microsoft_Cci_Pdb::LF_QUADWORD: {
       int64_t value = 0;
-      if (!stream->Read(&value, 1))
+      if (!parser->Read(&value))
         return false;
       constant->kind_ = NumericConstant::CONSTANT_SIGNED;
       constant->unsigned_value_ = value;

@@ -16,8 +16,9 @@
 
 #include "base/strings/utf_string_conversions.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/binary_stream.h"
+#include "syzygy/common/buffer_writer.h"
 #include "syzygy/core/unittest_util.h"
-#include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
 namespace pdb {
@@ -26,25 +27,24 @@ namespace {
 
 class PdbStreamRecordTest : public testing::Test {
  protected:
-  void SetUp() override {
-    stream_ = new PdbByteStream;
-    write_stream_ = stream_->GetWritableStream();
-  }
+  PdbStreamRecordTest() : writer_(&data_), reader_(&data_), parser_(&reader_) {}
 
   void WriteWideString(const base::string16& wide_string) {
     std::string narrow_string;
     ASSERT_TRUE(base::WideToUTF8(wide_string.c_str(), wide_string.length(),
                                  &narrow_string));
-    ASSERT_TRUE(write_stream_->WriteString(narrow_string));
+    ASSERT_TRUE(writer_.WriteString(narrow_string));
   }
 
   template <typename T>
   void WriteData(const T& value) {
-    ASSERT_TRUE(write_stream_->Write(value));
+    ASSERT_TRUE(writer_.Write(value));
   }
 
-  scoped_refptr<PdbByteStream> stream_;
-  scoped_refptr<WritablePdbStream> write_stream_;
+  std::vector<uint8_t> data_;
+  common::VectorBufferWriter writer_;
+  common::BinaryVectorStreamReader reader_;
+  common::BinaryStreamParser parser_;
 };
 
 }  // namespace
@@ -54,10 +54,10 @@ TEST_F(PdbStreamRecordTest, ReadWideString) {
   base::string16 control_string;
 
   // Fail when attempting to read empty stream.
-  EXPECT_FALSE(ReadWideString(stream_.get(), &control_string));
+  EXPECT_FALSE(ReadWideString(&parser_, &control_string));
 
   WriteWideString(wide_string);
-  EXPECT_TRUE(ReadWideString(stream_.get(), &control_string));
+  EXPECT_TRUE(ReadWideString(&parser_, &control_string));
   EXPECT_EQ(wide_string, control_string);
 }
 
@@ -66,11 +66,11 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantDirect) {
   NumericConstant numeric;
 
   // Fail when attempting to read empty stream.
-  EXPECT_FALSE(ReadNumericConstant(stream_.get(), &numeric));
+  EXPECT_FALSE(ReadNumericConstant(&parser_, &numeric));
 
   // For values smaller than 0x8000 the numeric leaf reads just their value.
   WriteData(kVal16);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
   EXPECT_EQ(kVal16, numeric.unsigned_value());
 }
@@ -83,7 +83,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantChar) {
   // Test reading signed 8-bit values.
   WriteData(kLfChar);
   WriteData(kVal8);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
   EXPECT_EQ(kVal8, numeric.signed_value());
 }
@@ -96,7 +96,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantUshort) {
   // Test reading 16-bit values inside LF_USHORT.
   WriteData(kLfUshort);
   WriteData(kVal16);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
   EXPECT_EQ(kVal16, numeric.unsigned_value());
 }
@@ -109,7 +109,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantShort) {
   // Test reading signed 16-bit values.
   WriteData(kLfShort);
   WriteData(kVal16);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
   EXPECT_EQ(kVal16, numeric.signed_value());
 }
@@ -122,7 +122,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantUlong) {
   // Test reading 32-bit values.
   WriteData(kLfUlong);
   WriteData(kVal32);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
   EXPECT_EQ(kVal32, numeric.unsigned_value());
 }
@@ -135,7 +135,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafNumericConstantLong) {
   // Test reading signed 32-bit values.
   WriteData(kLfLong);
   WriteData(kVal32);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
   EXPECT_EQ(kVal32, numeric.signed_value());
 }
@@ -148,7 +148,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericUquad) {
   // Test reading 64-bit values.
   WriteData(kLfUquad);
   WriteData(kVal64);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_UNSIGNED, numeric.kind());
   EXPECT_EQ(kVal64, numeric.unsigned_value());
 }
@@ -161,7 +161,7 @@ TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumericQuad) {
   // Test reading signed 64-bit values.
   WriteData(kLfQuad);
   WriteData(kVal64);
-  ASSERT_TRUE(ReadNumericConstant(stream_.get(), &numeric));
+  ASSERT_TRUE(ReadNumericConstant(&parser_, &numeric));
   EXPECT_EQ(NumericConstant::CONSTANT_SIGNED, numeric.kind());
   EXPECT_EQ(kVal64, numeric.signed_value());
 }
@@ -171,10 +171,10 @@ TEST_F(PdbStreamRecordTest, ReadLeafUnsignedNumeric) {
   uint64_t constant;
 
   // Fail when attempting to read empty stream.
-  EXPECT_FALSE(ReadUnsignedNumeric(stream_.get(), &constant));
+  EXPECT_FALSE(ReadUnsignedNumeric(&parser_, &constant));
 
   WriteData(kVal16);
-  ASSERT_TRUE(ReadUnsignedNumeric(stream_.get(), &constant));
+  ASSERT_TRUE(ReadUnsignedNumeric(&parser_, &constant));
   EXPECT_EQ(kVal16, constant);
 }
 
@@ -183,10 +183,10 @@ TEST_F(PdbStreamRecordTest, ReadBasicType) {
   uint32_t control_value = 0;
 
   // Fail when attempting to read empty stream.
-  EXPECT_FALSE(ReadBasicType(stream_.get(), &control_value));
+  EXPECT_FALSE(ReadBasicType(&parser_, &control_value));
 
   WriteData(kValue);
-  EXPECT_TRUE(ReadBasicType(stream_.get(), &control_value));
+  EXPECT_TRUE(ReadBasicType(&parser_, &control_value));
   EXPECT_EQ(kValue, control_value);
 }
 

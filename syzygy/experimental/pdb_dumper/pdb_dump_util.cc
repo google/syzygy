@@ -15,6 +15,7 @@
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 
 #include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
 namespace pdb {
@@ -26,8 +27,21 @@ bool DumpUnknownBlock(FILE* out,
                       PdbStream* stream,
                       uint16_t len,
                       uint8_t indent_level) {
-  DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
-  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  DCHECK_NE(static_cast<FILE*>(nullptr), out);
+  DCHECK_NE(static_cast<PdbStream*>(nullptr), stream);
+
+  PdbStreamReader reader(stream);
+  common::BinaryStreamParser parser(&reader);
+
+  return DumpUnknownBlock(out, &parser, len, indent_level);
+}
+
+bool DumpUnknownBlock(FILE* out,
+                      common::BinaryStreamParser* parser,
+                      uint16_t len,
+                      uint8_t indent_level) {
+  DCHECK_NE(static_cast<FILE*>(nullptr), out);
+  DCHECK_NE(static_cast<common::BinaryStreamParser*>(nullptr), parser);
 
   // This should be a power of two.
   const size_t kColumnCount = 16;
@@ -42,8 +56,8 @@ bool DumpUnknownBlock(FILE* out,
     size_t bytes_to_read = len - bytes_read;
     if (bytes_to_read > kColumnCount)
       bytes_to_read = kColumnCount;
-    if (!stream->ReadBytes(buffer, bytes_to_read)) {
-      LOG(ERROR) << "Unable to read stream.";
+    if (!parser->ReadBytes(bytes_to_read, buffer)) {
+      LOG(ERROR) << "Unable to read data.";
       return false;
     }
     DumpTabs(out, indent_level);

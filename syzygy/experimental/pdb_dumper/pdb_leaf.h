@@ -19,6 +19,7 @@
 #define SYZYGY_EXPERIMENTAL_PDB_DUMPER_PDB_LEAF_H_
 
 #include "base/files/file_util.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_data_types.h"
 #include "syzygy/pdb/pdb_decl.h"
 
@@ -28,7 +29,7 @@ namespace pdb {
 // @param type_map The map containing all the type info records.
 // @param type_value The type of the leaf.
 // @param out The output where the data should be dumped.
-// @param stream The stream containing the data. It should be positioned at the
+// @param parser The parser for the data. It should be positioned at the
 //     beginning of the data block.
 // @param len The length of the data.
 // @param indent_level The level of indentation to use.
@@ -36,7 +37,7 @@ namespace pdb {
 bool DumpLeaf(const TypeInfoRecordMap& type_map,
               uint16_t type_value,
               FILE* out,
-              PdbStream* stream,
+              common::BinaryStreamParser* parser,
               size_t len,
               uint8_t indent_level);
 

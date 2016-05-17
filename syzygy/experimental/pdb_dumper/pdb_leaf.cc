@@ -18,6 +18,7 @@
 
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/buffer_parser.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/pdb/gen/pdb_type_info_records.h"
 #include "syzygy/pdb/pdb_stream.h"
@@ -232,11 +233,11 @@ void DumpModifierAttribute(FILE* out,
 
 bool DumpLeafVTShape(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   LeafVTShape type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -251,7 +252,7 @@ bool DumpLeafVTShape(const TypeInfoRecordMap& type_map,
     // VTShape descriptors are only 4 bits long so we read next byte only on an
     // even descriptor.
     if (i % 2 == 0) {
-      if (!ReadBasicType(stream, &current_byte))
+      if (!ReadBasicType(parser, &current_byte))
         return false;
       vts_desc = (current_byte & kEvenMask) >> 4;
     } else {
@@ -298,7 +299,7 @@ bool DumpLeafVTShape(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafCobol1(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -307,7 +308,7 @@ bool DumpLeafCobol1(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafLabel(const TypeInfoRecordMap& type_map,
                    FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -316,7 +317,7 @@ bool DumpLeafLabel(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafEndPreComp(const TypeInfoRecordMap& type_map,
                         FILE* out,
-                        PdbStream* stream,
+                        common::BinaryStreamParser* parser,
                         uint16_t len,
                         uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -325,7 +326,7 @@ bool DumpLeafEndPreComp(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafList(const TypeInfoRecordMap& type_map,
                   FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -334,7 +335,7 @@ bool DumpLeafList(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafRefSym(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -343,11 +344,11 @@ bool DumpLeafRefSym(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafModifier(const TypeInfoRecordMap& type_map,
                       FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   LeafModifier type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -361,11 +362,11 @@ bool DumpLeafModifier(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafPointer(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   LeafPointer type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -477,11 +478,11 @@ bool DumpLeafPointer(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafMFunc(const TypeInfoRecordMap& type_map,
                    FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   LeafMFunction type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -504,7 +505,7 @@ bool DumpLeafMFunc(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafCobol0(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -513,7 +514,7 @@ bool DumpLeafCobol0(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafBArray(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -522,7 +523,7 @@ bool DumpLeafBArray(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafVFTPath(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -531,7 +532,7 @@ bool DumpLeafVFTPath(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafOEM(const TypeInfoRecordMap& type_map,
                  FILE* out,
-                 PdbStream* stream,
+                 common::BinaryStreamParser* parser,
                  uint16_t len,
                  uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -540,7 +541,7 @@ bool DumpLeafOEM(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafOEM2(const TypeInfoRecordMap& type_map,
                   FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -549,7 +550,7 @@ bool DumpLeafOEM2(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafSkip(const TypeInfoRecordMap& type_map,
                   FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -558,12 +559,11 @@ bool DumpLeafSkip(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafArgList(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
-  size_t leaf_end = stream->pos() + len;
   LeafArgList type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -571,12 +571,8 @@ bool DumpLeafArgList(const TypeInfoRecordMap& type_map,
                    type_info.body().count);
   DumpIndentedText(out, indent_level, "Arguments:\n");
 
-  while (stream->pos() < leaf_end) {
-    uint32_t arg_type_index = 0;
-    if (!ReadBasicType(stream, &arg_type_index)) {
-      LOG(ERROR) << "Unable to read the type index of an argument.";
-      return false;
-    }
+  uint32_t arg_type_index = 0;
+  while (ReadBasicType(parser, &arg_type_index)) {
     DumpTypeIndexField(type_map, out, "Type index", arg_type_index,
                        indent_level + 1);
   }
@@ -585,25 +581,28 @@ bool DumpLeafArgList(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafFieldList(const TypeInfoRecordMap& type_map,
                        FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
-  size_t leaf_end = stream->pos() + len;
-  while (stream->pos() < leaf_end) {
+  common::BinaryStreamReader* reader = parser->stream_reader();
+  size_t leaf_end = reader->Position() + len;
+  while (reader->Position() < leaf_end) {
     uint16_t leaf_type = 0;
-    if (!ReadBasicType(stream, &leaf_type)) {
+    if (!ReadBasicType(parser, &leaf_type)) {
       LOG(ERROR) << "Unable to read the type of a list field.";
       return false;
     }
-    if (!DumpLeaf(type_map,
-                  leaf_type,
-                  out,
-                  stream,
-                  leaf_end - stream->pos(),
-                  indent_level)) {
+    if (!DumpLeaf(type_map, leaf_type, out, parser,
+                  leaf_end - reader->Position(), indent_level)) {
       return false;
     }
-    stream->Seek(common::AlignUp(stream->pos(), 4));
+
+    // Align the reader to the next 4 byte boundary.
+    size_t pos = reader->Position();
+    size_t to_discard = common::AlignUp(pos, 4) - pos;
+    uint8_t buf[3];
+    DCHECK_LE(to_discard, sizeof(buf));
+    reader->Read(to_discard, buf);
   }
 
   return true;
@@ -611,7 +610,7 @@ bool DumpLeafFieldList(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafDerived(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -620,11 +619,11 @@ bool DumpLeafDerived(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafBitfield(const TypeInfoRecordMap& type_map,
                       FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   LeafBitfield type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -642,13 +641,14 @@ bool DumpLeafBitfield(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafMethodList(const TypeInfoRecordMap& type_map,
                         FILE* out,
-                        PdbStream* stream,
+                        common::BinaryStreamParser* parser,
                         uint16_t len,
                         uint8_t indent_level) {
-  size_t leaf_end = stream->pos() + len;
-  for (uint16_t count = 1; stream->pos() < leaf_end; count++) {
+  common::BinaryStreamReader* reader = parser->stream_reader();
+  size_t leaf_end = reader->Position() + len;
+  for (uint16_t count = 1; reader->Position() < leaf_end; count++) {
     MethodListRecord method_record;
-    if (!method_record.Initialize(stream)) {
+    if (!method_record.Initialize(parser)) {
       LOG(ERROR) << "Unable to read type info record.";
       return false;
     }
@@ -664,12 +664,13 @@ bool DumpLeafMethodList(const TypeInfoRecordMap& type_map,
                        method_record.vbaseoff());
     }
   }
+
   return true;
 }
 
 bool DumpLeafDimCon(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -678,7 +679,7 @@ bool DumpLeafDimCon(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafDimVar(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -687,11 +688,11 @@ bool DumpLeafDimVar(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafBClass(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   LeafBClass type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -708,11 +709,11 @@ bool DumpLeafBClass(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafVBClass(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   LeafVBClass type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -736,11 +737,11 @@ bool DumpLeafVBClass(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafIndex(const TypeInfoRecordMap& type_map,
                    FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   LeafIndex type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -753,11 +754,11 @@ bool DumpLeafIndex(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafVFuncTab(const TypeInfoRecordMap& type_map,
                       FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   LeafVFuncTab type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -770,7 +771,7 @@ bool DumpLeafVFuncTab(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafVFuncOff(const TypeInfoRecordMap& type_map,
                       FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -779,7 +780,7 @@ bool DumpLeafVFuncOff(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafTypeServer(const TypeInfoRecordMap& type_map,
                         FILE* out,
-                        PdbStream* stream,
+                        common::BinaryStreamParser* parser,
                         uint16_t len,
                         uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -788,11 +789,11 @@ bool DumpLeafTypeServer(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafEnumerate(const TypeInfoRecordMap& type_map,
                        FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   LeafEnumerate type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -815,11 +816,11 @@ bool DumpLeafEnumerate(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafArray(const TypeInfoRecordMap& type_map,
                    FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   LeafArray type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -838,11 +839,11 @@ bool DumpLeafArray(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafClass(const TypeInfoRecordMap& type_map,
                    FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   LeafClass type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -873,11 +874,11 @@ bool DumpLeafClass(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafUnion(const TypeInfoRecordMap& type_map,
                    FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   LeafUnion type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -899,11 +900,11 @@ bool DumpLeafUnion(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafEnum(const TypeInfoRecordMap& type_map,
                   FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   LeafEnum type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -930,7 +931,7 @@ bool DumpLeafEnum(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafDimArray(const TypeInfoRecordMap& type_map,
                       FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -939,7 +940,7 @@ bool DumpLeafDimArray(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafPreComp(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -948,7 +949,7 @@ bool DumpLeafPreComp(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafAlias(const TypeInfoRecordMap& type_map,
                    FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -957,7 +958,7 @@ bool DumpLeafAlias(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafDefArg(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -966,7 +967,7 @@ bool DumpLeafDefArg(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafFriendFcn(const TypeInfoRecordMap& type_map,
                        FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -975,11 +976,11 @@ bool DumpLeafFriendFcn(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafMember(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   LeafMember type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -996,11 +997,11 @@ bool DumpLeafMember(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafSTMember(const TypeInfoRecordMap& type_map,
                       FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   LeafSTMember type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -1011,11 +1012,11 @@ bool DumpLeafSTMember(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafMethod(const TypeInfoRecordMap& type_map,
                     FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   LeafMethod type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -1029,11 +1030,11 @@ bool DumpLeafMethod(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafNestType(const TypeInfoRecordMap& type_map,
                       FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   LeafNestType type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -1049,11 +1050,11 @@ bool DumpLeafNestType(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafOneMethod(const TypeInfoRecordMap& type_map,
                        FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   LeafOneMethod type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -1070,7 +1071,7 @@ bool DumpLeafOneMethod(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafNestTypeEx(const TypeInfoRecordMap& type_map,
                         FILE* out,
-                        PdbStream* stream,
+                        common::BinaryStreamParser* parser,
                         uint16_t len,
                         uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -1079,7 +1080,7 @@ bool DumpLeafNestTypeEx(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafMemberModify(const TypeInfoRecordMap& type_map,
                           FILE* out,
-                          PdbStream* stream,
+                          common::BinaryStreamParser* parser,
                           uint16_t len,
                           uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -1088,7 +1089,7 @@ bool DumpLeafMemberModify(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafManaged(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -1097,7 +1098,7 @@ bool DumpLeafManaged(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafTypeServer2(const TypeInfoRecordMap& type_map,
                          FILE* out,
-                         PdbStream* stream,
+                         common::BinaryStreamParser* parser,
                          uint16_t len,
                          uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -1106,7 +1107,7 @@ bool DumpLeafTypeServer2(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafVarString(const TypeInfoRecordMap& type_map,
                        FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this leaf.
@@ -1115,11 +1116,11 @@ bool DumpLeafVarString(const TypeInfoRecordMap& type_map,
 
 bool DumpLeafProc(const TypeInfoRecordMap& type_map,
                   FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   LeafProcedure type_info;
-  if (!type_info.Initialize(stream)) {
+  if (!type_info.Initialize(parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return false;
   }
@@ -1332,17 +1333,16 @@ bool ReadString(PdbStream* stream, std::string* s) {
   return false;
 }
 
-bool DumpLeafFunctionId(
-    const TypeInfoRecordMap& type_map,
-    FILE* out,
-    PdbStream* stream,
-    uint16_t len,
-    uint8_t indent_level) {
+bool DumpLeafFunctionId(const TypeInfoRecordMap& type_map,
+                        FILE* out,
+                        common::BinaryStreamParser* parser,
+                        uint16_t len,
+                        uint8_t indent_level) {
   LeafFunctionId func_id = {};
-  if (!stream->ReadBytes(&func_id, offsetof(LeafFunctionId, name)))
+  if (!parser->ReadBytes(offsetof(LeafFunctionId, name), &func_id))
     return false;
   std::string name;
-  if (!ReadString(stream, &name))
+  if (!parser->ReadString(&name))
     return false;
   DumpIndentedText(out, indent_level, "scopeId: 0x%08x\n", func_id.scopeId);
   DumpIndentedText(out, indent_level, "type: 0x%08x\n", func_id.type);
@@ -1350,17 +1350,16 @@ bool DumpLeafFunctionId(
   return true;
 }
 
-bool DumpLeafMemberFunctionId(
-    const TypeInfoRecordMap& type_map,
-    FILE* out,
-    PdbStream* stream,
-    uint16_t len,
-    uint8_t indent_level) {
+bool DumpLeafMemberFunctionId(const TypeInfoRecordMap& type_map,
+                              FILE* out,
+                              common::BinaryStreamParser* parser,
+                              uint16_t len,
+                              uint8_t indent_level) {
   LeafMemberFunctionId mfunc_id = {};
-  if (!stream->ReadBytes(&mfunc_id, offsetof(LeafMemberFunctionId, name)))
+  if (!parser->ReadBytes(offsetof(LeafMemberFunctionId, name), &mfunc_id))
     return false;
   std::string name;
-  if (!ReadString(stream, &name))
+  if (!parser->ReadString(&name))
     return false;
   DumpIndentedText(out, indent_level, "parentType: 0x%08x\n",
                    mfunc_id.parentType);
@@ -1369,31 +1368,29 @@ bool DumpLeafMemberFunctionId(
   return true;
 }
 
-bool DumpLeafStringId(
-    const TypeInfoRecordMap& type_map,
-    FILE* out,
-    PdbStream* stream,
-    uint16_t len,
-    uint8_t indent_level) {
+bool DumpLeafStringId(const TypeInfoRecordMap& type_map,
+                      FILE* out,
+                      common::BinaryStreamParser* parser,
+                      uint16_t len,
+                      uint8_t indent_level) {
   LeafStringId str_id = {};
-  if (!stream->ReadBytes(&str_id, offsetof(LeafStringId, name)))
+  if (!parser->ReadBytes(offsetof(LeafStringId, name), &str_id))
     return false;
   std::string name;
-  if (!ReadString(stream, &name))
+  if (!parser->ReadString(&name))
     return false;
   DumpIndentedText(out, indent_level, "id: 0x%08x\n", str_id.id);
   DumpIndentedText(out, indent_level, "name: %s\n", name.c_str());
   return true;
 }
 
-bool DumpLeafUdtSourceLine(
-    const TypeInfoRecordMap& type_map,
-    FILE* out,
-    PdbStream* stream,
-    uint16_t len,
-    uint8_t indent_level) {
+bool DumpLeafUdtSourceLine(const TypeInfoRecordMap& type_map,
+                           FILE* out,
+                           common::BinaryStreamParser* parser,
+                           uint16_t len,
+                           uint8_t indent_level) {
   LeafUdtSourceLine src_line = {};
-  if (!stream->Read(&src_line, 1))
+  if (!parser->Read(&src_line))
     return false;
   DumpIndentedText(out, indent_level, "type: 0x%08x\n", src_line.type);
   DumpIndentedText(out, indent_level, "src: 0x%08x\n", src_line.src);
@@ -1401,14 +1398,13 @@ bool DumpLeafUdtSourceLine(
   return true;
 }
 
-bool DumpLeafUdtModuleSourceLine(
-    const TypeInfoRecordMap& type_map,
-    FILE* out,
-    PdbStream* stream,
-    uint16_t len,
-    uint8_t indent_level) {
+bool DumpLeafUdtModuleSourceLine(const TypeInfoRecordMap& type_map,
+                                 FILE* out,
+                                 common::BinaryStreamParser* parser,
+                                 uint16_t len,
+                                 uint8_t indent_level) {
   LeafUdtModuleSourceLine mod_src_line = {};
-  if (!stream->Read(&mod_src_line, 1))
+  if (!parser->Read(&mod_src_line))
     return false;
   DumpIndentedText(out, indent_level, "type: 0x%08x\n", mod_src_line.type);
   DumpIndentedText(out, indent_level, "src: 0x%08x\n", mod_src_line.src);
@@ -1417,20 +1413,19 @@ bool DumpLeafUdtModuleSourceLine(
   return true;
 }
 
-bool DumpLeafBuildInfo(
-    const TypeInfoRecordMap& type_map,
-    FILE* out,
-    PdbStream* stream,
-    uint16_t len,
-    uint8_t indent_level) {
+bool DumpLeafBuildInfo(const TypeInfoRecordMap& type_map,
+                       FILE* out,
+                       common::BinaryStreamParser* parser,
+                       uint16_t len,
+                       uint8_t indent_level) {
   static const char* kFieldNames[] = { "CurrentDirectory", "BuildTool",
       "SourceFile", "ProgramDatabaseFile"};
   uint16_t count = 0;
-  if (!stream->Read(&count, 1))
+  if (!parser->Read(&count))
     return false;
   for (size_t i = 0; i < count; ++i) {
     uint32_t id = 0;
-    if (!stream->Read(&id, 1))
+    if (!parser->Read(&id))
       return false;
     size_t j = std::min(arraysize(kFieldNames) - 1, i);
     if (i == j) {
@@ -1451,6 +1446,15 @@ bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
                      uint8_t indent_level) {
   DumpIndentedText(out, indent_level, "Unsupported type info. Data:\n");
   return DumpUnknownBlock(out, stream, len, indent_level);
+}
+
+bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
+                     FILE* out,
+                     common::BinaryStreamParser* parser,
+                     uint16_t len,
+                     uint8_t indent_level) {
+  DumpIndentedText(out, indent_level, "Unsupported type info. Data:\n");
+  return DumpUnknownBlock(out, parser, len, indent_level);
 }
 
 size_t NumericLeafSize(uint16_t symbol_type) {
@@ -1497,11 +1501,9 @@ void DumpNumericLeaf(FILE* out, uint16_t leaf_type, PdbStream* stream) {
 bool DumpLeaf(const TypeInfoRecordMap& type_map,
               uint16_t type_value,
               FILE* out,
-              PdbStream* stream,
+              common::BinaryStreamParser* parser,
               size_t len,
               uint8_t indent_level) {
-  DCHECK(out != NULL);
-  DCHECK(stream != NULL);
   const char* leaf_type_text = LeafName(type_value);
   DumpTabs(out, indent_level);
   if (leaf_type_text != NULL) {
@@ -1512,11 +1514,12 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
     ::fprintf(out, "Unknown leaf type: 0x%04X\n",
               type_value);
   }
+
   switch (type_value) {
 // Call a function to dump a specific (struct_type) kind of structure.
 #define LEAF_TYPE_DUMP(type_value, struct_type)                             \
   case cci::type_value: {                                                   \
-    return Dump##struct_type(type_map, out, stream,                         \
+    return Dump##struct_type(type_map, out, parser,                         \
                              static_cast<uint16_t>(len), indent_level + 1); \
   }
       LEAF_CASE_TABLE(LEAF_TYPE_DUMP)
@@ -1525,6 +1528,21 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
     default:
       return false;
   }
+}
+
+// Call the specific function to dump a kind of leaf.
+bool DumpLeaf(const TypeInfoRecordMap& type_map,
+              uint16_t type_value,
+              FILE* out,
+              PdbStream* stream,
+              size_t len,
+              uint8_t indent_level) {
+  DCHECK(out != NULL);
+  DCHECK(stream != NULL);
+
+  pdb::PdbStreamReader reader(stream);
+  common::BinaryStreamParser parser(&reader);
+  return DumpLeaf(type_map, type_value, out, &parser, len, indent_level);
 }
 
 // Get the name and the size associated with a numeric leaf.

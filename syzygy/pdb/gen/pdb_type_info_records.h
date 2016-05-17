@@ -18,7 +18,7 @@
 #define SYZYGY_PDB_GEN_PDB_TYPE_INFO_RECORDS_H_
 
 #include "base/strings/string16.h"
-#include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_stream_record.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
@@ -36,7 +36,7 @@ class LeafArgList {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -57,7 +57,7 @@ class LeafArray {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -82,7 +82,7 @@ class LeafBClass {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -104,7 +104,7 @@ class LeafBitfield {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -131,7 +131,7 @@ class LeafClass {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -162,7 +162,7 @@ class LeafEnum {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -188,7 +188,7 @@ class LeafEnumerate {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -211,7 +211,7 @@ class LeafFriendCls {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -231,7 +231,7 @@ class LeafFriendFcn {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -253,7 +253,7 @@ class LeafIndex {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -275,7 +275,7 @@ class LeafMember {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -299,7 +299,7 @@ class LeafMethod {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -321,7 +321,7 @@ class LeafMFunction {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -341,7 +341,7 @@ class LeafModifier {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -365,7 +365,7 @@ class LeafNestType {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -395,7 +395,7 @@ class LeafOneMethod {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -431,7 +431,7 @@ class LeafPointer {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -455,7 +455,7 @@ class LeafProcedure {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -476,7 +476,7 @@ class LeafSTMember {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -506,7 +506,7 @@ class LeafUnion {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -533,7 +533,7 @@ class LeafVBClass {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -556,7 +556,7 @@ class LeafVFuncOff {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -575,7 +575,7 @@ class LeafVFuncTab {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -594,7 +594,7 @@ class LeafVTShape {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.
@@ -620,7 +620,7 @@ class MethodListRecord {
   // Initializes the class from the given pdb stream.
   // @param stream pointer to the pdb stream.
   // @returns true on success, false on failure.
-  bool Initialize(PdbStream* stream);
+  bool Initialize(common::BinaryStreamParser* stream);
 
  private:
   // The struct from CVInfo.h which represents this record.

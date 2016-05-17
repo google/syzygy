@@ -16,6 +16,7 @@
 
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_leaf.h"
 #include "syzygy/pdb/pdb_stream.h"
@@ -83,9 +84,12 @@ void DumpTypeInfoStream(FILE* out, TypeInfoEnumerator& type_info_enum) {
     DumpIndentedText(out, indent_level, "Type info 0x%04X (at 0x%04X):\n",
                      type_info_enum.type_id(),
                      type_record.start_position - sizeof(cci::SYMTYPE));
+
+    pdb::PdbStreamReader reader(type_info_enum.GetDataStream().get());
+    common::BinaryStreamParser parser(&reader);
+
     bool success = DumpLeaf(type_info_record_map, type_record.type, out,
-                            type_info_enum.GetDataStream().get(),
-                            type_record.len, indent_level + 1);
+                            &parser, type_record.len, indent_level + 1);
 
     if (!success) {
       // In case of failure we just dump the hex data of this type info.
