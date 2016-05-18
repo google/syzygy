@@ -50,6 +50,16 @@ bool ReadUnsignedNumeric(pdb::PdbStream* stream, uint64_t* data_field) {
   return pdb::ReadUnsignedNumeric(&parser, data_field);
 }
 
+bool ReadWideString(pdb::PdbStream* stream, base::string16* string_field) {
+  DCHECK_NE(static_cast<pdb::PdbStream*>(nullptr), stream);
+  DCHECK_NE(static_cast<base::string16*>(nullptr), string_field);
+
+  pdb::PdbStreamReader reader(stream);
+  common::BinaryStreamParser parser(&reader);
+
+  return pdb::ReadWideString(&parser, string_field);
+}
+
 std::vector<TypePtr> GetTypesBySuffix(TypeRepository* types,
                                       const base::string16& suffix) {
   DCHECK(types);
@@ -164,7 +174,7 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
 
       // And its name.
       base::string16 name;
-      ASSERT_TRUE(pdb::ReadWideString(sym_record_stream.get(), &name));
+      ASSERT_TRUE(ReadWideString(sym_record_stream.get(), &name));
 
       // We want to save only our own constants.
       if (!base::StartsWith(name, kPrefix, base::CompareCase::SENSITIVE))

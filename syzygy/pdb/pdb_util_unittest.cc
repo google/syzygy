@@ -166,11 +166,10 @@ class TestPdbStream : public PdbStream {
       : PdbStream(data.size()),
         bytes_(reinterpret_cast<const uint8_t*>(&data.at(0))) {}
 
-  bool ReadBytes(void* dest, size_t count) override {
-    if (count > length() - pos())
+  bool ReadBytesAt(size_t pos, size_t count, void* dest) override {
+    if (count > length() - pos)
       return false;
-    ::memcpy(dest, bytes_ + pos(), count);
-    Seek(pos() + count);
+    ::memcpy(dest, bytes_ + pos, count);
     return true;
   }
 

@@ -40,7 +40,7 @@ class MsfByteStreamImpl : public MsfStreamImpl<T> {
 
   // @name MsfStreamImpl implementation.
   // @{
-  bool ReadBytes(void* dest, size_t count) override;
+  bool ReadBytesAt(size_t pos, size_t count, void* dest) override;
   scoped_refptr<WritableMsfStreamImpl<T>> GetWritableStream() override;
   // @}
 

@@ -27,14 +27,13 @@ class TestMsfStream : public MsfStream {
   using MsfStream::pos;
 
   // A simple implementation of ReadBytes.
-  bool ReadBytes(void* dest, size_t count) {
+  bool ReadBytesAt(size_t pos, size_t count, void* dest) {
     DCHECK(dest != NULL);
 
-    if (count > length() - pos()) {
+    if (count > length() - pos) {
       return false;
     }
 
-    Seek(pos() + count);
     return true;
   }
 };

@@ -34,6 +34,22 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
  public:
   explicit MsfStreamImpl(size_t length);
 
+  // Reads @p count bytes of data starting at @p pos into the destination
+  // buffer. The caller is responsible for ensuring that the destination
+  // buffer has enough space to receive the data.
+  //
+  // @param pos the position in the stream of the first byte to read.
+  // @param dest the buffer to receive the data. May be modified on failure.
+  // @param count the number of bytes to read.
+  // @returns true if all @p count bytes are read, false otherwise.
+  virtual bool ReadBytesAt(size_t pos, size_t count, void* dest) = 0;
+
+  // @name Deprecated.
+  //     This class' interface below this point is deprecated and should not
+  //     be used. The state that relates to position in the stream is likewise
+  //     deprecated.
+  // @{
+
   // Reads @p count chunks of size sizeof(ItemType) into the destination buffer.
   // The caller is responsible for ensuring that the destination buffer has
   // enough space to receive the data.
@@ -77,7 +93,19 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
   // @param dest the buffer to receive the data. May be modified on failure.
   // @param count the number of bytes to read.
   // @returns true if all @p count bytes are read, false otherwise.
-  virtual bool ReadBytes(void* dest, size_t count) = 0;
+  bool ReadBytes(void* dest, size_t count);
+
+  // Sets the current read position.
+  bool Seek(size_t pos);
+
+  // Gets the stream's read position.
+  // @returns the number of bytes already read.
+  size_t pos() const { return pos_; }
+
+  // Gets the number of bytes left to read in the stream.
+  // @returns the number of bytes left.
+  size_t bytes_left() const { return length_ - pos_; }
+  // @}
 
   // Returns a pointer to a WritableMsfStreamImpl if the underlying object
   // supports this interface. If this returns non-NULL, it is up to the user to
@@ -103,20 +131,9 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
     return scoped_refptr<WritableMsfStreamImpl<T>>();
   }
 
-  // Sets the current read position.
-  bool Seek(size_t pos);
-
   // Gets the stream's length.
   // @returns the total number of bytes in the stream.
   size_t length() const { return length_; }
-
-  // Gets the stream's read position.
-  // @returns the number of bytes already read.
-  size_t pos() const { return pos_; }
-
-  // Gets the number of bytes left to read in the stream.
-  // @returns the number of bytes left.
-  size_t bytes_left() const { return length_ - pos_; }
 
  protected:
   friend base::RefCounted<MsfStreamImpl>;

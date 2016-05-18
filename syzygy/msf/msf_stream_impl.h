@@ -65,6 +65,15 @@ bool MsfStreamImpl<T>::Read(std::vector<ItemType>* dest) {
 }
 
 template <MsfFileType T>
+bool MsfStreamImpl<T>::ReadBytes(void* dest, size_t count) {
+  if (!ReadBytesAt(pos_, count, dest))
+    return false;
+  pos_ += count;
+  DCHECK_GE(length_, pos_);
+  return true;
+}
+
+template <MsfFileType T>
 MsfStreamImpl<T>::MsfStreamImpl(size_t length)
     : length_(length == kInvalidLength ? 0 : length), pos_(0) {
 }

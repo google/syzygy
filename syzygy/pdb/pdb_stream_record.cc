@@ -23,16 +23,6 @@ namespace pdb {
 NumericConstant::NumericConstant() : kind_(CONSTANT_UNINITIALIZED) {
 }
 
-bool ReadWideString(PdbStream* stream, base::string16* string_field) {
-  DCHECK(stream);
-  DCHECK(string_field);
-
-  PdbStreamReader reader(stream);
-  common::BinaryStreamParser parser(&reader);
-
-  return ReadWideString(&parser, string_field);
-}
-
 bool ReadWideString(common::BinaryStreamParser* parser,
                     base::string16* string_field) {
   std::string narrow_string;

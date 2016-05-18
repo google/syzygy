@@ -60,14 +60,13 @@ class TestPdbStream : public PdbStream {
       data[i] = i | mask;
   }
 
-  bool ReadBytes(void* dest, size_t count) {
+  bool ReadBytesAt(size_t pos, size_t count, void* dest) override {
     DCHECK(dest != NULL);
 
-    if (count > length() - pos())
+    if (count > length() - pos)
       return false;
 
-    ::memcpy(dest, data_.data() + pos(), count);
-    Seek(pos() + count);
+    ::memcpy(dest, data_.data() + pos, count);
 
     return true;
   }

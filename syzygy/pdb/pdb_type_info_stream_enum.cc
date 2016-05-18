@@ -106,6 +106,7 @@ bool TypeInfoEnumerator::NextTypeInfoRecord() {
   start_position_ = stream_->pos();
   len_ -= sizeof(type_);
 
+  // TODO(siggi): Hoist this to a method, then replace the implementation.
   if (!data_stream_->Init(stream_.get(), len_)) {
     LOG(ERROR) << "Unable to read data of the type info record.";
     return false;

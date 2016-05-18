@@ -21,7 +21,6 @@
 #include "base/strings/string16.h"
 #include "syzygy/common/assertions.h"
 #include "syzygy/common/binary_stream.h"
-#include "syzygy/pdb/pdb_stream.h"
 
 namespace pdb {
 
@@ -55,10 +54,6 @@ class NumericConstant {
 // @returns true on success, false on failure.
 bool ReadWideString(common::BinaryStreamParser* parser,
                     base::string16* string_field);
-
-// TODO(siggi): Remove this.
-// @deprecated.
-bool ReadWideString(PdbStream* stream, base::string16* string_field);
 
 // Reads unsigned numeric leaf from pdb stream and stores it as 64-bit unsigned.
 // @param stream a pointer to the pdb stream.

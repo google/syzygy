@@ -93,14 +93,13 @@ class ReadOnlyMsfStream : public MsfStreamImpl<T> {
   ReadOnlyMsfStream(const void* data, size_t bytes)
       : MsfStreamImpl(bytes), data_(data) {}
 
-  bool ReadBytes(void* dest, size_t count) override {
+  bool ReadBytesAt(size_t pos, size_t count, void* dest) override {
     DCHECK(dest != NULL);
 
-    if (count > length() - pos())
+    if (count > length() - pos)
       return false;
 
-    ::memcpy(dest, reinterpret_cast<const uint8_t*>(data_) + pos(), count);
-    Seek(pos() + count);
+    ::memcpy(dest, reinterpret_cast<const uint8_t*>(data_) + pos, count);
 
     return true;
   }

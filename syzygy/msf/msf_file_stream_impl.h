@@ -42,23 +42,23 @@ MsfFileStreamImpl<T>::~MsfFileStreamImpl() {
 }
 
 template <MsfFileType T>
-bool MsfFileStreamImpl<T>::ReadBytes(void* dest, size_t count) {
+bool MsfFileStreamImpl<T>::ReadBytesAt(size_t pos, size_t count, void* dest) {
   DCHECK(dest != NULL);
 
   // Don't read beyond the end of the known stream length.
-  if (count > length() - pos())
+  if (count > length() - pos)
     return false;
 
   // Read the stream.
   while (count > 0) {
-    size_t page_index = pos() / page_size_;
-    size_t offset = pos() % page_size_;
-    size_t chunk_size = std::min(count, page_size_ - (pos() % page_size_));
+    size_t page_index = pos / page_size_;
+    size_t offset = pos % page_size_;
+    size_t chunk_size = std::min(count, page_size_ - (pos % page_size_));
     if (!ReadFromPage(dest, pages_[page_index], offset, chunk_size))
       return false;
 
     count -= chunk_size;
-    Seek(pos() + chunk_size);
+    pos += chunk_size;
     dest = reinterpret_cast<uint8_t*>(dest) + chunk_size;
   }
 

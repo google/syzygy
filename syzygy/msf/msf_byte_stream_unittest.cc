@@ -22,27 +22,19 @@ namespace msf {
 
 namespace {
 
-class TestMsfByteStream : public MsfByteStream {
- public:
-  TestMsfByteStream() : MsfByteStream() {}
-
-  using MsfByteStream::ReadBytes;
-};
-
 class TestMsfStream : public MsfStream {
  public:
   explicit TestMsfStream(size_t length) : MsfStream(length) {}
 
   virtual ~TestMsfStream() {}
 
-  bool ReadBytes(void* dest, size_t count) {
+  bool ReadBytesAt(size_t pos, size_t count, void* dest) override {
     DCHECK(dest != NULL);
 
-    if (count > length() - pos())
+    if (count > length() - pos)
       return false;
 
     ::memset(dest, 0xFF, count);
-    Seek(pos() + count);
 
     return true;
   }
@@ -61,6 +53,9 @@ TEST(MsfByteStreamTest, InitFromByteArray) {
   for (size_t i = 0; i < stream->length(); ++i) {
     uint8_t num = 0;
     EXPECT_TRUE(stream->Read(&num, 1));
+    EXPECT_EQ(data[i], num);
+
+    EXPECT_TRUE(stream->ReadBytesAt(i, 1, &num));
     EXPECT_EQ(data[i], num);
   }
 }
@@ -102,7 +97,7 @@ TEST(MsfByteStreamTest, ReadBytes) {
   size_t len = 17;
   scoped_refptr<TestMsfStream> test_stream(new TestMsfStream(len));
 
-  scoped_refptr<TestMsfByteStream> stream(new TestMsfByteStream());
+  scoped_refptr<MsfByteStream> stream(new MsfByteStream());
   EXPECT_TRUE(stream->Init(test_stream.get()));
 
   int total_bytes = 0;
@@ -114,6 +109,30 @@ TEST(MsfByteStreamTest, ReadBytes) {
   }
 
   EXPECT_EQ(len, total_bytes);
+}
+
+TEST(MsfByteStreamTest, ReadBytesAt) {
+  uint8_t data[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
+  scoped_refptr<MsfByteStream> stream(new MsfByteStream());
+  EXPECT_TRUE(stream->Init(data, arraysize(data)));
+
+  // Try a few in-bounds reads.
+  for (size_t pos = 0; pos < sizeof(data); ++pos) {
+    uint8_t buffer[4] = {};
+    size_t to_read = std::min(sizeof(buffer), stream->length() - pos);
+    EXPECT_TRUE(stream->ReadBytesAt(pos, to_read, buffer));
+
+    EXPECT_EQ(0U, ::memcmp(buffer, data + pos, to_read));
+  }
+
+  // Try some out of bounds reads.
+  for (size_t len = 1; len <= sizeof(data); ++len) {
+    uint8_t buf[sizeof(data) + 1] = {};
+
+    EXPECT_FALSE(stream->ReadBytesAt(sizeof(data) - len + 1, len, buf));
+    for (auto c : buf)
+      EXPECT_EQ(0U, c);
+  }
 }
 
 TEST(MsfByteStreamTest, GetWritableStream) {

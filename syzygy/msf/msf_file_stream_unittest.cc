@@ -36,7 +36,6 @@ class TestMsfFileStream : public MsfFileStream {
 
   virtual ~TestMsfFileStream() {}
 
-  using MsfFileStream::ReadBytes;
   using MsfFileStream::ReadFromPage;
 };
 
@@ -91,11 +90,11 @@ TEST_F(MsfFileStreamTest, ReadFromPage) {
     EXPECT_TRUE(stream->ReadFromPage(&buffer, test_case.page_num,
                                      test_case.offset, test_case.count));
     EXPECT_EQ(0,
-              memcmp(buffer, test_case.expected, strlen(test_case.expected)));
+              ::memcmp(buffer, test_case.expected, strlen(test_case.expected)));
   }
 }
 
-TEST_F(MsfFileStreamTest, ReadBytes) {
+TEST_F(MsfFileStreamTest, ReadBytesAt) {
   // Different sections of the MSF header magic string.
   char* test_cases[] = {"Mic", "roso", "ft", " C/C+", "+ MS", "F 7.00"};
 
@@ -107,12 +106,17 @@ TEST_F(MsfFileStreamTest, ReadBytes) {
     scoped_refptr<TestMsfFileStream> stream(new TestMsfFileStream(
         file_.get(), sizeof(MsfHeader), pages, page_size));
 
+    size_t pos = 0;
     for (uint32_t j = 0; j < arraysize(test_cases); ++j) {
       char* test_case = test_cases[j];
       size_t len = strlen(test_case);
-      EXPECT_TRUE(stream->ReadBytes(&buffer, len));
-      EXPECT_EQ(0, memcmp(buffer, test_case, len));
+      EXPECT_TRUE(stream->ReadBytesAt(pos, len, &buffer));
+      EXPECT_EQ(0U, ::memcmp(buffer, test_case, len));
+      pos += len;
     }
+
+    // Try a read past the end of the file.
+    EXPECT_FALSE(stream->ReadBytesAt(sizeof(MsfHeader) - 1, 2, buffer));
   }
 }
 
