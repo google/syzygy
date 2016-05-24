@@ -41,6 +41,65 @@ class PdbStreamReader : public common::BinaryStreamReader {
 
  private:
   scoped_refptr<PdbStream> stream_;
+
+  DISALLOW_COPY_AND_ASSIGN(PdbStreamReader);
+};
+
+// An adapter class that implements a BinaryStreamReader over a subset of
+// a PdbStream.
+class PdbStreamReaderWithPosition : public common::BinaryStreamReader {
+ public:
+  // Creates a reader over the entirety of @p stream.
+  // @param stream the stream to read.
+  explicit PdbStreamReaderWithPosition(PdbStream* stream);
+  // Creates a reader over a sub-range of @p stream.
+  // @param start_offset where to start reading in @p stream.
+  // @param len the length, in bytes this reader will read.
+  // @param stream the stream to read.
+  // @pre @p start_offset + @p len <= stream->length().
+  PdbStreamReaderWithPosition(size_t start_offset,
+                              size_t len,
+                              PdbStream* stream);
+
+  // Creates an invalid reader, SetStream must be invoked before using this
+  // instance.
+  PdbStreamReaderWithPosition();
+
+  // Set the stream this reader presents.
+  // @param start_offset where to start reading in @p stream.
+  // @param len the length, in bytes this reader will read.
+  // @param stream the stream to read.
+  // @pre @p start_offset + @p len <= stream->length().
+  // @pre stream() == nullptr.
+  void SetStream(size_t start_offset, size_t len, PdbStream* stream);
+
+  // @name BinaryStreamReader implementation.
+  // @pre stream() != nullptr.
+  // @{
+  bool Read(size_t len, void* out) override;
+  size_t Position() const override;
+  bool AtEnd() const override;
+  // @}
+
+  // @name Accessors.
+  // @{
+  scoped_refptr<PdbStream> stream() const { return stream_; }
+  // @}
+
+ private:
+  // The start offset into stream_.
+  size_t start_offset_;
+
+  // The length of this stream.
+  size_t length_;
+
+  // The read position within this stream, from 0 to length_.
+  size_t pos_;
+
+  // The PdbStream exposed on this reader.
+  scoped_refptr<PdbStream> stream_;
+
+  DISALLOW_COPY_AND_ASSIGN(PdbStreamReaderWithPosition);
 };
 
 }  // namespace pdb
