@@ -28,6 +28,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_stream_record.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_util.h"

@@ -28,29 +28,6 @@
 
 namespace pdb {
 
-// An adapter class that implements a BinaryStreamReader on a PdbStream.
-class PdbStreamReader : public common::BinaryStreamReader {
- public:
-  explicit PdbStreamReader(PdbStream* stream);
-  PdbStreamReader();
-
-  // @name BinaryStreamReader implementation.
-  // @{
-  bool Read(size_t len, void* out) override;
-  size_t Position() const override;
-  bool AtEnd() const override;
-  // @}
-
-  // @name Accessors.
-  // @{
-  scoped_refptr<PdbStream> stream() const { return stream_; }
-  void set_stream(PdbStream* stream) { stream_ = stream; }
-  // @}
-
- private:
-  scoped_refptr<PdbStream> stream_;
-};
-
 // A map of names to stream IDs, stored in the header stream.
 typedef std::map<std::string, uint32_t> NameStreamMap;
 

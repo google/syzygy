@@ -160,28 +160,6 @@ struct NamedStreamInfo {
 
 }  // namespace
 
-PdbStreamReader::PdbStreamReader(PdbStream* stream) : stream_(stream) {
-}
-
-PdbStreamReader::PdbStreamReader() : stream_(nullptr) {
-}
-
-bool PdbStreamReader::Read(size_t len, void* out) {
-  DCHECK(stream_);
-  return stream_->ReadBytes(out, len);
-}
-
-size_t PdbStreamReader::Position() const {
-  DCHECK(stream_);
-  return stream_->pos();
-}
-
-bool PdbStreamReader::AtEnd() const {
-  DCHECK(stream_);
-  DCHECK_LE(stream_->pos(), stream_->length());
-  return stream_->pos() == stream_->length();
-}
-
 bool PdbBitSet::Read(PdbStream* stream) {
   DCHECK(stream != NULL);
   uint32_t size = 0;

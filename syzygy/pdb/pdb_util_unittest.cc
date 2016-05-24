@@ -185,29 +185,6 @@ bool AreEqual(const PdbInfoHeader70& header1,
 
 }  // namespace
 
-TEST(PdbStreamReaderTest, Read) {
-  const uint8_t kData[] = { 0, 1, 2, 10 };
-  scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
-  PdbStreamReader reader(stream.get());
-
-  uint8_t data[sizeof(kData)] = {};
-  EXPECT_EQ(0U, reader.Position());
-  EXPECT_FALSE(reader.AtEnd());
-  EXPECT_TRUE(reader.Read(sizeof(data), data));
-  EXPECT_EQ(sizeof(kData), reader.Position());
-  EXPECT_TRUE(reader.AtEnd());
-  EXPECT_EQ(0U, ::memcmp(kData, data, sizeof(kData)));
-
-  EXPECT_FALSE(reader.Read(1, data));
-
-  // Seek the underlying stream back to the start, and redo the read.
-  ASSERT_TRUE(stream->Seek(0));
-  EXPECT_EQ(0U, reader.Position());
-  EXPECT_FALSE(reader.AtEnd());
-  EXPECT_TRUE(reader.Read(sizeof(data), data));
-  EXPECT_EQ(0U, ::memcmp(kData, data, sizeof(kData)));
-}
-
 TEST(PdbBitSetTest, ReadEmptyStream) {
   scoped_refptr<PdbStream> stream(new TestPdbStream());
   PdbBitSet bs;

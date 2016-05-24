@@ -28,6 +28,7 @@
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
 #include "syzygy/pdb/pdb_util.h"
