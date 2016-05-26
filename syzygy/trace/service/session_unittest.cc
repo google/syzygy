@@ -77,7 +77,7 @@ class TestSessionTraceFileWriter : public SessionTraceFileWriter {
     RecycleBuffers();
   }
 
-  virtual bool ConsumeBuffer(Buffer* buffer) override {
+  bool ConsumeBuffer(Buffer* buffer) override {
     base::AutoLock auto_lock(queue_lock_);
     EXPECT_TRUE(buffer != NULL);
     if (buffer) {
@@ -198,13 +198,13 @@ class TestSession : public Session {
     return buffer_requests_waiting_for_recycle_;
   }
 
-  virtual void OnWaitingForBufferToBeRecycled() override {
+  void OnWaitingForBufferToBeRecycled() override {
     lock_.AssertAcquired();
     waiting_for_buffer_to_be_recycled_state_ = true;
     waiting_for_buffer_to_be_recycled_.Signal();
   }
 
-  virtual void OnDestroySingletonBuffer(Buffer* buffer) override {
+  void OnDestroySingletonBuffer(Buffer* buffer) override {
     lock_.AssertAcquired();
     last_singleton_buffer_destroyed_ = buffer;
     singleton_buffers_destroyed_++;
@@ -237,7 +237,7 @@ class TestSession : public Session {
     return true;
   }
 
-  virtual bool AllocateBuffers(size_t count, size_t size) override {
+  bool AllocateBuffers(size_t count, size_t size) override {
     lock_.AssertAcquired();
 
     allocating_buffers_state_ = true;
@@ -282,7 +282,7 @@ class TestService : public Service {
   size_t num_active_sessions() const { return num_active_sessions_; }
 
  protected:
-  virtual Session* CreateSession() override { return new TestSession(this); }
+  Session* CreateSession() override { return new TestSession(this); }
 
  private:
   uint32_t process_id_;  // Under lock_;
@@ -302,7 +302,7 @@ class SessionTest : public ::testing::Test {
         worker2_("Worker2") {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     testing::Test::SetUp();
 
     ASSERT_TRUE(consumer_thread_has_started_);
@@ -338,7 +338,7 @@ class SessionTest : public ::testing::Test {
     ASSERT_TRUE(worker2_.Start());
   }
 
-  virtual void TearDown() override {
+  void TearDown() override {
     // Stop the worker threads.
     worker2_.Stop();
     worker1_.Stop();
@@ -372,10 +372,10 @@ class SessionTest : public ::testing::Test {
   base::Thread worker2_;
 };
 
-void GetNextBuffer(Session* session, Buffer** buffer, bool* result) {
-  DCHECK(session != NULL);
-  DCHECK(buffer != NULL);
-  DCHECK(result != NULL);
+void GetNextBuffer(TestSessionPtr session, Buffer** buffer, bool* result) {
+  DCHECK_NE(static_cast<TestSession*>(nullptr), session.get());
+  DCHECK_NE(static_cast<Buffer**>(nullptr), buffer);
+  DCHECK_NE(static_cast<bool*>(nullptr), result);
   *buffer = NULL;
   *result = session->GetNextBuffer(buffer);
 }

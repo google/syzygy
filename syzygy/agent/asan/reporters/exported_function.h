@@ -16,6 +16,7 @@
 #define SYZYGY_AGENT_ASAN_REPORTERS_EXPORTED_FUNCTION_H_
 
 #include "base/callback.h"
+#include "base/logging.h"
 
 namespace agent {
 namespace asan {

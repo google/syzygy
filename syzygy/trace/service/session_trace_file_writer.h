@@ -48,15 +48,15 @@ class SessionTraceFileWriter : public BufferConsumer {
   // Initialize this trace file writer.
   // @name BufferConsumer implementation.
   // @{
-  virtual bool Open(Session* session) override;
-  virtual bool Close(Session* session) override;
-  virtual bool ConsumeBuffer(Buffer* buffer) override;
-  virtual size_t block_size() const override;
+  bool Open(Session* session) override;
+  bool Close(Session* session) override;
+  bool ConsumeBuffer(Buffer* buffer) override;
+  size_t block_size() const override;
   // @}
 
  protected:
   // Commit a trace buffer to disk. This will be called on message_loop_.
-  void WriteBuffer(Session* session, Buffer* buffer);
+  void WriteBuffer(scoped_refptr<Session>, Buffer* buffer);
 
   // The message loop on which this trace file writer will do IO.
   base::MessageLoop* const message_loop_;

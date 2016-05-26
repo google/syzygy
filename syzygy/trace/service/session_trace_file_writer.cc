@@ -83,7 +83,8 @@ size_t SessionTraceFileWriter::block_size() const {
   return writer_.block_size();
 }
 
-void SessionTraceFileWriter::WriteBuffer(Session* session, Buffer* buffer) {
+void SessionTraceFileWriter::WriteBuffer(scoped_refptr<Session> session,
+                                         Buffer* buffer) {
   DCHECK(session != NULL);
   DCHECK(buffer != NULL);
   DCHECK_EQ(session, buffer->session);
