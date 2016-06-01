@@ -81,6 +81,12 @@ class PdbStreamReaderWithPosition : public common::BinaryStreamReader {
   bool AtEnd() const override;
   // @}
 
+  // Consumes the next @p len bytes.
+  // @param len the number of bytes to consume.
+  // @returns true on success, false on failure. On failure the stream position
+  //     is unchanged.
+  bool Consume(size_t len);
+
   // @name Accessors.
   // @{
   scoped_refptr<PdbStream> stream() const { return stream_; }

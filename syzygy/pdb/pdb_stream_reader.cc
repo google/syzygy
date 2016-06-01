@@ -92,4 +92,15 @@ bool PdbStreamReaderWithPosition::AtEnd() const {
   return pos_ == length_;
 }
 
+bool PdbStreamReaderWithPosition::Consume(size_t len) {
+  DCHECK(stream_);
+  if (pos_ + len > length_)
+    return false;
+
+  pos_ += len;
+  DCHECK_LE(pos_, length_);
+
+  return true;
+}
+
 }  // namespace pdb

@@ -20,8 +20,9 @@
 
 namespace pdb {
 
-TypeInfoEnumerator::TypeInfoEnumerator()
-    : stream_(nullptr),
+TypeInfoEnumerator::TypeInfoEnumerator(PdbStream* stream)
+    : stream_(stream),
+      reader_(stream),
       start_position_(0),
       data_end_(0),
       data_stream_(new PdbByteStream()),
@@ -39,14 +40,8 @@ bool TypeInfoEnumerator::EndOfStream() {
   return stream_->pos() >= data_end_;
 }
 
-bool TypeInfoEnumerator::Init(PdbStream* stream) {
-  DCHECK(stream != nullptr);
-  DCHECK(stream_ == nullptr);
-
-  // We are making in memory copy of the whole stream.
-  scoped_refptr<PdbByteStream> byte_stream = new PdbByteStream();
-  byte_stream->Init(stream);
-  stream_ = byte_stream.get();
+bool TypeInfoEnumerator::Init() {
+  DCHECK(stream_ != nullptr);
 
   // Reads the header of the stream.
   if (!stream_->Seek(0) || !stream_->Read(&type_info_header_, 1)) {
@@ -74,37 +69,51 @@ bool TypeInfoEnumerator::Init(PdbStream* stream) {
   type_id_min_ = type_info_header_.type_min;
   type_id_max_ = type_info_header_.type_max;
 
+  largest_encountered_id_ = type_id_min_ - 1;
   // Save the location of the first type record in the map.
-  start_positions_.insert(std::make_pair(type_id_min_, stream_->pos()));
-  largest_encountered_id_ = type_id_min_;
+  bool added = AddStartPosition(type_id_min_, stream_->pos());
+  DCHECK(added);
+
+  // Position our parsing reader at the start of the first type record.
+  reader_.Consume(stream_->pos());
+
   return true;
 }
 
 bool TypeInfoEnumerator::NextTypeInfoRecord() {
   DCHECK(stream_ != nullptr);
 
-  if (stream_->pos() >= data_end_)
+  if (!EnsureTypeLocated(type_id_ + 1))
     return false;
+  size_t position = 0;
+  bool found = FindStartPosition(type_id_ + 1, &position);
+  if (!found) {
+    LOG(ERROR) << "Can't locate record " << type_id_ + 1;
+    return false;
+  }
 
-  ++type_id_;
-  largest_encountered_id_ = std::max(largest_encountered_id_, type_id_);
-
-  // Save the location of this record in the map.
-  start_positions_.insert(std::make_pair(type_id_, stream_->pos()));
+  if (!stream_->Seek(position)) {
+    LOG(ERROR) << "Can't seek to record " << type_id_ + 1;
+    return false;
+  }
 
   // Right now we are interested only in the length, the starting position and
   // the type of the record.
-  if (!stream_->Read(&len_, 1)) {
+  uint16_t len = 0;
+  uint16_t type = 0;
+  if (!stream_->Read(&len, 1)) {
     LOG(ERROR) << "Unable to read a type info record length.";
     return false;
   }
-  if (!stream_->Read(&type_, 1)) {
+  if (!stream_->Read(&type, 1)) {
     LOG(ERROR) << "Unable to read a type info record type.";
     return false;
   }
 
-  start_position_ = stream_->pos();
-  len_ -= sizeof(type_);
+  ++type_id_;
+  start_position_ = position;
+  len_ = len - sizeof(type_);
+  type_ = type;
 
   // TODO(siggi): Hoist this to a method, then replace the implementation.
   if (!data_stream_->Init(stream_.get(), len_)) {
@@ -125,28 +134,80 @@ bool TypeInfoEnumerator::NextTypeInfoRecord() {
 bool TypeInfoEnumerator::SeekRecord(uint32_t type_id) {
   DCHECK(stream_ != nullptr);
 
-  if (type_id >= type_id_max_ || type_id < type_id_min_)
+  if (!EnsureTypeLocated(type_id))
     return false;
 
-  if (type_id > largest_encountered_id_) {
-    stream_->Seek(start_positions_[largest_encountered_id_]);
-    type_id_ = largest_encountered_id_ - 1;
-    while (type_id_ < type_id) {
-      if (!NextTypeInfoRecord())
-        return false;
-    }
-    return type_id == type_id_;
-  } else {
-    stream_->Seek(start_positions_[type_id]);
-    type_id_ = type_id - 1;
-    return NextTypeInfoRecord();
-  }
+  // Set the type id cursor one back and advance it.
+  type_id_ = type_id - 1;
+  return NextTypeInfoRecord();
 }
 
 bool TypeInfoEnumerator::ResetStream() {
   DCHECK(stream_ != nullptr);
-
   return SeekRecord(type_id_min_);
+}
+
+bool TypeInfoEnumerator::EnsureTypeLocated(uint32_t type_id) {
+  DCHECK(stream_ != nullptr);
+
+  if (type_id >= type_id_max_ || type_id < type_id_min_)
+    return false;
+  if (type_id <= largest_encountered_id_)
+    return true;
+
+  size_t position = 0;
+  bool found = FindStartPosition(largest_encountered_id_, &position);
+  DCHECK(found);
+  DCHECK_EQ(position, reader_.Position());
+
+  uint32_t current_type_id = largest_encountered_id_;
+  common::BinaryStreamParser parser(&reader_);
+  while (current_type_id < type_id) {
+    uint16_t len = 0;
+    uint16_t type = 0;
+    if (!parser.Read(&len)) {
+      LOG(ERROR) << "Unable to read a type info record length.";
+      return false;
+    }
+    if (!parser.Read(&type)) {
+      LOG(ERROR) << "Unable to read a type info record type.";
+      return false;
+    }
+    if (!reader_.Consume(len - sizeof(type))) {
+      LOG(ERROR) << "Unable consume type body.";
+      return false;
+    }
+
+    ++current_type_id;
+    bool added = AddStartPosition(current_type_id, reader_.Position());
+    DCHECK(added);
+  }
+
+  return type_id == current_type_id;
+}
+
+bool TypeInfoEnumerator::AddStartPosition(uint32_t type_id, size_t position) {
+  if (type_id >= type_id_max_ || type_id < type_id_min_)
+    return false;
+
+  DCHECK_EQ(largest_encountered_id_ + 1, type_id);
+  DCHECK_EQ(start_positions_.size(),
+            largest_encountered_id_ - type_id_min_ + 1);
+
+  start_positions_.push_back(position);
+  largest_encountered_id_ = type_id;
+
+  return true;
+}
+
+bool TypeInfoEnumerator::FindStartPosition(uint32_t type_id, size_t* position) {
+  DCHECK(position);
+  if (type_id >= type_id_max_ || type_id < type_id_min_)
+    return false;
+
+  DCHECK_GT(start_positions_.size(), type_id - type_id_min_);
+  *position = start_positions_[type_id - type_id_min_];
+  return true;
 }
 
 }  // namespace pdb

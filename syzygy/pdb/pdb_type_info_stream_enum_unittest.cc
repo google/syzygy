@@ -28,9 +28,9 @@ TEST(PdbTypeInfoStreamEnumTest, ReadValidHeaderTypeInfoStream) {
   scoped_refptr<pdb::PdbFileStream> valid_type_info_stream =
       testing::GetStreamFromFile(valid_type_info_path);
 
-  TypeInfoEnumerator enumerator;
+  TypeInfoEnumerator enumerator(valid_type_info_stream.get());
 
-  EXPECT_TRUE(enumerator.Init(valid_type_info_stream.get()));
+  EXPECT_TRUE(enumerator.Init());
 
   // Test the actual values from the header to ensure correct sampling.
   EXPECT_EQ(56, enumerator.type_info_header().len);
@@ -45,9 +45,9 @@ TEST(PdbTypeInfoStreamEnumTest, ReadValidTypeInfoStream) {
   scoped_refptr<pdb::PdbFileStream> valid_type_info_stream =
       testing::GetStreamFromFile(valid_type_info_path);
 
-  TypeInfoEnumerator enumerator;
+  TypeInfoEnumerator enumerator(valid_type_info_stream.get());
 
-  EXPECT_TRUE(enumerator.Init(valid_type_info_stream.get()));
+  EXPECT_TRUE(enumerator.Init());
   while (!enumerator.EndOfStream()) {
     EXPECT_TRUE(enumerator.NextTypeInfoRecord());
   }
@@ -64,9 +64,9 @@ TEST(PdbTypeInfoStreamEnumTest, ReadValidTypeInfoStreamNonSequentially) {
   scoped_refptr<pdb::PdbFileStream> valid_type_info_stream =
       testing::GetStreamFromFile(valid_type_info_path);
 
-  TypeInfoEnumerator enumerator;
+  TypeInfoEnumerator enumerator(valid_type_info_stream.get());
 
-  EXPECT_TRUE(enumerator.Init(valid_type_info_stream.get()));
+  EXPECT_TRUE(enumerator.Init());
 
   const uint32_t kMinIndex = enumerator.type_info_header().type_min;
   const uint32_t kMaxIndex = enumerator.type_info_header().type_max;
@@ -108,9 +108,9 @@ TEST(PdbTypeInfoStreamEnumTest, ReadInvalidDataTypeInfoStream) {
   scoped_refptr<pdb::PdbFileStream> invalid_type_info_stream =
       testing::GetStreamFromFile(invalid_type_info_path);
 
-  TypeInfoEnumerator enumerator;
+  TypeInfoEnumerator enumerator(invalid_type_info_stream.get());
 
-  EXPECT_TRUE(enumerator.Init(invalid_type_info_stream.get()));
+  EXPECT_TRUE(enumerator.Init());
   bool result = true;
 
   // The first corrupted item should be in the first 50 type info records
@@ -132,9 +132,9 @@ TEST(PdbTypeInfoStreamEnumTest, ReadInvalidHeaderTypeInfoStream) {
   scoped_refptr<pdb::PdbFileStream> invalid_type_info_stream =
       testing::GetStreamFromFile(invalid_type_info_path);
 
-  TypeInfoEnumerator enumerator;
+  TypeInfoEnumerator enumerator(invalid_type_info_stream.get());
 
-  EXPECT_FALSE(enumerator.Init(invalid_type_info_stream.get()));
+  EXPECT_FALSE(enumerator.Init());
 }
 
 }  // namespace pdb

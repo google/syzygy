@@ -27,6 +27,7 @@
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_data_types.h"
 #include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 
 namespace pdb {
 
@@ -34,14 +35,13 @@ namespace pdb {
 class TypeInfoEnumerator {
  public:
   // Creates an uninitialized enumerator for type info stream.
-  TypeInfoEnumerator();
+  // @param stream the stream to parse.
+  explicit TypeInfoEnumerator(PdbStream* stream);
 
   // Initializes the enumerator with given stream. Needs to be called before
   // any further work.
-  // @param stream a pointer to a heap allocated stream object. The enumerator
-  //     does not take ownership of this pointer.
   // @returns true on success, false means bad header format.
-  bool Init(PdbStream* stream);
+  bool Init();
 
   // Moves to the next record in the type info stream. Expects stream position
   // at the beginning of a type info record.
@@ -85,14 +85,23 @@ class TypeInfoEnumerator {
   // @}
 
  private:
+  bool EnsureTypeLocated(uint32_t type_id);
+  // Adds the start position @p position for @p type_id, which must be a valid
+  // type id, and must be one larger than the last added start position.
+  bool AddStartPosition(uint32_t type_id, size_t position);
+  bool FindStartPosition(uint32_t type_id, size_t* position);
+
   // Pointer to the PDB type info stream.
   scoped_refptr<PdbStream> stream_;
+
+  // The reader used to parse out the locations of type records.
+  PdbStreamReaderWithPosition reader_;
 
   // Header of the type info stream.
   TypeInfoHeader type_info_header_;
 
-  // Map of the positions of records.
-  std::unordered_map<uint32_t, size_t> start_positions_;
+  // A vector with the positions of located records.
+  std::vector<size_t> start_positions_;
 
   // The largest type index we already saved in the start_positions_ map. Every
   // time we seek beyond this record we simply load records one by one and save
@@ -108,6 +117,14 @@ class TypeInfoEnumerator {
   // Position of the end of data in the stream.
   size_t data_end_;
 
+  // The largest type ID according to header.
+  uint32_t type_id_max_;
+
+  // The smallest type ID in the stream according to header.
+  // This is typically 0x1000, as lower type id values are reserved for built
+  // in types.
+  uint32_t type_id_min_;
+
   // The length of the current type record.
   uint16_t len_;
 
@@ -116,12 +133,6 @@ class TypeInfoEnumerator {
 
   // The type ID of the current type record.
   uint32_t type_id_;
-
-  // The largest type ID according to header.
-  uint32_t type_id_max_;
-
-  // The smallest type ID according to header.
-  uint32_t type_id_min_;
 };
 
 }  // namespace pdb

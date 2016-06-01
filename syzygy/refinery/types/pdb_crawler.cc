@@ -28,7 +28,7 @@
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
-#include "syzygy/pdb/pdb_stream_reader.h"
+#include "syzygy/pdb/pdb_reader.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -50,9 +50,9 @@ class TypeCreator {
   TypeCreator(TypeRepository* repository, pdb::PdbStream* stream);
   ~TypeCreator();
 
-  // Crawls @p stream, creates all types and assigns names to pointers.
+  // Crawls @p stream_, creates all types and assigns names to pointers.
   // @returns true on success, false on failure.
-  bool CreateTypes(scoped_refptr<pdb::PdbStream> stream);
+  bool CreateTypes();
 
  private:
   // The following functions parse objects from the data stream.
@@ -776,8 +776,9 @@ TypePtr TypeCreator::ReadBitfield(TypeId type_id,
 }
 
 TypeCreator::TypeCreator(TypeRepository* repository, pdb::PdbStream* stream)
-    : repository_(repository), parser_(&reader_) {
+    : type_info_enum_(stream), repository_(repository), parser_(&reader_) {
   DCHECK(repository);
+  DCHECK(stream);
 }
 
 TypeCreator::~TypeCreator() {
@@ -1369,10 +1370,8 @@ bool TypeCreator::PrepareData() {
   return type_info_enum_.ResetStream();
 }
 
-bool TypeCreator::CreateTypes(scoped_refptr<pdb::PdbStream> stream) {
-  DCHECK(stream);
-
-  if (!type_info_enum_.Init(stream.get())) {
+bool TypeCreator::CreateTypes() {
+  if (!type_info_enum_.Init()) {
     LOG(ERROR) << "Unable to initialize type info stream enumerator.";
     return false;
   }
@@ -1484,7 +1483,7 @@ bool PdbCrawler::GetTypes(TypeRepository* types) {
 
   TypeCreator creator(types, tpi_stream_.get());
 
-  return creator.CreateTypes(tpi_stream_);
+  return creator.CreateTypes();
 }
 
 bool PdbCrawler::GetVFTableRVAForSymbol(

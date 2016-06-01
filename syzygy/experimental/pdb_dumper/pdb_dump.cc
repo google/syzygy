@@ -301,8 +301,8 @@ int PdbDumpApp::Run() {
 
     // Read the type info stream.
     stream = pdb_file.GetStream(pdb::kTpiStream).get();
-    TypeInfoEnumerator type_info_enum;
-    if (type_info_enum.Init(stream)) {
+    TypeInfoEnumerator type_info_enum(stream);
+    if (type_info_enum.Init()) {
       if (dump_type_info_)
         DumpTypeInfoStream(out(), type_info_enum);
     } else {
@@ -318,8 +318,8 @@ int PdbDumpApp::Run() {
     // streams.
     stream = pdb_file.GetStream(pdb::kIpiStream).get();
     if (stream) {
-      TypeInfoEnumerator id_info_enum;
-      if (!id_info_enum.Init(stream)) {
+      TypeInfoEnumerator id_info_enum(stream);
+      if (!id_info_enum.Init()) {
         LOG(ERROR) << "Invalid ID info stream.";
         return 1;
       }

@@ -136,4 +136,36 @@ TEST_F(PdbStreamReaderWithPositionTest, EmptyCenterRead) {
   EXPECT_FALSE(middle_empty.Read(1, buf));
 }
 
+TEST_F(PdbStreamReaderWithPositionTest, Consume) {
+  PdbStreamReaderWithPosition reader(stream_.get());
+
+  EXPECT_EQ(0U, reader.Position());
+  const size_t kSeekLength = kTestDataLen / 3;
+  // Consume forward from start.
+  EXPECT_TRUE(reader.Consume(kSeekLength));
+  EXPECT_EQ(kSeekLength, reader.Position());
+
+  // Consume forward again.
+  EXPECT_TRUE(reader.Consume(kSeekLength));
+  EXPECT_EQ(2 * kSeekLength, reader.Position());
+
+  uint8_t buf[10] = {};
+  static_assert(sizeof(buf) < kSeekLength, "buffer too large");
+  EXPECT_TRUE(reader.Read(sizeof(buf), buf));
+  EXPECT_EQ(2 * kSeekLength + sizeof(buf), reader.Position());
+  EXPECT_EQ(0, ::memcmp(&data_.at(2 * kSeekLength), buf, sizeof(buf)));
+
+  // Consume past the end of the file, and check that the position
+  // hasn't changed.
+  EXPECT_FALSE(reader.Consume(kSeekLength));
+  EXPECT_EQ(2 * kSeekLength + sizeof(buf), reader.Position());
+
+  // Consume right to the end of the file.
+  EXPECT_TRUE(reader.Consume(kTestDataLen - reader.Position()));
+  EXPECT_EQ(kTestDataLen, reader.Position());
+
+  // And validate that we can't go past the end.
+  EXPECT_FALSE(reader.Consume(1));
+}
+
 }  // namespace pdb
