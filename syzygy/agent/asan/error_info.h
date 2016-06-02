@@ -90,13 +90,15 @@ enum AsanFeature : uint32_t {
   ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP = (1 << 2),
   // This feature flag is currently deprecated and ignored.
   DEPRECATED_ASAN_FEATURE_ENABLE_KASKO = (1 << 3),
-  ASAN_FEATURE_MAX = (1 << 4),
+  ASAN_FEATURE_ENABLE_CRASHPAD = (1 << 4),
+  ASAN_FEATURE_MAX = (1 << 5),
 };
 using AsanFeatureSet = uint32_t;
 
 // Feature set for all valid features.
 const AsanFeatureSet kAsanValidFeatures =
-    ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS | ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP;
+    ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS |
+    ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP | ASAN_FEATURE_ENABLE_CRASHPAD;
 
 // Feature set for all deprecated features.
 const AsanFeatureSet kAsanDeprecatedFeatures =

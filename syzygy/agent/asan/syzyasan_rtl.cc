@@ -41,6 +41,7 @@ static const AsanFeatureName kAsanFeatureNames[] = {
     {DEPRECATED_ASAN_FEATURE_ENABLE_CTMALLOC, nullptr},
     {ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP, "SyzyASANLargeBlockHeap"},
     {DEPRECATED_ASAN_FEATURE_ENABLE_KASKO, nullptr},
+    {ASAN_FEATURE_ENABLE_CRASHPAD, "SyzyASANCrashpad"},
 };
 
 // This lock guards against IAT patching on multiple threads concurrently.

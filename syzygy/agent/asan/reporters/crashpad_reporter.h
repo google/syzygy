@@ -30,6 +30,9 @@ namespace reporters {
 // thread safe.
 class CrashpadReporter : public ReporterInterface {
  public:
+  // The name of this reporter, as returned by GetName.
+  static const char kName[];
+
   // Factory for a CrashpadReporter. This returns null if the running process
   // does not support Crashpad crash reporting. Support is decided by examining
   // the exports of the running executable, and looking for Crashpad's expected

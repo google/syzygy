@@ -67,6 +67,13 @@ using agent::asan::AsanLogger;
 using agent::asan::StackCaptureCache;
 using agent::asan::WindowsHeapAdapter;
 
+enum CrashReporterType {
+  kDefaultCrashReporterType,
+  kBreakpadCrashReporterType,
+  kKaskoCrashReporterType,
+  kCrashpadCrashReporterType,
+};
+
 // A custom exception code we use to indicate that the exception originated
 // from Asan, and shouldn't be processed again by our unhandled exception
 // handler. This value has been created according to the rules here:
@@ -387,45 +394,63 @@ void LaunchMessageBox(const base::StringPiece& message) {
   ::MessageBoxA(nullptr, message.data(), nullptr, MB_OK | MB_ICONEXCLAMATION);
 }
 
-std::unique_ptr<ReporterInterface> CreateCrashReporter(AsanLogger* logger) {
+// Gets the preferred crash reporter type from the environment. This will
+// override experiments or command-lines, and is largely meant for local
+// testing.
+CrashReporterType GetCrashReporterTypeFromEnvironment(
+    AsanLogger* logger) {
+  DCHECK_NE(static_cast<AsanLogger*>(nullptr), logger);
   std::unique_ptr<ReporterInterface> reporter;
 
-  // First try to grab the preferred crash reporter, overridden by the
-  // environment.
   std::unique_ptr<base::Environment> env(base::Environment::Create());
   std::string reporter_name;
-  if (env->GetVar("SYZYASAN_CRASH_REPORTER", &reporter_name)) {
-    if (reporter_name == "crashpad")
-      reporter.reset(reporters::CrashpadReporter::Create().release());
-    else if (reporter_name == "kasko")
-      reporter.reset(reporters::KaskoReporter::Create().release());
-    else if (reporter_name == "breakpad")
-      reporter.reset(reporters::BreakpadReporter::Create().release());
+  static const char kSyzyAsanCrashReporterEnv[] =
+      "SYZYASAN_CRASH_REPORTER";
+  if (!env->GetVar(kSyzyAsanCrashReporterEnv, &reporter_name))
+    return kDefaultCrashReporterType;
 
-    if (reporter.get() != nullptr) {
-      logger->Write(base::StringPrintf(
-          "Using requested \"%s\" crash reporter.", reporter_name));
-      return reporter;
-    } else {
-      logger->Write(base::StringPrintf(
-          "Unable to create requested \"%s\" crash reporter.", reporter_name));
-    }
+  CrashReporterType type = kDefaultCrashReporterType;
+  if (reporter_name == "crashpad") {
+    type = kCrashpadCrashReporterType;
+  } else if (reporter_name == "kasko") {
+    type = kKaskoCrashReporterType;
+  } else if (reporter_name == "breakpad") {
+    type = kBreakpadCrashReporterType;
   }
 
-  // No crash reporter was explicitly specified, or it was unable to be
-  // initialized. Try all of them, starting with the most recent.
+  if (type != kDefaultCrashReporterType) {
+    logger->Write(base::StringPrintf("Encountered %s=\"%s\".",
+        kSyzyAsanCrashReporterEnv, reporter_name.c_str()));
+  } else {
+    logger->Write(base::StringPrintf("Ignoring %s=\"%s\".",
+        kSyzyAsanCrashReporterEnv, reporter_name.c_str()));
+  }
 
-  // Don't try grabbing a Crashpad reporter by default, as we're not yet
-  // ready to ship this.
-  // TODO(chrisha): Add Crashpad support behind a feature flag.
+  return type;
+}
+
+// Attempts to create a crash reporter, starting with the most modern.
+std::unique_ptr<ReporterInterface> CreateCrashReporterWithTypeHint(
+    AsanLogger* logger, CrashReporterType reporter_type) {
+  std::unique_ptr<ReporterInterface> reporter;
+
+  // Crashpad is not yet enabled by default.
+  if (reporter_type == kCrashpadCrashReporterType)
+    reporter.reset(reporters::CrashpadReporter::Create().release());
 
   // Try to initialize a Kasko crash reporter.
-  if (reporter.get() == nullptr)
+  if (reporter.get() == nullptr &&
+      (reporter_type == kKaskoCrashReporterType ||
+       reporter_type == kDefaultCrashReporterType)) {
     reporter.reset(reporters::KaskoReporter::Create().release());
+  }
 
   // If that failed then try to initialize a Breakpad reporter.
-  if (reporter.get() == nullptr)
+  if (reporter.get() == nullptr &&
+      (reporter_type == kBreakpadCrashReporterType ||
+       reporter_type == kDefaultCrashReporterType)) {
     reporter.reset(reporters::BreakpadReporter::Create().release());
+  }
 
   return reporter;
 }
@@ -483,9 +508,23 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
     return false;
   WindowsHeapAdapter::SetUp(heap_manager_.get());
 
+  // Determine the preferred crash reporter type, as specified in the
+  // environment. If this isn't present it defaults to
+  // kDefaultCrashReporterType, in which case experiments or command-line flags
+  // may specify the crash reporter to use.
+  CrashReporterType crash_reporter_type =
+      GetCrashReporterTypeFromEnvironment(logger());
+
   if (params_.feature_randomization) {
     AsanFeatureSet feature_set = GenerateRandomFeatureSet();
     PropagateFeatureSet(feature_set);
+
+    // If no specific crash reporter has been specified, then allow the
+    // experiment to specify it.
+    if (crash_reporter_type == kDefaultCrashReporterType &&
+        (feature_set & ASAN_FEATURE_ENABLE_CRASHPAD) != 0) {
+      crash_reporter_type = kCrashpadCrashReporterType;
+    }
   }
 
   // Propagates the flags values to the different modules.
@@ -493,11 +532,16 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
 
   // The name 'disable_breakpad_reporting' is legacy; this actually means to
   // disable all external crash reporting integration.
-  if (!params_.disable_breakpad_reporting)
-    crash_reporter_.reset(CreateCrashReporter(logger()).release());
+  if (!params_.disable_breakpad_reporting) {
+    // This will create the crash reporter with a preference for creating a
+    // reporter of the hinted type. If such a reporter isn't available, it will
+    // fall back to trying to create the most 'modern' reporter available.
+    crash_reporter_.reset(CreateCrashReporterWithTypeHint(
+        logger(), crash_reporter_type).release());
+  }
 
   // Set up the appropriate error handler depending on whether or not
-  // we successfully found a crash reporter.
+  // we successfully initialized a crash reporter.
   if (crash_reporter_.get() != nullptr) {
     logger_->Write(base::StringPrintf(
         "SyzyASAN: Using %s for error reporting.",
@@ -961,6 +1005,7 @@ void AsanRuntime::LogAsanErrorInfo(AsanErrorInfo* error_info) {
   }
 }
 
+// static
 AsanFeatureSet AsanRuntime::GenerateRandomFeatureSet() {
   AsanFeatureSet enabled_features =
       static_cast<AsanFeatureSet>(base::RandGenerator(ASAN_FEATURE_MAX));
@@ -1199,6 +1244,10 @@ AsanFeatureSet AsanRuntime::GetEnabledFeatureSet() {
     enabled_features |= ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS;
   if (params_.enable_large_block_heap)
     enabled_features |= ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP;
+  if (crash_reporter_.get() != nullptr &&
+      crash_reporter_->GetName() == reporters::CrashpadReporter::kName) {
+    enabled_features |= ASAN_FEATURE_ENABLE_CRASHPAD;
+  }
 
   return enabled_features;
 }

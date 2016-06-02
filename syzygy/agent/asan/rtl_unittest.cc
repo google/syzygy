@@ -660,10 +660,11 @@ TEST_F(AsanRtlTest, EnumFeatures) {
 
   EXPECT_EQ("Enabled", experiments["SyzyASANPageProtections"]);
   EXPECT_EQ("Enabled", experiments["SyzyASANLargeBlockHeap"]);
+  EXPECT_EQ("Disabled", experiments["SyzyASANCrashpad"]);
 
   // This implicitly asserts the full contents of the map by asserting
   // on the size after looking up the expected keys.
-  EXPECT_EQ(2U, experiments.size());
+  EXPECT_EQ(3U, experiments.size());
 }
 
 }  // namespace asan

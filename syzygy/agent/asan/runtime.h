@@ -221,7 +221,7 @@ class AsanRuntime {
 
   // @returns a value describing the state of the features that can be randomly
   //     enabled or disabled.
-  AsanFeatureSet GenerateRandomFeatureSet();
+  static AsanFeatureSet GenerateRandomFeatureSet();
 
   // Randomly enable some features.
   // @param feature_set The feature set indicating the features to update.

@@ -65,7 +65,7 @@ deps = {
 
   # This brings in Crashpad, used by SyzyASan for crash reporting.
   "src/third_party/crashpad/files":
-    "https://chromium.googlesource.com/crashpad/crashpad@74c3eb8d0f",
+    "https://chromium.googlesource.com/crashpad/crashpad@dbfcb5d032",
 }
 
 
