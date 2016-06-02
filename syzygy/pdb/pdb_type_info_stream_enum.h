@@ -69,13 +69,21 @@ class TypeInfoEnumerator {
   // @name Accessors.
   // @{
   // @returns the starting position of current type record.
-  size_t start_position() const { return start_position_; }
+  // @note this is currently past the length and type fields of the record.
+  size_t start_position() const {
+    return current_record_.start + sizeof(current_record_.length) +
+           sizeof(current_record_.type);
+  }
 
   // @returns the length of the current type record.
-  uint16_t len() const { return len_; }
+  // @note this currently excludes the length and type fields, which are
+  //     assumed to be consumed already.
+  uint16_t len() const {
+    return current_record_.length - sizeof(current_record_.type);
+  }
 
   // @returns the type of the current type record.
-  uint16_t type() const { return type_; }
+  uint16_t type() const { return current_record_.type; }
 
   // @returns the type ID of the current type record.
   uint32_t type_id() const { return type_id_; }
@@ -85,11 +93,24 @@ class TypeInfoEnumerator {
   // @}
 
  private:
+  // Information about a specific type record.
+  struct TypeRecordInfo {
+    // The stream position of the first byte of the type record (which starts
+    // with the record length).
+    size_t start;
+    // The type of the record.
+    uint16_t type;
+    // The length of the record, this is exclusive the length itself.
+    uint16_t length;
+  };
+
+  // Ensure that the type with ID @p type_id has been located and stored
+  // in @p located_records_.
   bool EnsureTypeLocated(uint32_t type_id);
   // Adds the start position @p position for @p type_id, which must be a valid
   // type id, and must be one larger than the last added start position.
-  bool AddStartPosition(uint32_t type_id, size_t position);
-  bool FindStartPosition(uint32_t type_id, size_t* position);
+  bool AddRecordInfo(uint32_t type_id, const TypeRecordInfo& record);
+  bool FindRecordInfo(uint32_t type_id, TypeRecordInfo* record);
 
   // Pointer to the PDB type info stream.
   scoped_refptr<PdbStream> stream_;
@@ -101,18 +122,13 @@ class TypeInfoEnumerator {
   TypeInfoHeader type_info_header_;
 
   // A vector with the positions of located records.
-  std::vector<size_t> start_positions_;
+  std::vector<TypeRecordInfo> located_records_;
 
-  // The largest type index we already saved in the start_positions_ map. Every
-  // time we seek beyond this record we simply load records one by one and save
-  // their starting positions in the map.
-  uint32_t largest_encountered_id_;
+  // The largest type index we already saved in @p located_records_.
+  uint32_t largest_located_id_;
 
   // Stream containing data of the current type info record.
   scoped_refptr<PdbByteStream> data_stream_;
-
-  // Starting position of the current type record in the stream.
-  size_t start_position_;
 
   // Position of the end of data in the stream.
   size_t data_end_;
@@ -125,14 +141,11 @@ class TypeInfoEnumerator {
   // in types.
   uint32_t type_id_min_;
 
-  // The length of the current type record.
-  uint16_t len_;
-
-  // The type of the current type record.
-  uint16_t type_;
-
   // The type ID of the current type record.
   uint32_t type_id_;
+
+  // Details of the current type record.
+  TypeRecordInfo current_record_;
 };
 
 }  // namespace pdb
