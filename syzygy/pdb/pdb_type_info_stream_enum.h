@@ -63,11 +63,6 @@ class TypeInfoEnumerator {
   // @returns true on success, false on failure.
   bool ResetStream();
 
-  // @returns the data stream for the current type record. After calling
-  // NextTypeInfoRecord the stream gets populated with the data of the next
-  // type record.
-  scoped_refptr<PdbStream> GetDataStream() const { return data_stream_; }
-
   // Creates and returns a class that implements common::BinaryStreamReader
   // over the current record.
   BinaryTypeRecordReader CreateRecordReader();
@@ -134,9 +129,6 @@ class TypeInfoEnumerator {
 
   // The largest type index we already saved in @p located_records_.
   uint32_t largest_located_id_;
-
-  // Stream containing data of the current type info record.
-  scoped_refptr<PdbByteStream> data_stream_;
 
   // Position of the end of data in the stream.
   size_t data_end_;

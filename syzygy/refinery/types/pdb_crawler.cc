@@ -245,11 +245,6 @@ class TypeCreator {
   // Type info enumerator used to traverse the stream.
   pdb::TypeInfoEnumerator type_info_enum_;
 
-  // Direct access to the Pdb stream inside the type info enumerator.
-  pdb::PdbStreamReader reader_;
-  common::BinaryStreamParser parser_;
-  scoped_refptr<pdb::PdbStream> stream_;
-
   // Hash to map forward references to the right UDT records. For each unique
   // decorated name of an UDT, it contains type index of the class definition.
   std::unordered_map<base::string16, TypeId> udt_map_;
@@ -272,8 +267,11 @@ TypePtr TypeCreator::CreatePointerType(TypeId type_id) {
   if (!type_info_enum_.SeekRecord(type_id))
     return nullptr;
 
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
   pdb::LeafPointer type_info;
-  if (!type_info.Initialize(&parser_)) {
+  if (!type_info.Initialize(&parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -344,8 +342,11 @@ TypePtr TypeCreator::ReadPointer(TypeId type_id, Type::Flags* flags) {
   if (!type_info_enum_.SeekRecord(type_id))
     return nullptr;
 
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
   pdb::LeafPointer type_info;
-  if (!type_info.Initialize(&parser_)) {
+  if (!type_info.Initialize(&parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -363,8 +364,11 @@ TypePtr TypeCreator::ReadModifier(TypeId type_id, Type::Flags* flags) {
   if (!type_info_enum_.SeekRecord(type_id))
     return nullptr;
 
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
   pdb::LeafModifier type_info;
-  if (!type_info.Initialize(&parser_)) {
+  if (!type_info.Initialize(&parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -388,18 +392,14 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
   if (!type_info_enum_.SeekRecord(type_id))
     return false;
 
-  size_t leaf_end = stream_->pos() + type_info_enum_.len();
-
-  // Make our local copy of the data. This is necessary to avoid clutter with
-  // deeper levels of recursion.
-  scoped_refptr<pdb::PdbByteStream> local_stream(new pdb::PdbByteStream());
-  local_stream->Init(stream_.get());
-
-  pdb::PdbStreamReader local_reader(local_stream.get());
+  // Grab the leaf size, as sub-parsing moves the enumerator.
+  size_t leaf_size = type_info_enum_.len();
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader local_reader(
+      type_info_enum_.CreateRecordReader());
   common::BinaryStreamParser local_parser(&local_reader);
-  while (local_stream->pos() < leaf_end) {
+  while (local_reader.Position() < leaf_size) {
     uint16_t leaf_type = 0;
-    if (!local_stream->Read(&leaf_type, 1)) {
+    if (!local_parser.Read(&leaf_type)) {
       LOG(ERROR) << "Unable to read the type of a list field.";
       return false;
     }
@@ -501,8 +501,13 @@ bool TypeCreator::ReadFieldlist(TypeId type_id,
         break;
       }
     }
-    // The records are aligned.
-    local_stream->Seek(common::AlignUp(local_stream->pos(), 4));
+    // The records are aligned to a 4 byte boundary.
+    const size_t kRecordAlignment = 4;
+    size_t align = local_reader.Position() % kRecordAlignment;
+    if (align > 0)
+      local_reader.Consume(kRecordAlignment - align);
+
+    DCHECK_EQ(0U, local_reader.Position() % kRecordAlignment);
   }
   return true;
 }
@@ -515,18 +520,17 @@ bool TypeCreator::ReadArglist(TypeId type_id,
   if (!type_info_enum_.SeekRecord(type_id))
     return false;
 
-  // Make our local copy of the data. This is necessary to avoid clutter with
-  // deeper levels of recursion.
-  scoped_refptr<pdb::PdbByteStream> stream(new pdb::PdbByteStream());
-  stream->Init(stream_.get());
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
 
   uint32_t num_args = 0;
-  if (!stream->Read(&num_args, 1))
+  if (!parser.Read(&num_args))
     return false;
 
   while (arglist->size() < num_args) {
     uint32_t arg_type_id = 0;
-    if (!stream->Read(&arg_type_id, 1)) {
+    if (!parser.Read(&arg_type_id)) {
       LOG(ERROR) << "Unable to read the type index of an argument.";
       return false;
     }
@@ -556,10 +560,13 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
   base::string16 name;
   base::string16 decorated_name;
 
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
   if (type_info_enum_.type() == cci::LF_CLASS ||
       type_info_enum_.type() == cci::LF_STRUCTURE) {
     pdb::LeafClass type_info;
-    if (!type_info.Initialize(&parser_)) {
+    if (!type_info.Initialize(&parser)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -570,7 +577,7 @@ TypePtr TypeCreator::CreateUserDefinedType(TypeId type_id) {
     decorated_name = type_info.decorated_name();
   } else if (type_info_enum_.type() == cci::LF_UNION) {
     pdb::LeafUnion type_info;
-    if (!type_info.Initialize(&parser_)) {
+    if (!type_info.Initialize(&parser)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -641,8 +648,11 @@ TypePtr TypeCreator::CreateArrayType(TypeId type_id) {
   if (!type_info_enum_.SeekRecord(type_id))
     return nullptr;
 
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
   pdb::LeafArray type_info;
-  if (!type_info.Initialize(&parser_)) {
+  if (!type_info.Initialize(&parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -681,10 +691,13 @@ TypePtr TypeCreator::CreateFunctionType(TypeId type_id) {
   TypeId containing_class_id = kNoTypeId;
   TypeId arglist_id = kNoTypeId;
 
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
   if (type_info_enum_.type() == cci::LF_PROCEDURE) {
     // Load the procedure record.
     pdb::LeafProcedure type_info;
-    if (!type_info.Initialize(&parser_)) {
+    if (!type_info.Initialize(&parser)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -696,7 +709,7 @@ TypePtr TypeCreator::CreateFunctionType(TypeId type_id) {
   } else if (type_info_enum_.type() == cci::LF_MFUNCTION) {
     // Load the member function record.
     pdb::LeafMFunction type_info;
-    if (!type_info.Initialize(&parser_)) {
+    if (!type_info.Initialize(&parser)) {
       LOG(ERROR) << "Unable to read type info record.";
       return nullptr;
     }
@@ -753,8 +766,11 @@ TypePtr TypeCreator::ReadBitfield(TypeId type_id,
   if (!type_info_enum_.SeekRecord(type_id))
     return nullptr;
 
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
+  common::BinaryStreamParser parser(&reader);
   pdb::LeafBitfield type_info;
-  if (!type_info.Initialize(&parser_)) {
+  if (!type_info.Initialize(&parser)) {
     LOG(ERROR) << "Unable to read type info record.";
     return nullptr;
   }
@@ -776,7 +792,7 @@ TypePtr TypeCreator::ReadBitfield(TypeId type_id,
 }
 
 TypeCreator::TypeCreator(TypeRepository* repository, pdb::PdbStream* stream)
-    : type_info_enum_(stream), repository_(repository), parser_(&reader_) {
+    : type_info_enum_(stream), repository_(repository) {
   DCHECK(repository);
   DCHECK(stream);
 }
@@ -848,12 +864,8 @@ bool TypeCreator::ProcessMethod(pdb::LeafMethod* method,
     return false;
   }
 
-  // We need a local copy of the data in order to load the records.
-  scoped_refptr<pdb::PdbByteStream> local_stream(new pdb::PdbByteStream());
-  local_stream->Init(type_info_enum_.GetDataStream().get());
-
-  // TODO(siggi): Eliminate the copy above.
-  pdb::PdbStreamReader reader(local_stream.get());
+  pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+      type_info_enum_.CreateRecordReader());
   common::BinaryStreamParser parser(&reader);
 
   uint16_t count = method->body().count;
@@ -1334,10 +1346,13 @@ bool TypeCreator::PrepareData() {
     if (IsImportantType(type_info_enum_.type()))
       records_to_process_.push_back(type_info_enum_.type_id());
 
+    pdb::TypeInfoEnumerator::BinaryTypeRecordReader reader(
+        type_info_enum_.CreateRecordReader());
+    common::BinaryStreamParser parser(&reader);
     if (type_info_enum_.type() == cci::LF_CLASS ||
         type_info_enum_.type() == cci::LF_STRUCTURE) {
       pdb::LeafClass type_info;
-      if (!type_info.Initialize(&parser_)) {
+      if (!type_info.Initialize(&parser)) {
         LOG(ERROR) << "Unable to read type info record.";
         return false;
       }
@@ -1381,9 +1396,6 @@ bool TypeCreator::CreateTypes() {
     LOG(ERROR) << "Degenerate stream with type indices in the reserved range.";
     return false;
   }
-
-  stream_ = type_info_enum_.GetDataStream();
-  reader_.set_stream(stream_.get());
 
   // Create the map of forward declarations and populate the process queue.
   if (!PrepareData())

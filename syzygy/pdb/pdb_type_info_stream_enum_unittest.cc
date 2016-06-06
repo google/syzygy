@@ -51,10 +51,6 @@ TEST(PdbTypeInfoStreamEnumTest, EnumValidTypeInfoStream) {
   while (!enumerator.EndOfStream()) {
     EXPECT_TRUE(enumerator.NextTypeInfoRecord());
   }
-  // Test if the enumerator walked the whole type info stream.
-  EXPECT_EQ(enumerator.type_info_header().len +
-                enumerator.type_info_header().type_info_data_size,
-            valid_type_info_stream->pos());
 }
 
 TEST(PdbTypeInfoStreamEnumTest, EnumValidTypeInfoStreamNonSequentially) {

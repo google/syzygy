@@ -86,21 +86,18 @@ void DumpTypeInfoStream(FILE* out, TypeInfoEnumerator& type_info_enum) {
                      type_info_enum.type_id(),
                      type_record.start_position - sizeof(cci::SYMTYPE));
 
-    pdb::PdbStreamReader reader(type_info_enum.GetDataStream().get());
+    TypeInfoEnumerator::BinaryTypeRecordReader reader(
+        type_info_enum.CreateRecordReader());
     common::BinaryStreamParser parser(&reader);
-
     bool success = DumpLeaf(type_info_record_map, type_record.type, out,
                             &parser, type_record.len, indent_level + 1);
 
     if (!success) {
       // In case of failure we just dump the hex data of this type info.
-      if (!type_info_enum.GetDataStream()->Seek(0)) {
-        LOG(ERROR) << "Unable to seek to type info record at position "
-                   << base::StringPrintf("0x%08X.", type_record.start_position);
-        return;
-      }
-      DumpUnknownLeaf(type_info_record_map, out,
-                      type_info_enum.GetDataStream().get(), type_record.len,
+      TypeInfoEnumerator::BinaryTypeRecordReader raw_reader(
+          type_info_enum.CreateRecordReader());
+      common::BinaryStreamParser raw_parser(&reader);
+      DumpUnknownLeaf(type_info_record_map, out, &parser, type_record.len,
                       indent_level + 1);
     }
   }

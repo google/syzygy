@@ -63,14 +63,14 @@ const char* GetNumericLeafNameAndSize(uint16_t leaf_type, size_t* leaf_size);
 // Hexdump the data of an undeciphered leaf.
 // @param type_map The map containing all the type info records.
 // @param out The output where the data should be dumped.
-// @param stream The stream containing the data. It should be positioned at the
+// @param parser The parser for the data. It should be positioned at the
 //     beginning of the data block.
 // @param len The length of the data.
 // @param indent_level The level of indentation to use.
 // @returns true on success, false on error.
 bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level);
 

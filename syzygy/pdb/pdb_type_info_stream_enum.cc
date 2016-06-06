@@ -24,7 +24,6 @@ TypeInfoEnumerator::TypeInfoEnumerator(PdbStream* stream)
     : stream_(stream),
       reader_(stream),
       data_end_(0),
-      data_stream_(new PdbByteStream()),
       current_record_{},
       type_id_(0),
       type_id_max_(0),
@@ -34,8 +33,10 @@ TypeInfoEnumerator::TypeInfoEnumerator(PdbStream* stream)
 }
 
 bool TypeInfoEnumerator::EndOfStream() {
-  DCHECK(stream_ != nullptr);
-  return stream_->pos() >= data_end_;
+  if (type_id_ + 1 == type_id_max_)
+    return true;
+
+  return false;
 }
 
 bool TypeInfoEnumerator::Init() {
@@ -86,44 +87,9 @@ bool TypeInfoEnumerator::NextTypeInfoRecord() {
     return false;
   }
 
-  if (!stream_->Seek(info.start)) {
-    LOG(ERROR) << "Can't seek to record " << type_id_ + 1;
-    return false;
-  }
-
-  // Right now we are interested only in the length, the starting position and
-  // the type of the record.
-  uint16_t length = 0;
-  uint16_t type = 0;
-  if (!stream_->Read(&length, 1)) {
-    LOG(ERROR) << "Unable to read a type info record length.";
-    return false;
-  }
-  if (!stream_->Read(&type, 1)) {
-    LOG(ERROR) << "Unable to read a type info record type.";
-    return false;
-  }
-  DCHECK_EQ(info.length, length);
-  DCHECK_EQ(info.type, type);
-
   ++type_id_;
-  current_record_.start = info.start;
-  current_record_.type = info.type;
-  current_record_.length = info.length;
+  current_record_ = info;
 
-  // TODO(siggi): Hoist this to a method, then replace the implementation.
-  if (!data_stream_->Init(stream_.get(), len())) {
-    LOG(ERROR) << "Unable to read data of the type info record.";
-    return false;
-  }
-  data_stream_->Seek(0);
-
-  if (stream_->pos() >= data_end_ && type_id_ >= type_id_max_) {
-    LOG(ERROR) << "Unexpected number of type info records in the type info "
-               << "stream (expected " << type_id_max_ - type_id_min_
-               << ", read " << type_id_ - type_id_min_ + 1 << ").";
-    return false;
-  }
   return true;
 }
 

@@ -1442,15 +1442,6 @@ bool DumpLeafBuildInfo(const TypeInfoRecordMap& type_map,
 
 bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
                      FILE* out,
-                     PdbStream* stream,
-                     uint16_t len,
-                     uint8_t indent_level) {
-  DumpIndentedText(out, indent_level, "Unsupported type info. Data:\n");
-  return DumpUnknownBlock(out, stream, len, indent_level);
-}
-
-bool DumpUnknownLeaf(const TypeInfoRecordMap& type_map,
-                     FILE* out,
                      common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
