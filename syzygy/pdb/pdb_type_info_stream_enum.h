@@ -34,6 +34,8 @@ namespace pdb {
 // Simple type info stream enumerator which crawls through a type info stream.
 class TypeInfoEnumerator {
  public:
+  class BinaryTypeRecordReader;
+
   // Creates an uninitialized enumerator for type info stream.
   // @param stream the stream to parse.
   explicit TypeInfoEnumerator(PdbStream* stream);
@@ -66,6 +68,10 @@ class TypeInfoEnumerator {
   // type record.
   scoped_refptr<PdbStream> GetDataStream() const { return data_stream_; }
 
+  // Creates and returns a class that implements common::BinaryStreamReader
+  // over the current record.
+  BinaryTypeRecordReader CreateRecordReader();
+
   // @name Accessors.
   // @{
   // @returns the starting position of current type record.
@@ -93,6 +99,8 @@ class TypeInfoEnumerator {
   // @}
 
  private:
+  friend class BinaryTypeRecordReader;
+
   // Information about a specific type record.
   struct TypeRecordInfo {
     // The stream position of the first byte of the type record (which starts
@@ -146,6 +154,14 @@ class TypeInfoEnumerator {
 
   // Details of the current type record.
   TypeRecordInfo current_record_;
+};
+
+class TypeInfoEnumerator::BinaryTypeRecordReader
+    : public PdbStreamReaderWithPosition {
+ private:
+  friend class TypeInfoEnumerator;
+
+  BinaryTypeRecordReader(size_t start_offset, size_t len, PdbStream* stream);
 };
 
 }  // namespace pdb

@@ -143,6 +143,11 @@ bool TypeInfoEnumerator::ResetStream() {
   return SeekRecord(type_id_min_);
 }
 
+TypeInfoEnumerator::BinaryTypeRecordReader
+TypeInfoEnumerator::CreateRecordReader() {
+  return BinaryTypeRecordReader(start_position(), len(), stream_.get());
+}
+
 bool TypeInfoEnumerator::EnsureTypeLocated(uint32_t type_id) {
   DCHECK(stream_ != nullptr);
 
@@ -210,6 +215,13 @@ bool TypeInfoEnumerator::FindRecordInfo(uint32_t type_id,
   DCHECK_GT(located_records_.size(), type_id - type_id_min_);
   *info = located_records_[type_id - type_id_min_];
   return true;
+}
+
+TypeInfoEnumerator::BinaryTypeRecordReader::BinaryTypeRecordReader(
+    size_t start_offset,
+    size_t len,
+    PdbStream* stream)
+    : PdbStreamReaderWithPosition(start_offset, len, stream) {
 }
 
 }  // namespace pdb
