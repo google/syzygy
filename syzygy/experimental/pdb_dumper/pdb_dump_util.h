@@ -25,19 +25,6 @@ namespace pdb {
 
 // Dump a block of unknown data to a specific output.
 // @param out The output where the data should be dumped.
-// @param stream The stream containing the data. It should be positioned at the
-//     beginning of the data block.
-// @param len The length of the data block.
-// @param indent_level The level of indentation to use.
-// @returns true on success, false on error.
-// @deprecated
-bool DumpUnknownBlock(FILE* out,
-                      PdbStream* stream,
-                      uint16_t len,
-                      uint8_t indent_level);
-
-// Dump a block of unknown data to a specific output.
-// @param out The output where the data should be dumped.
 // @param parser The parser for the data. It should be positioned at the
 //     beginning of the data block.
 // @param len The length of the data block.

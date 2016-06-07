@@ -23,20 +23,6 @@ namespace pdb {
 
 namespace cci = Microsoft_Cci_Pdb;
 
-// Dumps an unknown block of data in hexdump mode.
-bool DumpUnknownBlock(FILE* out,
-                      PdbStream* stream,
-                      uint16_t len,
-                      uint8_t indent_level) {
-  DCHECK_NE(static_cast<FILE*>(nullptr), out);
-  DCHECK_NE(static_cast<PdbStream*>(nullptr), stream);
-
-  PdbStreamReader reader(stream);
-  common::BinaryStreamParser parser(&reader);
-
-  return DumpUnknownBlock(out, &parser, len, indent_level);
-}
-
 bool DumpUnknownBlock(FILE* out,
                       common::BinaryStreamParser* parser,
                       uint16_t len,

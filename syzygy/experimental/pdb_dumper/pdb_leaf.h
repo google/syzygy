@@ -50,9 +50,11 @@ const char* NumericLeafName(uint16_t leaf_type);
 // Dump a numeric leaf.
 // @param out The output where the data should be dumped.
 // @param leaf_type The type of the numeric leaf.
-// @param stream The stream containing the data. It should be positioned at the
+// @param parser a parser over the data. It should be positioned at the
 //     beginning of the data block.
-void DumpNumericLeaf(FILE* out, uint16_t leaf_type, PdbStream* stream);
+void DumpNumericLeaf(FILE* out,
+                     uint16_t leaf_type,
+                     common::BinaryStreamParser* parser);
 
 // Get the name and the size associated with a numeric leaf.
 // @param leaf_type The type of the numeric leaf.

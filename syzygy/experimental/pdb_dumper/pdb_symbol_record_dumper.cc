@@ -20,7 +20,7 @@
 #include "syzygy/common/align.h"
 #include "syzygy/experimental/pdb_dumper/pdb_dump_util.h"
 #include "syzygy/experimental/pdb_dumper/pdb_leaf.h"
-#include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
@@ -31,11 +31,11 @@ namespace cci = Microsoft_Cci_Pdb;
 namespace {
 
 template <typename SymbolType>
-bool ReadSymbolAndName(PdbStream* stream,
+bool ReadSymbolAndName(common::BinaryStreamParser* parser,
                        uint16_t len,
                        SymbolType* symbol_out,
                        std::string* name_out) {
-  DCHECK(stream != NULL);
+  DCHECK(parser != NULL);
   DCHECK(len > 0);
   DCHECK(symbol_out != NULL);
   DCHECK(name_out != NULL);
@@ -43,8 +43,8 @@ bool ReadSymbolAndName(PdbStream* stream,
   // Note the zero-terminated name field must be the trailing field
   // of the symbol.
   size_t to_read = offsetof(SymbolType, name);
-  if (!stream->ReadBytes(symbol_out, to_read) ||
-      !ReadString(stream, name_out)) {
+  if (!parser->ReadBytes(to_read, symbol_out) ||
+      !parser->ReadString(name_out)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -77,7 +77,7 @@ void DumpLvarAddrRange(FILE* out,
 }
 
 bool DumpLvarAddrGaps(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   DumpIndentedText(out, indent_level, "Gaps:\n");
@@ -85,7 +85,7 @@ bool DumpLvarAddrGaps(FILE* out,
   CvLvarAddrGap gap = {};
   size_t to_read = sizeof(CvLvarAddrGap);
   while (bytes_left >= to_read) {
-    if (!stream->ReadBytes(&gap, to_read)) {
+    if (!parser->ReadBytes(to_read, &gap)) {
       LOG(ERROR) << "Unable to read symbol record.";
       return false;
     }
@@ -106,12 +106,12 @@ bool DumpLvarAddrGaps(FILE* out,
 
 // Dump a symbol record using RefSym2 struct to out.
 bool DumpRefSym2(FILE* out,
-                 PdbStream* stream,
+                 common::BinaryStreamParser* parser,
                  uint16_t len,
                  uint8_t indent_level) {
   cci::RefSym2 symbol_info = {};
   std::string symbol_name;
-  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
+  if (!ReadSymbolAndName(parser, len, &symbol_info, &symbol_name))
     return false;
 
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
@@ -124,12 +124,12 @@ bool DumpRefSym2(FILE* out,
 
 // Dump a symbol record using DatasSym32 struct to out.
 bool DumpDatasSym32(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   cci::DatasSym32 symbol_info = {};
   std::string symbol_name;
-  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
+  if (!ReadSymbolAndName(parser, len, &symbol_info, &symbol_name))
     return false;
 
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
@@ -141,12 +141,12 @@ bool DumpDatasSym32(FILE* out,
 }
 
 bool DumpPubSym32(FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   cci::PubSym32 symbol_info = {};
   std::string symbol_name;
-  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
+  if (!ReadSymbolAndName(parser, len, &symbol_info, &symbol_name))
     return false;
 
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
@@ -166,7 +166,7 @@ bool DumpPubSym32(FILE* out,
 }
 
 bool DumpOemSymbol(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -174,7 +174,7 @@ bool DumpOemSymbol(FILE* out,
 }
 
 bool DumpVpathSym32(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -182,11 +182,11 @@ bool DumpVpathSym32(FILE* out,
 }
 
 bool DumpFrameProcSym(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   cci::FrameProcSym frame_proc_sym = {};
-  if (!stream->Read(&frame_proc_sym, 1))
+  if (!parser->Read(&frame_proc_sym))
     return false;
 
   DumpIndentedText(out, indent_level, "cbFrame: 0x%08X\n",
@@ -234,13 +234,13 @@ bool DumpFrameProcSym(FILE* out,
 }
 
 bool DumpAnnotationSym(FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   cci::AnnotationSym symbol_info = {};
 
   size_t to_read = offsetof(cci::AnnotationSym, rgsz);
-  if (!stream->ReadBytes(&symbol_info, to_read)) {
+  if (!parser->ReadBytes(to_read, &symbol_info)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -252,7 +252,7 @@ bool DumpAnnotationSym(FILE* out,
 
   for (int i = 0; i < symbol_info.csz; ++i) {
     std::string annotation;
-    if (!ReadString(stream, &annotation)) {
+    if (!parser->ReadString(&annotation)) {
       LOG(ERROR) << "Unable to read an annotation.";
       return false;
     }
@@ -263,7 +263,7 @@ bool DumpAnnotationSym(FILE* out,
 }
 
 bool DumpManyTypRef(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -271,14 +271,14 @@ bool DumpManyTypRef(FILE* out,
 }
 
 bool DumpObjNameSym(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
-  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  DCHECK_NE(reinterpret_cast<common::BinaryStreamParser*>(NULL), parser);
   cci::ObjNameSym sym = {};
   std::string name;
-  if (!ReadSymbolAndName(stream, len, &sym, &name))
+  if (!ReadSymbolAndName(parser, len, &sym, &name))
     return false;
   DumpIndentedText(out, indent_level, "Signature: 0x%08X\n", sym.signature);
   DumpIndentedText(out, indent_level, "Name     : %s\n", name.c_str());
@@ -286,7 +286,7 @@ bool DumpObjNameSym(FILE* out,
 }
 
 bool DumpThunkSym32(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -294,15 +294,15 @@ bool DumpThunkSym32(FILE* out,
 }
 
 bool DumpBlockSym32(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   DCHECK_NE(static_cast<FILE*>(nullptr), out);
-  DCHECK_NE(static_cast<PdbStream*>(nullptr), stream);
+  DCHECK_NE(static_cast<common::BinaryStreamParser*>(nullptr), parser);
 
   cci::BlockSym32 sym = {};
   std::string name;
-  if (!ReadSymbolAndName(stream, len, &sym, &name))
+  if (!ReadSymbolAndName(parser, len, &sym, &name))
     return false;
 
   DumpIndentedText(out, indent_level, "Parent: 0x%08X\n", sym.parent);
@@ -316,7 +316,7 @@ bool DumpBlockSym32(FILE* out,
 }
 
 bool DumpWithSym32(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -324,7 +324,7 @@ bool DumpWithSym32(FILE* out,
 }
 
 bool DumpLabelSym32(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -332,14 +332,14 @@ bool DumpLabelSym32(FILE* out,
 }
 
 bool DumpRegSym(FILE* out,
-                PdbStream* stream,
+                common::BinaryStreamParser* parser,
                 uint16_t len,
                 uint8_t indent_level) {
   DCHECK_NE(static_cast<FILE*>(nullptr), out);
-  DCHECK_NE(static_cast<PdbStream*>(nullptr), stream);
+  DCHECK_NE(static_cast<common::BinaryStreamParser*>(nullptr), parser);
   cci::RegSym sym = {};
   std::string name;
-  if (!ReadSymbolAndName(stream, len, &sym, &name))
+  if (!ReadSymbolAndName(parser, len, &sym, &name))
     return false;
   DumpIndentedText(out, indent_level, "Type index: 0x%08X\n", sym.typind);
   DumpIndentedText(out, indent_level, "Register: %d\n", sym.reg);
@@ -348,12 +348,12 @@ bool DumpRegSym(FILE* out,
 }
 
 bool DumpConstSym(FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   size_t to_read = offsetof(cci::ConstSym, name);
   cci::ConstSym symbol_info = {};
-  if (!stream->ReadBytes(&symbol_info, to_read)) {
+  if (!parser->ReadBytes(to_read, &symbol_info)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -369,11 +369,11 @@ bool DumpConstSym(FILE* out,
     DumpIndentedText(out, indent_level, "Value: 0x%04X\n", symbol_info.value);
   } else {
     DumpIndentedText(out, indent_level, "Value: type=%s, value=", value_type);
-    DumpNumericLeaf(out, symbol_info.value, stream);
+    DumpNumericLeaf(out, symbol_info.value, parser);
     ::fprintf(out, "\n");
   }
   std::string symbol_name;
-  if (!ReadString(stream, &symbol_name)) {
+  if (!parser->ReadString(&symbol_name)) {
     LOG(ERROR) << "Unable to read the name of a symbol record.";
     return false;
   }
@@ -385,12 +385,12 @@ bool DumpConstSym(FILE* out,
 }
 
 bool DumpUdtSym(FILE* out,
-                PdbStream* stream,
+                common::BinaryStreamParser* parser,
                 uint16_t len,
                 uint8_t indent_level) {
   cci::UdtSym symbol_info = {};
   std::string symbol_name;
-  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
+  if (!ReadSymbolAndName(parser, len, &symbol_info, &symbol_name))
     return false;
 
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
@@ -400,7 +400,7 @@ bool DumpUdtSym(FILE* out,
 }
 
 bool DumpManyRegSym(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -408,13 +408,13 @@ bool DumpManyRegSym(FILE* out,
 }
 
 bool DumpBpRelSym32(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   cci::BpRelSym32 bp_rel_sym = {};
   std::string name;
 
-  if (!ReadSymbolAndName(stream, len, &bp_rel_sym, &name))
+  if (!ReadSymbolAndName(parser, len, &bp_rel_sym, &name))
     return false;
 
   DumpIndentedText(out, indent_level, "off: %d\n", bp_rel_sym.off);
@@ -425,14 +425,14 @@ bool DumpBpRelSym32(FILE* out,
 }
 
 bool DumpProcSym32(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
-  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  DCHECK_NE(reinterpret_cast<common::BinaryStreamParser*>(NULL), parser);
   cci::ProcSym32 sym = {};
   std::string name;
-  if (!ReadSymbolAndName(stream, len, &sym, &name))
+  if (!ReadSymbolAndName(parser, len, &sym, &name))
     return false;
   DumpIndentedText(out, indent_level, "Parent     : 0x%08X\n", sym.parent);
   DumpIndentedText(out, indent_level, "End        : 0x%08X\n", sym.end);
@@ -465,7 +465,7 @@ bool DumpProcSym32(FILE* out,
 }
 
 bool DumpRegRel32(FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -473,12 +473,12 @@ bool DumpRegRel32(FILE* out,
 }
 
 bool DumpThreadSym32(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   cci::ThreadSym32 symbol_info = {};
   std::string symbol_name;
-  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name))
+  if (!ReadSymbolAndName(parser, len, &symbol_info, &symbol_name))
     return false;
 
   DumpIndentedText(out, indent_level, "Name: %s\n", symbol_name.c_str());
@@ -490,7 +490,7 @@ bool DumpThreadSym32(FILE* out,
 }
 
 bool DumpProcSymMips(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -525,15 +525,15 @@ bool DumpCompileSymFlags(FILE* out,
 // |CompileSymType| and |symbol_version| agree.
 template <typename CompileSymType>
 bool DumpCompileSymImpl(FILE* out,
-                        PdbStream* stream,
+                        common::BinaryStreamParser* parser,
                         uint16_t len,
                         uint8_t indent_level,
                         int symbol_version) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
-  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
+  DCHECK_NE(reinterpret_cast<common::BinaryStreamParser*>(NULL), parser);
 
   std::vector<char> data(len, 0);
-  if (!stream->ReadBytes(data.data(), len)) {
+  if (!parser->ReadBytes(len, data.data())) {
     return false;
   }
 
@@ -599,29 +599,29 @@ bool DumpCompileSymImpl(FILE* out,
 }
 
 bool DumpCompileSym(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
-  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
-  if (!DumpCompileSymImpl<cci::CompileSym>(out, stream, len, indent_level, 1))
+  DCHECK_NE(reinterpret_cast<common::BinaryStreamParser*>(NULL), parser);
+  if (!DumpCompileSymImpl<cci::CompileSym>(out, parser, len, indent_level, 1))
     return false;
   return true;
 }
 
 bool DumpCompileSym2(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   DCHECK_NE(reinterpret_cast<FILE*>(NULL), out);
-  DCHECK_NE(reinterpret_cast<PdbStream*>(NULL), stream);
-  if (!DumpCompileSymImpl<CompileSym2>(out, stream, len, indent_level, 2))
+  DCHECK_NE(reinterpret_cast<common::BinaryStreamParser*>(NULL), parser);
+  if (!DumpCompileSymImpl<CompileSym2>(out, parser, len, indent_level, 2))
     return false;
   return true;
 }
 
 bool DumpManyRegSym2(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -629,7 +629,7 @@ bool DumpManyRegSym2(FILE* out,
 }
 
 bool DumpProcSymIa64(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -637,7 +637,7 @@ bool DumpProcSymIa64(FILE* out,
 }
 
 bool DumpSlotSym32(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -645,7 +645,7 @@ bool DumpSlotSym32(FILE* out,
 }
 
 bool DumpFrameRelSym(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -653,7 +653,7 @@ bool DumpFrameRelSym(FILE* out,
 }
 
 bool DumpAttrRegSym(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -661,7 +661,7 @@ bool DumpAttrRegSym(FILE* out,
 }
 
 bool DumpAttrSlotSym(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -669,7 +669,7 @@ bool DumpAttrSlotSym(FILE* out,
 }
 
 bool DumpAttrManyRegSym(FILE* out,
-                        PdbStream* stream,
+                        common::BinaryStreamParser* parser,
                         uint16_t len,
                         uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -677,7 +677,7 @@ bool DumpAttrManyRegSym(FILE* out,
 }
 
 bool DumpAttrRegRel(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -685,7 +685,7 @@ bool DumpAttrRegRel(FILE* out,
 }
 
 bool DumpAttrManyRegSym2(FILE* out,
-                         PdbStream* stream,
+                         common::BinaryStreamParser* parser,
                          uint16_t len,
                          uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -693,7 +693,7 @@ bool DumpAttrManyRegSym2(FILE* out,
 }
 
 bool DumpUnamespaceSym(FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -701,7 +701,7 @@ bool DumpUnamespaceSym(FILE* out,
 }
 
 bool DumpManProcSym(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -709,7 +709,7 @@ bool DumpManProcSym(FILE* out,
 }
 
 bool DumpTrampolineSym(FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -717,11 +717,11 @@ bool DumpTrampolineSym(FILE* out,
 }
 
 bool DumpSepCodSym(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   cci::SepCodSym symbol_info = {};
-  if (!stream->Read(&symbol_info, 1))
+  if (!parser->Read(&symbol_info))
     return false;
 
   DumpIndentedText(out, indent_level, "parent: %d\n", symbol_info.parent);
@@ -737,7 +737,7 @@ bool DumpSepCodSym(FILE* out,
 }
 
 bool DumpLocalSym(FILE* out,
-                  PdbStream* stream,
+                  common::BinaryStreamParser* parser,
                   uint16_t len,
                   uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -745,12 +745,12 @@ bool DumpLocalSym(FILE* out,
 }
 
 bool DumpLocalSym2013(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   LocalSym2013 symbol_info = {};
   std::string symbol_name;
-  if (!ReadSymbolAndName(stream, len, &symbol_info, &symbol_name)) {
+  if (!ReadSymbolAndName(parser, len, &symbol_info, &symbol_name)) {
     return false;
   }
 
@@ -787,17 +787,17 @@ bool DumpLocalSym2013(FILE* out,
 }
 
 bool DumpDefrangeSymRegister(FILE* out,
-                             PdbStream* stream,
+                             common::BinaryStreamParser* parser,
                              uint16_t len,
                              uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
-  // stream of shorter length.
+  // parser of shorter length.
   uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefrangeSymRegister, gaps);
   DefrangeSymRegister sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
+  if (to_read > len || !parser->ReadBytes(to_read, &sym)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -808,21 +808,21 @@ bool DumpDefrangeSymRegister(FILE* out,
   DumpLvarAddrRange(out, indent_level, sym.range);
 
   // Read and dump the variable length part.
-  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
+  return DumpLvarAddrGaps(out, parser, bytes_left, indent_level);
 }
 
 bool DumpDefRangeSymFramePointerRel(FILE* out,
-                                    PdbStream* stream,
+                                    common::BinaryStreamParser* parser,
                                     uint16_t len,
                                     uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
-  // stream of shorter length.
+  // parser of shorter length.
   uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymFramePointerRel, gaps);
   DefRangeSymFramePointerRel sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
+  if (to_read > len || !parser->ReadBytes(to_read, &sym)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -833,21 +833,21 @@ bool DumpDefRangeSymFramePointerRel(FILE* out,
   DumpLvarAddrRange(out, indent_level, sym.range);
 
   // Read and dump the variable length part.
-  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
+  return DumpLvarAddrGaps(out, parser, bytes_left, indent_level);
 }
 
 bool DumpDefRangeSymSubfieldRegister(FILE* out,
-                                     PdbStream* stream,
+                                     common::BinaryStreamParser* parser,
                                      uint16_t len,
                                      uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
-  // stream of shorter length.
+  // parser of shorter length.
   uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymSubfieldRegister, gaps);
   DefRangeSymSubfieldRegister sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
+  if (to_read > len || !parser->ReadBytes(to_read, &sym)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -859,15 +859,15 @@ bool DumpDefRangeSymSubfieldRegister(FILE* out,
   DumpLvarAddrRange(out, indent_level, sym.range);
 
   // Read and dump the variable length part.
-  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
+  return DumpLvarAddrGaps(out, parser, bytes_left, indent_level);
 }
 
 bool DumpFPOffs2013(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   FPOffs2013 fp_offs = {};
-  if (!stream->Read(&fp_offs, 1))
+  if (!parser->Read(&fp_offs))
     return false;
 
   DumpIndentedText(out, indent_level, "Offs: %d\n", fp_offs.offs);
@@ -875,17 +875,17 @@ bool DumpFPOffs2013(FILE* out,
 }
 
 bool DumpDefRangeSymRegisterRel(FILE* out,
-                                PdbStream* stream,
+                                common::BinaryStreamParser* parser,
                                 uint16_t len,
                                 uint8_t indent_level) {
   // TODO(manzagop): this would be easier (and safer) if we passed in a shallow
-  // stream of shorter length.
+  // parser of shorter length.
   uint16_t bytes_left = len;
 
   // Read the fixed part.
   size_t to_read = offsetof(DefRangeSymRegisterRel, gaps);
   DefRangeSymRegisterRel sym;
-  if (to_read > len || !stream->ReadBytes(&sym, to_read)) {
+  if (to_read > len || !parser->ReadBytes(to_read, &sym)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -901,11 +901,11 @@ bool DumpDefRangeSymRegisterRel(FILE* out,
   DumpLvarAddrRange(out, indent_level, sym.range);
 
   // Read and dump the variable length part.
-  return DumpLvarAddrGaps(out, stream, bytes_left, indent_level);
+  return DumpLvarAddrGaps(out, parser, bytes_left, indent_level);
 }
 
 bool DumpInlineSiteSym(FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
   size_t bytes_left = len;
@@ -913,7 +913,7 @@ bool DumpInlineSiteSym(FILE* out,
   // Read the fixed part.
   size_t to_read = offsetof(InlineSiteSym, binaryAnnotations);
   InlineSiteSym sym;
-  if (!stream->ReadBytes(&sym, to_read)) {
+  if (!parser->ReadBytes(to_read, &sym)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -924,12 +924,12 @@ bool DumpInlineSiteSym(FILE* out,
   DumpIndentedText(out, indent_level, "inlinee: 0x%08X\n", sym.inlinee);
 
   DumpIndentedText(out, indent_level, "binaryAnnotations:\n");
-  return DumpUnknownBlock(out, stream, static_cast<uint16_t>(bytes_left),
+  return DumpUnknownBlock(out, parser, static_cast<uint16_t>(bytes_left),
                           indent_level + 1);
 }
 
 bool DumpDefRangeSym(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -937,7 +937,7 @@ bool DumpDefRangeSym(FILE* out,
 }
 
 bool DumpDefRangeSym2(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -945,12 +945,12 @@ bool DumpDefRangeSym2(FILE* out,
 }
 
 bool DumpSectionSym(FILE* out,
-                    PdbStream* stream,
+                    common::BinaryStreamParser* parser,
                     uint16_t len,
                     uint8_t indent_level) {
   cci::SectionSym section = {};
   std::string section_name;
-  if (!ReadSymbolAndName(stream, len, &section, &section_name))
+  if (!ReadSymbolAndName(parser, len, &section, &section_name))
     return false;
 
   DumpIndentedText(out, indent_level, "isec: %d\n", section.isec);
@@ -966,12 +966,12 @@ bool DumpSectionSym(FILE* out,
 }
 
 bool DumpCoffGroupSym(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   cci::CoffGroupSym coff_group = {};
   std::string coff_group_name;
-  if (!ReadSymbolAndName(stream, len, &coff_group, &coff_group_name))
+  if (!ReadSymbolAndName(parser, len, &coff_group, &coff_group_name))
     return false;
 
   DumpIndentedText(out, indent_level, "cb: %d\n", coff_group.cb);
@@ -985,13 +985,13 @@ bool DumpCoffGroupSym(FILE* out,
 }
 
 bool DumpExportSym(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
   cci::ExportSym export_sym;
   std::string name;
 
-  if (!ReadSymbolAndName(stream, offsetof(cci::ExportSym, name), &export_sym,
+  if (!ReadSymbolAndName(parser, offsetof(cci::ExportSym, name), &export_sym,
                          &name))
     return false;
 
@@ -1018,11 +1018,11 @@ bool DumpExportSym(FILE* out,
 }
 
 bool DumpCallsiteInfo(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   cci::CallsiteInfo symbol_info = {};
-  if (!stream->Read(&symbol_info, 1)) {
+  if (!parser->Read(&symbol_info)) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
   }
@@ -1035,11 +1035,11 @@ bool DumpCallsiteInfo(FILE* out,
 }
 
 bool DumpFrameCookie(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   cci::FrameCookie frame_cookie = {};
-  if (!stream->Read(&frame_cookie, 1))
+  if (!parser->Read(&frame_cookie))
     return false;
 
   DumpIndentedText(out, indent_level, "Offs: %d\n", frame_cookie.off);
@@ -1052,11 +1052,11 @@ bool DumpFrameCookie(FILE* out,
 }
 
 bool DumpFrameCookieSym(FILE* out,
-                        PdbStream* stream,
+                        common::BinaryStreamParser* parser,
                         uint16_t len,
                         uint8_t indent_level) {
   FrameCookieSym frame_cookie = {};
-  if (!stream->Read(&frame_cookie, 1))
+  if (!parser->Read(&frame_cookie))
     return false;
 
   DumpIndentedText(out, indent_level, "Offs: %d\n", frame_cookie.off);
@@ -1068,7 +1068,7 @@ bool DumpFrameCookieSym(FILE* out,
 }
 
 bool DumpDiscardedSym(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
   // TODO(sebmarchand): Implement this function if we encounter this symbol.
@@ -1076,14 +1076,14 @@ bool DumpDiscardedSym(FILE* out,
 }
 
 bool DumpMSToolEnvV3(FILE* out,
-                     PdbStream* stream,
+                     common::BinaryStreamParser* parser,
                      uint16_t len,
                      uint8_t indent_level) {
   MSToolEnvV3 environment;
 
   // Read the structure header.
   size_t to_read = offsetof(MSToolEnvV3, key_values);
-  if (!stream->ReadBytes(&environment, to_read) ||
+  if (!parser->ReadBytes(to_read, &environment) ||
       environment.leading_zero != 0) {
     LOG(ERROR) << "Unable to read symbol record.";
     return false;
@@ -1096,7 +1096,7 @@ bool DumpMSToolEnvV3(FILE* out,
   std::string key;
   std::string value;
   while (true) {
-    if (!ReadString(stream, &key)) {
+    if (!parser->ReadString(&key)) {
       LOG(ERROR) << "Invalid MS Tool format.";
       return false;
     }
@@ -1104,7 +1104,7 @@ bool DumpMSToolEnvV3(FILE* out,
     if (key.empty())
       return true;
 
-    if (!ReadString(stream, &value)) {
+    if (!parser->ReadString(&value)) {
       LOG(ERROR) << "Invalid MS Tool format.";
       return false;
     }
@@ -1116,7 +1116,7 @@ bool DumpMSToolEnvV3(FILE* out,
 
 // Hexdump the data of the undeciphered symbol records.
 bool DumpUnknown(FILE* out,
-                 PdbStream* stream,
+                 common::BinaryStreamParser* parser,
                  uint16_t len,
                  uint8_t indent_level) {
   if (len == 0)
@@ -1124,63 +1124,59 @@ bool DumpUnknown(FILE* out,
   DumpIndentedText(out, indent_level, "Unsupported symbol type.\n");
   DumpIndentedText(out, indent_level + 1, "Length: %d\n", len);
   DumpIndentedText(out, indent_level + 1, "Data:\n");
-  return DumpUnknownBlock(out, stream, len, indent_level + 2);
+  return DumpUnknownBlock(out, parser, len, indent_level + 2);
 }
 
 // TODO(chrisha|sebmarchand): Implement these! These are simple stubs so that
 //     this compiles cleanly.
 bool DumpCompileSymCV2(FILE* out,
-                       PdbStream* stream,
+                       common::BinaryStreamParser* parser,
                        uint16_t len,
                        uint8_t indent_level) {
-  return DumpUnknown(out, stream, len, indent_level);
+  return DumpUnknown(out, parser, len, indent_level);
 }
 
 bool DumpSearchSym(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
-  return DumpUnknown(out, stream, len, indent_level);
+  return DumpUnknown(out, parser, len, indent_level);
 }
 
 bool DumpEndArgSym(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
-  return DumpUnknown(out, stream, len, indent_level);
+  return DumpUnknown(out, parser, len, indent_level);
 }
 
 bool DumpReturnSym(FILE* out,
-                   PdbStream* stream,
+                   common::BinaryStreamParser* parser,
                    uint16_t len,
                    uint8_t indent_level) {
-  return DumpUnknown(out, stream, len, indent_level);
+  return DumpUnknown(out, parser, len, indent_level);
 }
 
 bool DumpEntryThisSym(FILE* out,
-                      PdbStream* stream,
+                      common::BinaryStreamParser* parser,
                       uint16_t len,
                       uint8_t indent_level) {
-  return DumpUnknown(out, stream, len, indent_level);
+  return DumpUnknown(out, parser, len, indent_level);
 }
 
 }  //  namespace
 
 void DumpSymbolRecords(FILE* out,
-                       PdbStream* stream,
+                       pdb::PdbStream* stream,
                        const SymbolRecordVector& sym_record_vector,
                        uint8_t indent_level) {
   DCHECK(stream != NULL);
-
-  SymbolRecordVector::const_iterator symbol_iter =
-    sym_record_vector.begin();
+  SymbolRecordVector::const_iterator symbol_iter = sym_record_vector.begin();
   // Dump each symbol contained in the vector.
   for (; symbol_iter != sym_record_vector.end(); ++symbol_iter) {
-    if (!stream->Seek(symbol_iter->start_position)) {
-      LOG(ERROR) << "Unable to seek to symbol record at position "
-                 << base::StringPrintf("0x%08X.", symbol_iter->start_position);
-      return;
-    }
+    pdb::PdbStreamReaderWithPosition reader(symbol_iter->start_position,
+                                            symbol_iter->len, stream);
+    common::BinaryStreamParser parser(&reader);
     const char* symbol_type_text = SymbolTypeName(symbol_iter->type);
     if (symbol_type_text != NULL) {
       DumpIndentedText(out,
@@ -1199,39 +1195,21 @@ void DumpSymbolRecords(FILE* out,
     bool success = false;
     switch (symbol_iter->type) {
 // Call a function to dump a specific (struct_type) kind of structure.
-#define SYM_TYPE_DUMP(sym_type, struct_type) \
-    case cci::sym_type: { \
-      success = Dump ## struct_type(out, \
-                                    stream, \
-                                    symbol_iter->len, \
-                                    indent_level + 1); \
-      break; \
-    }
+#define SYM_TYPE_DUMP(sym_type, struct_type)                                 \
+  case cci::sym_type: {                                                      \
+    success =                                                                \
+        Dump##struct_type(out, &parser, symbol_iter->len, indent_level + 1); \
+    break;                                                                   \
+  }
       SYM_TYPE_CASE_TABLE(SYM_TYPE_DUMP)
 #undef SYM_TYPE_DUMP
     }
 
     if (!success) {
-      // In case of failure we just dump the hex data of this symbol.
-      if (!stream->Seek(symbol_iter->start_position)) {
-        LOG(ERROR) << "Unable to seek to symbol record at position "
-                   << base::StringPrintf("0x%08X.",
-                                         symbol_iter->start_position);
-        return;
-      }
-      DumpUnknown(out, stream, symbol_iter->len, indent_level + 1);
-    }
-    stream->Seek(common::AlignUp(stream->pos(), 4));
-
-    size_t expected_pos = symbol_iter->start_position + symbol_iter->len;
-    if (stream->pos() != expected_pos) {
-      LOG(ERROR)
-          << base::StringPrintf(
-                 "Symbol record stream is not valid (after type 0x%04X). ",
-                 symbol_iter->type)
-          << base::StringPrintf("Position after parsing is %d (expected %d).",
-                                stream->pos(), expected_pos);
-      return;
+      pdb::PdbStreamReaderWithPosition raw_reader(symbol_iter->start_position,
+                                                  symbol_iter->len, stream);
+      common::BinaryStreamParser raw_parser(&raw_reader);
+      DumpUnknown(out, &raw_parser, symbol_iter->len, indent_level + 1);
     }
   }
 }

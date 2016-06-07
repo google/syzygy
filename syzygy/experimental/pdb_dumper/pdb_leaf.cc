@@ -1141,7 +1141,7 @@ bool DumpLeafProc(const TypeInfoRecordMap& type_map,
 }
 
 // These function allows to display a particular kind of numeric value in the
-// out stream.
+// out parser.
 
 void DumpFLOAT10(FILE* out, cci::FLOAT10 float10) {
   fprintf(out, "%d", float10.Data_0);
@@ -1156,45 +1156,45 @@ void DumpFLOAT10(FILE* out, cci::FLOAT10 float10) {
   fprintf(out, "%d", float10.Data_9);
 }
 
-void DumpLeafChar(FILE* out, PdbStream* stream) {
+void DumpLeafChar(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafChar numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%d", numeric_value.val);
 }
 
-void DumpLeafShort(FILE* out, PdbStream* stream) {
+void DumpLeafShort(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafShort numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%d", numeric_value.val);
 }
 
-void DumpLeafUShort(FILE* out, PdbStream* stream) {
+void DumpLeafUShort(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafUShort numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%d", numeric_value.val);
 }
 
-void DumpLeafLong(FILE* out, PdbStream* stream) {
+void DumpLeafLong(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafLong numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%d", numeric_value.val);
 }
 
-void DumpLeafULong(FILE* out, PdbStream* stream) {
+void DumpLeafULong(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafULong numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
@@ -1210,72 +1210,72 @@ void DumpLeafULong(FILE* out, PdbStream* stream) {
 // type. It may be related to the type index. For each symbol there is a field
 // for the value (and the type associated with it if it's a numeric type) and a
 // field called "type index" which seems to refer to a type present in the type
-// info stream. An error is logged if we encounter a LeafReal type for one
+// info parser. An error is logged if we encounter a LeafReal type for one
 // symbol.
 
 const char* unexpected_real_type = "This type is unexpected.";
 
-void DumpLeafReal32(FILE* out, PdbStream* stream) {
+void DumpLeafReal32(FILE* out, common::BinaryStreamParser* parser) {
   LOG(WARNING) << unexpected_real_type;
   cci::LeafReal32 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%f", numeric_value.val);
 }
 
-void DumpLeafReal64(FILE* out, PdbStream* stream) {
+void DumpLeafReal64(FILE* out, common::BinaryStreamParser* parser) {
   LOG(WARNING) << unexpected_real_type;
   cci::LeafReal64 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%f", numeric_value.val);
 }
 
-void DumpLeafReal80(FILE* out, PdbStream* stream) {
+void DumpLeafReal80(FILE* out, common::BinaryStreamParser* parser) {
   LOG(WARNING) << unexpected_real_type;
   cci::LeafReal80 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   DumpFLOAT10(out, numeric_value.val);
 }
 
-void DumpLeafReal128(FILE* out, PdbStream* stream) {
+void DumpLeafReal128(FILE* out, common::BinaryStreamParser* parser) {
   LOG(WARNING) << unexpected_real_type;
   cci::LeafReal128 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%llu%llu", numeric_value.val0, numeric_value.val1);
 }
 
-void DumpLeafQuad(FILE* out, PdbStream* stream) {
+void DumpLeafQuad(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafQuad numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%llu", numeric_value.val);
 }
 
-void DumpLeafUQuad(FILE* out, PdbStream* stream) {
+void DumpLeafUQuad(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafUQuad numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
   ::fprintf(out, "%llu", numeric_value.val);
 }
 
-void DumpLeafCmplx32(FILE* out, PdbStream* stream) {
+void DumpLeafCmplx32(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafCmplx32 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
@@ -1283,9 +1283,9 @@ void DumpLeafCmplx32(FILE* out, PdbStream* stream) {
             numeric_value.val_imag);
 }
 
-void DumpLeafCmplx64(FILE* out, PdbStream* stream) {
+void DumpLeafCmplx64(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafCmplx64 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
@@ -1293,9 +1293,9 @@ void DumpLeafCmplx64(FILE* out, PdbStream* stream) {
             numeric_value.val_imag);
 }
 
-void DumpLeafCmplx80(FILE* out, PdbStream* stream) {
+void DumpLeafCmplx80(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafCmplx80 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
@@ -1305,9 +1305,9 @@ void DumpLeafCmplx80(FILE* out, PdbStream* stream) {
   DumpFLOAT10(out, numeric_value.val_imag);
 }
 
-void DumpLeafCmplx128(FILE* out, PdbStream* stream) {
+void DumpLeafCmplx128(FILE* out, common::BinaryStreamParser* parser) {
   cci::LeafCmplx128 numeric_value = {};
-  if (!stream->Read(&numeric_value, 1)) {
+  if (!parser->Read(&numeric_value)) {
     LOG(ERROR) << "Unable to read numeric value.";
     return;
   }
@@ -1317,22 +1317,7 @@ void DumpLeafCmplx128(FILE* out, PdbStream* stream) {
             numeric_value.val0_imag, numeric_value.val1_imag);
 }
 
-// ID stream leaf types.
-
-// Reads a string from the stream.
-bool ReadString(PdbStream* stream, std::string* s) {
-  s->clear();
-  while (stream->bytes_left()) {
-    char c = 0;
-    if (!stream->Read(&c, 1))
-      return false;
-    if (c == 0)
-      return true;
-    s->push_back(c);
-  }
-  // Stream ended before the string was read.
-  return false;
-}
+// ID parser leaf types.
 
 bool DumpLeafFunctionId(const TypeInfoRecordMap& type_map,
                         FILE* out,
@@ -1476,14 +1461,16 @@ const char* NumericLeafName(uint16_t leaf_type) {
   }
 }
 
-void DumpNumericLeaf(FILE* out, uint16_t leaf_type, PdbStream* stream) {
+void DumpNumericLeaf(FILE* out,
+                     uint16_t leaf_type,
+                     common::BinaryStreamParser* parser) {
   switch (leaf_type) {
 // Call a function to dump a specific (value_type) kind of numeric value.
 #define NUMERIC_LEAF_TYPE_DUMP(leaf_type, struct_type) \
-    case cci::leaf_type: { \
-      Dump ## struct_type(out, stream); \
-      break; \
-    }
+  case cci::leaf_type: {                               \
+    Dump##struct_type(out, parser);                    \
+    break;                                             \
+  }
       NUMERIC_LEAVES_CASE_TABLE(NUMERIC_LEAF_TYPE_DUMP)
 #undef NUMERIC_LEAF_TYPE_DUMP
   }
@@ -1526,7 +1513,7 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
 bool DumpLeaf(const TypeInfoRecordMap& type_map,
               uint16_t type_value,
               FILE* out,
-              PdbStream* stream,
+              pdb::PdbStream* stream,
               size_t len,
               uint8_t indent_level) {
   DCHECK(out != NULL);
