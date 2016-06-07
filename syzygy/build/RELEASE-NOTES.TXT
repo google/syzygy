@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.19.0
+
+[c5c600f40e] Fix parsing of empty debug directories.
+[858cdc69ba] SyzyASAN - Enable Crashpad integration as a 50/50 experiment.
+
 Version 0.8.18.0
 
 [b00d18bfd7] SyzyASAN - Add an experiment enumeration export on the runtime.
