@@ -1250,6 +1250,12 @@ BlockGraph::Block* PEFileParser::ParseDebugDir(
       return NULL;
     }
 
+    // Don't create a block for empty directories. This is seen with VS2015
+    // Incremental Link Time Code Generation, which generates an empty "iltcg"
+    // debug directory entry.
+    if (debug_directory->SizeOfData == 0)
+      continue;
+
     // Chunk the data referenced by the debug directory entry.
     AddBlock(BlockGraph::DATA_BLOCK,
              RelativeAddress(debug_directory->AddressOfRawData),

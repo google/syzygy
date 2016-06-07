@@ -37,6 +37,9 @@ using testing::Contains;
 
 namespace {
 
+// Path to a sample DLL containing an ILTCG debug info data directory.
+const wchar_t kTestDllILTCG[] = L"syzygy\\pe\\test_data\\test_dll_iltcg.dll";
+
 // Exposes the protected methods for testing.
 class TestPEFileParser: public PEFileParser {
  public:
@@ -48,6 +51,7 @@ class TestPEFileParser: public PEFileParser {
 
   // Expose as public for testing.
   using PEFileParser::ParseDelayImportDir;
+  using PEFileParser::ParseDebugDir;
   using PEFileParser::ParseExportDir;
   using PEFileParser::ParseImageHeader;
   using PEFileParser::ParseImportDir;
@@ -500,6 +504,32 @@ TEST_F(PEFileParserTest, ParseImage) {
   // And a delay import directory.
   EXPECT_NO_FATAL_FAILURE(AssertDataDirectoryEntryValid(
       header.data_directory[IMAGE_DIRECTORY_ENTRY_DELAY_IMPORT]));
+}
+
+TEST_F(PEFileParserTest, ParseEmptyDebugDir) {
+  base::FilePath dll_path = testing::GetSrcRelativePath(kTestDllILTCG);
+  pe::PEFile image_file;
+  pe::BlockGraph image;
+  BlockGraph::AddressSpace address_space(&image);
+  ASSERT_TRUE(image_file.Init(dll_path));
+  TestPEFileParser parser(image_file, &address_space, add_reference_);
+
+  PEFileParser::PEHeader header;
+  EXPECT_TRUE(parser.ParseImageHeader(&header));
+  ASSERT_EQ(2u, image.blocks().size());  // DOS + NT headers.
+
+  const IMAGE_NT_HEADERS* nt_headers =
+      reinterpret_cast<const IMAGE_NT_HEADERS*>(header.nt_headers->data());
+
+  const IMAGE_DATA_DIRECTORY& dir =
+      nt_headers->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_DEBUG];
+  ASSERT_EQ(sizeof(IMAGE_DEBUG_DIRECTORY) * 3, dir.Size);
+  EXPECT_TRUE(parser.ParseDebugDir(dir) != NULL);
+
+  // This should create 3 new blocks: the debug directory itself, a codeview
+  // entry and a coff group entry. There should not be a third block created
+  // for the ILTCG entry, despite their being 3 debug directory entries.
+  EXPECT_EQ(5u, image.blocks().size());
 }
 
 TEST_F(PEFileParserTest, ParseImageHeadersFromDifferentWindowsSDKs) {
