@@ -105,7 +105,7 @@ class PdbStreamReaderWithPosition : public common::BinaryStreamReader {
   // The PdbStream exposed on this reader.
   scoped_refptr<PdbStream> stream_;
 
-  DISALLOW_COPY_AND_ASSIGN(PdbStreamReaderWithPosition);
+  DISALLOW_ASSIGN(PdbStreamReaderWithPosition);
 };
 
 }  // namespace pdb

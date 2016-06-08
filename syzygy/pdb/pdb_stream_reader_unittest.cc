@@ -168,4 +168,35 @@ TEST_F(PdbStreamReaderWithPositionTest, Consume) {
   EXPECT_FALSE(reader.Consume(1));
 }
 
+TEST_F(PdbStreamReaderWithPositionTest, CopyConstructor) {
+  const uint8_t kData[] = { 0, 1, 2, 10 };
+  scoped_refptr<PdbByteStream> stream(new PdbByteStream());
+  stream->Init(kData, sizeof(kData));
+
+  PdbStreamReaderWithPosition reader(stream.get());
+
+  uint8_t data1[sizeof(kData)] = {};
+  EXPECT_EQ(0U, reader.Position());
+
+  PdbStreamReaderWithPosition reader2(reader);
+  EXPECT_EQ(0U, reader2.Position());
+  EXPECT_EQ(stream.get(), reader2.stream().get());
+
+  EXPECT_TRUE(reader.Read(sizeof(data1), data1));
+
+  EXPECT_EQ(sizeof(kData), reader.Position());
+  EXPECT_EQ(0, reader2.Position());
+  EXPECT_TRUE(reader.AtEnd());
+  EXPECT_FALSE(reader2.AtEnd());
+  EXPECT_EQ(0U, ::memcmp(kData, data1, sizeof(kData)));
+  EXPECT_FALSE(reader.Read(1, data1));
+
+  uint8_t data2[sizeof(kData)] = {};
+  EXPECT_TRUE(reader2.Read(sizeof(data2), data2));
+  EXPECT_EQ(sizeof(kData), reader2.Position());
+  EXPECT_TRUE(reader2.AtEnd());
+  EXPECT_EQ(0U, ::memcmp(kData, data2, sizeof(kData)));
+  EXPECT_FALSE(reader2.Read(1, data2));
+}
+
 }  // namespace pdb
