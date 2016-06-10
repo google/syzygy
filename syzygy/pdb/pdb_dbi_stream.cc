@@ -18,17 +18,16 @@
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 
 namespace pdb {
 
-bool DbiModuleInfo::Read(pdb::PdbStream* stream) {
-  DCHECK(stream != NULL);
+bool DbiModuleInfo::Read(common::BinaryStreamParser* parser) {
+  DCHECK(parser != nullptr);
 
-  if (!stream->Read(&module_info_base_, 1) ||
-      !ReadString(stream, &module_name_) ||
-      !ReadString(stream, &object_name_) ||
-      !stream->Seek(common::AlignUp(stream->pos(), 4))) {
+  if (!parser->Read(&module_info_base_) || !parser->ReadString(&module_name_) ||
+      !parser->ReadString(&object_name_) || !parser->AlignTo(4)) {
     LOG(ERROR) << "Unable to read module information.";
     return false;
   }
@@ -40,13 +39,14 @@ bool DbiModuleInfo::Read(pdb::PdbStream* stream) {
 bool DbiStream::ReadDbiHeaders(pdb::PdbStream* stream) {
   DCHECK(stream != NULL);
 
-  if (!stream->Seek(0) || !stream->Read(&header_, 1)) {
+  if (!stream->ReadBytesAt(0, sizeof(header_), &header_)) {
     LOG(ERROR) << "Unable to read the header of the Dbi Stream.";
     return false;
   }
 
-  if (!stream->Seek(pdb::GetDbiDbgHeaderOffset(header_)) ||
-      !stream->Read(&dbg_header_, 1)) {
+  size_t dbg_header_offs = pdb::GetDbiDbgHeaderOffset(header_);
+  if (!stream->ReadBytesAt(dbg_header_offs, sizeof(dbg_header_),
+                           &dbg_header_)) {
     LOG(ERROR) << "Unable to read Dbg header of the Dbi Stream.";
     return false;
   }
@@ -60,23 +60,19 @@ bool DbiStream::ReadDbiModuleInfo(pdb::PdbStream* stream) {
 
   // This substream starts just after the Dbi header in the Dbi stream.
   size_t module_start = sizeof(pdb::DbiHeader);
-  size_t module_end = module_start + header_.gp_modi_size;
 
-  if (!stream->Seek(module_start)) {
-    LOG(ERROR) << "Unable to read the module information substream of the Dbi "
-               << "stream.";
-    return false;
-  }
-
+  pdb::PdbStreamReaderWithPosition reader(module_start, header_.gp_modi_size,
+                                          stream);
+  common::BinaryStreamParser parser(&reader);
   // Read each module info block.
-  while (stream->pos() < module_end) {
+  while (!reader.AtEnd()) {
     DbiModuleInfo module_info;
-    if (!module_info.Read(stream))
+    if (!module_info.Read(&parser))
       return false;
     modules_.push_back(module_info);
   }
 
-  if (stream->pos() != module_end) {
+  if (!reader.AtEnd()) {
     LOG(ERROR) << "Module info substream of the Dbi stream is not valid.";
     return false;
   }
@@ -89,11 +85,11 @@ bool DbiStream::ReadDbiSectionContribs(pdb::PdbStream* stream) {
   DCHECK(stream != NULL);
 
   size_t section_contribs_start = sizeof(pdb::DbiHeader) + header_.gp_modi_size;
-  size_t section_contribs_end =
-      section_contribs_start + header_.section_contribution_size;
+  pdb::PdbStreamReaderWithPosition reader(
+      section_contribs_start, header_.section_contribution_size, stream);
+  common::BinaryStreamParser parser(&reader);
   uint32_t signature = 0;
-
-  if (!stream->Seek(section_contribs_start) || !stream->Read(&signature, 1)) {
+  if (!parser.Read(&signature)) {
     LOG(ERROR) << "Unable to seek to section contributions substream.";
     return false;
   }
@@ -108,14 +104,15 @@ bool DbiStream::ReadDbiSectionContribs(pdb::PdbStream* stream) {
   }
 
   size_t section_contrib_count =
-    (section_contribs_end - stream->pos()) / sizeof(DbiSectionContrib);
+      (header_.section_contribution_size - reader.Position()) /
+      sizeof(DbiSectionContrib);
 
-  if (!stream->Read(&section_contribs_, section_contrib_count)) {
+  if (!parser.ReadMultiple(section_contrib_count, &section_contribs_)) {
     LOG(ERROR) << "Unable to read section contributions.";
     return false;
   }
 
-  if (stream->pos() != section_contribs_end) {
+  if (!reader.AtEnd()) {
     LOG(ERROR) << "Section contribs substream of the Dbi stream is not valid.";
     return false;
   }
@@ -130,15 +127,11 @@ bool DbiStream::ReadDbiSectionMap(pdb::PdbStream* stream) {
   size_t section_map_start = sizeof(pdb::DbiHeader)
       + header_.gp_modi_size
       + header_.section_contribution_size;
-  size_t section_map_end = section_map_start + header_.section_map_size;
+  pdb::PdbStreamReaderWithPosition reader(section_map_start,
+                                          header_.section_map_size, stream);
+  common::BinaryStreamParser parser(&reader);
   uint16_t number_of_sections = 0;
-
-  if (!stream->Seek(section_map_start)) {
-    LOG(ERROR) << "Unable to seek to section map substream.";
-    return false;
-  }
-
-  if (!stream->Read(&number_of_sections, 1)) {
+  if (!parser.Read(&number_of_sections)) {
     LOG(ERROR) << "Unable to read the length of the section map in the Dbi "
                << "stream.";
     return false;
@@ -147,9 +140,8 @@ bool DbiStream::ReadDbiSectionMap(pdb::PdbStream* stream) {
   // The number of section appears to be present twice. This check ensure that
   // the value are always equals. If it's not it'll give us a sample to
   // understand what's this value.
-
   uint16_t number_of_sections_copy = 0;
-  if (!stream->Read(&number_of_sections_copy, 1)) {
+  if (!parser.Read(&number_of_sections_copy)) {
     LOG(ERROR) << "Unable to read the copy of the length of the section map in "
                << "the Dbi stream.";
     return false;
@@ -162,9 +154,13 @@ bool DbiStream::ReadDbiSectionMap(pdb::PdbStream* stream) {
     return false;
   }
 
-  while (stream->pos() < section_map_end) {
+  while (!reader.AtEnd()) {
     DbiSectionMapItem section_map_item;
-    stream->Read(&section_map_item, 1);
+    if (!parser.Read(&section_map_item)) {
+      LOG(ERROR) << "Failed to read a section map item";
+      return false;
+    }
+
     section_map_[section_map_item.section_number] = section_map_item;
   }
 
@@ -175,7 +171,7 @@ bool DbiStream::ReadDbiSectionMap(pdb::PdbStream* stream) {
     return false;
   }
 
-  if (stream->pos() != section_map_end) {
+  if (!reader.AtEnd()) {
     LOG(ERROR) << "Section map substream of the Dbi stream is not valid.";
     return false;
   }
@@ -204,35 +200,33 @@ bool DbiStream::ReadDbiFileInfo(pdb::PdbStream* stream) {
       + header_.gp_modi_size
       + header_.section_contribution_size
       + header_.section_map_size;
-  size_t file_info_end = file_info_start + header_.file_info_size;
+  pdb::PdbStreamReaderWithPosition reader(file_info_start,
+                                          header_.file_info_size, stream);
+  common::BinaryStreamParser parser(&reader);
+
   uint16_t file_blocks_table_size = 0;
   uint16_t offset_table_size = 0;
-
-  if (!stream->Seek(file_info_start)) {
-    LOG(ERROR) << "Unable to seek to file info substream.";
-    return false;
-  }
-
-  if (!stream->Read(&file_blocks_table_size, 1) ||
-      !stream->Read(&offset_table_size, 1)) {
+  if (!parser.Read(&file_blocks_table_size) ||
+      !parser.Read(&offset_table_size)) {
     LOG(ERROR) << "Unable to read the header of the file info substream.";
     return false;
   }
 
   // Calculate the starting address of the different sections of this substream.
-  size_t file_blocks_table_start = stream->pos();
-  size_t offset_table_start = stream->pos()
-      + file_blocks_table_size*sizeof(size_t);
-  size_t name_table_start = offset_table_start
-      + offset_table_size*sizeof(size_t);
+  size_t file_blocks_table_start = file_info_start + reader.Position();
+  size_t offset_table_start =
+      file_blocks_table_start + file_blocks_table_size * sizeof(uint32_t);
 
   if (!ReadDbiFileInfoBlocks(stream,
                              file_blocks_table_size,
                              file_blocks_table_start,
-                             offset_table_size,
                              offset_table_start)) {
     return false;
   }
+
+  size_t name_table_start =
+      offset_table_start + offset_table_size * sizeof(uint32_t);
+  size_t file_info_end = file_info_start + header_.file_info_size;
 
   // Read the name table in this substream.
   if (!ReadDbiFileNameTable(stream,
@@ -247,31 +241,48 @@ bool DbiStream::ReadDbiFileInfo(pdb::PdbStream* stream) {
 bool DbiStream::ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
                                       uint16_t file_blocks_table_size,
                                       size_t file_blocks_table_start,
-                                      uint16_t offset_table_size,
                                       size_t offset_table_start) {
   file_info_.first.resize(file_blocks_table_size);
+
+  // The block info data is composed of two parallel arrays in the stream.
+  // The first array is an array of uint16_t block start positions, and the
+  // second one is an array of uint16_t lengths.
+  // Each {start, length} pair notes the location and length of variable-length
+  // array of uint16_t identifiers. These identifiers in turn then point to
+  // locations in the file name table, and so identify a file name.
+  // This is done because there's a lot of repetition in the file name data, as
+  // every compilation unit ends up including a subset of the same files.
+
+  // Create a reader over the start position array.
+  pdb::PdbStreamReaderWithPosition start_reader(
+      file_blocks_table_start, file_blocks_table_size * sizeof(uint16_t),
+      stream);
+  common::BinaryStreamParser start_parser(&start_reader);
+
+  // Create a reader over the length array.
+  size_t file_block_length_start =
+      file_blocks_table_start + file_blocks_table_size * sizeof(uint16_t);
+  pdb::PdbStreamReaderWithPosition length_reader(
+      file_block_length_start, file_blocks_table_size * sizeof(uint16_t),
+      stream);
+  common::BinaryStreamParser length_parser(&length_reader);
+
   // Read information about each block of the file info substream.
   for (int i = 0; i < file_blocks_table_size; ++i) {
     uint16_t block_start = 0;
     uint16_t block_length = 0;
-
-    if (!stream->Seek(file_blocks_table_start + i * sizeof(block_start)) ||
-        !stream->Read(&block_start, 1) ||
-        !stream->Seek(file_blocks_table_start
-            + (file_blocks_table_size + i)*sizeof(block_start)) ||
-        !stream->Read(&block_length, 1)) {
+    if (!start_parser.Read(&block_start) ||
+        !length_parser.Read(&block_length)) {
       LOG(ERROR) << "Unable to read the file info substream.";
       return false;
     }
 
+    pdb::PdbStreamReaderWithPosition block_reader(
+        offset_table_start + block_start * sizeof(uint32_t),
+        block_length * sizeof(uint32_t), stream);
+    common::BinaryStreamParser block_parser(&block_reader);
     // Fill the file list.
-    if (!stream->Seek(offset_table_start + block_start * sizeof(size_t))) {
-      LOG(ERROR) << "Unable to seek to the beginning of a block in the name "
-                 << " info substream (block index = " << block_start << ").";
-      return false;
-    }
-
-    if (!stream->Read(&file_info_.first.at(i), block_length)) {
+    if (!block_parser.ReadMultiple(block_length, &file_info_.first.at(i))) {
       LOG(ERROR) << "Unable to read the file info substream.";
       return false;
     }
@@ -285,23 +296,22 @@ bool DbiStream::ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
 bool DbiStream::ReadDbiFileNameTable(pdb::PdbStream* stream,
                                      size_t name_table_start,
                                      size_t name_table_end) {
-  if (!stream->Seek(name_table_start)) {
-    LOG(ERROR) << "Unable to seek to the name table of the file info "
-               << "substream.";
-    return false;
-  }
+  DCHECK_LE(name_table_start, name_table_end);
+  pdb::PdbStreamReaderWithPosition reader(
+      name_table_start, name_table_end - name_table_start, stream);
+  common::BinaryStreamParser parser(&reader);
 
-  while (stream->pos() < name_table_end)  {
+  while (!reader.AtEnd()) {
     std::string filename;
-    size_t pos = stream->pos() - name_table_start;
-    if (!ReadString(stream, &filename)) {
+    size_t pos = reader.Position();
+    if (!parser.ReadString(&filename)) {
       LOG(ERROR) << "Unable to read the name table of the file info substream.";
       return false;
     }
     file_info_.second.insert(std::make_pair(pos, filename));
   }
 
-  if (stream->pos() != name_table_end) {
+  if (!reader.AtEnd()) {
     LOG(ERROR) << "File info substream of the Dbi stream is not valid.";
     return false;
   }

@@ -112,8 +112,35 @@ TEST_F(BinaryStreamParserTest, ReadBytes) {
   EXPECT_EQ(0x1C, chr);
 }
 
+TEST_F(BinaryStreamParserTest, ReadMultiple) {
+  static const uint16_t kTestData[] = {0, 1, 2, 3, 4, 5, 6, 7};
+
+  BinaryBufferStreamReader reader(kTestData, sizeof(kTestData));
+  BinaryStreamParser parser(&reader);
+
+  std::vector<uint16_t> data;
+  const size_t kNumToRead = 3;
+  static_assert(kNumToRead * 3 > arraysize(kTestData), "Array too small");
+
+  // Read the first third of the data.
+  EXPECT_TRUE(parser.ReadMultiple(kNumToRead, &data));
+  EXPECT_EQ(kNumToRead, data.size());
+
+  // Read the second third of the data.
+  EXPECT_TRUE(parser.ReadMultiple(kNumToRead, &data));
+  EXPECT_EQ(kNumToRead * 2, data.size());
+
+  // Read past the end of the data.
+  EXPECT_FALSE(parser.ReadMultiple(kNumToRead, &data));
+  EXPECT_EQ(arraysize(kTestData), data.size());
+
+  EXPECT_TRUE(std::equal(data.begin(), data.end(), kTestData));
+
+  EXPECT_TRUE(reader.AtEnd());
+}
+
 TEST_F(BinaryStreamParserTest, ReadString) {
-  // Two strings back-to-back
+  // Two strings back-to-back.
   static const char kTestData[] = {
       'h', 'e', 'l', 'l', 'o', '\0', 'w', 'o', 'r', 'l', 'd'};
 
@@ -136,7 +163,7 @@ TEST_F(BinaryStreamParserTest, ReadString) {
 }
 
 TEST_F(BinaryStreamParserTest, ReadWideString) {
-  // Two strings back-to-back
+  // Two strings back-to-back.
   static const wchar_t kTestData[] = {
       'h', 'e', 'l', 'l', 'o', '\0', 'w', 'o', 'r', 'l', 'd'};
 
@@ -156,6 +183,31 @@ TEST_F(BinaryStreamParserTest, ReadWideString) {
   wchar_t chr = 0x1C;
   EXPECT_FALSE(parser.Read(&chr));
   EXPECT_EQ(0x1C, chr);
+}
+
+TEST_F(BinaryStreamParserTest, AlignTo) {
+  std::vector<uint8_t> data(1024, 0xCC);
+  BinaryBufferStreamReader reader(&data.at(0), data.size());
+  BinaryStreamParser parser(&reader);
+
+  EXPECT_EQ(0U, reader.Position());
+  // Shouldn't move, zero is aligned to all by definition.
+  EXPECT_TRUE(parser.AlignTo(5));
+  EXPECT_TRUE(parser.AlignTo(4));
+  EXPECT_EQ(0U, reader.Position());
+
+  EXPECT_TRUE(parser.ReadBytes(5, buf_));
+  EXPECT_EQ(5U, reader.Position());
+
+  // Try a couple of alignments.
+  EXPECT_TRUE(parser.AlignTo(4));
+  EXPECT_EQ(8U, reader.Position());
+
+  EXPECT_TRUE(parser.AlignTo(5));
+  EXPECT_EQ(10U, reader.Position());
+
+  EXPECT_FALSE(parser.AlignTo(data.size() + 1));
+  EXPECT_TRUE(reader.AtEnd());
 }
 
 }  // namespace common

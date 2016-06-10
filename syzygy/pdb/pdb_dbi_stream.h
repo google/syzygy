@@ -35,6 +35,7 @@
 #include <utility>
 #include <vector>
 
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_data.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pdb/pdb_util.h"
@@ -65,10 +66,10 @@ class DbiModuleInfo {
 
   // Reads a module info from a PDB stream.
   //
-  // @param stream The stream containing the module info. It must be positioned
+  // @param stream The parser for the module info. It must be positioned
   //     at the beginning of a module info.
   // @returns true on success, false otherwise.
-  bool Read(pdb::PdbStream* stream);
+  bool Read(common::BinaryStreamParser* parser);
 
   // @name Accessors.
   // @{
@@ -86,15 +87,15 @@ class DbiModuleInfo {
 };
 
 // This class represent the Dbi stream of a PDB. It contains some serialization
-// functions to be able to load the different substream.
+// functions to be able to load the different substreams.
 class DbiStream {
  public:
   // Typedefs used to store the content of the Dbi Stream.
   typedef std::vector<DbiModuleInfo> DbiModuleVector;
   typedef std::vector<DbiSectionContrib> DbiSectionContribVector;
-  typedef std::vector<size_t> DbiFileInfoFileList;
+  typedef std::vector<uint32_t> DbiFileInfoFileList;
   typedef std::vector<DbiFileInfoFileList> DbiFileInfoVector;
-  typedef std::map<size_t, std::string> DbiFileInfoNameMap;
+  typedef std::map<uint32_t, std::string> DbiFileInfoNameMap;
   typedef std::pair<DbiFileInfoVector, DbiFileInfoNameMap> DbiFileInfo;
   typedef std::map<uint16_t, DbiSectionMapItem> DbiSectionMap;
   typedef OffsetStringMap DbiEcInfoVector;
@@ -176,7 +177,6 @@ class DbiStream {
   bool ReadDbiFileInfoBlocks(pdb::PdbStream* stream,
                              uint16_t file_blocks_table_size,
                              size_t file_blocks_table_start,
-                             uint16_t offset_table_size,
                              size_t offset_table_start);
 
   // Serialization of the name table in the file info substream.

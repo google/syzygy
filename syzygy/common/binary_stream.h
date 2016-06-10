@@ -119,11 +119,24 @@ class BinaryStreamParser {
   template <typename DataType>
   bool Read(DataType* data) const;
 
+  // Read @p elements of sizeof(@p DataType) bytes into the @p data vector.
+  // @param data the read data on success, otherwise contains partial data.
+  // @returns true iff @p elements element were successfully read into
+  // @p data.
+  template <typename DataType>
+  bool ReadMultiple(size_t elements, std::vector<DataType>* data) const;
+
   // Read a zero-terminated string and advance the read position.
   // @param str returns the characters read, less the zero terminator.
   // @returns true if a zero terminating character is encountered.
   bool ReadString(std::string* str) const;
   bool ReadString(std::wstring* str) const;
+
+  // Consumes and discards a minimal number of bytes such that the position
+  // of the underlying stream satisifies @p alignment.
+  // @param alignment the required alignment.
+  // @returns true iff @p alignment is achieved.
+  bool AlignTo(size_t alignment) const;
 
   // Accessor to underlying stream.
   // @returns the underlying stream for the parser.
@@ -139,6 +152,23 @@ class BinaryStreamParser {
 template <typename DataType>
 bool BinaryStreamParser::Read(DataType* data) const {
   return ReadBytes(sizeof(*data), data);
+}
+
+template <typename DataType>
+bool BinaryStreamParser::ReadMultiple(size_t elements,
+                                      std::vector<DataType>* data) const {
+  DCHECK(data != nullptr);
+  // Reserve for the new data to save on reallocs.
+  data->reserve(data->size() + elements);
+  for (size_t read = 0; read < elements; ++read) {
+    DataType tmp = {};
+    if (!Read(&tmp))
+      return false;
+
+    data->push_back(tmp);
+  }
+
+  return true;
 }
 
 }  // namespace common

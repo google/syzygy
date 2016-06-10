@@ -125,4 +125,19 @@ bool BinaryStreamParser::ReadString(std::wstring* str) const {
   return ReadStringImpl(this, str);
 }
 
+bool BinaryStreamParser::AlignTo(size_t alignment) const {
+  const size_t remainder = stream_reader_->Position() % alignment;
+  if (remainder == 0)
+    return true;
+
+  size_t to_read = alignment - remainder;
+  for (size_t i = 0; i != to_read; ++i) {
+    uint8_t discard = 0;
+    if (!stream_reader_->Read(sizeof(discard), &discard))
+      return false;
+  }
+
+  return true;
+}
+
 }  // namespace common
