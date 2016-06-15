@@ -89,7 +89,7 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
   uint32_t header_page = 0;
   scoped_refptr<MsfFileStreamImpl<T>> header_stream(new MsfFileStreamImpl<T>(
       file.get(), sizeof(header), &header_page, kMsfPageSize));
-  if (!header_stream->Read(&header, 1)) {
+  if (!header_stream->ReadBytesAt(0, sizeof(header), &header)) {
     LOG(ERROR) << "Failed to read MSF file header.";
     return false;
   }
@@ -120,17 +120,19 @@ bool MsfReaderImpl<T>::Read(const base::FilePath& msf_path,
     LOG(ERROR) << "Failed to allocate directory pages.";
     return false;
   }
-  if (!dir_page_stream->Read(dir_pages.get(), num_dir_pages)) {
+  size_t page_dir_size = num_dir_pages * sizeof(uint32_t);
+  if (!dir_page_stream->ReadBytesAt(0, page_dir_size, dir_pages.get())) {
     LOG(ERROR) << "Failed to read directory page stream.";
     return false;
   }
 
   // Load the actual directory.
-  int dir_size = static_cast<int>(header.directory_size / sizeof(uint32_t));
+  size_t dir_size =
+      static_cast<size_t>(header.directory_size / sizeof(uint32_t));
   scoped_refptr<MsfFileStreamImpl<T>> dir_stream(new MsfFileStreamImpl<T>(
       file.get(), header.directory_size, dir_pages.get(), header.page_size));
   std::vector<uint32_t> directory(dir_size);
-  if (!dir_stream->Read(&directory[0], dir_size)) {
+  if (!dir_stream->ReadBytesAt(0, dir_size * sizeof(uint32_t), &directory[0])) {
     LOG(ERROR) << "Failed to read directory stream.";
     return false;
   }
