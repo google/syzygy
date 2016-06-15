@@ -42,9 +42,9 @@ else:
   # Provide some default paths to some version of cdb.exe that work with this
   # script.
   _DEFAULT_CDB_PATHS = [
+      r'c:\Program Files (x86)\Windows Kits\10\Debuggers\x86\cdb.exe',
       r'c:\Program Files (x86)\Debugging Tools for Windows (x86)\cdb.exe',
       r'c:\Program Files (x86)\Windows Kits\8.0\Debuggers\x86\cdb.exe',
-      r'c:\Program Files (x86)\Windows Kits\10.0\Debuggers\x86\cdb.exe',
     ]
 
 
