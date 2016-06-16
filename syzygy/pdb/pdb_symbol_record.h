@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "base/callback.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_data_types.h"
 #include "syzygy/pdb/pdb_stream.h"
 
@@ -37,12 +38,12 @@ bool ReadSymbolRecord(PdbStream* stream,
 
 // Defines a symbol visitor callback. This needs to return true on success
 // (indicating that the symbol visitor should continue), and false on failure
-// (indicating that it should terminate). The stream is positioned at the
+// (indicating that it should terminate). The reader is positioned at the
 // beginning of the symbol data, which is of the provided length, the type
 // having already been read from the stream.
 typedef base::Callback<bool(uint16_t /* symbol_length */,
                             uint16_t /* symbol_type */,
-                            PdbStream* /* symbol_stream */)>
+                            common::BinaryStreamReader* /* symbol_reader */)>
     VisitSymbolsCallback;
 
 // Reads symbols from the given symbol stream until the end of the stream.

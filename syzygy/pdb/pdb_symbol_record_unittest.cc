@@ -18,6 +18,7 @@
 #include "base/files/file_util.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/unittest_util.h"
@@ -45,7 +46,7 @@ class PdbVisitSymbolsTest : public testing::Test {
 
 class MockVisitorImpl {
  public:
-  MOCK_METHOD3(Callback, bool(uint16_t, uint16_t, PdbStream*));
+  MOCK_METHOD3(Callback, bool(uint16_t, uint16_t, common::BinaryStreamReader*));
 };
 typedef testing::StrictMock<MockVisitorImpl> MockVisitor;
 

@@ -1502,8 +1502,9 @@ bool PdbCrawler::GetVFTableRVAForSymbol(
     base::hash_set<RelativeAddress>* vftable_rvas,
     uint16_t symbol_length,
     uint16_t symbol_type,
-    pdb::PdbStream* symbol_stream) {
-  DCHECK(symbol_stream);  DCHECK(vftable_rvas);
+    common::BinaryStreamReader* symbol_reader) {
+  DCHECK(symbol_reader);
+  DCHECK(vftable_rvas);
 
   // Not a vftable: skip to the next record.
   if (symbol_type != cci::S_PUB32)
@@ -1512,12 +1513,13 @@ bool PdbCrawler::GetVFTableRVAForSymbol(
   // Read the symbol.
   cci::PubSym32 symbol = {};
   size_t to_read = offsetof(cci::PubSym32, name);
-  if (!symbol_stream->ReadBytes(&symbol, to_read)) {
+  common::BinaryStreamParser parser(symbol_reader);
+  if (!parser.ReadBytes(to_read, &symbol)) {
     LOG(ERROR) << "Unable to read symbol.";
     return false;
   }
   std::string symbol_name;
-  if (!pdb::ReadString(symbol_stream, &symbol_name)) {
+  if (!parser.ReadString(&symbol_name)) {
     LOG(ERROR) << "Unable to read symbol name.";
     return false;
   }

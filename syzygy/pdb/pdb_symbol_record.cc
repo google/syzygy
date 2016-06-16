@@ -19,6 +19,7 @@
 #include "base/strings/stringprintf.h"
 #include "syzygy/common/align.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "third_party/cci/Files/CvInfo.h"
 
@@ -74,15 +75,20 @@ bool VisitSymbols(VisitSymbolsCallback callback,
                   PdbStream* symbols) {
   DCHECK(symbols != NULL);
 
-  size_t symbol_table_end = symbols->pos() + symbol_table_size;
+  size_t symbol_table_start = symbols->pos();
+  size_t symbol_table_end = symbol_table_start + symbol_table_size;
+
   if (symbol_table_end > symbols->length()) {
     LOG(ERROR) << "Symbol table size provided exceeds stream length.";
     return false;
   }
 
+  pdb::PdbStreamReaderWithPosition stream_reader(symbol_table_start,
+                                                 symbol_table_size, symbols);
+  common::BinaryStreamParser stream_parser(&stream_reader);
   if (has_header) {
     uint32_t stream_type = 0;
-    if (!symbols->Read(&stream_type, 1)) {
+    if (!stream_parser.Read(&stream_type)) {
       LOG(ERROR) << "Unable to read symbol stream type.";
       return false;
     }
@@ -95,9 +101,9 @@ bool VisitSymbols(VisitSymbolsCallback callback,
 
   // Read the symbols from the linker symbol stream. We try to read at least
   // one symbol without checking the stream position.
-  while (symbols->pos() < symbol_table_end) {
+  while (stream_reader.Position() < symbol_table_end) {
     uint16_t symbol_length = 0;
-    if (!symbols->Read(&symbol_length, 1)) {
+    if (!stream_parser.Read(&symbol_length)) {
       LOG(ERROR) << "Unable to read symbol length from symbol stream.";
       return false;
     }
@@ -117,10 +123,10 @@ bool VisitSymbols(VisitSymbolsCallback callback,
 
     // Remember the position in the stream where the next symbol lies. This is
     // to be used for seeking later.
-    size_t symbol_end = symbols->pos() + symbol_length;
+    size_t symbol_end = stream_reader.Position() + symbol_length;
 
     uint16_t symbol_type = 0;
-    if (!symbols->Read(&symbol_type, 1)) {
+    if (!stream_parser.Read(&symbol_type)) {
       LOG(ERROR) << "Failed to read symbol type from symbol stream.";
       return false;
     }
@@ -130,12 +136,18 @@ bool VisitSymbols(VisitSymbolsCallback callback,
       return false;
     }
 
+    // Subtract the length of the type we already read.
+    symbol_length -= sizeof(symbol_type);
+
     // We provide the length of the symbol data to the callback, exclusive of
     // the symbol type header.
-    if (!callback.Run(symbol_length - 2, symbol_type, symbols))
+    size_t symbol_start = symbol_table_start + stream_reader.Position();
+    pdb::PdbStreamReaderWithPosition symbol_reader(symbol_start, symbol_length,
+                                                   symbols);
+    if (!callback.Run(symbol_length, symbol_type, &symbol_reader))
       return false;
 
-    if (!symbols->Seek(symbol_end)) {
+    if (!stream_reader.Consume(symbol_length)) {
       LOG(ERROR) << "Failed to seek past symbol in symbol stream.";
       return false;
     }

@@ -1509,21 +1509,6 @@ bool DumpLeaf(const TypeInfoRecordMap& type_map,
   }
 }
 
-// Call the specific function to dump a kind of leaf.
-bool DumpLeaf(const TypeInfoRecordMap& type_map,
-              uint16_t type_value,
-              FILE* out,
-              pdb::PdbStream* stream,
-              size_t len,
-              uint8_t indent_level) {
-  DCHECK(out != NULL);
-  DCHECK(stream != NULL);
-
-  pdb::PdbStreamReader reader(stream);
-  common::BinaryStreamParser parser(&reader);
-  return DumpLeaf(type_map, type_value, out, &parser, len, indent_level);
-}
-
 // Get the name and the size associated with a numeric leaf.
 // Return NULL if the leaf is not of a numeric type.
 const char* GetNumericLeafNameAndSize(uint16_t leaf_type, size_t* leaf_size) {

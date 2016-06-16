@@ -22,6 +22,7 @@
 #include <dia2.h>
 #include <vector>
 
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/pe/dia_browser.h"
@@ -127,7 +128,7 @@ class Decomposer {
   bool VisitLinkerSymbol(VisitLinkerSymbolContext* context,
                          uint16_t symbol_length,
                          uint16_t symbol_type,
-                         pdb::PdbStream* stream);
+                         common::BinaryStreamReader* reader);
   // @}
 
   // @{

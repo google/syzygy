@@ -598,10 +598,10 @@ scoped_refptr<pdb::PdbStream> GetLinkerSymbolStream(
 // @p buffer data. On failure this returns NULL.
 template <typename SymbolType>
 const SymbolType* ParseSymbol(uint16_t symbol_length,
-                              pdb::PdbStream* stream,
+                              common::BinaryStreamReader* reader,
                               std::vector<uint8_t>* buffer) {
-  DCHECK_NE(reinterpret_cast<pdb::PdbStream*>(NULL), stream);
-  DCHECK_NE(reinterpret_cast<std::vector<uint8_t>*>(NULL), buffer);
+  DCHECK_NE(static_cast<common::BinaryStreamReader*>(nullptr), reader);
+  DCHECK_NE(static_cast<std::vector<uint8_t>*>(nullptr), buffer);
 
   buffer->clear();
 
@@ -610,7 +610,8 @@ const SymbolType* ParseSymbol(uint16_t symbol_length,
     return NULL;
   }
 
-  if (!stream->Read(buffer, symbol_length)) {
+  common::BinaryStreamParser parser(reader);
+  if (!parser.ReadMultiple(symbol_length, buffer)) {
     LOG(ERROR) << "Failed to read symbol.";
     return NULL;
   }
@@ -1492,16 +1493,16 @@ bool Decomposer::ProcessSymbols(IDiaSymbol* root) {
 bool Decomposer::VisitLinkerSymbol(VisitLinkerSymbolContext* context,
                                    uint16_t symbol_length,
                                    uint16_t symbol_type,
-                                   pdb::PdbStream* stream) {
-  DCHECK_NE(reinterpret_cast<VisitLinkerSymbolContext*>(NULL), context);
-  DCHECK_NE(reinterpret_cast<pdb::PdbStream*>(NULL), stream);
+                                   common::BinaryStreamReader* reader) {
+  DCHECK_NE(static_cast<VisitLinkerSymbolContext*>(NULL), context);
+  DCHECK_NE(static_cast<common::BinaryStreamReader*>(NULL), reader);
 
   if (symbol_type != cci::S_COFFGROUP)
     return true;
 
   std::vector<uint8_t> buffer;
   const cci::CoffGroupSym* coffgroup =
-      ParseSymbol<cci::CoffGroupSym>(symbol_length, stream, &buffer);
+      ParseSymbol<cci::CoffGroupSym>(symbol_length, reader, &buffer);
   if (coffgroup == NULL)
     return false;
 

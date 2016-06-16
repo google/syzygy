@@ -22,6 +22,7 @@
 
 #include "base/containers/hash_tables.h"
 #include "base/files/file_path.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_stream.h"
 #include "syzygy/refinery/core/address.h"
@@ -61,7 +62,7 @@ class PdbCrawler {
   bool GetVFTableRVAForSymbol(base::hash_set<RelativeAddress>* vftable_rvas,
                               uint16_t symbol_length,
                               uint16_t symbol_type,
-                              pdb::PdbStream* symbol_stream);
+                              common::BinaryStreamReader* symbol_reader);
 
   // Pointers to the PDB type and symbol streams.
   scoped_refptr<pdb::PdbStream> tpi_stream_;
