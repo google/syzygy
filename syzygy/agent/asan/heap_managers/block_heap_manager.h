@@ -56,7 +56,7 @@ namespace heap_managers {
 // updating it when a block's state changes. This also takes care of maintaining
 // a quarantine of freed blocks.
 //
-// When the user requests a new heap he will receive a pointer to a
+// When the user requests a new heap, it will receive a pointer to a
 // SimpleBlockHeap by default. However the goal of this manager is to
 // automatically choose the most appropriate heap for a given allocation so the
 // actual heap that serves an allocation can be different from the one returned

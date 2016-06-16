@@ -1412,7 +1412,7 @@ bool BlockGraph::Reference::IsValidTypeSize(ReferenceType type, Size size) {
     case PC_RELATIVE_REF:
       return size == 1 || size == 4;
 
-    // These guys are all pointer sized.
+    // These types are all pointer sized.
     case ABSOLUTE_REF:
     case RELATIVE_REF:
     case FILE_OFFSET_REF:

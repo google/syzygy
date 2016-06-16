@@ -94,7 +94,7 @@ bool LFHEntryDetector::GetDecodedLFHEntrySubsegment(
     VLOG(1) << "Getting LFHEntry SubSegmentCode value failed.";
     return false;
   }
-  // Back out he XORed address of the entry itself.
+  // Back out the XORed address of the entry itself.
   *decoded_subseg = entry_subseg ^ (lfh_heap_entry.addr() >> 3);
 
   return true;

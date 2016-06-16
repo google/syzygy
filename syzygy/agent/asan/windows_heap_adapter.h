@@ -34,7 +34,7 @@ class HeapManagerInterface;
 class WindowsHeapAdapter {
  public:
   // Setup the WindowsHeapAdapter that this adapter delegates to.
-  // @param heap_manager The heap manager that his adapter should use.
+  // @param heap_manager The heap manager that this adapter should use.
   static void SetUp(HeapManagerInterface* heap_manager);
 
   // Tear down this adapter.
