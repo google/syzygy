@@ -16,9 +16,11 @@
 
 #include "base/memory/ref_counted.h"
 #include "gtest/gtest.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_constants.h"
 #include "syzygy/pdb/pdb_util.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 
 namespace pdb {
 
@@ -31,43 +33,46 @@ TEST(PdbWriterTest, WriteStringTable) {
 
   StringTable strings(kStrings, kStrings + kNumStrings);
 
-  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
+  scoped_refptr<PdbByteStream> stream(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(stream->GetWritableStream());
 
   EXPECT_TRUE(WriteStringTable(strings, writer.get()));
 
-  EXPECT_EQ(reader->length(), writer->pos());
+  EXPECT_EQ(stream->length(), writer->pos());
+
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
+  common::BinaryStreamParser parser(&reader);
 
   uint32_t signature = 0;
-  EXPECT_TRUE(reader->Read(&signature, 1));
+  EXPECT_TRUE(parser.Read(&signature));
   EXPECT_EQ(kPdbStringTableSignature, signature);
 
   uint32_t version = 0;
-  EXPECT_TRUE(reader->Read(&version, 1));
+  EXPECT_TRUE(parser.Read(&version));
   EXPECT_EQ(kPdbStringTableVersion, version);
 
   uint32_t size = 0;
-  EXPECT_TRUE(reader->Read(&size, 1));
+  EXPECT_TRUE(parser.Read(&size));
   EXPECT_EQ(kExpectedSize, size);
 
   for (size_t i = 0; i < kNumStrings; ++i) {
     std::string read_string;
-    ReadString(reader.get(), &read_string);
+    parser.ReadString(&read_string);
     EXPECT_EQ(strings[i], read_string);
   }
 
   uint32_t num_strings = 0;
-  EXPECT_TRUE(reader->Read(&num_strings, 1));
+  EXPECT_TRUE(parser.Read(&num_strings));
   EXPECT_EQ(kNumStrings, num_strings);
 
   for (size_t i = 0; i < kNumStrings; ++i) {
     uint32_t offset = 0;
-    EXPECT_TRUE(reader->Read(&offset, 1));
+    EXPECT_TRUE(parser.Read(&offset));
     EXPECT_EQ(kExpectedStringOffsets[i], offset);
   }
 
   uint32_t num_non_empty_strings = 0;
-  EXPECT_TRUE(reader->Read(&num_non_empty_strings, 1));
+  EXPECT_TRUE(parser.Read(&num_non_empty_strings));
   EXPECT_EQ(kExpectedNumNonEmptyStrings, num_non_empty_strings);
 }
 

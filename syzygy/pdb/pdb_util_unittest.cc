@@ -30,6 +30,7 @@
 #include "syzygy/core/unittest_util.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_writer.h"
 #include "syzygy/pdb/unittest_util.h"
 #include "syzygy/pe/pe_data.h"
@@ -187,8 +188,10 @@ bool AreEqual(const PdbInfoHeader70& header1,
 
 TEST(PdbBitSetTest, ReadEmptyStream) {
   scoped_refptr<PdbStream> stream(new TestPdbStream());
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
+
   PdbBitSet bs;
-  EXPECT_FALSE(bs.Read(stream.get()));
+  EXPECT_FALSE(bs.Read(&reader));
 }
 
 TEST(PdbBitSetTest, SimpleMutators) {
@@ -221,8 +224,9 @@ TEST(PdbBitSetTest, SimpleMutators) {
 TEST(PdbBitSetTest, ReadEmptyBitSet) {
   const uint32_t kSize = 0;
   scoped_refptr<PdbStream> stream(new TestPdbStream(kSize));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
   PdbBitSet bs;
-  EXPECT_TRUE(bs.Read(stream.get()));
+  EXPECT_TRUE(bs.Read(&reader));
   EXPECT_TRUE(bs.IsEmpty());
   EXPECT_EQ(bs.size(), 0u);
 }
@@ -230,8 +234,9 @@ TEST(PdbBitSetTest, ReadEmptyBitSet) {
 TEST(PdbBitSetTest, ReadSingleDwordBitSet) {
   const uint32_t kData[] = {1, (1 << 0) | (1 << 5) | (1 << 13)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
   PdbBitSet bs;
-  EXPECT_TRUE(bs.Read(stream.get()));
+  EXPECT_TRUE(bs.Read(&reader));
   EXPECT_FALSE(bs.IsEmpty());
   EXPECT_EQ(bs.size(), 32u);
   for (size_t i = 0; i < bs.size(); ++i)
@@ -241,8 +246,9 @@ TEST(PdbBitSetTest, ReadSingleDwordBitSet) {
 TEST(PdbBitSetTest, ReadMultiDwordBitSet) {
   const uint32_t kData[] = {2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
   PdbBitSet bs;
-  EXPECT_TRUE(bs.Read(stream.get()));
+  EXPECT_TRUE(bs.Read(&reader));
   EXPECT_FALSE(bs.IsEmpty());
   EXPECT_EQ(bs.size(), 64u);
   for (size_t i = 0; i < bs.size(); ++i)
@@ -252,45 +258,48 @@ TEST(PdbBitSetTest, ReadMultiDwordBitSet) {
 TEST(PdbBitSetTest, WriteEmptyBitSet) {
   const uint32_t kData[] = {0};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
   PdbBitSet bs;
-  EXPECT_TRUE(bs.Read(stream.get()));
+  EXPECT_TRUE(bs.Read(&reader));
 
-  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
+  scoped_refptr<PdbByteStream> new_stream(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(new_stream->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), true));
-  EXPECT_EQ(sizeof(kData), reader->length());
+  EXPECT_EQ(sizeof(kData), new_stream->length());
 
-  std::vector<uint32_t> data;
-  EXPECT_TRUE(reader->Read(&data, arraysize(kData)));
+  uint32_t data[arraysize(kData)] = {};
+  EXPECT_TRUE(new_stream->ReadBytesAt(0, sizeof(data), data));
   EXPECT_THAT(data, testing::ElementsAreArray(kData));
 }
 
 TEST(PdbBitSetTest, WriteEmptyBitSetWithoutSize) {
   const uint32_t kData[] = {0};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
   PdbBitSet bs;
-  EXPECT_TRUE(bs.Read(stream.get()));
+  EXPECT_TRUE(bs.Read(&reader));
 
-  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
+  scoped_refptr<PdbByteStream> new_stream(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(new_stream->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), false));
 
-  EXPECT_EQ(0, reader->length());
+  EXPECT_EQ(0, new_stream->length());
 }
 
 TEST(PdbBitSetTest, WriteBitSet) {
   const uint32_t kData[] = {2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kData));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
   PdbBitSet bs;
-  EXPECT_TRUE(bs.Read(stream.get()));
+  EXPECT_TRUE(bs.Read(&reader));
 
-  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
+  scoped_refptr<PdbByteStream> new_stream(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(new_stream->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), true));
-  EXPECT_EQ(sizeof(kData), reader->length());
+  EXPECT_EQ(sizeof(kData), new_stream->length());
 
-  std::vector<uint32_t> data;
-  EXPECT_TRUE(reader->Read(&data, arraysize(kData)));
+  uint32_t data[arraysize(kData)] = {};
+  EXPECT_TRUE(new_stream->ReadBytesAt(0, sizeof(data), data));
   EXPECT_THAT(data, testing::ElementsAreArray(kData));
 }
 
@@ -298,16 +307,17 @@ TEST(PdbBitSetTest, WriteBitSetWithoutSize) {
   const uint32_t kInputData[] = {2, (1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
   const uint32_t kExpectedData[] = {(1 << 0) | (1 << 5) | (1 << 13), (1 << 5)};
   scoped_refptr<PdbStream> stream(new TestPdbStream(kInputData));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
   PdbBitSet bs;
-  EXPECT_TRUE(bs.Read(stream.get()));
+  EXPECT_TRUE(bs.Read(&reader));
 
-  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
+  scoped_refptr<PdbByteStream> new_stream(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(new_stream->GetWritableStream());
   EXPECT_TRUE(bs.Write(writer.get(), false));
-  EXPECT_EQ(sizeof(kExpectedData), reader->length());
+  EXPECT_EQ(sizeof(kExpectedData), new_stream->length());
 
-  std::vector<uint32_t> data;
-  EXPECT_TRUE(reader->Read(&data, arraysize(kExpectedData)));
+  uint32_t data[arraysize(kExpectedData)] = {};
+  EXPECT_TRUE(new_stream->ReadBytesAt(0, sizeof(data), data));
   EXPECT_THAT(data, testing::ElementsAreArray(kExpectedData));
 }
 
@@ -328,14 +338,14 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetTestDll) {
 
   PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream).get();
   DbiHeader dbi_header;
-  EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
+  EXPECT_TRUE(dbi_stream->ReadBytesAt(0, sizeof(dbi_header), &dbi_header));
 
   uint32_t offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
-  EXPECT_TRUE(dbi_stream->Seek(offset));
   DbiDbgHeader dbi_dbg_header;
-  EXPECT_TRUE(dbi_stream->Read(&dbi_dbg_header, 1));
+  EXPECT_TRUE(
+      dbi_stream->ReadBytesAt(offset, sizeof(dbi_dbg_header), &dbi_dbg_header));
 
   EXPECT_EQ(-1, dbi_dbg_header.omap_to_src);
   EXPECT_EQ(-1, dbi_dbg_header.omap_from_src);
@@ -351,14 +361,14 @@ TEST_F(PdbUtilTest, GetDbiDbgHeaderOffsetOmappedTestDll) {
 
   PdbStream* dbi_stream = pdb_file.GetStream(kDbiStream).get();
   DbiHeader dbi_header;
-  EXPECT_TRUE(dbi_stream->Read(&dbi_header, 1));
+  EXPECT_TRUE(dbi_stream->ReadBytesAt(0, sizeof(dbi_header), &dbi_header));
 
   uint32_t offset = GetDbiDbgHeaderOffset(dbi_header);
   EXPECT_LE(offset, dbi_stream->length() - sizeof(DbiDbgHeader));
 
-  EXPECT_TRUE(dbi_stream->Seek(offset));
   DbiDbgHeader dbi_dbg_header;
-  EXPECT_TRUE(dbi_stream->Read(&dbi_dbg_header, 1));
+  EXPECT_TRUE(
+      dbi_stream->ReadBytesAt(offset, sizeof(dbi_dbg_header), &dbi_dbg_header));
 
   EXPECT_NE(-1, dbi_dbg_header.omap_to_src);
   EXPECT_NE(-1, dbi_dbg_header.omap_from_src);
@@ -428,7 +438,8 @@ TEST_F(PdbUtilTest, PdbHeaderMatchesImageDebugDirectory) {
   PdbInfoHeader70 header = { 0 };
   ASSERT_GE(pdb_file.StreamCount(), kPdbHeaderInfoStream);
   ASSERT_TRUE(pdb_file.GetStream(kPdbHeaderInfoStream) != NULL);
-  EXPECT_TRUE(pdb_file.GetStream(kPdbHeaderInfoStream)->Read(&header, 1));
+  EXPECT_TRUE(pdb_file.GetStream(kPdbHeaderInfoStream)
+                  ->ReadBytesAt(0, sizeof(header), &header));
   EXPECT_EQ(header.version, kPdbCurrentVersion);
 
   base::NativeLibraryLoadError error;
@@ -465,26 +476,6 @@ TEST_F(PdbUtilTest, ReadPdbHeader) {
       testing::kTestPdbFilePath);
   PdbInfoHeader70 pdb_header = {};
   EXPECT_TRUE(ReadPdbHeader(pdb_path, &pdb_header));
-}
-
-TEST_F(PdbUtilTest, ReadString) {
-  const size_t kLongStringLen = 0x102345;
-  // Create a long random string.
-  std::vector<char> long_string;
-  for (size_t i = 0; i < kLongStringLen; ++i) {
-    char chr = 'a' + rand() % 26;
-    long_string.push_back(chr);
-  }
-  // Zero terminate it.
-  long_string.push_back('\0');
-
-  scoped_refptr<PdbStream> stream = new TestPdbStream(long_string);
-
-  std::string read_string;
-  ASSERT_TRUE(ReadString(stream.get(), &read_string));
-  EXPECT_EQ(kLongStringLen, read_string.size());
-  EXPECT_EQ(
-      0, ::memcmp(&long_string.at(0), read_string.data(), long_string.size()));
 }
 
 TEST(EnsureStreamWritableTest, DoesNothingWhenAlreadyWritable) {
@@ -557,8 +548,7 @@ TEST(SetGuidTest, Succeeds) {
   // Read the new header.
   PdbInfoHeader70 pdb_header = {};
   stream = pdb_file.GetStream(kPdbHeaderInfoStream);
-  EXPECT_TRUE(stream->Seek(0));
-  EXPECT_TRUE(stream->Read(&pdb_header, 1));
+  EXPECT_TRUE(stream->ReadBytesAt(0, sizeof(pdb_header), &pdb_header));
 
   // Validate that the fields are as expected.
   EXPECT_LE(time1, pdb_header.timestamp);
@@ -571,8 +561,7 @@ TEST(SetGuidTest, Succeeds) {
   ASSERT_TRUE(stream.get() != NULL);
   ASSERT_EQ(stream->length(), sizeof(dbi_header));
 
-  EXPECT_TRUE(stream->Seek(0));
-  EXPECT_TRUE(stream->Read(&dbi_header, 1));
+  EXPECT_TRUE(stream->ReadBytesAt(0, sizeof(dbi_header), &dbi_header));
   EXPECT_EQ(1u, dbi_header.age);
 }
 
@@ -888,10 +877,9 @@ TEST_F(PdbUtilTest, NamedStreamsWorkWithPdbStr) {
     ASSERT_TRUE(bar_stream.get() != NULL);
 
     // Read all of the data and ensure it is as expected.
-    bar_stream->Seek(0);
     std::string bar_data;
     bar_data.resize(bar_stream->length());
-    ASSERT_TRUE(bar_stream->Read(&bar_data.at(0), bar_data.size()));
+    ASSERT_TRUE(bar_stream->ReadBytesAt(0, bar_data.size(), &bar_data.at(0)));
     ASSERT_EQ("bar", bar_data);
   }
 }

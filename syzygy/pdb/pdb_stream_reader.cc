@@ -16,28 +16,6 @@
 
 namespace pdb {
 
-PdbStreamReader::PdbStreamReader(PdbStream* stream) : stream_(stream) {
-}
-
-PdbStreamReader::PdbStreamReader() : stream_(nullptr) {
-}
-
-bool PdbStreamReader::Read(size_t len, void* out) {
-  DCHECK(stream_);
-  return stream_->ReadBytes(out, len);
-}
-
-size_t PdbStreamReader::Position() const {
-  DCHECK(stream_);
-  return stream_->pos();
-}
-
-bool PdbStreamReader::AtEnd() const {
-  DCHECK(stream_);
-  DCHECK_LE(stream_->pos(), stream_->length());
-  return stream_->pos() == stream_->length();
-}
-
 PdbStreamReaderWithPosition::PdbStreamReaderWithPosition(PdbStream* stream)
     : start_offset_(0), pos_(0), length_(stream->length()), stream_(stream) {
   DCHECK_NE(static_cast<PdbStream*>(nullptr), stream_);
@@ -49,6 +27,7 @@ PdbStreamReaderWithPosition::PdbStreamReaderWithPosition(size_t start_offset,
     : start_offset_(start_offset), pos_(0), length_(len), stream_(stream) {
   DCHECK_NE(static_cast<PdbStream*>(nullptr), stream_);
   DCHECK_GE(stream_->length(), start_offset_ + length_);
+  DCHECK_LE(start_offset_, start_offset_ + length_);
 }
 
 PdbStreamReaderWithPosition::PdbStreamReaderWithPosition()

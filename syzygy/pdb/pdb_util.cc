@@ -17,9 +17,11 @@
 #include <string>
 
 #include "base/strings/stringprintf.h"
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/pdb/pdb_byte_stream.h"
 #include "syzygy/pdb/pdb_file.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_writer.h"
 
 namespace pdb {
@@ -50,7 +52,7 @@ bool SetDbiDbgStream(size_t index_offset,
 
   // Read the DBI header.
   DbiHeader dbi_header = {};
-  if (!dbi_reader->Seek(0) || !dbi_reader->Read(&dbi_header, 1)) {
+  if (!dbi_reader->ReadBytesAt(0, sizeof(dbi_header), &dbi_header)) {
     LOG(ERROR) << "Failed to read DBI header.";
     return false;
   }
@@ -58,8 +60,8 @@ bool SetDbiDbgStream(size_t index_offset,
   // Get the stream index at the provided offset.
   uint32_t dbi_dbg_offset = GetDbiDbgHeaderOffset(dbi_header);
   int16_t existing_index = -1;
-  if (!dbi_reader->Seek(dbi_dbg_offset + index_offset) ||
-      !dbi_reader->Read(&existing_index, 1)) {
+  if (!dbi_reader->ReadBytesAt(dbi_dbg_offset + index_offset,
+                               sizeof(existing_index), &existing_index)) {
     LOG(ERROR) << "Failed to read stream index at offset " << dbi_dbg_offset
                << " of DBI DBG header.";
     return false;
@@ -158,16 +160,26 @@ struct NamedStreamInfo {
   uint32_t bucket;
 };
 
+bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out) {
+  DCHECK(stream != nullptr);
+  DCHECK(out != nullptr);
+
+  pdb::PdbStreamReaderWithPosition reader(pos, stream->length() - pos, stream);
+  common::BinaryStreamParser parser(&reader);
+  return parser.ReadString(out);
+}
+
 }  // namespace
 
-bool PdbBitSet::Read(PdbStream* stream) {
-  DCHECK(stream != NULL);
+bool PdbBitSet::Read(common::BinaryStreamReader* reader) {
+  DCHECK(reader != nullptr);
+  common::BinaryStreamParser parser(reader);
   uint32_t size = 0;
-  if (!stream->Read(&size, 1)) {
+  if (!parser.Read(&size)) {
     LOG(ERROR) << "Failed to read bitset size.";
     return false;
   }
-  if (!stream->Read(&bits_, size)) {
+  if (!parser.ReadMultiple(size, &bits_)) {
     LOG(ERROR) << "Failed to read bitset bits.";
     return false;
   }
@@ -255,39 +267,6 @@ uint16_t HashString(const base::StringPiece& string) {
   return hash & 0xFFFF;
 }
 
-bool ReadString(PdbStream* stream, std::string* out) {
-  DCHECK(stream != NULL);
-  DCHECK(out != NULL);
-
-  std::string result;
-  size_t start_pos = stream->pos();
-  const size_t kBufferSize = 1024;
-  char buffer[kBufferSize] = {};
-  while (true) {
-    size_t read_bytes = std::min(kBufferSize, stream->length() - stream->pos());
-    if (read_bytes == 0 || !stream->Read(buffer, read_bytes))
-      break;
-
-    for (size_t i = 0; i < read_bytes; ++i) {
-      if (buffer[i] == '\0') {
-        out->swap(result);
-        stream->Seek(start_pos + out->size() + 1);
-        return true;
-      }
-      result.push_back(buffer[i]);
-    }
-  }
-
-  return false;
-}
-
-bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out) {
-  size_t save = stream->pos();
-  bool read = stream->Seek(pos) && ReadString(stream, out);
-  stream->Seek(save);
-  return read;
-}
-
 uint32_t GetDbiDbgHeaderOffset(const DbiHeader& dbi_header) {
   uint32_t offset = sizeof(DbiHeader);
   offset += dbi_header.gp_modi_size;
@@ -372,7 +351,7 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
 
   // Read the header.
   PdbInfoHeader70 info_header = {};
-  if (!reader->Seek(0) || !reader->Read(&info_header, 1)) {
+  if (!reader->ReadBytesAt(0, sizeof(info_header), &info_header)) {
     LOG(ERROR) << "Failed to read PdbInfoHeader70.";
     return false;
   }
@@ -401,7 +380,7 @@ bool SetGuid(const GUID& guid, PdbFile* pdb_file) {
 
   // Read the header.
   DbiHeader dbi_header = {};
-  if (!reader->Seek(0) || !reader->Read(&dbi_header, 1)) {
+  if (!reader->ReadBytesAt(0, sizeof(dbi_header), &dbi_header)) {
     LOG(ERROR) << "Failed to read DbiHeader.";
     return false;
   }
@@ -434,7 +413,7 @@ bool ReadPdbHeader(const base::FilePath& pdb_path,
     return false;
   }
 
-  if (!header_stream->Read(pdb_header, 1)) {
+  if (!header_stream->ReadBytesAt(0, sizeof(*pdb_header), pdb_header)) {
     LOG(ERROR) << "Failure reading PDB header: " << pdb_path.value();
     return false;
   }
@@ -481,21 +460,21 @@ bool ReadHeaderInfoStream(const PdbFile& pdb_file,
 bool ReadHeaderInfoStream(PdbStream* pdb_stream,
                           PdbInfoHeader70* pdb_header,
                           NameStreamMap* name_stream_map) {
+  DCHECK(pdb_stream);
+  DCHECK(pdb_header);
+  DCHECK(name_stream_map);
   VLOG(1) << "Header Info Stream size: " << pdb_stream->length();
 
-  if (!pdb_stream->Seek(0)) {
-    LOG(ERROR) << "Unable to seek to start of PDB header info stream.";
-    return false;
-  }
-
+  pdb::PdbStreamReaderWithPosition reader(pdb_stream);
+  common::BinaryStreamParser parser(&reader);
   // The header stream starts with the fixed-size header pdb_header record.
-  if (!pdb_stream->Read(pdb_header, 1)) {
+  if (!parser.Read(pdb_header)) {
     LOG(ERROR) << "Unable to read PDB pdb_header header.";
     return false;
   }
 
   uint32_t string_len = 0;
-  if (!pdb_stream->Read(&string_len, 1)) {
+  if (!parser.Read(&string_len)) {
     LOG(ERROR) << "Unable to read string table length.";
     return false;
   }
@@ -506,10 +485,10 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
   // strings.
   // We store the start of the string list, as the string positions we read
   // later are relative to that position.
-  size_t string_start = pdb_stream->pos();
+  size_t string_start = reader.Position();
 
   // Seek past the strings.
-  if (!pdb_stream->Seek(string_start + string_len)) {
+  if (!reader.Consume(string_len)) {
     LOG(ERROR) << "Unable to seek past string list";
     return false;
   }
@@ -519,7 +498,7 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
   // clear, but has been observed as larger or equal to the first one.
   uint32_t size = 0;
   uint32_t max = 0;
-  if (!pdb_stream->Read(&size, 1) || !pdb_stream->Read(&max, 1)) {
+  if (!parser.Read(&size) || !parser.Read(&max)) {
     LOG(ERROR) << "Unable to read name pdb_stream size/max";
     return false;
   }
@@ -531,7 +510,7 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
   // "size" bits of the bits in the range 0-max set.
   PdbBitSet used;
   PdbBitSet deleted;
-  if (!used.Read(pdb_stream) || !deleted.Read(pdb_stream)) {
+  if (!used.Read(&reader) || !deleted.Read(&reader)) {
     LOG(ERROR) << "Unable to read name pdb_stream bitsets.";
     return false;
   }
@@ -555,7 +534,7 @@ bool ReadHeaderInfoStream(PdbStream* pdb_stream,
     uint32_t str_offs = 0;
     uint32_t stream_no = 0;
     // Read the offset and pdb_stream number.
-    if (!pdb_stream->Read(&str_offs, 1) || !pdb_stream->Read(&stream_no, 1)) {
+    if (!parser.Read(&str_offs) || !parser.Read(&stream_no)) {
       LOG(ERROR) << "Unable to read pdb_stream data.";
       return false;
     }
@@ -702,13 +681,15 @@ bool ReadStringTable(PdbStream* stream,
   DCHECK(stream != NULL);
   DCHECK(table_name != NULL);
   DCHECK(string_map != NULL);
-
+  DCHECK_LE(table_start, table_end);
   uint32_t string_table_signature = 0;
   uint32_t string_table_version = 0;
 
-  if (!stream->Seek(table_start) ||
-      !stream->Read(&string_table_signature, 1) ||
-      !stream->Read(&string_table_version, 1)) {
+  size_t table_len = table_end - table_start;
+  pdb::PdbStreamReaderWithPosition reader(table_start, table_len, stream);
+  common::BinaryStreamParser parser(&reader);
+  if (!parser.Read(&string_table_signature) ||
+      !parser.Read(&string_table_version)) {
     LOG(ERROR) << "Unable to seek to " << table_name << " stream.";
     return false;
   }
@@ -725,23 +706,22 @@ bool ReadStringTable(PdbStream* stream,
   }
 
   size_t string_table_size = 0;
-  if (!stream->Read(&string_table_size, 1)) {
+  if (!parser.Read(&string_table_size)) {
     LOG(ERROR) << "Unable to read the size of the " << table_name << " string "
                << "table.";
     return false;
   }
 
-  size_t string_table_start = stream->pos();
-  size_t offset_table_start = stream->pos() + string_table_size;
+  size_t string_table_start = table_start + reader.Position();
 
   // Skip the string table and seek to the offset table.
-  if (!stream->Seek(offset_table_start)) {
+  if (!reader.Consume(string_table_size)) {
     LOG(ERROR) << "Unable to seek to the " << table_name << " offset table.";
     return false;
   }
 
   size_t entries_count = 0;
-  if (!stream->Read(&entries_count, 1)) {
+  if (!parser.Read(&entries_count)) {
     LOG(ERROR) << "Unable to read the number of entries in the " << table_name
                << " offset table.";
     return false;
@@ -751,10 +731,18 @@ bool ReadStringTable(PdbStream* stream,
   // refers to an empty string present at the beginning of the string table.
   for (size_t i = 0; i < entries_count; ++i) {
     size_t string_offset = 0;
+    if (!parser.Read(&string_offset)) {
+      LOG(ERROR) << "Unable to read the " << table_name << " name table.";
+      return false;
+    }
+    // TODO(siggi): It'd be handy to have a PdbStreamReaderWithPos slice
+    //    operand to avoid this kind of arithmetic.
+    string_offset += string_table_start;
+    pdb::PdbStreamReaderWithPosition string_reader(
+        string_offset, table_end - string_offset, stream);
+    common::BinaryStreamParser string_parser(&string_reader);
     std::string temp_string;
-    if (!stream->Read(&string_offset, 1) ||
-        !ReadStringAt(stream, string_table_start + string_offset,
-                      &temp_string)) {
+    if (!string_parser.ReadString(&temp_string)) {
       LOG(ERROR) << "Unable to read the " << table_name << " name table.";
       return false;
     }
@@ -767,13 +755,13 @@ bool ReadStringTable(PdbStream* stream,
   // in the string_map and sometimes it doesn't.
   // TODO(sebmarchand) : understand what's this value once the compiland streams
   //     are deciphered.
-  if (!stream->Read(&string_count, 1)) {
+  if (!parser.Read(&string_count)) {
     LOG(ERROR) << "Unable to read the number of files present in the "
                << table_name << " stream.";
     return false;
   }
 
-  if (stream->pos() != table_end) {
+  if (reader.Position() != table_len) {
     LOG(ERROR) << table_name << " stream is not valid.";
     return false;
   }

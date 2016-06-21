@@ -41,11 +41,48 @@ namespace refinery {
 
 namespace {
 
+// An adapter class that implements a BinaryStreamReader on a PdbStream.
+class PdbStreamReader : public common::BinaryStreamReader {
+ public:
+  explicit PdbStreamReader(pdb::PdbStream* stream);
+
+  // @name BinaryStreamReader implementation.
+  // @{
+  bool Read(size_t len, void* out) override;
+  size_t Position() const override;
+  bool AtEnd() const override;
+  // @}
+
+ private:
+  scoped_refptr<pdb::PdbStream> stream_;
+
+  DISALLOW_COPY_AND_ASSIGN(PdbStreamReader);
+};
+
+PdbStreamReader::PdbStreamReader(pdb::PdbStream* stream) : stream_(stream) {
+}
+
+bool PdbStreamReader::Read(size_t len, void* out) {
+  DCHECK(stream_);
+  return stream_->ReadBytes(out, len);
+}
+
+size_t PdbStreamReader::Position() const {
+  DCHECK(stream_);
+  return stream_->pos();
+}
+
+bool PdbStreamReader::AtEnd() const {
+  DCHECK(stream_);
+  DCHECK_LE(stream_->pos(), stream_->length());
+  return stream_->pos() == stream_->length();
+}
+
 bool ReadUnsignedNumeric(pdb::PdbStream* stream, uint64_t* data_field) {
   DCHECK_NE(static_cast<pdb::PdbStream*>(nullptr), stream);
   DCHECK_NE(static_cast<uint64_t*>(nullptr), data_field);
 
-  pdb::PdbStreamReader reader(stream);
+  PdbStreamReader reader(stream);
   common::BinaryStreamParser parser(&reader);
 
   return pdb::ReadUnsignedNumeric(&parser, data_field);
@@ -55,7 +92,7 @@ bool ReadWideString(pdb::PdbStream* stream, base::string16* string_field) {
   DCHECK_NE(static_cast<pdb::PdbStream*>(nullptr), stream);
   DCHECK_NE(static_cast<base::string16*>(nullptr), string_field);
 
-  pdb::PdbStreamReader reader(stream);
+  PdbStreamReader reader(stream);
   common::BinaryStreamParser parser(&reader);
 
   return pdb::ReadWideString(&parser, string_field);

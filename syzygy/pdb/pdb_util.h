@@ -37,10 +37,11 @@ typedef std::map<size_t, std::string> OffsetStringMap;
 // Used for parsing a variable sized bitset as found in PDB streams.
 class PdbBitSet {
  public:
-  // Reads a bit set from the given stream at its current cursor position.
-  // @param stream the stream to be read.
+  // Reads a bit set from the given stream reader at its current cursor
+  // position.
+  // @param reader a reader for the bitset to be read.
   // @returns true on success, false otherwise.
-  bool Read(PdbStream* stream);
+  bool Read(common::BinaryStreamReader* reader);
 
   // Writes a bit set to the given stream at its current cursor position.
   // @param with_size if true, the bit set is preceded by its size.
@@ -159,19 +160,6 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
 bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
                            const NameStreamMap& name_stream_map,
                            WritablePdbStream* pdb_stream);
-
-// Reads a string from the given PDB stream.
-// @param pdb_stream the stream containing the string.
-// @param out the string to be read.
-// @returns true on success, false on error.
-bool ReadString(PdbStream* stream, std::string* out);
-
-// Reads a string from the given PDB stream at a given position.
-// @param pdb_stream the stream containing the string.
-// @param pos the position where to read the string.
-// @param out the string to be read.
-// @returns true on success, false on error.
-bool ReadStringAt(PdbStream* stream, size_t pos, std::string* out);
 
 // Reads a string table from a given PDB stream at a given position.
 // @param stream the stream containing the string table.
