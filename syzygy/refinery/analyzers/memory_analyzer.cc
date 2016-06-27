@@ -90,6 +90,11 @@ Analyzer::AnalysisResult MemoryAnalyzer::Analyze(
   for (const auto& descriptor : memory_list) {
     Address range_addr = descriptor.StartOfMemoryRange;
     Size range_size = descriptor.Memory.DataSize;
+
+    // It seems minidumps can contain zero sized memory ranges.
+    if (range_size == 0U)
+      continue;
+
     minidump::Minidump::Stream bytes_stream =
         minidump.GetStreamFor(descriptor.Memory);
 
