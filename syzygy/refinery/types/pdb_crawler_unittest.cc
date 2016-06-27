@@ -188,8 +188,9 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
 
     ASSERT_NE(nullptr, sym_record_stream);
     pdb::SymbolRecordVector symbol_vector;
-    ASSERT_TRUE(pdb::ReadSymbolRecord(
-        sym_record_stream.get(), sym_record_stream->length(), &symbol_vector));
+    ASSERT_TRUE(pdb::ReadSymbolRecord(sym_record_stream.get(), 0,
+                                      sym_record_stream->length(),
+                                      &symbol_vector));
 
     const base::string16 kPrefix = L"kPdbCrawler";
 

@@ -61,7 +61,7 @@ class PdbOutStream : public core::OutStream {
 
   virtual ~PdbOutStream() { }
 
-  virtual bool Write(size_t length, const core::Byte* bytes) override {
+  bool Write(size_t length, const core::Byte* bytes) override {
     return pdb_stream_->Write(length, bytes);
   }
 
@@ -188,9 +188,9 @@ bool WriteSyzygyHistoryStream(const base::FilePath& input_path,
     // Read the header.
     uint32_t version = 0;
     uint32_t history_length = 0;
-    if (!history_reader->Seek(0) ||
-        !history_reader->Read(&version, 1) ||
-        !history_reader->Read(&history_length, 1)) {
+    if (!history_reader->ReadBytesAt(0, sizeof(version), &version) ||
+        !history_reader->ReadBytesAt(sizeof(version), sizeof(history_length),
+                                     &history_length)) {
       LOG(ERROR) << "Failed to read existing Syzygy history stream header.";
       return false;
     }

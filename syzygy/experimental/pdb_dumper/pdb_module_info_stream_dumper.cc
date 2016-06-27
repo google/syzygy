@@ -228,9 +228,9 @@ void DumpModuleInfoStream(const DbiModuleInfo& module_info,
     return;
   }
   SymbolRecordVector symbols;
-  ReadSymbolRecord(stream,
-                   module_info.module_info_base().symbol_bytes - sizeof(type),
-                   &symbols);
+  const DbiModuleInfoBase& module_info_base = module_info.module_info_base();
+  ReadSymbolRecord(stream, sizeof(type),
+                   module_info_base.symbol_bytes - sizeof(type), &symbols);
   DumpIndentedText(out, indent_level + 1, "Symbol records:\n");
   DumpSymbolRecords(out, stream, symbols, indent_level + 2);
   DumpIndentedText(out, indent_level + 1, "Lines:\n");

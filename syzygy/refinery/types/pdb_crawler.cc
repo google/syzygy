@@ -1566,7 +1566,7 @@ bool PdbCrawler::GetVFTableRVAs(base::hash_set<RelativeAddress>* vftable_rvas) {
       base::Bind(&PdbCrawler::GetVFTableRVAForSymbol, base::Unretained(this),
                  base::Unretained(vftable_rvas));
 
-  return pdb::VisitSymbols(symbol_cb, sym_stream_->length(), false,
+  return pdb::VisitSymbols(symbol_cb, 0, sym_stream_->length(), false,
                            sym_stream_.get());
 }
 

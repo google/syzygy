@@ -29,10 +29,12 @@ namespace pdb {
 
 // Read a symbol record table from a Pdb stream.
 // @param stream The stream containing the table.
+// @param symbol_table_offset The start offset of the symbol record table.
 // @param symbol_table_size The size of the symbol record table.
 // @param symbol_vector The vector where the symbol records should be stored.
 // @returns true on success, false otherwise.
 bool ReadSymbolRecord(PdbStream* stream,
+                      size_t symbol_table_offset,
                       size_t symbol_table_size,
                       SymbolRecordVector* symbol_vector);
 
@@ -48,6 +50,7 @@ typedef base::Callback<bool(uint16_t /* symbol_length */,
 
 // Reads symbols from the given symbol stream until the end of the stream.
 // @param callback The callback to be invoked for each symbol.
+// @param symbol_table_offset The start offset of the symbol table to visit.
 // @param symbol_table_size The size of the symbol record table.
 // @param has_header If true then this will first parse the symbol stream
 //     header and ensure it is of the expected type. If false it will assume
@@ -57,6 +60,7 @@ typedef base::Callback<bool(uint16_t /* symbol_length */,
 //     past the symbols one by one.
 // @returns true on success, false otherwise.
 bool VisitSymbols(VisitSymbolsCallback callback,
+                  size_t symbol_table_offset,
                   size_t symbol_table_size,
                   bool has_header,
                   PdbStream* symbols);

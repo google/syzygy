@@ -28,38 +28,42 @@ namespace cci = Microsoft_Cci_Pdb;
 namespace pdb {
 
 bool ReadSymbolRecord(PdbStream* stream,
+                      size_t symbol_table_offset,
                       size_t symbol_table_size,
                       SymbolRecordVector* symbol_vector) {
   DCHECK(stream != NULL);
   DCHECK(symbol_vector != NULL);
 
-  size_t stream_end = stream->pos() + symbol_table_size;
+  size_t stream_end = symbol_table_offset + symbol_table_size;
   if (stream_end > stream->length()) {
     LOG(ERROR) << "The specified symbol table size exceeds the size of the "
                << "stream.";
     return false;
   }
 
+  pdb::PdbStreamReaderWithPosition reader(symbol_table_offset,
+                                          symbol_table_size, stream);
+  common::BinaryStreamParser parser(&reader);
+
   // Process each symbol present in the stream. For now we only save their
   // starting positions, their lengths and their types to be able to dump them.
-  while (stream->pos() < stream_end) {
+  while (!reader.AtEnd()) {
     uint16_t len = 0;
     uint16_t symbol_type = 0;
-    if (!stream->Read(&len, 1)) {
+    if (!parser.Read(&len)) {
       LOG(ERROR) << "Unable to read a symbol record length.";
       return false;
     }
-    size_t symbol_start = stream->pos();
-    if (!stream->Read(&symbol_type, 1))  {
+    if (!parser.Read(&symbol_type)) {
       LOG(ERROR) << "Unable to read a symbol record type.";
       return false;
     }
     SymbolRecord sym_record;
     sym_record.type = symbol_type;
-    sym_record.start_position = stream->pos();
+    sym_record.start_position = symbol_table_offset + reader.Position();
     sym_record.len = len - sizeof(symbol_type);
     symbol_vector->push_back(sym_record);
-    if (stream->pos() != stream_end && !stream->Seek(symbol_start + len)) {
+    if (!reader.AtEnd() && !reader.Consume(len - sizeof(symbol_type))) {
       LOG(ERROR) << "Unable to seek to the end of the symbol record.";
       return false;
     }
@@ -70,20 +74,20 @@ bool ReadSymbolRecord(PdbStream* stream,
 
 // Reads symbols from the given symbol stream until the end of the stream.
 bool VisitSymbols(VisitSymbolsCallback callback,
+                  size_t symbol_table_offset,
                   size_t symbol_table_size,
                   bool has_header,
                   PdbStream* symbols) {
   DCHECK(symbols != NULL);
 
-  size_t symbol_table_start = symbols->pos();
-  size_t symbol_table_end = symbol_table_start + symbol_table_size;
+  size_t symbol_table_end = symbol_table_offset + symbol_table_size;
 
   if (symbol_table_end > symbols->length()) {
     LOG(ERROR) << "Symbol table size provided exceeds stream length.";
     return false;
   }
 
-  pdb::PdbStreamReaderWithPosition stream_reader(symbol_table_start,
+  pdb::PdbStreamReaderWithPosition stream_reader(symbol_table_offset,
                                                  symbol_table_size, symbols);
   common::BinaryStreamParser stream_parser(&stream_reader);
   if (has_header) {
@@ -141,7 +145,7 @@ bool VisitSymbols(VisitSymbolsCallback callback,
 
     // We provide the length of the symbol data to the callback, exclusive of
     // the symbol type header.
-    size_t symbol_start = symbol_table_start + stream_reader.Position();
+    size_t symbol_start = symbol_table_offset + stream_reader.Position();
     pdb::PdbStreamReaderWithPosition symbol_reader(symbol_start, symbol_length,
                                                    symbols);
     if (!callback.Run(symbol_length, symbol_type, &symbol_reader))

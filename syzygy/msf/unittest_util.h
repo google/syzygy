@@ -42,12 +42,12 @@ void EnsureMsfContentsAreIdentical(
 
     CHECK_EQ(stream->length(), stream_read->length());
 
-    std::vector<uint8_t> data;
-    std::vector<uint8_t> data_read;
-    CHECK(stream->Seek(0));
-    CHECK(stream_read->Seek(0));
-    CHECK(stream->Read(&data, stream->length()));
-    CHECK(stream_read->Read(&data_read, stream_read->length()));
+    std::vector<uint8_t> data(stream->length());
+    std::vector<uint8_t> data_read(stream_read->length());
+    if (data.size() != 0)
+      CHECK(stream->ReadBytesAt(0, data.size(), &data.at(0)));
+    if (data_read.size() != 0)
+      CHECK(stream_read->ReadBytesAt(0, data_read.size(), &data_read.at(0)));
 
     // We don't use ContainerEq because upon failure this generates a
     // ridiculously long and useless error message. We don't use memcmp because

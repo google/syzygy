@@ -66,15 +66,12 @@ bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
     return false;
 
   DbiHeader dbi_header = {};
-  if (!dbi_stream->Seek(0))
-    return false;
-  if (!dbi_stream->Read(&dbi_header, 1))
+  if (!dbi_stream->ReadBytesAt(0, sizeof(dbi_header), &dbi_header))
     return false;
 
   DbiDbgHeader dbg_header = {};
-  if (!dbi_stream->Seek(GetDbiDbgHeaderOffset(dbi_header)))
-    return false;
-  if (!dbi_stream->Read(&dbg_header, 1))
+  size_t offset = GetDbiDbgHeaderOffset(dbi_header);
+  if (!dbi_stream->ReadBytesAt(offset, sizeof(dbg_header), &dbg_header))
     return false;
 
   // We expect both the OMAP stream IDs to exist.
@@ -82,17 +79,36 @@ bool ReadOmapsFromPdbFile(const PdbFile& pdb_file,
     return false;
 
   // We expect both streams to exist.
-  PdbStream* omap_to_stream = pdb_file.GetStream(dbg_header.omap_to_src).get();
-  PdbStream* omap_from_stream =
-      pdb_file.GetStream(dbg_header.omap_from_src).get();
-  if (omap_to_stream == NULL || omap_from_stream == NULL)
+  scoped_refptr<PdbStream> omap_to_stream =
+      pdb_file.GetStream(dbg_header.omap_to_src);
+  scoped_refptr<PdbStream> omap_from_stream =
+      pdb_file.GetStream(dbg_header.omap_from_src);
+  if (omap_to_stream == nullptr || omap_from_stream == nullptr)
     return false;
 
+  DCHECK(omap_to_stream != nullptr && omap_from_stream != nullptr);
   // Read the streams if need be.
-  if (omap_to != NULL && !omap_to_stream->Read(omap_to))
-    return false;
-  if (omap_from != NULL && !omap_from_stream->Read(omap_from))
-    return false;
+  size_t num_to = omap_to_stream->length() / sizeof(OMAP);
+  if (omap_to != nullptr) {
+    omap_to->resize(num_to);
+    if (num_to &&
+        !omap_to_stream->ReadBytesAt(0, num_to * sizeof(OMAP),
+                                     &omap_to->at(0))) {
+      omap_to->clear();
+      return false;
+    }
+  }
+
+  if (omap_from != nullptr) {
+    size_t num_from = omap_from_stream->length() / sizeof(OMAP);
+    omap_from->resize(num_from);
+    if (num_from &&
+        !omap_from_stream->ReadBytesAt(0, num_from * sizeof(OMAP),
+                                       &omap_from->at(0))) {
+      omap_from->clear();
+      return false;
+    }
+  }
 
   return true;
 }

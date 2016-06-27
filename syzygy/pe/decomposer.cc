@@ -1103,7 +1103,7 @@ bool Decomposer::CreateBlocksFromCoffGroups() {
       &Decomposer::VisitLinkerSymbol,
       base::Unretained(this),
       base::Unretained(&context));
-  if (!pdb::VisitSymbols(callback, symbols->length(), true, symbols.get()))
+  if (!pdb::VisitSymbols(callback, 0, symbols->length(), true, symbols.get()))
     return false;
 
   // Bail if we did not encounter a closing bracketing symbol where one was

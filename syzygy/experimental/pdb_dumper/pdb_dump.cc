@@ -332,17 +332,16 @@ int PdbDumpApp::Run() {
       LOG(ERROR) << "No symbol record stream.";
       return 1;
     }
-    PdbStream* sym_record_stream =
-        pdb_file.GetStream(dbi_stream.header().symbol_record_stream).get();
+    scoped_refptr<PdbStream> sym_record_stream =
+        pdb_file.GetStream(dbi_stream.header().symbol_record_stream);
     SymbolRecordVector symbol_vector;
     if (sym_record_stream != NULL &&
-        ReadSymbolRecord(sym_record_stream,
-                         sym_record_stream->length(),
-                         &symbol_vector)) {
+        ReadSymbolRecord(sym_record_stream.get(), 0,
+                         sym_record_stream->length(), &symbol_vector)) {
       DumpIndentedText(out(), 0, "%d symbol records in the stream:\n",
                        symbol_vector.size());
       if (dump_symbol_record_)
-        DumpSymbolRecords(out(), sym_record_stream, symbol_vector, 1);
+        DumpSymbolRecords(out(), sym_record_stream.get(), symbol_vector, 1);
     } else {
       LOG(ERROR) << "Unable to read the symbol record stream.";
       return 1;
