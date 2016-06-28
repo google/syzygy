@@ -36,7 +36,7 @@ class MsfByteStreamImpl : public MsfStreamImpl<T> {
   bool Init(MsfStreamImpl* stream);
 
   // Initializes the stream from the part of another MsfStreamImpl.
-  bool Init(MsfStreamImpl* stream, size_t length);
+  bool Init(MsfStreamImpl* stream, size_t pos, size_t length);
 
   // @name MsfStreamImpl implementation.
   // @{

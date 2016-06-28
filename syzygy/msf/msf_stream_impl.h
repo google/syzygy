@@ -33,62 +33,12 @@ const size_t kInvalidLength = 0xFFFFFFFF;
 }  // namespace
 
 template <MsfFileType T>
-template <typename ItemType>
-bool MsfStreamImpl<T>::Read(ItemType* dest, size_t count) {
-  DCHECK(dest != NULL);
-  return ReadBytes(dest, sizeof(ItemType) * count);
-}
-
-template <MsfFileType T>
-template <typename ItemType>
-bool MsfStreamImpl<T>::Read(std::vector<ItemType>* dest, size_t count) {
-  DCHECK(dest != NULL);
-  dest->clear();
-  if (sizeof(ItemType) * count > bytes_left())
-    return false;
-  dest->resize(count);
-
-  if (count == 0)
-    return true;
-
-  return Read(&dest->at(0), count);
-}
-
-template <MsfFileType T>
-template <typename ItemType>
-bool MsfStreamImpl<T>::Read(std::vector<ItemType>* dest) {
-  DCHECK(dest != NULL);
-  dest->clear();
-  if ((bytes_left() % sizeof(ItemType)) != 0)
-    return false;
-  return Read(dest, bytes_left() / sizeof(ItemType));
-}
-
-template <MsfFileType T>
-bool MsfStreamImpl<T>::ReadBytes(void* dest, size_t count) {
-  if (!ReadBytesAt(pos_, count, dest))
-    return false;
-  pos_ += count;
-  DCHECK_GE(length_, pos_);
-  return true;
-}
-
-template <MsfFileType T>
 MsfStreamImpl<T>::MsfStreamImpl(size_t length)
-    : length_(length == kInvalidLength ? 0 : length), pos_(0) {
+    : length_(length == kInvalidLength ? 0 : length) {
 }
 
 template <MsfFileType T>
 MsfStreamImpl<T>::~MsfStreamImpl() {
-}
-
-template <MsfFileType T>
-bool MsfStreamImpl<T>::Seek(size_t pos) {
-  if (pos > length_)
-    return false;
-
-  pos_ = pos;
-  return true;
 }
 
 }  // namespace detail

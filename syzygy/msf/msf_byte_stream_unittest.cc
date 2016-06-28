@@ -52,9 +52,6 @@ TEST(MsfByteStreamTest, InitFromByteArray) {
 
   for (size_t i = 0; i < stream->length(); ++i) {
     uint8_t num = 0;
-    EXPECT_TRUE(stream->Read(&num, 1));
-    EXPECT_EQ(data[i], num);
-
     EXPECT_TRUE(stream->ReadBytesAt(i, 1, &num));
     EXPECT_EQ(data[i], num);
   }
@@ -70,7 +67,7 @@ TEST(MsfByteStreamTest, InitFromMsfStream) {
 
   for (size_t i = 0; i < stream->length(); ++i) {
     uint8_t num = 0;
-    EXPECT_TRUE(stream->Read(&num, 1));
+    EXPECT_TRUE(stream->ReadBytesAt(i, 1, &num));
     EXPECT_EQ(0xFF, num);
   }
 }
@@ -81,34 +78,15 @@ TEST(MsfByteStreamTest, InitFromMsfStreamPart) {
   EXPECT_TRUE(test_stream->Init(data, arraysize(data)));
 
   scoped_refptr<MsfByteStream> stream(new MsfByteStream());
-  EXPECT_TRUE(test_stream->Seek(2));
-  EXPECT_TRUE(stream->Init(test_stream.get(), 7));
+  EXPECT_TRUE(stream->Init(test_stream.get(), 2, 7));
   EXPECT_EQ(7, stream->length());
   EXPECT_TRUE(stream->data() != NULL);
 
   for (size_t i = 0; i < stream->length(); ++i) {
     uint8_t num = 0;
-    EXPECT_TRUE(stream->Read(&num, 1));
+    EXPECT_TRUE(stream->ReadBytesAt(i, 1, &num));
     EXPECT_EQ(data[i + 2], num);
   }
-}
-
-TEST(MsfByteStreamTest, ReadBytes) {
-  size_t len = 17;
-  scoped_refptr<TestMsfStream> test_stream(new TestMsfStream(len));
-
-  scoped_refptr<MsfByteStream> stream(new MsfByteStream());
-  EXPECT_TRUE(stream->Init(test_stream.get()));
-
-  int total_bytes = 0;
-  while (stream->length() != stream->pos()) {
-    uint8_t buffer[4];
-    size_t to_read = std::min(sizeof(buffer), stream->length() - stream->pos());
-    EXPECT_TRUE(stream->ReadBytes(buffer, to_read));
-    total_bytes += to_read;
-  }
-
-  EXPECT_EQ(len, total_bytes);
 }
 
 TEST(MsfByteStreamTest, ReadBytesAt) {
@@ -154,12 +132,10 @@ TEST(WritableMsfByteStreamTest, WriterChangesReaderLengthButNotCursor) {
   ASSERT_TRUE(writer.get() != NULL);
 
   EXPECT_EQ(reader->length(), 0u);
-  EXPECT_EQ(reader->pos(), 0u);
   EXPECT_EQ(writer->length(), 0u);
   EXPECT_EQ(writer->pos(), 0u);
   writer->Consume(10);
   EXPECT_EQ(reader->length(), 10u);
-  EXPECT_EQ(reader->pos(), 0u);
   EXPECT_EQ(writer->length(), 10u);
   EXPECT_EQ(writer->pos(), 10u);
 }

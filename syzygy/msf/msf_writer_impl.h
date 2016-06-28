@@ -331,9 +331,9 @@ bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
 #endif
 
   // Write the stream page by page.
-  stream->Seek(0);
   uint8_t buffer[kMsfPageSize] = {0};
   size_t bytes_left = stream->length();
+  size_t bytes_read = 0;
   while (bytes_left) {
     size_t bytes_to_read = sizeof(buffer);
     if (bytes_to_read > bytes_left) {
@@ -345,16 +345,16 @@ bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
     }
 
     // Read the buffer from the stream.
-    if (!stream->ReadBytes(buffer, bytes_to_read)) {
+    if (!stream->ReadBytesAt(bytes_read, bytes_to_read, buffer)) {
       size_t offset = stream->length() - bytes_left;
       LOG(ERROR) << "Failed to read " << bytes_to_read << " bytes at offset "
                  << offset << " of MSF stream.";
       return false;
     }
-
     if (!AppendPage(buffer, pages_written, page_count, file_.get()))
       return false;
 
+    bytes_read += bytes_to_read;
     bytes_left -= bytes_to_read;
   }
   DCHECK_EQ(0u, bytes_left);

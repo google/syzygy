@@ -72,20 +72,16 @@ template <MsfFileType T>
 bool MsfByteStreamImpl<T>::Init(MsfStreamImpl* stream) {
   DCHECK(stream != NULL);
 
-  // Seek the beginning of the stream.
-  if (!stream->Seek(0)) {
-    LOG(ERROR) << "Failed to seek in MSF stream.";
-    return false;
-  }
-
   // Read the MSF stream.
-  Init(stream, stream->length());
+  Init(stream, 0, stream->length());
 
   return true;
 }
 
 template <MsfFileType T>
-bool MsfByteStreamImpl<T>::Init(MsfStreamImpl* stream, size_t length) {
+bool MsfByteStreamImpl<T>::Init(MsfStreamImpl* stream,
+                                size_t pos,
+                                size_t length) {
   DCHECK(stream != NULL);
 
   // Init data members.
@@ -96,7 +92,7 @@ bool MsfByteStreamImpl<T>::Init(MsfStreamImpl* stream, size_t length) {
     return true;
 
   // Read the MSF stream.
-  if (!stream->Read(data(), length)) {
+  if (!stream->ReadBytesAt(pos, length, data())) {
     LOG(ERROR) << "Failed to read MSF stream.";
     return false;
   }

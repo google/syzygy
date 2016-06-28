@@ -97,16 +97,15 @@ void EnsureMsfContentsAreIdentical(const MsfFile& msf_file,
 
     ASSERT_EQ(stream->length(), stream_read->length());
 
-    std::vector<uint8_t> data;
-    std::vector<uint8_t> data_read;
-    ASSERT_TRUE(stream->Seek(0));
-    ASSERT_TRUE(stream_read->Seek(0));
-    ASSERT_TRUE(stream->Read(&data, stream->length()));
-    ASSERT_TRUE(stream_read->Read(&data_read, stream_read->length()));
+    std::vector<uint8_t> data(stream->length());
+    std::vector<uint8_t> data_read(stream_read->length());
+    ASSERT_TRUE(stream->ReadBytesAt(0, stream->length(), &data.at(0)));
+    ASSERT_TRUE(
+        stream_read->ReadBytesAt(0, stream_read->length(), &data_read.at(0)));
 
     // We don't use ContainerEq because upon failure this generates a
     // ridiculously long and useless error message. We don't use memcmp because
-    // it doesn't given any context as to where the failure occurs.
+    // it doesn't give any context as to where the failure occurs.
     for (size_t j = 0; j < data.size(); ++j)
       ASSERT_EQ(data[j], data_read[j]);
   }
@@ -144,11 +143,10 @@ TEST(MsfWriterTest, AppendStream) {
 
   // Build the expected stream contents. Two blank pages should have been
   // reserved by the append stream routine.
-  stream->Seek(0);
   std::vector<uint8_t> expected_contents(6 * kMsfPageSize);
-  ASSERT_TRUE(stream->Read(expected_contents.data(), kMsfPageSize));
-  ASSERT_TRUE(stream->Read(expected_contents.data() + 3 * kMsfPageSize,
-                           3 * kMsfPageSize));
+  ASSERT_TRUE(stream->ReadBytesAt(0, kMsfPageSize, expected_contents.data()));
+  ASSERT_TRUE(stream->ReadBytesAt(kMsfPageSize, 3 * kMsfPageSize,
+                                  expected_contents.data() + 3 * kMsfPageSize));
 
   std::vector<uint8_t> contents(6 * kMsfPageSize);
   ASSERT_EQ(

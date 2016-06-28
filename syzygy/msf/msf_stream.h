@@ -44,69 +44,6 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
   // @returns true if all @p count bytes are read, false otherwise.
   virtual bool ReadBytesAt(size_t pos, size_t count, void* dest) = 0;
 
-  // @name Deprecated.
-  //     This class' interface below this point is deprecated and should not
-  //     be used. The state that relates to position in the stream is likewise
-  //     deprecated.
-  // @{
-
-  // Reads @p count chunks of size sizeof(ItemType) into the destination buffer.
-  // The caller is responsible for ensuring that the destination buffer has
-  // enough space to receive the data.
-  //
-  // @tparam ItemType the type of item to coerce the data to.
-  // @param dest the destination array.
-  // @param count the number of elements to read.
-  // @returns true on success.
-  template <typename ItemType>
-  bool Read(ItemType* dest, size_t count);
-
-  // Reads @p count elements of size sizeof(ItemType) into the provided
-  // vector of elements. Resizes @p dest to the number of elements that were
-  // successfully read.
-  //
-  // @tparam ItemType the type of item to coerce the data to.
-  // @param dest the destination vector.
-  // @param count the number of elements to read.
-  // @returns true if @p dest was populated with @p count elements, false
-  //     otherwise. The number of elements actually read is indicated by the
-  //     length of @p dest.
-  template <typename ItemType>
-  bool Read(std::vector<ItemType>* dest, size_t count);
-
-  // Fills the provided vector with elements read from this stream. The bytes
-  // remaining in the stream must be an even multiple of sizeof(ItemType).
-  // Resizes @p dest to the number of elements read.
-  //
-  // @tparam ItemType the type of item to coerce the data to.
-  // @param dest the destination vector.
-  // @returns true if the remaining bytes in the stream were read into the
-  //     provided vector, false otherwise. The number of elements actually read
-  //     is indicated by the length of @p dest.
-  template <typename ItemType>
-  bool Read(std::vector<ItemType>* dest);
-
-  // Reads @p count bytes of data into the destination buffer. The caller is
-  // responsible for ensuring that the destination buffer has enough space to
-  // receive the data.
-  //
-  // @param dest the buffer to receive the data. May be modified on failure.
-  // @param count the number of bytes to read.
-  // @returns true if all @p count bytes are read, false otherwise.
-  bool ReadBytes(void* dest, size_t count);
-
-  // Sets the current read position.
-  bool Seek(size_t pos);
-
-  // Gets the stream's read position.
-  // @returns the number of bytes already read.
-  size_t pos() const { return pos_; }
-
-  // Gets the number of bytes left to read in the stream.
-  // @returns the number of bytes left.
-  size_t bytes_left() const { return length_ - pos_; }
-  // @}
-
   // Returns a pointer to a WritableMsfStreamImpl if the underlying object
   // supports this interface. If this returns non-NULL, it is up to the user to
   // ensure thread safety; each writer should be used exclusively of any other
@@ -147,9 +84,6 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
  private:
   // The length of the stream.
   size_t length_;
-
-  // The read position within the stream.
-  size_t pos_;
 
   DISALLOW_COPY_AND_ASSIGN(MsfStreamImpl);
 };

@@ -110,8 +110,8 @@ TEST(PdbPublicStreamWriterTest, WritePublicStream) {
   scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
 
   WritePublicStream(symbols, symbol_offsets, writer.get());
-  std::vector<uint8_t> public_stream;
-  reader->Read(&public_stream, reader->length());
+  std::vector<uint8_t> public_stream(reader->length());
+  reader->ReadBytesAt(0, reader->length(), &public_stream.at(0));
 
   ASSERT_THAT(public_stream, testing::ElementsAreArray(kExpectedPublicStream));
 }
