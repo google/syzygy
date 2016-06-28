@@ -20,9 +20,11 @@
 #include <algorithm>
 #include <functional>
 
+#include "syzygy/common/binary_stream.h"
 #include "syzygy/common/indexed_frequency_data.h"
 #include "syzygy/grinder/indexed_frequency_data_serializer.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_util.h"
 #include "syzygy/pe/find.h"
 
@@ -157,9 +159,12 @@ bool LoadBasicBlockRanges(const base::FilePath& pdb_path,
     return false;
   }
 
+  pdb::PdbStreamReaderWithPosition reader(bb_ranges_stream.get());
+  common::BinaryStreamParser parser(&reader);
+  size_t num_elements =
+      bb_ranges_stream->length() / sizeof(RelativeAddressRange);
   // Read the basic block range stream.
-  if (!bb_ranges_stream->Seek(0) ||
-      !bb_ranges_stream->Read(bb_ranges)) {
+  if (!parser.ReadMultiple(num_elements, bb_ranges) || !reader.AtEnd()) {
     LOG(ERROR) << "Failed to read basic block range stream from PDB: "
                << pdb_path.value();
     return false;

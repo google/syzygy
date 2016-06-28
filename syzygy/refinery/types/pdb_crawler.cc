@@ -1469,7 +1469,10 @@ bool PdbCrawler::InitializeForFile(const base::FilePath& path) {
     LOG(ERROR) << "Failed to get image header stream.";
     return false;
   }
-  if (!img_hdr_stream->Read(&section_headers_)) {
+  size_t num_elements = img_hdr_stream->length() / sizeof(IMAGE_SECTION_HEADER);
+  section_headers_.resize(num_elements);
+  if (num_elements != 0 &&
+      !img_hdr_stream->ReadBytesAt(0, num_elements, &section_headers_.at(0))) {
     LOG(ERROR) << "Failed to read the image header stream.";
     return false;
   }
@@ -1559,8 +1562,6 @@ bool PdbCrawler::GetVFTableRVAs(base::hash_set<RelativeAddress>* vftable_rvas) {
 
   if (!sym_stream_)
     return false;  // The PDB does not have public symbols.
-  if (!sym_stream_->Seek(0))
-    return false;
 
   pdb::VisitSymbolsCallback symbol_cb =
       base::Bind(&PdbCrawler::GetVFTableRVAForSymbol, base::Unretained(this),

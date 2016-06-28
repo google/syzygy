@@ -41,63 +41,6 @@ namespace refinery {
 
 namespace {
 
-// An adapter class that implements a BinaryStreamReader on a PdbStream.
-class PdbStreamReader : public common::BinaryStreamReader {
- public:
-  explicit PdbStreamReader(pdb::PdbStream* stream);
-
-  // @name BinaryStreamReader implementation.
-  // @{
-  bool Read(size_t len, void* out) override;
-  size_t Position() const override;
-  bool AtEnd() const override;
-  // @}
-
- private:
-  scoped_refptr<pdb::PdbStream> stream_;
-
-  DISALLOW_COPY_AND_ASSIGN(PdbStreamReader);
-};
-
-PdbStreamReader::PdbStreamReader(pdb::PdbStream* stream) : stream_(stream) {
-}
-
-bool PdbStreamReader::Read(size_t len, void* out) {
-  DCHECK(stream_);
-  return stream_->ReadBytes(out, len);
-}
-
-size_t PdbStreamReader::Position() const {
-  DCHECK(stream_);
-  return stream_->pos();
-}
-
-bool PdbStreamReader::AtEnd() const {
-  DCHECK(stream_);
-  DCHECK_LE(stream_->pos(), stream_->length());
-  return stream_->pos() == stream_->length();
-}
-
-bool ReadUnsignedNumeric(pdb::PdbStream* stream, uint64_t* data_field) {
-  DCHECK_NE(static_cast<pdb::PdbStream*>(nullptr), stream);
-  DCHECK_NE(static_cast<uint64_t*>(nullptr), data_field);
-
-  PdbStreamReader reader(stream);
-  common::BinaryStreamParser parser(&reader);
-
-  return pdb::ReadUnsignedNumeric(&parser, data_field);
-}
-
-bool ReadWideString(pdb::PdbStream* stream, base::string16* string_field) {
-  DCHECK_NE(static_cast<pdb::PdbStream*>(nullptr), stream);
-  DCHECK_NE(static_cast<base::string16*>(nullptr), string_field);
-
-  PdbStreamReader reader(stream);
-  common::BinaryStreamParser parser(&reader);
-
-  return pdb::ReadWideString(&parser, string_field);
-}
-
 std::vector<TypePtr> GetTypesBySuffix(TypeRepository* types,
                                       const base::string16& suffix) {
   DCHECK(types);
@@ -196,24 +139,27 @@ class PdbCrawlerTest : public ::testing::TestWithParam<uint32_t> {
 
     pdb::SymbolRecordVector::const_iterator symbol_iter = symbol_vector.begin();
     for (; symbol_iter != symbol_vector.end(); ++symbol_iter) {
-      ASSERT_TRUE(sym_record_stream->Seek(symbol_iter->start_position));
-
       // We are interested only in constants.
       if (symbol_iter->type != Microsoft_Cci_Pdb::S_CONSTANT)
         continue;
 
+      pdb::PdbStreamReaderWithPosition reader(symbol_iter->start_position,
+                                              symbol_iter->len,
+                                              sym_record_stream.get());
+      common::BinaryStreamParser parser(&reader);
+
       // Read the type index it points to.
       uint32_t type_index = 0;
-      ASSERT_TRUE(sym_record_stream->Read(&type_index, 1));
+      ASSERT_TRUE(parser.Read(&type_index));
 
       // Read the value, we are not interested in signed values.
       uint64_t value;
-      if (!ReadUnsignedNumeric(sym_record_stream.get(), &value))
+      if (!pdb::ReadUnsignedNumeric(&parser, &value))
         continue;
 
       // And its name.
       base::string16 name;
-      ASSERT_TRUE(ReadWideString(sym_record_stream.get(), &name));
+      ASSERT_TRUE(pdb::ReadWideString(&parser, &name));
 
       // We want to save only our own constants.
       if (!base::StartsWith(name, kPrefix, base::CompareCase::SENSITIVE))

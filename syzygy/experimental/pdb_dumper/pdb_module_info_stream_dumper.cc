@@ -19,6 +19,7 @@
 #include "syzygy/experimental/pdb_dumper/pdb_symbol_record_dumper.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_stream.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pe/cvinfo_ext.h"
 
@@ -37,18 +38,19 @@ namespace {
 // @param module_files The map where the filenames should be saved.
 // @returns true on success, false on error.
 bool ReadFileChecksums(const OffsetStringMap& file_names,
-                       pdb::PdbStream* stream,
+                       pdb::PdbStreamReaderWithPosition* reader,
                        size_t length,
                        OffsetStringMap* module_files) {
-  DCHECK(stream != NULL);
+  DCHECK(reader != NULL);
   DCHECK(module_files != NULL);
-  size_t base = stream->pos();
+  size_t base = reader->Position();
   size_t end = base + length;
-  while (stream->pos() < end) {
+  common::BinaryStreamParser parser(reader);
+  while (reader->Position() < end) {
     cci::CV_FileCheckSum checksum = {};
 
-    size_t pos = stream->pos() - base;
-    if (!stream->Read(&checksum, 1)) {
+    size_t pos = reader->Position() - base;
+    if (!parser.Read(&checksum)) {
       LOG(ERROR) << "Unable to read file checksum.";
       return false;
     }
@@ -61,7 +63,7 @@ bool ReadFileChecksums(const OffsetStringMap& file_names,
     module_files->insert(std::make_pair(pos, it->second));
 
     // Skip the checksum and align.
-    if (!stream->Seek(common::AlignUp(stream->pos() + checksum.len, 4))) {
+    if (!reader->Consume(checksum.len) || !parser.AlignTo(4)) {
       LOG(ERROR) << "Unable to seek past file checksum.";
       return false;
     }
@@ -78,35 +80,37 @@ bool ReadFileChecksums(const OffsetStringMap& file_names,
 // @returns true on success, false on error.
 bool DumpLineInfo(const OffsetStringMap& file_names,
                   FILE* out,
-                  PdbStream* stream,
+                  pdb::PdbStreamReaderWithPosition* reader,
                   size_t length,
                   uint8_t indent_level) {
-  DCHECK(stream != NULL);
-  size_t base = stream->pos();
+  DCHECK(reader != NULL);
+  size_t base = reader->Position();
   // Read the header.
+
+  common::BinaryStreamParser parser(reader);
   cci::CV_LineSection line_section = {};
-  if (!stream->Read(&line_section, 1)) {
+  if (!parser.Read(&line_section)) {
     LOG(ERROR) << "Unable to read line section.";
     return false;
   }
 
   size_t end = base + length;
-  while (stream->pos() < end) {
+  while (reader->Position() < end) {
     cci::CV_SourceFile source_file = {};
-    if (!stream->Read(&source_file, 1)) {
+    if (!parser.Read(&source_file)) {
       LOG(ERROR) << "Unable to read source info.";
       return false;
     }
 
     std::vector<cci::CV_Line> lines(source_file.count);
-    if (lines.size() && !stream->Read(&lines, lines.size())) {
+    if (lines.size() && !parser.ReadMultiple(lines.size(), &lines)) {
       LOG(ERROR) << "Unable to read line records.";
       return false;
     }
 
     std::vector<cci::CV_Column> columns(source_file.count);
     if ((line_section.flags & cci::CV_LINES_HAVE_COLUMNS) != 0 &&
-        !stream->Read(&columns, columns.size())) {
+        !parser.ReadMultiple(columns.size(), &columns)) {
       LOG(ERROR) << "Unable to read column records.";
       return false;
     }
@@ -163,33 +167,29 @@ void DumpLines(const OffsetStringMap& name_map,
   if (lines_bytes == 0)
     return;
 
-  if (!stream->Seek(start)) {
-    LOG(ERROR) << "Unable to seek to line info.";
-    return;
-  }
-
   // The line information is arranged as a back-to-back run of {type, len}
   // prefixed chunks. The types are DEBUG_S_FILECHKSMS and DEBUG_S_LINES.
   // The first of these provides file names and a file content checksum, where
   // each record is identified by its index into its chunk (excluding type
   // and len).
-  size_t end = start + lines_bytes;
+  pdb::PdbStreamReaderWithPosition reader(start, lines_bytes, stream);
+  common::BinaryStreamParser parser(&reader);
   OffsetStringMap file_names;
-  while (stream->pos() < end) {
+  while (!reader.AtEnd()) {
     uint32_t line_info_type = 0;
     uint32_t length = 0;
-    if (!stream->Read(&line_info_type, 1) || !stream->Read(&length, 1)) {
+    if (!parser.Read(&line_info_type) || !parser.Read(&length)) {
       LOG(ERROR) << "Unable to read line info signature.";
       return;
     }
 
     switch (line_info_type) {
       case cci::DEBUG_S_FILECHKSMS:
-        if (!ReadFileChecksums(name_map, stream, length, &file_names))
+        if (!ReadFileChecksums(name_map, &reader, length, &file_names))
           return;
         break;
       case cci::DEBUG_S_LINES:
-        if (!DumpLineInfo(file_names, out, stream, length, indent_level))
+        if (!DumpLineInfo(file_names, out, &reader, length, indent_level))
           return;
         break;
       default:
@@ -197,7 +197,7 @@ void DumpLines(const OffsetStringMap& name_map,
         DumpIndentedText(out, indent_level, "Unsupported line info type.\n");
         DumpIndentedText(out, indent_level + 1, "Type: %d\n", line_info_type);
         DumpIndentedText(out, indent_level + 1, "Length: %d\n", length);
-        if (!stream->Seek(stream->pos() + length)) {
+        if (!reader.Consume(length)) {
           LOG(ERROR) << "Failed to skip over unsupported line info type.";
           return;
         }
@@ -222,8 +222,9 @@ void DumpModuleInfoStream(const DbiModuleInfo& module_info,
                    indent_level,
                    "Object name: %s\n",
                    module_info.object_name().c_str());
+  pdb::PdbStreamReaderWithPosition reader(stream);
   uint32_t type = 0;
-  if (!stream->Read(&type, 1) || type != cci::C13) {
+  if (!reader.Read(sizeof(type), &type) || type != cci::C13) {
     LOG(ERROR) << "Unexpected symbol stream type " << type << ".";
     return;
   }

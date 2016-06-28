@@ -104,9 +104,12 @@ TEST(AddIndexedDataRangesStreamPdbMutatorTest, AddsStream) {
   EXPECT_TRUE(stream.get() != NULL);
 
   // Validate the stream contents.
-  RelativeAddressRangeVector bb_addresses2;
-  EXPECT_TRUE(stream->Seek(0));
-  EXPECT_TRUE(stream->Read(&bb_addresses2));
+  RelativeAddressRangeVector bb_addresses2(indexed_data.size());
+  EXPECT_EQ(sizeof(RelativeAddressRange) * bb_addresses2.size(),
+            stream->length());
+  EXPECT_TRUE(stream->ReadBytesAt(
+      0, sizeof(RelativeAddressRange) * bb_addresses2.size(),
+      &bb_addresses2.at(0)));
   EXPECT_THAT(indexed_data, testing::ContainerEq(bb_addresses2));
 }
 

@@ -83,31 +83,34 @@ TEST(PdbWriterTest, WriteEmptyStringTable) {
 
   StringTable strings;
 
-  scoped_refptr<PdbByteStream> reader(new PdbByteStream());
-  scoped_refptr<WritablePdbStream> writer(reader->GetWritableStream());
+  scoped_refptr<PdbByteStream> stream(new PdbByteStream());
+  scoped_refptr<WritablePdbStream> writer(stream->GetWritableStream());
 
   EXPECT_TRUE(WriteStringTable(strings, writer.get()));
 
-  EXPECT_EQ(reader->length(), writer->pos());
+  EXPECT_EQ(stream->length(), writer->pos());
 
   uint32_t signature = 0;
-  EXPECT_TRUE(reader->Read(&signature, 1));
+  pdb::PdbStreamReaderWithPosition reader(stream.get());
+  common::BinaryStreamParser parser(&reader);
+
+  EXPECT_TRUE(parser.Read(&signature));
   EXPECT_EQ(kPdbStringTableSignature, signature);
 
   uint32_t version = 0;
-  EXPECT_TRUE(reader->Read(&version, 1));
+  EXPECT_TRUE(parser.Read(&version));
   EXPECT_EQ(kPdbStringTableVersion, version);
 
   uint32_t size = 0;
-  EXPECT_TRUE(reader->Read(&size, 1));
+  EXPECT_TRUE(parser.Read(&size));
   EXPECT_EQ(kExpectedSize, size);
 
   uint32_t num_strings = 0;
-  EXPECT_TRUE(reader->Read(&num_strings, 1));
+  EXPECT_TRUE(parser.Read(&num_strings));
   EXPECT_EQ(kNumStrings, num_strings);
 
   uint32_t num_non_empty_strings = 0;
-  EXPECT_TRUE(reader->Read(&num_non_empty_strings, 1));
+  EXPECT_TRUE(parser.Read(&num_non_empty_strings));
   EXPECT_EQ(kExpectedNumNonEmptyStrings, num_non_empty_strings);
 }
 

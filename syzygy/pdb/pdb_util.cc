@@ -737,9 +737,9 @@ bool ReadStringTable(PdbStream* stream,
     }
     // TODO(siggi): It'd be handy to have a PdbStreamReaderWithPos slice
     //    operand to avoid this kind of arithmetic.
-    string_offset += string_table_start;
+    size_t string_stream_offset = string_offset + string_table_start;
     pdb::PdbStreamReaderWithPosition string_reader(
-        string_offset, table_end - string_offset, stream);
+        string_stream_offset, table_end - string_stream_offset, stream);
     common::BinaryStreamParser string_parser(&string_reader);
     std::string temp_string;
     if (!string_parser.ReadString(&temp_string)) {

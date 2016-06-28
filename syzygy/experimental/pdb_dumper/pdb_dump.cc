@@ -34,6 +34,7 @@
 #include "syzygy/experimental/pdb_dumper/pdb_type_info_stream_dumper.h"
 #include "syzygy/pdb/pdb_dbi_stream.h"
 #include "syzygy/pdb/pdb_reader.h"
+#include "syzygy/pdb/pdb_stream_reader.h"
 #include "syzygy/pdb/pdb_symbol_record.h"
 #include "syzygy/pdb/pdb_type_info_stream_enum.h"
 #include "syzygy/pe/cvinfo_ext.h"
@@ -46,12 +47,7 @@ namespace cci = Microsoft_Cci_Pdb;
 
 // Read the stream containing the filenames listed in the PDB.
 bool ReadNameStream(PdbStream* stream, OffsetStringMap* index_strings) {
-  size_t stream_start = stream->pos();
-  size_t stream_end = stream->pos() + stream->length();
-  return ReadStringTable(stream,
-                         "Name table",
-                         stream_start,
-                         stream_end,
+  return ReadStringTable(stream, "Name table", 0, stream->length(),
                          index_strings);
 }
 
@@ -72,12 +68,11 @@ bool WriteStreamToPath(PdbStream* pdb_stream,
 
   uint8_t buffer[4096];
   size_t bytes_read = 0;
-  pdb_stream->Seek(0);
   while (bytes_read < pdb_stream->length()) {
     size_t bytes_to_read = pdb_stream->length() - bytes_read;
     if (bytes_to_read > sizeof(buffer))
       bytes_to_read = sizeof(buffer);
-    if (!pdb_stream->ReadBytes(buffer, bytes_to_read)) {
+    if (!pdb_stream->ReadBytesAt(bytes_read, bytes_to_read, buffer)) {
       LOG(ERROR) << "Error reading " << bytes_to_read << " bytes at "
                  << "offset " << bytes_read << ".";
       return false;
@@ -475,8 +470,9 @@ void PdbDumpApp::DumpFpoStream(const OffsetStringMap& string_table,
     ::fprintf(out(), "No FPO stream!\n");
   } else {
     ::fprintf(out(), "FPO Records:\n");
+    pdb::PdbStreamReaderWithPosition fpo_reader(fpo_stream);
     FPO_DATA fpo_data = {};
-    while (fpo_stream->Read(&fpo_data, 1)) {
+    while (fpo_reader.Read(sizeof(fpo_data), &fpo_data)) {
       // A bit of indentation makes it easier to separate the records visually.
       ::fprintf(out(), "  ulOffStart: 0x%08X\n", fpo_data.ulOffStart);
       ::fprintf(out(), "  cbProcSize: 0x%08X\n", fpo_data.cbProcSize);
@@ -510,9 +506,10 @@ void PdbDumpApp::DumpFpoStream(const OffsetStringMap& string_table,
     static_assert(sizeof(NewFPO) == 0x20, "New FPO has the wrong size.");
 
     ::fprintf(out(), "New FPO Records:\n");
+    pdb::PdbStreamReaderWithPosition new_fpo_reader(new_fpo_stream);
     NewFPO new_fpo = {};
     // TODO(siggi): investigate duplicate entries in test_dll.dll.pdb.
-    while (new_fpo_stream->Read(&new_fpo, 1)) {
+    while (new_fpo_reader.Read(sizeof(new_fpo), &new_fpo)) {
       std::string prog_string;
       auto it = string_table.find(new_fpo.prog_string);
       if (it != string_table.end())

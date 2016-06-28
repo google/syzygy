@@ -120,6 +120,7 @@ class BinaryStreamParser {
   bool Read(DataType* data) const;
 
   // Read @p elements of sizeof(@p DataType) bytes into the @p data vector.
+  // @param elements the number of elements to read.
   // @param data the read data on success, otherwise contains partial data.
   // @returns true iff @p elements element were successfully read into
   // @p data.

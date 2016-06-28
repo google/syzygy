@@ -62,9 +62,12 @@ bool GetBasicBlockAddresses(const base::FilePath& pdb_path,
     return false;
   }
 
-  stream->Seek(0);
-  bb_addresses->clear();
-  if (!stream->Read(bb_addresses)) {
+  const size_t kElementSize = sizeof(RelativeAddressVector::value_type);
+  size_t num_elements = stream->length() / kElementSize;
+  bb_addresses->resize(num_elements);
+  if (num_elements != 0 &&
+      !stream->ReadBytesAt(0, num_elements * kElementSize,
+                           &bb_addresses->at(0))) {
     LOG(ERROR) << "Failed to parse basic block range stream from PDB file: "
                << pdb_path.value();
     return false;
