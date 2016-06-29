@@ -74,6 +74,7 @@
 /third_party/dromaeo/files
 /third_party/icu/
 /third_party/libxml/
+/third_party/microsoft-pdb/
 /third_party/modp_b64/
 /third_party/platformsdk_win7/
 /third_party/protobuf/src/

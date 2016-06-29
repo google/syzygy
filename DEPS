@@ -66,6 +66,10 @@ deps = {
   # This brings in Crashpad, used by SyzyASan for crash reporting.
   "src/third_party/crashpad/files":
     "https://chromium.googlesource.com/crashpad/crashpad@dbfcb5d032",
+
+  # Brings in the open-source Microsoft cvinfo.h file.
+  "src/third_party/microsoft-pdb":
+    "https://github.com/Microsoft/microsoft-pdb.git@082c529",
 }
 
 

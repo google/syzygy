@@ -22,7 +22,9 @@
 
 #include "syzygy/common/assertions.h"
 #include "third_party/cci/files/cvinfo.h"
-#include "third_party/microsoft-pdb/files/cvinfo.h"
+
+// TODO(siggi): Replace this with the bona-fide Microsoft file.
+#include "third_party/microsoft-pdb-copy/files/cvinfo.h"
 
 namespace Microsoft_Cci_Pdb {
 
