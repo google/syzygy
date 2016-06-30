@@ -24,7 +24,7 @@ int function1() {
 }
 
 int function2() {
-  return strlen("hello");
+  return static_cast<int>(strlen("hello"));
 }
 
 int function3() {
