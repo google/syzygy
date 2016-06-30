@@ -250,7 +250,8 @@ FlatAsanParameters::FlatAsanParameters(
   }
 
   // Patch things up.
-  params->size = data_size;
+  // The structure size is not supposed to be too large to fit into uint32_t.
+  params->size = static_cast<uint32_t>(data_size);
   params->ignored_stack_ids = ignored_stack_ids;
 
   if (have_ignored_stack_ids) {

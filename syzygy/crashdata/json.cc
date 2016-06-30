@@ -182,7 +182,8 @@ struct StackTraceYieldFunctor {
 
   bool operator()(size_t index, std::string* indent, std::string* output) {
     assert(output != nullptr);
-    EmitHexValue32(stack_trace_->frames().Get(index), output);
+    assert(index <= std::numeric_limits<int>::max());
+    EmitHexValue32(stack_trace_->frames().Get(static_cast<int>(index)), output);
     return true;
   }
 
@@ -362,7 +363,8 @@ struct ValueListYieldFunctor {
 
   bool operator()(size_t index, std::string* indent, std::string* output) {
     assert(output != nullptr);
-    if (!ToJson(&list_->values().Get(index), indent, output))
+    assert(index <= std::numeric_limits<int>::max());
+    if (!ToJson(&list_->values().Get(static_cast<int>(index)), indent, output))
       return false;
     return true;
   }
@@ -401,7 +403,8 @@ struct DictYieldFunctor {
                   std::string* indent,
                   std::string* output) {
     assert(output != nullptr);
-    if (!ToJson(&dict_->values().Get(index), indent, output))
+    assert(index <= std::numeric_limits<int>::max());
+    if (!ToJson(&dict_->values().Get(static_cast<int>(index)), indent, output))
       return false;
     return true;
   }

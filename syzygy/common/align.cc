@@ -66,7 +66,7 @@ bool IsAligned(size_t value, size_t alignment) {
 }
 
 size_t GetAlignment(size_t value) {
-  return 1 << CountTrailingZeros(value);
+  return static_cast<size_t>(1) << CountTrailingZeros(value);
 }
 
 bool IsPowerOfTwo64(uint64_t value) {

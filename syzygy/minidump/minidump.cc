@@ -118,7 +118,8 @@ Minidump::Stream Minidump::FindNextStream(const Stream* prev,
 bool FileMinidump::ReadBytes(size_t offset,
                              size_t data_size,
                              void* data) const {
-  if (fseek(file_.get(), offset, SEEK_SET) != 0)
+  DCHECK_LE(offset, static_cast<size_t>(std::numeric_limits<long>::max()));
+  if (fseek(file_.get(), static_cast<long>(offset), SEEK_SET) != 0)
     return false;
 
   if (fread(data, 1, data_size, file_.get()) != data_size)

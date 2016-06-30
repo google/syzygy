@@ -33,11 +33,16 @@ bool GetProcessModules(HANDLE process, ModuleVector* modules) {
   modules->resize(128);
   while (true) {
     DWORD bytes_required = 0;
+    // EnumProcessModules expects a DWORD as size, so it should fit.
+    DCHECK_LE(modules->size() * sizeof(modules->at(0)),
+              std::numeric_limits<DWORD>::max());
     // EnumProcessModules returns 'success' even if the buffer size is too
     // small.
-    if (!::EnumProcessModules(process, &(*modules)[0],
-                              modules->size() * sizeof(modules->at(0)),
-                              &bytes_required)) {
+    if (!::EnumProcessModules(
+            process,
+            modules->data(),
+            static_cast<DWORD>(modules->size() * sizeof(modules->at(0))),
+            &bytes_required)) {
       DPLOG(ERROR) << "::EnumProcessModules";
       modules->clear();
       return false;
