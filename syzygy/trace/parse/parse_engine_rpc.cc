@@ -176,7 +176,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
   // Consume the body of the trace file.
   uint64_t next_segment =
       AlignUp64(file_header->header_size, file_header->block_size);
-  std::unique_ptr<uint8_t> buffer;
+  std::unique_ptr<uint8_t[]> buffer;
   size_t buffer_size = 0;
   while (true) {
     if (::_fseeki64(trace_file.get(), next_segment, SEEK_SET) != 0) {
@@ -217,7 +217,7 @@ bool ParseEngineRpc::ConsumeTraceFile(const base::FilePath& trace_file_path) {
                                   file_header->block_size);
 
     if (aligned_size > buffer_size) {
-      buffer.reset(reinterpret_cast<uint8_t*>(::malloc(aligned_size)));
+      buffer.reset(new uint8_t[aligned_size]);
       buffer_size = aligned_size;
     }
 

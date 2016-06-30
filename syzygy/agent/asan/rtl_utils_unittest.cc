@@ -116,7 +116,7 @@ TEST(AsanRtlUtilsTest, TestMemoryRange) {
   SetAsanRuntimeInstance(&runtime);
   AccessMode access_mode = ASAN_READ_ACCESS;
   const size_t kTestBufferSize = 64;
-  std::unique_ptr<uint8_t> test_buffer(new uint8_t[kTestBufferSize]);
+  std::unique_ptr<uint8_t[]> test_buffer(new uint8_t[kTestBufferSize]);
 
   TestMemoryRange(runtime.shadow(), test_buffer.get(), kTestBufferSize,
                   access_mode);

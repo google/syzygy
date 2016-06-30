@@ -462,7 +462,7 @@ class ProcessStateBitSourceTest : public testing::Test {
                           bool bytes_requested,
                           const std::string& expected_bytes) {
     size_t retrieved_cnt = 0U;
-    std::unique_ptr<char> buffer(new char[data().size()]);
+    std::unique_ptr<char[]> buffer(new char[data().size()]);
     memset(buffer.get(), 0, data().size());
 
     ASSERT_TRUE(
@@ -495,7 +495,7 @@ TEST_F(ProcessStateBitSourceTest, GetAll) {
 
 TEST_F(ProcessStateBitSourceTest, GetFrom) {
   size_t retrieved_cnt = 0U;
-  std::unique_ptr<char> buffer(new char[data().size()]);
+  std::unique_ptr<char[]> buffer(new char[data().size()]);
 
   // Fail to retrieve when the head is outside existing data.
   AddressRange desired(address() - 1U, data().size());

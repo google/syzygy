@@ -44,7 +44,7 @@ TEST_F(ShadowMemoryNotifierTest, ShadowStateTransitionsWithNotification) {
   // A buffer to use. This is allocated dynamically to ensure it has 8 byte
   // alignment.
   const size_t kBufferSize = 1024;
-  std::unique_ptr<uint8_t> buffer(new uint8_t[kBufferSize]);
+  std::unique_ptr<uint8_t[]> buffer(new uint8_t[kBufferSize]);
 
   ShadowMemoryNotifier n(&shadow_);
   n.NotifyInternalUse(buffer.get(), kBufferSize);

@@ -183,35 +183,31 @@ TEST_F(BlockTest, EndToEnd) {
   BlockInfo block_info = {};
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 4, 0, 0, &layout));
-  std::unique_ptr<uint8_t> block_data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t[]> block_data(new uint8_t[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
-  ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data.get(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  block_data.reset(NULL);
+  block_data.reset(nullptr);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 61, 0, 0, &layout));
   block_data.reset(new uint8_t[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
-  ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data.get(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  block_data.reset(NULL);
+  block_data.reset(nullptr);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 32, 32, &layout));
   block_data.reset(new uint8_t[layout.block_size]);
   ::memset(block_data.get(), 0, layout.block_size);
-  ASSERT_TRUE(block_data != NULL);
   BlockInitialize(layout, block_data.get(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  block_data.reset(NULL);
+  block_data.reset(nullptr);
 
   // Do an allocation that uses entire pages.
   EXPECT_TRUE(BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout));
   void* data = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,
                               PAGE_READWRITE);
   ::memset(data, 0, layout.block_size);
-  ASSERT_TRUE(data != NULL);
   BlockInitialize(layout, data, false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
   ASSERT_EQ(TRUE, ::VirtualFree(data, 0, MEM_RELEASE));
@@ -224,7 +220,7 @@ TEST_F(BlockTest, GetHeaderFromBody) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
-  std::unique_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
 
   // First try navigating a block without header padding.
@@ -299,7 +295,7 @@ TEST_F(BlockTest, ConvertBlockInfo) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
-  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
 
   BlockInfo expanded = {};
@@ -326,7 +322,7 @@ TEST_F(BlockTest, BlockInfoFromMemory) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout1));
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 32, 0, &layout2));
 
-  std::unique_ptr<uint8_t> data(new uint8_t[layout2.block_size]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[layout2.block_size]);
   ::memset(data.get(), 0, layout2.block_size);
 
   // First recover a block without header padding.
@@ -393,7 +389,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryInvalidPadding) {
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10,
       4 * sizeof(BlockHeader), 0, &layout));
 
-  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
 
   BlockInfo info = {};
@@ -436,7 +432,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryForNestedBlock) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
 
-  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[layout.block_size]);
   BlockInfo block_info = {};
   BlockInitialize(layout, data.get(), true, &block_info);
 
@@ -450,7 +446,7 @@ TEST_F(BlockTest, BlockInfoFromMemoryForNestedBlock) {
 TEST_F(BlockTest, ChecksumWorksForAllStates) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 10, 0, 0, &layout));
-  std::unique_ptr<uint8_t> data(new uint8_t[layout.block_size]);
+  std::unique_ptr<uint8_t[]> data(new uint8_t[layout.block_size]);
   ::memset(data.get(), 0, layout.block_size);
   BlockInfo info = {};
   BlockInitialize(layout, data.get(), false, &info);
