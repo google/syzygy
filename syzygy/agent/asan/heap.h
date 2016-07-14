@@ -99,7 +99,7 @@ class HeapInterface {
   // must have an alignment of at least kShadowRatio.
   // @param bytes The size of the requested allocation, in bytes.
   // @returns a valid pointer on success, or NULL on failure.
-  virtual void* Allocate(size_t bytes) = 0;
+  virtual void* Allocate(uint32_t bytes) = 0;
 
   // Frees an allocation, returning the memory to the underlying heap. It is
   // invalid to attempt to free memory not previously allocated by this heap,
@@ -121,7 +121,7 @@ class HeapInterface {
   // @returns the size of the allocation.
   // @note This will always return kUnknownSize unless the heap has the
   //     kHeapSupportsGetAllocationSize feature.
-  virtual size_t GetAllocationSize(const void* alloc) = 0;
+  virtual uint32_t GetAllocationSize(const void* alloc) = 0;
 
   // Locks the heap. All other calls to the heap will be blocked until
   // a corresponding call to Unlock.
@@ -153,9 +153,9 @@ class BlockHeapInterface : public HeapInterface {
   // @param min_right_redzone_size The minimum size of the right redzone.
   // @param layout The layout structure to be populated.
   // @returns a pointer to the allocation upon success, otherwise NULL.
-  virtual void* AllocateBlock(size_t size,
-                              size_t min_left_redzone_size,
-                              size_t min_right_redzone_size,
+  virtual void* AllocateBlock(uint32_t size,
+                              uint32_t min_left_redzone_size,
+                              uint32_t min_right_redzone_size,
                               BlockLayout* layout) = 0;
 
   // Frees the block at the given address.

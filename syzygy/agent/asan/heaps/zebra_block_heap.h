@@ -97,10 +97,10 @@ class ZebraBlockHeap : public BlockHeapInterface,
   // @{
   virtual HeapType GetHeapType() const;
   virtual uint32_t GetHeapFeatures() const;
-  virtual void* Allocate(size_t bytes);
+  virtual void* Allocate(uint32_t bytes);
   virtual bool Free(void* alloc);
   virtual bool IsAllocated(const void* alloc);
-  virtual size_t GetAllocationSize(const void* alloc);
+  virtual uint32_t GetAllocationSize(const void* alloc);
   virtual void Lock();
   virtual void Unlock();
   virtual bool TryLock();
@@ -108,9 +108,9 @@ class ZebraBlockHeap : public BlockHeapInterface,
 
   // @name BlockHeapInterface functions.
   // @{
-  virtual void* AllocateBlock(size_t size,
-                              size_t min_left_redzone_size,
-                              size_t min_right_redzone_size,
+  virtual void* AllocateBlock(uint32_t size,
+                              uint32_t min_left_redzone_size,
+                              uint32_t min_right_redzone_size,
                               BlockLayout* layout);
   virtual bool FreeBlock(const BlockInfo& block_info);
   // @}
@@ -155,7 +155,7 @@ class ZebraBlockHeap : public BlockHeapInterface,
 
   // Performs an allocation, and returns a pointer to the SlabInfo where the
   // allocation was made.
-  SlabInfo* AllocateImpl(size_t bytes);
+  SlabInfo* AllocateImpl(uint32_t bytes);
 
   // Checks if the quarantine invariant is satisfied.
   // @returns true if the quarantine invariant is satisfied, false otherwise.

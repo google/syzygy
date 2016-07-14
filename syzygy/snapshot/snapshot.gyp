@@ -73,8 +73,16 @@
       'sources': [
         'run_in_snapshot.cc'
       ],
-      'dependencies': [
-        '<(src)/base/base.gyp:base_win64',
+      'conditions': [
+        ['target_arch == "ia32"', {
+          'dependencies': [
+            '<(src)/base/base.gyp:base_win64',
+          ],
+        }, {
+          'dependencies': [
+            '<(src)/base/base.gyp:base',
+          ],
+        }],
       ],
       'libraries': [
         'vssapi.lib',

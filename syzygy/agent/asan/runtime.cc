@@ -46,7 +46,9 @@
 #include "syzygy/agent/asan/memory_notifiers/shadow_memory_notifier.h"
 #include "syzygy/agent/asan/reporters/breakpad_reporter.h"
 #include "syzygy/agent/asan/reporters/crashpad_reporter.h"
+#ifndef _WIN64
 #include "syzygy/agent/asan/reporters/kasko_reporter.h"
+#endif
 #include "syzygy/crashdata/crashdata.h"
 #include "syzygy/trace/client/client_utils.h"
 #include "syzygy/trace/protocol/call_trace_defs.h"
@@ -70,7 +72,9 @@ using agent::asan::WindowsHeapAdapter;
 enum CrashReporterType {
   kDefaultCrashReporterType,
   kBreakpadCrashReporterType,
+#ifndef _WIN64
   kKaskoCrashReporterType,
+#endif
   kCrashpadCrashReporterType,
 };
 
@@ -175,7 +179,7 @@ void InitializeExceptionRecord(const AsanErrorInfo* error_info,
 
   ::memset(record, 0, sizeof(EXCEPTION_RECORD));
   record->ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
-  record->ExceptionAddress = reinterpret_cast<PVOID>(error_info->context.Eip);
+  record->ExceptionAddress = GetInstructionPointer(error_info->context);
   record->NumberParameters = 2;
   record->ExceptionInformation[0] =
       reinterpret_cast<ULONG_PTR>(&error_info->context);
@@ -412,8 +416,10 @@ CrashReporterType GetCrashReporterTypeFromEnvironment(
   CrashReporterType type = kDefaultCrashReporterType;
   if (reporter_name == "crashpad") {
     type = kCrashpadCrashReporterType;
+#ifndef _WIN64
   } else if (reporter_name == "kasko") {
     type = kKaskoCrashReporterType;
+#endif
   } else if (reporter_name == "breakpad") {
     type = kBreakpadCrashReporterType;
   }
@@ -438,12 +444,14 @@ std::unique_ptr<ReporterInterface> CreateCrashReporterWithTypeHint(
   if (reporter_type == kCrashpadCrashReporterType)
     reporter.reset(reporters::CrashpadReporter::Create().release());
 
+#ifndef _WIN64
   // Try to initialize a Kasko crash reporter.
   if (reporter.get() == nullptr &&
       (reporter_type == kKaskoCrashReporterType ||
        reporter_type == kDefaultCrashReporterType)) {
     reporter.reset(reporters::KaskoReporter::Create().release());
   }
+#endif
 
   // If that failed then try to initialize a Breakpad reporter.
   if (reporter.get() == nullptr &&
@@ -843,8 +851,13 @@ bool AsanRuntime::GetAsanFlagsEnvVar(std::wstring* env_var_wstr) {
 void AsanRuntime::PropagateParams() {
   // This function has to be kept in sync with the AsanParameters struct. These
   // checks will ensure that this is the case.
+#ifdef _WIN64
+  static_assert(sizeof(::common::AsanParameters) == 64,
+                "Must propagate parameters.");
+#else
   static_assert(sizeof(::common::AsanParameters) == 60,
                 "Must propagate parameters.");
+#endif
   static_assert(::common::kAsanParametersVersion == 14,
                 "Must update parameters version.");
 

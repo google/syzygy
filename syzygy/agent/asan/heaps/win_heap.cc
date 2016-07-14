@@ -42,7 +42,7 @@ uint32_t WinHeap::GetHeapFeatures() const {
   return kHeapSupportsGetAllocationSize;
 }
 
-void* WinHeap::Allocate(size_t bytes) {
+void* WinHeap::Allocate(uint32_t bytes) {
   DCHECK_NE(static_cast<HANDLE>(NULL), heap_);
   void* alloc = ::HeapAlloc(heap_, 0, bytes);
   return alloc;
@@ -69,7 +69,7 @@ bool WinHeap::IsAllocated(const void* alloc) {
   return false;
 }
 
-size_t WinHeap::GetAllocationSize(const void* alloc) {
+uint32_t WinHeap::GetAllocationSize(const void* alloc) {
   return ::HeapSize(heap_, 0, alloc);
 }
 

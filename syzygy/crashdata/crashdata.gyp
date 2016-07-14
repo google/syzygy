@@ -70,6 +70,14 @@
         'crashdata_proto',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],
+      # Disable warnings arising from protobuf generated code.
+      'conditions': [
+        ['target_arch=="x64"', {
+          'msvs_disabled_warnings': [
+            '4267',
+          ],
+        }],
+      ],
       'export_dependent_settings': [
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
       ],

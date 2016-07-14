@@ -31,16 +31,16 @@ struct BlockLayout {
   // The alignment of the entire block.
   size_t block_alignment;
   // The size of the entire block (the rest of the fields summed).
-  size_t block_size;
+  uint32_t block_size;
 
   // Left redzone.
-  size_t header_size;
-  size_t header_padding_size;
+  uint32_t header_size;
+  uint32_t header_padding_size;
   // Body.
-  size_t body_size;
+  uint32_t body_size;
   // Right redzone.
-  size_t trailer_padding_size;
-  size_t trailer_size;
+  uint32_t trailer_padding_size;
+  uint32_t trailer_size;
 };
 
 // Identifies whole pages that are spanned by the redzones and body of the

@@ -221,6 +221,7 @@ void WINAPI asan_SetOnExceptionCallback(OnExceptionCallback callback) {
   }
 }
 
+#ifndef _WIN64
 // Unittesting seam.
 AsanRuntime* WINAPI asan_GetActiveRuntime() {
   return asan_runtime;
@@ -251,6 +252,7 @@ void __declspec(naked) asan_ClearAllocationFilterFlag() {
     ret
   }
 }
+#endif  // !defined _WIN64
 
 int asan_CrashForException(EXCEPTION_POINTERS* exception) {
   DCHECK_NE(static_cast<EXCEPTION_POINTERS*>(nullptr), exception);

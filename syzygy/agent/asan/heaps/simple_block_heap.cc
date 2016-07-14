@@ -35,7 +35,7 @@ uint32_t SimpleBlockHeap::GetHeapFeatures() const {
   return heap_->GetHeapFeatures();
 }
 
-void* SimpleBlockHeap::Allocate(size_t bytes) {
+void* SimpleBlockHeap::Allocate(uint32_t bytes) {
   return heap_->Allocate(bytes);
 }
 
@@ -47,7 +47,7 @@ bool SimpleBlockHeap::IsAllocated(const void* alloc) {
   return heap_->IsAllocated(alloc);
 }
 
-size_t SimpleBlockHeap::GetAllocationSize(const void* alloc) {
+uint32_t SimpleBlockHeap::GetAllocationSize(const void* alloc) {
   return heap_->GetAllocationSize(alloc);;
 }
 
@@ -63,9 +63,9 @@ bool SimpleBlockHeap::TryLock() {
   return heap_->TryLock();
 }
 
-void* SimpleBlockHeap::AllocateBlock(size_t size,
-                                     size_t min_left_redzone_size,
-                                     size_t min_right_redzone_size,
+void* SimpleBlockHeap::AllocateBlock(uint32_t size,
+                                     uint32_t min_left_redzone_size,
+                                     uint32_t min_right_redzone_size,
                                      BlockLayout* layout) {
   DCHECK_NE(static_cast<BlockLayout*>(nullptr), layout);
 

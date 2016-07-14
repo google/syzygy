@@ -58,7 +58,7 @@ void GetAddressInformation(const Shadow* shadow,
 
   BlockInfo block_info = {};
   shadow->BlockInfoFromShadow(header, &block_info);
-  int offset = 0;
+  SSIZE_T offset = 0;
   char* offset_relativity = "";
   switch (bad_access_info->error_type) {
     case HEAP_BUFFER_OVERFLOW: {
@@ -511,7 +511,10 @@ void PopulateBlockInfo(const Shadow* shadow,
 
     // Use memory range feature if available. Fallback on blob data.
     if (memory_ranges) {
-      blob->set_size(full_block_info.block_size);
+      // protobuf accepts uint32 as size, so it must fit.
+      DCHECK_LE(full_block_info.block_size,
+                static_cast<size_t>(std::numeric_limits<uint32_t>::max()));
+      blob->set_size(static_cast<uint32_t>(full_block_info.block_size));
 
       memory_ranges->push_back(std::pair<const char*, size_t>(
           static_cast<const char*>(block_info.header),
@@ -535,7 +538,10 @@ void PopulateBlockInfo(const Shadow* shadow,
 
     // Use memory range feature if available. Fallback on blob data.
     if (memory_ranges) {
-      blob->set_size(shadow_length);
+      // protobuf accepts uint32 as size, so it must fit.
+      DCHECK_LE(shadow_length,
+                static_cast<size_t>(std::numeric_limits<uint32_t>::max()));
+      blob->set_size(static_cast<uint32_t>(shadow_length));
 
       memory_ranges->push_back(
           std::pair<const char*, size_t>(shadow_data, shadow_length));

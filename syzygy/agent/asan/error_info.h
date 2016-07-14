@@ -313,6 +313,16 @@ void PopulateErrorInfo(const Shadow* shadow,
 void CrashdataProtobufToErrorInfo(const crashdata::Value& protobuf,
                                   AsanErrorInfo* error_info);
 
+// Helper function to get the instruction pointer from a CONTEXT
+// on both ia32 and x64.
+inline void* GetInstructionPointer(const CONTEXT& context) {
+#ifdef _WIN64
+  return reinterpret_cast<void*>(context.Rip);
+#else
+  return reinterpret_cast<void*>(context.Eip);
+#endif
+}
+
 }  // namespace asan
 }  // namespace agent
 

@@ -105,7 +105,7 @@ HeapAllocator<T>::allocate(
   DCHECK_NE(static_cast<HeapInterface*>(NULL), heap_);
 
   pointer objects = reinterpret_cast<pointer>(
-      heap_->Allocate(count * sizeof(T)));
+      heap_->Allocate(static_cast<uint32_t>(count) * sizeof(T)));
 
   return objects;
 }

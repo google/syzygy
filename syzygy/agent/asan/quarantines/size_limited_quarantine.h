@@ -51,13 +51,13 @@ class QuarantineSizeCount {
   }
 
   // @returns the size.
-  int32_t size() const {
+  SSIZE_T size() const {
     lock_.AssertAcquired();
     return size_;
   }
 
   // @returns the count.
-  int32_t count() const {
+  SSIZE_T count() const {
     lock_.AssertAcquired();
     return count_;
   }
@@ -66,7 +66,7 @@ class QuarantineSizeCount {
   // @param size_delta The delta by which the size is incremented.
   // @param count_delta The delta by which the count is incremented.
   // @returns the new size.
-  int32_t Increment(size_t size_delta, size_t count_delta) {
+  SSIZE_T Increment(SSIZE_T size_delta, SSIZE_T count_delta) {
     lock_.AssertAcquired();
     size_ += size_delta;
     count_ += count_delta;
@@ -77,7 +77,7 @@ class QuarantineSizeCount {
   // @param size_delta The delta by which the size is decremented.
   // @param count_delta The delta by which the count is decremented.
   // @returns the new size.
-  int32_t Decrement(size_t size_delta, size_t count_delta) {
+  SSIZE_T Decrement(SSIZE_T size_delta, SSIZE_T count_delta) {
     lock_.AssertAcquired();
     size_ -= size_delta;
     count_ -= count_delta;
@@ -86,9 +86,9 @@ class QuarantineSizeCount {
 
  private:
   // The current size of the quarantine.
-  int32_t size_;
+  SSIZE_T size_;
   // The number of elements in the quarantine.
-  int32_t count_;
+  SSIZE_T count_;
   // Single lock that's used for both |size_| and |count_|.
   base::Lock lock_;
 };
@@ -261,7 +261,7 @@ class SizeLimitedQuarantineImpl : public QuarantineInterface<ObjectType> {
   // a lock, when modified, this could potentially lead to transitions between
   // colors being missed. The implementation takes this factor into
   // consideration.
-  base::subtle::Atomic32 overbudget_size_;
+  base::subtle::AtomicWord overbudget_size_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SizeLimitedQuarantineImpl);

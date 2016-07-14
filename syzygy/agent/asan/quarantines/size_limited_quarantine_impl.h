@@ -33,7 +33,7 @@ PushResult SizeLimitedQuarantineImpl<OT, SFT>::Push(const Object& object) {
 
   // This will contain the size of quarantine after the implementation of push,
   // whether successful or not.
-  int32_t new_size = 0;
+  size_t new_size = 0;
   {
     // Note that if a thread gets preempted here, the size/count will be wrong,
     // until the thread resumes (the size will eventually become consistent).
@@ -43,7 +43,7 @@ PushResult SizeLimitedQuarantineImpl<OT, SFT>::Push(const Object& object) {
 
   // This is the size of the quarantine before the call to PushImpl and is
   // needed to calculate the old color and infer potential transitions.
-  int32_t old_size = new_size - static_cast<int32_t>(size);
+  size_t old_size = new_size - size;
   if (PushImpl(object)) {
     result.push_successful = true;
   } else {
@@ -112,7 +112,7 @@ PopResult SizeLimitedQuarantineImpl<OT, SFT>::Pop(Object* object) {
   size_t size = size_functor_(*object);
   ScopedQuarantineSizeCountLock size_count_lock(size_count_);
 
-  int32_t new_size = size_count_.Decrement(size, 1);
+  size_t new_size = size_count_.Decrement(size, 1);
 
   // Return success and the new quarantine color.
   result.pop_successful = true;
@@ -133,7 +133,7 @@ void SizeLimitedQuarantineImpl<OT, SFT>::Empty(
   // setting the size and count to zero could introduce inconsistency, as they
   // may not yet reflect the contributions of some of the elements returned by
   // EmptyImpl.
-  int32_t net_size = 0;
+  size_t net_size = 0;
   for (size_t i = 0; i < objects->size(); ++i) {
     size_t size = size_functor_(objects->at(i));
     net_size += size;

@@ -60,6 +60,18 @@ void ReportBadMemoryAccess(const void* location,
   bad_access_info.context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
 
   // Restore the original value of the registers.
+#ifdef _WIN64
+  // TODO(loskutov): add more x64 registers or eliminate this piece of code.
+  bad_access_info.context.Rip = asan_context.original_rip;
+  bad_access_info.context.Rax = asan_context.original_rax;
+  bad_access_info.context.Rcx = asan_context.original_rcx;
+  bad_access_info.context.Rdx = asan_context.original_rdx;
+  bad_access_info.context.Rbx = asan_context.original_rbx;
+  bad_access_info.context.Rbp = asan_context.original_rbp;
+  bad_access_info.context.Rsp = asan_context.original_rsp;
+  bad_access_info.context.Rsi = asan_context.original_rsi;
+  bad_access_info.context.Rdi = asan_context.original_rdi;
+#else
   bad_access_info.context.Eip = asan_context.original_eip;
   bad_access_info.context.Eax = asan_context.original_eax;
   bad_access_info.context.Ecx = asan_context.original_ecx;
@@ -69,6 +81,7 @@ void ReportBadMemoryAccess(const void* location,
   bad_access_info.context.Esp = asan_context.original_esp;
   bad_access_info.context.Esi = asan_context.original_esi;
   bad_access_info.context.Edi = asan_context.original_edi;
+#endif
   bad_access_info.context.EFlags = asan_context.original_eflags;
 
   common::StackCapture stack;
@@ -120,16 +133,28 @@ void ReportBadMemoryAccess(const void* location,
 
 void ContextToAsanContext(const CONTEXT& context, AsanContext* asan_context) {
   DCHECK(asan_context != NULL);
+#ifdef _WIN64
+  asan_context->original_rax = context.Rax;
+  asan_context->original_rbp = context.Rbp;
+  asan_context->original_rbx = context.Rbx;
+  asan_context->original_rcx = context.Rcx;
+  asan_context->original_rdi = context.Rdi;
+  asan_context->original_rdx = context.Rdx;
+  asan_context->original_rip = context.Rip;
+  asan_context->original_rsi = context.Rsi;
+  asan_context->original_rsp = context.Rsp;
+#else
   asan_context->original_eax = context.Eax;
   asan_context->original_ebp = context.Ebp;
   asan_context->original_ebx = context.Ebx;
   asan_context->original_ecx = context.Ecx;
   asan_context->original_edi = context.Edi;
   asan_context->original_edx = context.Edx;
-  asan_context->original_eflags = context.EFlags;
   asan_context->original_eip = context.Eip;
   asan_context->original_esi = context.Esi;
   asan_context->original_esp = context.Esp;
+#endif
+  asan_context->original_eflags = context.EFlags;
 }
 
 void ReportBadAccess(const void* location, AccessMode access_mode) {

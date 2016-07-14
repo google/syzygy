@@ -52,8 +52,9 @@ uint32_t InternalHeap::GetHeapFeatures() const {
       kHeapGetAllocationSizeIsUpperBound;
 }
 
-void* InternalHeap::Allocate(size_t bytes) {
-  size_t size = ::common::AlignUp(bytes + kBodyOffset, kShadowRatio);
+void* InternalHeap::Allocate(uint32_t bytes) {
+  uint32_t size = static_cast<uint32_t>(
+      ::common::AlignUp(bytes + kBodyOffset, kShadowRatio));
   void* alloc = heap_->Allocate(size);
   if (alloc == NULL)
     return NULL;
@@ -95,7 +96,7 @@ bool InternalHeap::IsAllocated(const void* alloc) {
   return heap_->IsAllocated(alloc);
 }
 
-size_t InternalHeap::GetAllocationSize(const void* alloc) {
+uint32_t InternalHeap::GetAllocationSize(const void* alloc) {
   if (alloc == NULL)
     return kUnknownSize;
 

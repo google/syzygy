@@ -161,6 +161,7 @@ struct BlockHeader {
     // The size of the body of the allocation, in bytes.
     unsigned body_size : 30;
   };
+  // TODO(loskutov): replace pointers with something more compact.
   // The allocation stack of this block.
   const common::StackCapture* alloc_stack;
   // The free stack of this block (NULL if not yet quarantined/freed).
@@ -169,7 +170,11 @@ struct BlockHeader {
 #pragma pack(pop)
 static_assert((sizeof(BlockHeader) % kShadowRatio) == 0,
               "Invalid BlockHeader mod size.");
+#ifdef _WIN64
+static_assert(sizeof(BlockHeader) == 24, "Invalid BlockHeader size.");
+#else
 static_assert(sizeof(BlockHeader) == 16, "Invalid BlockHeader size.");
+#endif
 
 // Declares dummy types for various parts of a block. These are used for type
 // safety of the various utility functions for navigating blocks. These are
@@ -218,7 +223,8 @@ static_assert(sizeof(BlockTrailer) == 20, "Invalid BlockTrailer size.");
 struct CompactBlockInfo {
   // Pointer to the beginning of the allocation.
   BlockHeader* header;
-  // The size of the entire allocation.
+  // The size of the entire allocation. It's supposed to fit into 30 bits.
+  // (See BlockHeader::body_size)
   uint32_t block_size;
   struct {
     // The entire size of the header, including padding.
@@ -229,7 +235,11 @@ struct CompactBlockInfo {
     unsigned is_nested : 1;
   };
 };
+#ifdef _WIN64
+static_assert(sizeof(CompactBlockInfo) == 16, "Invalid CompactBlockInfo size.");
+#else
 static_assert(sizeof(CompactBlockInfo) == 12, "Invalid CompactBlockInfo size.");
+#endif
 
 // A struct for initializing, modifying and navigating the various portions
 // of an allocated block. This can be initialized as part of the creation of
@@ -238,22 +248,22 @@ static_assert(sizeof(CompactBlockInfo) == 12, "Invalid CompactBlockInfo size.");
 struct BlockInfo {
   // The size of the entire allocation. This includes the header, the body,
   // the trailer and any padding. The block starts with the header.
-  size_t block_size;
+  uint32_t block_size;
 
   // Left redzone. If there's no padding |header_padding| and |body| will
   // point to the same location, and |header_padding_size| will be zero.
   BlockHeader* header;
   BlockHeaderPadding* header_padding;
-  size_t header_padding_size;
+  uint32_t header_padding_size;
 
   // Body of the allocation.
   BlockBody* body;
-  size_t body_size;
+  uint32_t body_size;
 
   // Right redzone. If there's no padding |trailer_padding| and |trailer| will
   // point to the same location, and |trailer_padding_size| will be zero.
   BlockTrailerPadding* trailer_padding;
-  size_t trailer_padding_size;
+  uint32_t trailer_padding_size;
   BlockTrailer* trailer;
 
   // Pages of memory that are *exclusive* to this block. These pages may be a
@@ -261,11 +271,11 @@ struct BlockInfo {
   // These pages will have protections toggled as the block changes state.
   // These must stay contiguous.
   uint8_t* block_pages;
-  size_t block_pages_size;
+  uint32_t block_pages_size;
   uint8_t* left_redzone_pages;
-  size_t left_redzone_pages_size;
+  uint32_t left_redzone_pages_size;
   uint8_t* right_redzone_pages;
-  size_t right_redzone_pages_size;
+  uint32_t right_redzone_pages_size;
 
   // Indicates if the block is nested.
   bool is_nested;
@@ -276,48 +286,48 @@ struct BlockInfo {
   // @name
   // @{
   uint8_t* RawBlock() const { return reinterpret_cast<uint8_t*>(header); }
-  uint8_t& RawBlock(size_t index) const {
+  uint8_t& RawBlock(uint32_t index) const {
     DCHECK_GT(block_size, index);
     return RawBlock()[index];
   }
   uint8_t* RawHeader() const { return reinterpret_cast<uint8_t*>(header); }
-  uint8_t& RawHeader(size_t index) const {
+  uint8_t& RawHeader(uint32_t index) const {
     DCHECK_GT(sizeof(BlockHeader), index);
     return RawHeader()[index];
   }
   uint8_t* RawHeaderPadding() const {
     return reinterpret_cast<uint8_t*>(header_padding);
   }
-  uint8_t& RawHeaderPadding(size_t index) const {
+  uint8_t& RawHeaderPadding(uint32_t index) const {
     DCHECK_GT(header_padding_size, index);
     return RawHeaderPadding()[index];
   }
   uint8_t* RawBody() const { return reinterpret_cast<uint8_t*>(body); }
-  uint8_t& RawBody(size_t index) const {
+  uint8_t& RawBody(uint32_t index) const {
     DCHECK_GT(body_size, index);
     return RawBody()[index];
   }
   uint8_t* RawTrailerPadding() const {
     return reinterpret_cast<uint8_t*>(trailer_padding);
   }
-  uint8_t& RawTrailerPadding(size_t index) const {
+  uint8_t& RawTrailerPadding(uint32_t index) const {
     DCHECK_GT(trailer_padding_size, index);
     return RawTrailerPadding()[index];
   }
   uint8_t* RawTrailer() const { return reinterpret_cast<uint8_t*>(trailer); }
-  uint8_t& RawTrailer(size_t index) const {
+  uint8_t& RawTrailer(uint32_t index) const {
     DCHECK_GT(sizeof(BlockTrailer), index);
     return RawTrailer()[index];
   }
   // @}
 
   // @returns the total header size, including the header and any padding.
-  size_t TotalHeaderSize() const {
+  uint32_t TotalHeaderSize() const {
     return sizeof(BlockHeader) + header_padding_size;
   }
 
   // @returns the total trailer size, including the trailer and any padding.
-  size_t TotalTrailerSize() const {
+  uint32_t TotalTrailerSize() const {
     return sizeof(BlockTrailer) + trailer_padding_size;
   }
 };
@@ -338,11 +348,11 @@ struct BlockInfo {
 // @param min_right_redzone_size The minimum size of the right redzone.
 // @param layout The layout structure to be populated.
 // @returns true if the layout of the block is valid, false otherwise.
-bool BlockPlanLayout(size_t chunk_size,
-                     size_t alignment,
-                     size_t size,
-                     size_t min_left_redzone_size,
-                     size_t min_right_redzone_size,
+bool BlockPlanLayout(uint32_t chunk_size,
+                     uint32_t alignment,
+                     uint32_t size,
+                     uint32_t min_left_redzone_size,
+                     uint32_t min_right_redzone_size,
                      BlockLayout* layout);
 
 // Given a fresh allocation and a block layout, lays out and initializes the
@@ -442,7 +452,7 @@ BlockState BlockDetermineMostLikelyState(const Shadow* shadow,
 //     than kBlockHeaderChecksumBits are meaningless.
 bool BlockBitFlipsFixChecksum(BlockState block_state,
                               const BlockInfo& block_info,
-                              size_t bitflips);
+                              uint32_t bitflips);
 
 // Explores a block to see how many bitflips are required to make the checksum
 // valid. This is always at most kBlockHeaderChecksumBits.
@@ -456,9 +466,9 @@ bool BlockBitFlipsFixChecksum(BlockState block_state,
 // @note The pages of the block must be readable and writable.
 // @nore Any checksum can be made good using exactly kBlockHeaderChecksumBits
 //     bitflips.
-size_t BlockBitFlipsRequired(BlockState block_state,
-                             const BlockInfo& block_info,
-                             size_t max_bitflips);
+uint32_t BlockBitFlipsRequired(BlockState block_state,
+                               const BlockInfo& block_info,
+                               uint32_t max_bitflips);
 
 // @name Block analysis related functions and declarations.
 // @{

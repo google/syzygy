@@ -65,7 +65,7 @@ class AsanLogger {
   // containing @p trace_length elements.
   void WriteWithStackTrace(const std::string& message,
                            const void* const* trace_data,
-                           size_t trace_length);
+                           uint32_t trace_length);
 
   // Ask the logger to capture a minidump of the process for a given context.
   // @param context The context for which we want a minidump.

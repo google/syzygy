@@ -55,10 +55,10 @@ uint32_t LargeBlockHeap::GetHeapFeatures() const {
       kHeapReportsReservations;
 }
 
-void* LargeBlockHeap::Allocate(size_t bytes) {
+void* LargeBlockHeap::Allocate(uint32_t bytes) {
   // Always allocate some memory so as to guarantee that zero-sized
   // allocations get an actual distinct address each time.
-  size_t size = std::max(bytes, 1u);
+  size_t size = std::max<size_t>(bytes, 1u);
 
   // TODO(chrisha): Make this allocate with the OS allocation granularity.
   size = ::common::AlignUp(size, GetPageSize());
@@ -109,7 +109,7 @@ bool LargeBlockHeap::IsAllocated(const void* alloc) {
   return true;
 }
 
-size_t LargeBlockHeap::GetAllocationSize(const void* alloc) {
+uint32_t LargeBlockHeap::GetAllocationSize(const void* alloc) {
   Allocation allocation = { alloc, 0 };
 
   {
@@ -133,14 +133,14 @@ bool LargeBlockHeap::TryLock() {
   return lock_.Try();
 }
 
-void* LargeBlockHeap::AllocateBlock(size_t size,
-                                    size_t min_left_redzone_size,
-                                    size_t min_right_redzone_size,
+void* LargeBlockHeap::AllocateBlock(uint32_t size,
+                                    uint32_t min_left_redzone_size,
+                                    uint32_t min_right_redzone_size,
                                     BlockLayout* layout) {
   DCHECK_NE(static_cast<BlockLayout*>(nullptr), layout);
 
   // Plan the layout with full guard pages.
-  const size_t kPageSize = GetPageSize();
+  const uint32_t kPageSize = static_cast<uint32_t>(GetPageSize());
   if (!BlockPlanLayout(kPageSize, kPageSize, size, kPageSize, kPageSize,
                        layout)) {
     return nullptr;

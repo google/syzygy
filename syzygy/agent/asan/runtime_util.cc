@@ -43,7 +43,8 @@ bool GetSelfPath(base::FilePath* self_path) {
 
   std::vector<wchar_t> name(1024, 0);
   while (true) {
-    size_t n = ::GetModuleFileNameW(self, name.data(), name.size());
+    size_t n = ::GetModuleFileNameW(self, name.data(),
+                                    static_cast<DWORD>(name.size()));
     if (n == 0) {
       DWORD error = ::GetLastError();
       LOG(ERROR) << "GetModuleFileNameW failed: "

@@ -38,7 +38,8 @@ AsanLogger* logger_instance = NULL;
 void InitExecutionContext(const CONTEXT& rtl_context,
                           ExecutionContext* exc_context) {
   DCHECK(exc_context != NULL);
-
+  // TODO(loskutov): adapt for 64 bits
+#ifndef _WIN64
   exc_context->edi = rtl_context.Edi;
   exc_context->esi = rtl_context.Esi;
   exc_context->ebx = rtl_context.Ebx;
@@ -51,6 +52,7 @@ void InitExecutionContext(const CONTEXT& rtl_context,
   exc_context->eflags = rtl_context.EFlags;
   exc_context->esp = rtl_context.Esp;
   exc_context->seg_ss = rtl_context.SegSs;
+#endif
 }
 
 }  // namespace
@@ -110,7 +112,7 @@ void AsanLogger::WriteWithContext(const std::string& message,
 
 void AsanLogger::WriteWithStackTrace(const std::string& message,
                                      const void * const * trace_data,
-                                     size_t trace_length) {
+                                     uint32_t trace_length) {
   // If we're bound to a logging endpoint, log the message there.
   if (rpc_binding_.Get() != NULL) {
     ::common::rpc::InvokeRpc(
@@ -141,7 +143,7 @@ void AsanLogger::SaveMinidumpWithProtobufAndMemoryRanges(
 
   EXCEPTION_RECORD exception = {};
   exception.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
-  exception.ExceptionAddress = reinterpret_cast<PVOID>(context->Eip);
+  exception.ExceptionAddress = GetInstructionPointer(*context);
   exception.NumberParameters = 2;
   exception.ExceptionInformation[0] = reinterpret_cast<ULONG_PTR>(context);
   exception.ExceptionInformation[1] = reinterpret_cast<ULONG_PTR>(error_info);
@@ -154,7 +156,7 @@ void AsanLogger::SaveMinidumpWithProtobufAndMemoryRanges(
       static_cast<unsigned long>(protobuf.size()),
       reinterpret_cast<const unsigned long*>(base_addresses.data()),
       reinterpret_cast<const unsigned long*>(range_lengths.data()),
-      memory_ranges.size());
+      static_cast<uint32_t>(memory_ranges.size()));
 }
 
 }  // namespace asan

@@ -166,7 +166,7 @@ bool BlockHeapManager::DestroyHeap(HeapId heap_id) {
   return true;
 }
 
-void* BlockHeapManager::Allocate(HeapId heap_id, size_t bytes) {
+void* BlockHeapManager::Allocate(HeapId heap_id, uint32_t bytes) {
   DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id, false));
 
@@ -342,7 +342,7 @@ bool BlockHeapManager::Free(HeapId heap_id, void* alloc) {
   return true;
 }
 
-size_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
+uint32_t BlockHeapManager::Size(HeapId heap_id, const void* alloc) {
   DCHECK(initialized_);
   DCHECK(IsValidHeapId(heap_id, false));
 
@@ -384,7 +384,8 @@ void BlockHeapManager::BestEffortLockAll() {
   // Create room to store the list of locked heaps. This must use the internal
   // heap as any other heap may be involved in a crash and locked right now.
   DCHECK_EQ(static_cast<HeapInterface**>(nullptr), locked_heaps_);
-  size_t alloc_size = sizeof(HeapInterface*) * (heaps_.size() + 1);
+  uint32_t alloc_size = sizeof(HeapInterface*) *
+      static_cast<uint32_t>(heaps_.size() + 1);
   locked_heaps_ = reinterpret_cast<HeapInterface**>(internal_heap_->Allocate(
       alloc_size));
   DCHECK_NE(static_cast<HeapInterface**>(nullptr), locked_heaps_);

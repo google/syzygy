@@ -55,7 +55,7 @@ class AddressImpl {
   static const AddressImpl kInvalidAddress;
 
   AddressImpl() : value_(0) {}
-  explicit AddressImpl(uint32_t value) : value_(value) {}
+  explicit AddressImpl(size_t value) : value_(value) {}
   AddressImpl(const AddressImpl<kType>& other)  // NOLINT
       : value_(other.value_) {}
 
@@ -85,22 +85,22 @@ class AddressImpl {
   }
 
   // Arithmetic operators.
-  void operator+=(int32_t offset) { value_ += offset; }
-  void operator-=(int32_t offset) { value_ -= offset; }
+  void operator+=(intptr_t offset) { value_ += offset; }
+  void operator-=(intptr_t offset) { value_ -= offset; }
   AddressImpl<kType> operator+(size_t offset) const {
     return AddressImpl<kType>(value_ + offset);
   }
   AddressImpl<kType> operator-(size_t offset) const {
     return AddressImpl<kType>(value_ - offset);
   }
-  int32_t operator-(const AddressImpl<kType>& other) const {
+  intptr_t operator-(const AddressImpl<kType>& other) const {
     return value_ - other.value_;
   }
 
   // Accessors and mutators.
   static AddressType type() { return kType; }
-  uint32_t value() const { return value_; }
-  void set_value(uint32_t value) { value_ = value; }
+  uintptr_t value() const { return value_; }
+  void set_value(uintptr_t value) { value_ = value; }
 
   // @param alignment the alignment to be provided.
   // @returns an address that has been increased minimally to have the requested
@@ -119,7 +119,7 @@ class AddressImpl {
   // Determines the address alignment. If the value of the address is 0 then we
   // return the maximum alignment for a 32-bit address (0x80000000).
   // @returns the alignment of the address.
-  uint32_t GetAlignment() const { return common::GetAlignment(value_); }
+  size_t GetAlignment() const { return common::GetAlignment(value_); }
 
   // For serialization.
   bool Save(OutArchive *out_archive) const {
@@ -133,7 +133,7 @@ class AddressImpl {
                                   const AddressImpl<kType>& addr);
 
  private:
-  uint32_t value_;
+  uintptr_t value_;
 };
 
 }  // namespace detail
@@ -152,8 +152,7 @@ using FileOffsetAddress = detail::AddressImpl<kFileOffsetAddressType>;
 class AddressVariant {
  public:
   AddressVariant() : type_(kRelativeAddressType), value_(0) {}
-  AddressVariant(AddressType type, uint32_t value)
-      : type_(type), value_(value) {}
+  AddressVariant(AddressType type, size_t value) : type_(type), value_(value) {}
   AddressVariant(const AddressVariant& other)  // NOLINT
       : type_(other.type_), value_(other.value_) {}
   template <AddressType kType>
@@ -171,9 +170,9 @@ class AddressVariant {
 
   // Accessors and mutators.
   AddressType type() const { return type_; }
-  uint32_t value() const { return value_; }
+  uintptr_t value() const { return value_; }
   void set_type(AddressType type) { type_ = type; }
-  void set_value(uint32_t value) { value_ = value; }
+  void set_value(uintptr_t value) { value_ = value; }
 
   // Comparison operators.
   bool operator<(const AddressVariant& other) const;
@@ -184,8 +183,8 @@ class AddressVariant {
   bool operator!=(const AddressVariant& other) const;
 
   // Arithmetic operators.
-  void operator+=(int32_t offset) { value_ += offset; }
-  void operator-=(int32_t offset) { value_ -= offset; }
+  void operator+=(intptr_t offset) { value_ += offset; }
+  void operator-=(intptr_t offset) { value_ -= offset; }
   AddressVariant operator+(size_t offset) const {
     return AddressVariant(type_, value_ + offset);
   }
@@ -228,7 +227,7 @@ class AddressVariant {
   // Determines the address alignment. If the value of the address is 0 then we
   // return the maximum alignment for a 32-bit address (0x80000000).
   // @returns the alignment of the address.
-  uint32_t GetAlignment() const { return common::GetAlignment(value_); }
+  size_t GetAlignment() const { return common::GetAlignment(value_); }
 
   // For serialization.
   bool Save(OutArchive* out_archive) const;
@@ -239,7 +238,7 @@ class AddressVariant {
 
  private:
   AddressType type_;
-  uint32_t value_;
+  size_t value_;
 };
 
 }  // namespace core

@@ -84,15 +84,15 @@ class BlockHeapManager : public HeapManagerInterface {
 
   // @name HeapManagerInterface functions.
   // @{
-  virtual HeapId CreateHeap();
-  virtual bool DestroyHeap(HeapId heap_id);
-  virtual void* Allocate(HeapId heap_id, size_t bytes);
-  virtual bool Free(HeapId heap_id, void* alloc);
-  virtual size_t Size(HeapId heap_id, const void* alloc);
-  virtual void Lock(HeapId heap_id);
-  virtual void Unlock(HeapId heap_id);
-  virtual void BestEffortLockAll();
-  virtual void UnlockAll();
+   HeapId CreateHeap() override;
+   bool DestroyHeap(HeapId heap_id) override;
+   void* Allocate(HeapId heap_id, uint32_t bytes) override;
+   bool Free(HeapId heap_id, void* alloc) override;
+   uint32_t Size(HeapId heap_id, const void* alloc) override;
+   void Lock(HeapId heap_id) override;
+   void Unlock(HeapId heap_id) override;
+   void BestEffortLockAll() override;
+   void UnlockAll() override;
   // @}
 
   // Set the parameters of this heap manager.

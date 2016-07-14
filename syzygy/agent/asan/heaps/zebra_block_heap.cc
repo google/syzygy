@@ -45,12 +45,12 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
       quarantine_(slab_count_,
                   HeapAllocator<size_t>(internal_heap)),
       memory_notifier_(memory_notifier) {
-  DCHECK_NE(reinterpret_cast<MemoryNotifierInterface*>(NULL), memory_notifier);
+  DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
 
   // Allocate the chunk of memory directly from the OS.
-  heap_address_ = reinterpret_cast<uint8_t*>(::VirtualAlloc(
+  heap_address_ = static_cast<uint8_t*>(::VirtualAlloc(
       NULL, heap_size_, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE));
-  CHECK_NE(reinterpret_cast<uint8_t*>(NULL), heap_address_);
+  CHECK_NE(static_cast<uint8_t*>(nullptr), heap_address_);
   DCHECK(::common::IsAligned(heap_address_, GetPageSize()));
   memory_notifier_->NotifyFutureHeapUse(heap_address_, heap_size_);
 
@@ -64,7 +64,7 @@ ZebraBlockHeap::ZebraBlockHeap(size_t heap_size,
 }
 
 ZebraBlockHeap::~ZebraBlockHeap() {
-  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), heap_address_);
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), heap_address_);
   CHECK_NE(FALSE, ::VirtualFree(heap_address_, 0, MEM_RELEASE));
   memory_notifier_->NotifyReturnedToOS(heap_address_, heap_size_);
   heap_address_ = NULL;
@@ -79,7 +79,7 @@ uint32_t ZebraBlockHeap::GetHeapFeatures() const {
       kHeapSupportsGetAllocationSize;
 }
 
-void* ZebraBlockHeap::Allocate(size_t bytes) {
+void* ZebraBlockHeap::Allocate(uint32_t bytes) {
   SlabInfo* slab_info = AllocateImpl(bytes);
   if (slab_info == NULL)
     return NULL;
@@ -124,7 +124,7 @@ bool ZebraBlockHeap::IsAllocated(const void* alloc) {
   return true;
 }
 
-size_t ZebraBlockHeap::GetAllocationSize(const void* alloc) {
+uint32_t ZebraBlockHeap::GetAllocationSize(const void* alloc) {
   if (alloc == NULL)
     return kUnknownSize;
   ::common::AutoRecursiveLock lock(lock_);
@@ -150,9 +150,9 @@ bool ZebraBlockHeap::TryLock() {
   return lock_.Try();
 }
 
-void* ZebraBlockHeap::AllocateBlock(size_t size,
-                                    size_t min_left_redzone_size,
-                                    size_t min_right_redzone_size,
+void* ZebraBlockHeap::AllocateBlock(uint32_t size,
+                                    uint32_t min_left_redzone_size,
+                                    uint32_t min_right_redzone_size,
                                     BlockLayout* layout) {
   DCHECK_NE(static_cast<BlockLayout*>(nullptr), layout);
   // Abort if the redzones do not fit in a page. Even if the allocation
@@ -163,18 +163,19 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
     return NULL;
 
   // Plan the block layout.
-  if (!BlockPlanLayout(GetPageSize(),
+  if (!BlockPlanLayout(static_cast<uint32_t>(GetPageSize()),
                        kShadowRatio,
                        size,
                        min_left_redzone_size,
-                       std::max(GetPageSize(), min_right_redzone_size),
+                       std::max(static_cast<uint32_t>(GetPageSize()),
+                                min_right_redzone_size),
                        layout)) {
     return nullptr;
   }
 
   if (layout->block_size != kSlabSize)
     return nullptr;
-  size_t right_redzone_size = layout->trailer_size +
+  uint32_t right_redzone_size = layout->trailer_size +
       layout->trailer_padding_size;
   // Part of the body lies inside an "odd" page.
   if (right_redzone_size < GetPageSize())
@@ -187,7 +188,7 @@ void* ZebraBlockHeap::AllocateBlock(size_t size,
   // Allocate space for the block, and update the slab info to reflect the right
   // redzone.
   void* alloc = nullptr;
-  SlabInfo* slab_info = AllocateImpl(GetPageSize());
+  SlabInfo* slab_info = AllocateImpl(static_cast<uint32_t>(GetPageSize()));
   if (slab_info != nullptr) {
     slab_info->info.block_size = layout->block_size;
     slab_info->info.header_size = layout->header_size +
@@ -272,7 +273,8 @@ void ZebraBlockHeap::set_quarantine_ratio(float quarantine_ratio) {
   quarantine_ratio_ = quarantine_ratio;
 }
 
-ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
+ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(uint32_t bytes) {
+  CHECK_LE(bytes, (1u << 30));
   if (bytes == 0 || bytes > GetPageSize())
     return NULL;
   ::common::AutoRecursiveLock lock(lock_);
@@ -284,7 +286,7 @@ ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
   DCHECK_NE(kInvalidSlabIndex, slab_index);
   free_slabs_.pop();
   uint8_t* slab_address = GetSlabAddress(slab_index);
-  DCHECK_NE(reinterpret_cast<uint8_t*>(NULL), slab_address);
+  DCHECK_NE(static_cast<uint8_t*>(nullptr), slab_address);
 
   // Push the allocation to the end of the even page.
   uint8_t* alloc = slab_address + GetPageSize() - bytes;
@@ -294,7 +296,7 @@ ZebraBlockHeap::SlabInfo* ZebraBlockHeap::AllocateImpl(size_t bytes) {
   SlabInfo* slab_info = &slab_info_[slab_index];
   slab_info->state = kAllocatedSlab;
   slab_info->info.header = reinterpret_cast<BlockHeader*>(alloc);
-  slab_info->info.block_size = bytes;
+  slab_info->info.block_size = static_cast<uint32_t>(bytes);
   slab_info->info.header_size = 0;
   slab_info->info.trailer_size = 0;
   slab_info->info.is_nested = false;
@@ -317,7 +319,7 @@ uint8_t* ZebraBlockHeap::GetSlabAddress(size_t index) {
 size_t ZebraBlockHeap::GetSlabIndex(const void* address) {
   if (address < heap_address_ || address >= heap_address_ + heap_size_)
     return kInvalidSlabIndex;
-  return (reinterpret_cast<const uint8_t*>(address) - heap_address_) /
+  return (static_cast<const uint8_t*>(address) - heap_address_) /
          kSlabSize;
 }
 

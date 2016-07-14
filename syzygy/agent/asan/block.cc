@@ -53,7 +53,7 @@ void InitializeBlockHeader(BlockInfo* block_info) {
   block_info->header->is_nested = block_info->is_nested;
   block_info->header->has_header_padding = block_info->header_padding_size > 0;
   block_info->header->has_excess_trailer_padding =
-      block_info->trailer_padding_size > sizeof(uint32_t);
+      block_info->trailer_padding_size > sizeof(size_t);
   block_info->header->state = ALLOCATED_BLOCK;
   block_info->header->body_size = block_info->body_size;
 }
@@ -63,15 +63,15 @@ void InitializeBlockHeaderPadding(BlockInfo* block_info) {
   if (block_info->header_padding_size == 0)
     return;
   DCHECK(IsAligned(block_info->header_padding_size, kShadowRatio));
-  DCHECK(IsAligned(block_info->header_padding_size, 2 * sizeof(uint32_t)));
+  DCHECK(IsAligned(block_info->header_padding_size, 2 * sizeof(size_t)));
 
-  ::memset(block_info->RawHeaderPadding() + sizeof(uint32_t),
+  ::memset(block_info->RawHeaderPadding() + sizeof(size_t),
            kBlockHeaderPaddingByte,
-           block_info->header_padding_size - 2 * sizeof(uint32_t));
-  uint32_t* head = reinterpret_cast<uint32_t*>(block_info->header_padding);
-  uint32_t* tail = reinterpret_cast<uint32_t*>(block_info->RawHeaderPadding() +
+           block_info->header_padding_size - 2 * sizeof(size_t));
+  size_t* head = reinterpret_cast<size_t*>(block_info->header_padding);
+  size_t* tail = reinterpret_cast<size_t*>(block_info->RawHeaderPadding() +
                                                block_info->header_padding_size -
-                                               sizeof(uint32_t));
+                                               sizeof(size_t));
   *head = block_info->header_padding_size;
   *tail = block_info->header_padding_size;
 }
@@ -86,7 +86,7 @@ void InitializeBlockTrailerPadding(BlockInfo* block_info) {
     // This is guaranteed by kShadowRatio being >= 8, but we double check
     // for sanity's sake.
     DCHECK_LE(sizeof(uint32_t), block_info->trailer_padding_size);
-    uint32_t* head = reinterpret_cast<uint32_t*>(block_info->trailer_padding);
+    size_t* head = reinterpret_cast<size_t*>(block_info->trailer_padding);
     *head = block_info->trailer_padding_size;
   }
 }
@@ -229,11 +229,11 @@ BlockHeader* BlockGetHeaderFromBodyImpl(const BlockBody* const_body) {
 
 }  // namespace
 
-bool BlockPlanLayout(size_t chunk_size,
-                     size_t alignment,
-                     size_t size,
-                     size_t min_left_redzone_size,
-                     size_t min_right_redzone_size,
+bool BlockPlanLayout(uint32_t chunk_size,
+                     uint32_t alignment,
+                     uint32_t size,
+                     uint32_t min_left_redzone_size,
+                     uint32_t min_right_redzone_size,
                      BlockLayout* layout) {
   DCHECK_LE(kShadowRatio, chunk_size);
   DCHECK(::common::IsPowerOfTwo(chunk_size));
@@ -242,15 +242,15 @@ bool BlockPlanLayout(size_t chunk_size,
   DCHECK(::common::IsPowerOfTwo(alignment));
 
   // Calculate minimum redzone sizes that respect the parameters.
-  size_t left_redzone_size = ::common::AlignUp(
-      std::max(min_left_redzone_size, sizeof(BlockHeader)),
-      alignment);
-  size_t right_redzone_size = std::max(min_right_redzone_size,
-                                       sizeof(BlockTrailer));
+  uint32_t left_redzone_size = static_cast<uint32_t>(::common::AlignUp(
+      std::max<uint32_t>(min_left_redzone_size, sizeof(BlockHeader)),
+      alignment));
+  uint32_t right_redzone_size = std::max<uint32_t>(min_right_redzone_size,
+                                                   sizeof(BlockTrailer));
 
   // Calculate the total size of the allocation.
-  size_t total_size = ::common::AlignUp(
-      left_redzone_size + size + right_redzone_size, chunk_size);
+  uint32_t total_size = static_cast<uint32_t>(::common::AlignUp(
+      left_redzone_size + size + right_redzone_size, chunk_size));
 
   if (total_size < size)
     return false;
@@ -259,10 +259,10 @@ bool BlockPlanLayout(size_t chunk_size,
   // aligned as close as possible to the beginning of the right redzone while
   // respecting the body alignment requirements. This favors catching overflows
   // vs underflows when page protection mechanisms are active.
-  size_t body_trailer_size = size + right_redzone_size;
-  size_t body_trailer_size_aligned = ::common::AlignUp(body_trailer_size,
-                                                       alignment);
-  size_t body_padding_size = body_trailer_size_aligned - body_trailer_size;
+  uint32_t body_trailer_size = size + right_redzone_size;
+  uint32_t body_trailer_size_aligned = static_cast<uint32_t>(
+      ::common::AlignUp(body_trailer_size, alignment));
+  uint32_t body_padding_size = body_trailer_size_aligned - body_trailer_size;
   right_redzone_size += body_padding_size;
 
   // The left redzone takes up the rest of the space.
@@ -277,7 +277,7 @@ bool BlockPlanLayout(size_t chunk_size,
 
   // Fill out the layout structure.
   layout->block_alignment = chunk_size;
-  layout->block_size = total_size;
+  layout->block_size = static_cast<uint32_t>(total_size);
   layout->header_size = sizeof(BlockHeader);
   layout->header_padding_size = left_redzone_size - sizeof(BlockHeader);
   layout->body_size = size;
@@ -378,8 +378,10 @@ void ConvertBlockInfo(const BlockInfo& expanded, CompactBlockInfo* compact) {
   DCHECK_NE(static_cast<CompactBlockInfo*>(nullptr), compact);
   compact->header = expanded.header;
   compact->block_size = expanded.block_size;
-  compact->header_size = sizeof(BlockHeader) + expanded.header_padding_size;
-  compact->trailer_size = sizeof(BlockTrailer) + expanded.trailer_padding_size;
+  compact->header_size = static_cast<uint32_t>(sizeof(BlockHeader) +
+                                               expanded.header_padding_size);
+  compact->trailer_size = static_cast<uint32_t>(sizeof(BlockTrailer) +
+                                                expanded.trailer_padding_size);
   compact->is_nested = expanded.is_nested;
 }
 
@@ -460,7 +462,7 @@ void BlockSetChecksum(const BlockInfo& block_info) {
 bool BlockBodyIsFloodFilled(const BlockInfo& block_info) {
   // TODO(chrisha): Move the memspn-like function from shadow.cc to a common
   // place and reuse it here.
-  for (size_t i = 0; i < block_info.body_size; ++i) {
+  for (uint32_t i = 0; i < block_info.body_size; ++i) {
     if (block_info.RawBody(i) != kBlockFloodFillByte)
       return false;
   }
@@ -479,8 +481,8 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
     return;
   }
 
-  uint32_t alloc_start = reinterpret_cast<uint32_t>(block_info->header);
-  uint32_t alloc_end = alloc_start + block_info->block_size;
+  uintptr_t alloc_start = reinterpret_cast<uintptr_t>(block_info->header);
+  uintptr_t alloc_end = alloc_start + block_info->block_size;
   alloc_start = ::common::AlignUp(alloc_start, GetPageSize());
   alloc_end = ::common::AlignDown(alloc_end, GetPageSize());
   if (alloc_start >= alloc_end) {
@@ -491,8 +493,8 @@ void BlockIdentifyWholePages(BlockInfo* block_info) {
   block_info->block_pages = reinterpret_cast<uint8_t*>(alloc_start);
   block_info->block_pages_size = alloc_end - alloc_start;
 
-  uint32_t left_redzone_end = reinterpret_cast<uint32_t>(block_info->body);
-  uint32_t right_redzone_start = left_redzone_end + block_info->body_size;
+  uintptr_t left_redzone_end = reinterpret_cast<uintptr_t>(block_info->body);
+  uintptr_t right_redzone_start = left_redzone_end + block_info->body_size;
   left_redzone_end = ::common::AlignDown(left_redzone_end, GetPageSize());
   right_redzone_start = ::common::AlignUp(right_redzone_start, GetPageSize());
 
@@ -524,7 +526,7 @@ bool BlockIsMostLikelyFloodFilled(const BlockInfo& block_info) {
   size_t filled_spans = 0;
   size_t unfilled_spans = 0;
   bool in_filled_span = false;
-  for (size_t i = 0; i < block_info.body_size; ++i) {
+  for (uint32_t i = 0; i < block_info.body_size; ++i) {
     bool byte_is_filled = (block_info.RawBody(i) == kBlockFloodFillByte);
     if (byte_is_filled) {
       ++filled;
@@ -591,8 +593,8 @@ namespace {
 //     configurations that flip bits in parts of the block that don't
 //     contribute to the checksum (ie, the body for live and flooded
 //     allocations).
-bool AdvanceBitFlips(size_t positions, std::vector<size_t>* flips) {
-  DCHECK_NE(static_cast<std::vector<size_t>*>(nullptr), flips);
+bool AdvanceBitFlips(size_t positions, std::vector<uint32_t>* flips) {
+  DCHECK_NE(static_cast<std::vector<uint32_t>*>(nullptr), flips);
 
   // An empty set of bitflips is already exhausted.
   if (flips->empty())
@@ -625,11 +627,11 @@ bool AdvanceBitFlips(size_t positions, std::vector<size_t>* flips) {
 }
 
 // Flips the bits at the given positions.
-void FlipBits(const std::vector<size_t>& flips, const BlockInfo& block_info) {
-  for (size_t i = 0; i < flips.size(); ++i) {
+void FlipBits(const std::vector<uint32_t>& flips, const BlockInfo& block_info) {
+  for (uint32_t i = 0; i < flips.size(); ++i) {
     DCHECK_LT(flips[i], block_info.block_size * 8);
-    size_t byte = flips[i] / 8;
-    size_t bit = flips[i] % 8;
+    uint32_t byte = flips[i] / 8;
+    uint32_t bit = flips[i] % 8;
     uint8_t mask = static_cast<uint8_t>(1u << bit);
     block_info.RawBlock(byte) ^= mask;
   }
@@ -643,9 +645,9 @@ bool BlockBitFlipsFixChecksumImpl(const BlockInfo& block_info,
 
   // Initialize the first possible sequence of bitflips (wrt the generator
   // in AdvanceBitFlips).
-  std::vector<size_t> flips;
+  std::vector<uint32_t> flips;
   flips.resize(bitflips);
-  for (size_t i = 0; i < flips.size(); ++i)
+  for (uint32_t i = 0; i < flips.size(); ++i)
     flips[i] = i;
 
   while (true) {

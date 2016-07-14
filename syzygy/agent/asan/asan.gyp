@@ -38,8 +38,6 @@
         'crt_interceptors_macros.h',
         'error_info.cc',
         'error_info.h',
-        'gen/memory_interceptors_impl.asm',
-        'gen/memory_redirectors.asm',
         'heap.cc',
         'heap.h',
         'heap_checker.cc',
@@ -85,8 +83,6 @@
         'reporters/crashpad_reporter.cc',
         'reporters/crashpad_reporter.h',
         'reporters/exported_function.h',
-        'reporters/kasko_reporter.cc',
-        'reporters/kasko_reporter.h',
         'rtl_impl.cc',
         'rtl_impl.h',
         'rtl_utils.cc',
@@ -117,12 +113,27 @@
       'dependencies': [
         '<(src)/syzygy/crashdata/crashdata.gyp:crashdata_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
-        '<(src)/syzygy/kasko/kasko.gyp:kasko',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
-        '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
         '<(src)/third_party/crashpad/files/client/client.gyp:crashpad_client',
+      ],
+      'conditions': [
+        # By default, target_arch is set to ia32 on Windows.
+        # To get a 64-bit build, one needs to explicitly set
+        # `target_arch` and `host_arch` to `x64`.
+        ['target_arch=="ia32"', {
+          'sources': [
+            'gen/memory_interceptors_impl.asm',
+            'gen/memory_redirectors.asm',
+            'reporters/kasko_reporter.cc',
+            'reporters/kasko_reporter.h',
+          ],
+          'dependencies': [
+            '<(src)/syzygy/kasko/kasko.gyp:kasko',
+            '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
+          ],
+        }],
       ],
       'export_dependent_settings': [
         # We depend on crashdata_lib, which means we can see the include
@@ -196,8 +207,14 @@
         'reporters/breakpad_reporter_unittest.cc',
         'reporters/crashpad_reporter_unittest.cc',
         'reporters/exported_function_unittest.cc',
-        'reporters/kasko_reporter_unittest.cc',
         '<(src)/syzygy/testing/run_all_unittests.cc',
+      ],
+      'conditions': [
+        ['target_arch == "ia32"', {
+          'sources': [
+            'reporters/kasko_reporter_unittest.cc',
+          ],
+        }],
       ],
       'dependencies': [
         'syzyasan_rtl_lib',

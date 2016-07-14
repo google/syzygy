@@ -150,7 +150,11 @@ struct AsanParameters {
   // When laid out in memory the ignored_stack_ids are present here as a NULL
   // terminated vector.
 };
+#ifndef _WIN64
 COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 60);
+#else
+COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 64);
+#endif
 
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header

@@ -245,7 +245,7 @@ void RegistryCache::CleanUpVersion(base::win::RegKey* base_key,
     }
   }
 
-  int nb_remaining_entries = max_entries_per_version_;
+  size_t nb_remaining_entries = max_entries_per_version_;
   // Iterate over the map and, for each entry, verify if it needs to be purged.
   // An entry is kept if its age is smaller than |kMaxDaysInRegistry| and if we
   // have not reached |kMaxEntriesPerVersion| entries. Since the entries are

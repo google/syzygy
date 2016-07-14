@@ -75,10 +75,6 @@
       # Grinder tests.
       '<(src)/syzygy/grinder/grinder.gyp:grinder_unittests',
 
-      # Kasko tests.
-      '<(src)/syzygy/kasko/kasko.gyp:kasko_api_tests',
-      '<(src)/syzygy/kasko/kasko.gyp:kasko_unittests',
-
       # Integration tests.
       '<(src)/syzygy/integration_tests/integration_tests.gyp:integration_tests',
       '<(src)/syzygy/integration_tests/integration_tests.gyp:'
@@ -155,6 +151,15 @@
 
       # Zap Timestamp tests.
       '<(src)/syzygy/zap_timestamp/zap_timestamp.gyp:zap_timestamp_unittests',
+    ],
+    'conditions': [
+      ['target_arch == "ia32"', {
+        'sources': [
+          # Kasko tests.
+          '<(src)/syzygy/kasko/kasko.gyp:kasko_api_tests',
+          '<(src)/syzygy/kasko/kasko.gyp:kasko_unittests',
+        ],
+      }],
     ],
   }
 }

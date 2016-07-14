@@ -46,7 +46,7 @@ class HeapManagerInterface {
   //     allocation. The implementation is free to use this heap or not.
   // @param bytes The requested size of the allocation, in bytes.
   // @returns A pointer to the new allocation on success, NULL otherwise.
-  virtual void* Allocate(HeapId heap, size_t bytes) = 0;
+  virtual void* Allocate(HeapId heap, uint32_t bytes) = 0;
 
   // Free a given heap allocation.
   // @param heap A hint on the heap that might contain this allocation.
@@ -61,7 +61,7 @@ class HeapManagerInterface {
   //     This must be a value that was previously returned by a call to
   //     'Allocate'.
   // @returns the size of the block on success, 0 otherwise.
-  virtual size_t Size(HeapId heap, const void* alloc) = 0;
+  virtual uint32_t Size(HeapId heap, const void* alloc) = 0;
 
   // Locks a heap.
   // @param heap The ID of the heap that should be locked.

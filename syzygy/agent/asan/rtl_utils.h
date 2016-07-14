@@ -28,8 +28,22 @@ class AsanRuntime;
 class Shadow;
 
 // Contents of the registers before calling the Asan memory check function.
+// Note: the order of fields is significant!
 #pragma pack(push, 1)
 struct AsanContext {
+#ifdef _WIN64
+  // TODO(loskutov): add more x64 registers or eliminate this piece of code.
+  size_t original_rdi;
+  size_t original_rsi;
+  size_t original_rbp;
+  size_t original_rsp;
+  size_t original_rbx;
+  size_t original_rdx;
+  size_t original_rcx;
+  size_t original_rax;
+  DWORD original_eflags;
+  size_t original_rip;
+#else
   DWORD original_edi;
   DWORD original_esi;
   DWORD original_ebp;
@@ -40,6 +54,7 @@ struct AsanContext {
   DWORD original_eax;
   DWORD original_eflags;
   DWORD original_eip;
+#endif
 };
 #pragma pack(pop)
 

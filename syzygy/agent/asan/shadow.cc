@@ -954,7 +954,7 @@ bool Shadow::BlockInfoFromShadowImpl(
 
   uint8_t* block = reinterpret_cast<uint8_t*>(left * kShadowRatio);
   info->header = reinterpret_cast<BlockHeader*>(block);
-  info->block_size = (right - left) * kShadowRatio;
+  info->block_size = static_cast<uint32_t>((right - left) * kShadowRatio);
 
   // Get the length of the body modulo the shadow ratio.
   size_t body_size_mod = ShadowMarkerHelper::GetBlockStartData(shadow_[left]);
