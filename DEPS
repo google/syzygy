@@ -29,7 +29,7 @@ vars = {
 deps = {
   # Dependency required to build base.
   "src/third_party/icu":
-    Var("chromium_git") + "chromium/deps/icu46@fffc215",
+    Var("chromium_git") + "chromium/deps/icu.git@54f86bb",
 
   # A general purpose X86 disassembler.
   "src/third_party/distorm/files":
@@ -65,7 +65,7 @@ deps = {
 
   # This brings in Crashpad, used by SyzyASan for crash reporting.
   "src/third_party/crashpad/files":
-    "https://chromium.googlesource.com/crashpad/crashpad@dbfcb5d032",
+    "https://chromium.googlesource.com/crashpad/crashpad@35da3b6735",
 
   # Brings in the open-source Microsoft cvinfo.h file.
   "src/third_party/microsoft-pdb":

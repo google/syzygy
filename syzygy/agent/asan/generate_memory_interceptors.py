@@ -64,6 +64,11 @@ _REDIRECTORS_PROC_HEADER = """\
 ; the tail function. This allows the tail function to trivially compute the
 ; redirector's address, which is used to identify the invoked redirector.
 asan_redirectors PROC
+
+; Adds a NOP at the beginning of this function to make this work when using
+; incremental linking. Every reference to the first probe will otherwise be
+; replaced by a jump to a thunk.
+nop
 """
 
 _REDIRECTORS_PROC_TRAILER = """\

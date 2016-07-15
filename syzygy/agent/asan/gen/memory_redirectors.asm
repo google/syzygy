@@ -79,6 +79,11 @@ PUBLIC asan_redirect_1_byte_stos_access
 ; redirector's address, which is used to identify the invoked redirector.
 asan_redirectors PROC
 
+; Adds a NOP at the beginning of this function to make this work when using
+; incremental linking. Every reference to the first probe will otherwise be
+; replaced by a jump to a thunk.
+nop
+
 asan_redirect_1_byte_read_access LABEL PROC
   call asan_redirect_tail
 asan_redirect_1_byte_write_access LABEL PROC

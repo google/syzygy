@@ -707,19 +707,11 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "    \"enable-zebra-block-heap\": 0,\n"
       "    \"enable-large-block-heap\": 1,\n"
       "    \"enable-allocation-filter\": 0,\n"
-#if _MSC_VER == 1800  // MSVS 2013.
-      "    \"allocation-guard-rate\": 1.0000000000000000E+000,\n"
-      "    \"zebra-block-heap-size\": 16777216,\n"
-      "    \"zebra-block-heap-quarantine-ratio\": 2.5000000000000000E-001,\n"
-      "    \"large-allocation-threshold\": 20480,\n"
-      "    \"quarantine-flood-fill-rate\": 5.0000000000000000E-001\n"
-#elif _MSC_VER == 1900  // MSVS 2015.
       "    \"allocation-guard-rate\": 1.0000000000000000E+00,\n"
       "    \"zebra-block-heap-size\": 16777216,\n"
       "    \"zebra-block-heap-quarantine-ratio\": 2.5000000000000000E-01,\n"
       "    \"large-allocation-threshold\": 20480,\n"
       "    \"quarantine-flood-fill-rate\": 5.0000000000000000E-01\n"
-#endif
       "  }\n"
       "}";
   AsanErrorShadowMemory shadow_memory = {};
@@ -856,19 +848,11 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "    \"enable-zebra-block-heap\": 0,\n"
       "    \"enable-large-block-heap\": 1,\n"
       "    \"enable-allocation-filter\": 0,\n"
-#if _MSC_VER == 1800  // MSVS 2013.
-      "    \"allocation-guard-rate\": 1.0000000000000000E+000,\n"
-      "    \"zebra-block-heap-size\": 16777216,\n"
-      "    \"zebra-block-heap-quarantine-ratio\": 2.5000000000000000E-001,\n"
-      "    \"large-allocation-threshold\": 20480,\n"
-      "    \"quarantine-flood-fill-rate\": 5.0000000000000000E-001\n"
-#elif _MSC_VER == 1900  // MSVS 2015.
       "    \"allocation-guard-rate\": 1.0000000000000000E+00,\n"
       "    \"zebra-block-heap-size\": 16777216,\n"
       "    \"zebra-block-heap-quarantine-ratio\": 2.5000000000000000E-01,\n"
       "    \"large-allocation-threshold\": 20480,\n"
       "    \"quarantine-flood-fill-rate\": 5.0000000000000000E-01\n"
-#endif
       "  }\n"
       "}";
   AsanErrorShadowMemory shadow_memory = {};

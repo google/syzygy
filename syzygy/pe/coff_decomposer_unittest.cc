@@ -33,11 +33,14 @@ const size_t kPointerSize = BlockGraph::Reference::kMaximumSize;
 
 // test_dll.coff_obj-specific constants. Adjust to match current code in
 // test_dll.cc.
-const size_t kNumTextSections = 26;
 const size_t kNumDataSections = 2;
 const size_t kNumRDataSections = 14;  // Includes .rdata$r sections.
-const size_t kNumDebugSections = 28;  // Includes .debug$S and .debug$T.
-const size_t kNumBssSections = 1;
+
+// The VS2015 release builds contain an extra .bss section caused by the
+// use of snprintf in test_dll.cc.
+const size_t kNumBssSections = 2;
+const size_t kNumTextSections = 30;
+const size_t kNumDebugSections = 32;  // Includes .debug$S and .debug$T.
 
 const size_t kNumFunctions = 14;
 const size_t kNumJumpLabelsInDllMain = 3;

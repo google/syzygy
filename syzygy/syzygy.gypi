@@ -42,6 +42,10 @@
     # targets are responsible on setting the appropriate linker settings
     # depending on the value of this flag.
     'pgo_phase%': '0',
+
+    # Use the handle verifier in a single module mode so we can use some HANDLE
+    # during the initialization of our agents.
+    'single_module_mode_handle_verifier': '1',
   },
   'target_defaults': {
     'include_dirs': [

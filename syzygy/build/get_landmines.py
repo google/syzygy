@@ -31,6 +31,7 @@ def print_landmines():
   # dependency problems, fix the dependency problems instead of adding a
   # landmine.
   print 'Initial landmine.'
+  print 'Switch to VS2015.'
 
 
 def main():

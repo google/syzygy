@@ -191,15 +191,15 @@ BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
 
   char buffer[1024] = {'\0'};
   ::memset(buffer, 0, sizeof(buffer));
-  ::_snprintf(buffer,
-              sizeof(buffer) - 1,
-              "is_qwerty=%s\nis_asdfgh=%s\nis_upper_case=%s\nis_whitespace=%s\n"
-              "is_other=%s",
-              BoolToString(is_qwerty),
-              BoolToString(is_asdfgh),
-              BoolToString(is_upper_case),
-              BoolToString(is_whitespace),
-              BoolToString(is_other));
+  ::snprintf(buffer,
+             sizeof(buffer) - 1,
+             "is_qwerty=%s\nis_asdfgh=%s\nis_upper_case=%s\nis_whitespace=%s\n"
+             "is_other=%s",
+             BoolToString(is_qwerty),
+             BoolToString(is_asdfgh),
+             BoolToString(is_upper_case),
+             BoolToString(is_whitespace),
+             BoolToString(is_other));
 
   TestExport(sizeof(buffer), buffer);
 

@@ -66,6 +66,15 @@
                 },
               },
             },
+            'Coverage': {
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'AdditionalDependencies': [
+                    'libucrtd.lib'
+                  ],
+                },
+              },
+            },
           },
         }],
       ],
@@ -113,6 +122,15 @@
               },
             },
             'Debug': {
+              'msvs_settings': {
+                'VCLinkerTool': {
+                  'AdditionalDependencies': [
+                    'libucrtd.lib'
+                  ],
+                },
+              },
+            },
+            'Coverage': {
               'msvs_settings': {
                 'VCLinkerTool': {
                   'AdditionalDependencies': [

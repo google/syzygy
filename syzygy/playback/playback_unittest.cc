@@ -130,8 +130,8 @@ TEST_F(PlaybackTest, ConsumeCallTraceEvents) {
   static const size_t kProcessAttachCount = 4;
   static const size_t kBatchFunctionEntryCount = 4;
 #else
-  static const size_t kProcessAttachCount = 12;
-  static const size_t kBatchFunctionEntryCount = 12;
+  static const size_t kProcessAttachCount = 8;
+  static const size_t kBatchFunctionEntryCount = 8;
 #endif
 
   EXPECT_CALL(*parse_event_handler_, OnProcessStarted(_, _, _)).Times(4);

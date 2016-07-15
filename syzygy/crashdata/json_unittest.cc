@@ -101,7 +101,7 @@ TEST(CrashDataJsonTest, ValueLeafReal) {
   Value value;
   LeafSetReal(2.0e99, ValueGetLeaf(&value));
 
-  const char kExpected[] = "1.9999999999999999E+099";
+  const char kExpected[] = "1.9999999999999999E+99";
   TestConversion(true, value, kExpected);
   TestConversion(false, value, kExpected);
 }
@@ -244,7 +244,7 @@ TEST(CrashDataJsonTest, AllTypes) {
       "{\n"
       "  \"int\": -42,\n"
       "  \"uint\": 42,\n"
-      "  \"real\": 1.9999999999999999E+099,\n"
+      "  \"real\": 1.9999999999999999E+99,\n"
       "  \"string\": \"foobar\",\n"
       "  \"address\": \"0xDEADF00D\",\n"
       "  \"stack-trace\": [\n"
@@ -271,7 +271,7 @@ TEST(CrashDataJsonTest, AllTypes) {
       "{"
         "\"int\":-42,"
         "\"uint\":42,"
-        "\"real\":1.9999999999999999E+099,"
+        "\"real\":1.9999999999999999E+99,"
         "\"string\":\"foobar\","
         "\"address\":\"0xDEADF00D\","
         "\"stack-trace\":[\"0xBAADBEEF\"],"

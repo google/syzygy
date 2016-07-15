@@ -16,7 +16,7 @@
 # through sparse checkouts.
 
 vars = {
-  "chrome_revision": "f7bd300e8c52d6ebb7575a28d4cd9d3bdccaf439",
+  "chrome_revision": "a89708a5c1bfe778ed1615f0bc92f0e9ae2e2192",
   "chrome_base_git": "https://chromium.googlesource.com/",
 
   "buildtools_revision": "ecc8e253abac3b6186a97573871a084f4c0ca3ae",

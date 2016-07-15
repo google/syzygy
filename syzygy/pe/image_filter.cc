@@ -141,8 +141,8 @@ bool LoadRangeFromJSON(const ListValue& range, ImageFilter* filter) {
     return false;
 
   ListValue::const_iterator it = range.begin();
-  Value* address_value = *(it++);
-  Value* length_value = *it;
+  Value* address_value = (it++)->get();
+  Value* length_value = it->get();
   DCHECK(address_value != NULL);
   DCHECK(length_value != NULL);
 
@@ -179,7 +179,7 @@ bool LoadFilterFromJSON(const ListValue& list, ImageFilter* filter) {
 
   ListValue::const_iterator it = list.begin();
   for (; it != list.end(); ++it) {
-    Value* value = *it;
+    Value* value = it->get();
     DCHECK(value != NULL);
 
     // LoadRangeFromJSON takes care of logging on failure, and adding the range

@@ -333,7 +333,6 @@ STDMETHODIMP StackWalkHelper::addressForVA(ULONGLONG va,
   return hr;
 }
 
-#if _MSC_VER >= 1900  // MSVS 2015.
 STDMETHODIMP StackWalkHelper::numberOfFunctionFragmentsForVA(
     ULONGLONG vaFunc,
     DWORD cbFunc,
@@ -351,7 +350,6 @@ STDMETHODIMP StackWalkHelper::functionFragmentsForVA(
   // TODO(manzagop): implement this method.
   return E_NOTIMPL;
 }
-#endif
 
 bool StackWalkHelper::ReadFromModule(const AddressRange& range,
                                      size_t* bytes_read,

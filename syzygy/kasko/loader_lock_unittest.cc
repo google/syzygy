@@ -57,7 +57,10 @@ class LoaderLockTest : public ::testing::Test {
 // Tests that the offset used for finding the loader lock address in the Process
 // Environment Block is correct. This is done by looking into the PDB file for
 // ntdll.
-TEST_F(LoaderLockTest, SymbolOffset) {
+//
+// NOTE: Currently disabled as it relies on being able to retrieve the symbols
+// for ntdll.dll, which doesn't always work on the bots.
+TEST_F(LoaderLockTest, DISABLED_SymbolOffset) {
   HMODULE ntdll_handle = ::GetModuleHandle(L"ntdll.dll");
 
   base::FilePath ntdll_path = GetModulePath(ntdll_handle);

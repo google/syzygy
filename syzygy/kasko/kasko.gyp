@@ -178,22 +178,6 @@
       ],
       'msvs_settings': {
         'VCLinkerTool': {
-          # Link against the XP-constrained user32 import libraries for
-          # kernel32 and user32 of the platform-SDK provided one to avoid
-          # inadvertently taking dependencies on post-XP user32 exports.
-          'IgnoreDefaultLibraryNames': [
-            'user32.lib',
-            'kernel32.lib',
-          ],
-          'AdditionalDependencies': [
-            # Custom import libs.
-            'user32.winxp.lib',
-            'kernel32.winxp.lib',
-          ],
-          'AdditionalLibraryDirectories': [
-            '<(src)/build/win/importlibs/x86',
-            '<(src)/syzygy/build/importlibs/x86',
-          ],
           # This module should delay load nothing.
           'DelayLoadDLLs=': [
           ],
