@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.0
+
+[ae4b5c8f27] Switch to using VS2015.
+
 Version 0.8.19.0
 
 [c5c600f40e] Fix parsing of empty debug directories.
