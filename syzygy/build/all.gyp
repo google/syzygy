@@ -18,7 +18,6 @@
     # All files that should be archived after a successful official build are
     # named here.
     'files_to_archive': [
-      '<(PRODUCT_DIR)/benchmark.zip',
       '<(PRODUCT_DIR)/binaries.zip',
       '<(PRODUCT_DIR)/lib.zip',
       '<(PRODUCT_DIR)/symbols.zip',

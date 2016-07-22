@@ -77,6 +77,7 @@ _EXECUTABLES = [
     'coverage_client.dll',
     'grinder.exe',
     'instrument.exe',
+    'msdia140.dll',
     'profile_client.dll',
     'relink.exe',
     'reorder.exe',
