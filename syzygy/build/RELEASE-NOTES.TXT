@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.2
+
+[c76e874ec4] Added benchmarks archive back to build archive as it is still
+             required for official builds.
+
 Version 0.8.20.1
 
 [b142ab0a1f] Removed the benchmarks archive from the list of things that we
