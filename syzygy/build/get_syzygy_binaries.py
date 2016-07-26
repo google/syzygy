@@ -52,6 +52,7 @@ _MD5_RE = re.compile('^[a-f0-9]{32}$')
 # following format:
 # (basename, logging name, relative installation path, extraction filter)
 _RESOURCES = [
+  ('benchmark.zip', 'benchmark', '', None),
   ('binaries.zip', 'binaries', 'exe', None),
   ('symbols.zip', 'symbols', 'exe',
       lambda x: x.filename.endswith('.dll.pdb'))]
