@@ -120,7 +120,7 @@ bool OutputPEFileSignature(const PEFile::Signature& signature,
       json_file->OutputKey(kBaseAddressKey) &&
       json_file->OutputInteger(signature.base_address.value()) &&
       json_file->OutputKey(kModuleSizeKey) &&
-      json_file->OutputInteger(signature.module_size) &&
+      json_file->OutputInteger(static_cast<int>(signature.module_size)) &&
       json_file->OutputKey(kModuleTimeDateStampKey) &&
       json_file->OutputString(time_stamp) &&
       json_file->OutputKey(kModuleChecksumKey) &&

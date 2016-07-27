@@ -179,7 +179,7 @@ bool AddRelocs(const BlockGraph::Block& block,
                  << "cannot translate to relocation.";
       return false;
     }
-    reloc.SymbolTableIndex = symbol_it->second;
+    reloc.SymbolTableIndex = static_cast<DWORD>(symbol_it->second);
     if (!GetCoffRelocationType(it->second.type(), it->second.size(),
                                &reloc.Type))
       return false;
@@ -428,12 +428,12 @@ bool CoffImageLayoutBuilder::LayoutSectionBlocks(
     if ((section->characteristics() & IMAGE_SCN_CNT_UNINITIALIZED_DATA) == 0) {
       // Normal section.
       header->PointerToRawData = section_start.value();
-      header->SizeOfRawData = info.data_size;
+      header->SizeOfRawData = static_cast<DWORD>(info.data_size);
     } else {
       // BSS section. The COFF specifications state that SizeOfRawData
       // should be set to zero, but MSVC sets it to the size of the
       // uninitialized data.
-      header->SizeOfRawData = info.size;
+      header->SizeOfRawData = static_cast<DWORD>(info.size);
     }
     DCHECK_EQ(header->Characteristics, info.characteristics);
 
@@ -490,7 +490,7 @@ bool CoffImageLayoutBuilder::LayoutSymbolAndStringTables(
   }
 
   file_header->PointerToSymbolTable = cursor_.value();
-  file_header->NumberOfSymbols = symbols.ElementCount();
+  file_header->NumberOfSymbols = static_cast<DWORD>(symbols.ElementCount());
 
   // Lay out the blocks.
   if (!LayoutBlockImpl(symbols_block_))

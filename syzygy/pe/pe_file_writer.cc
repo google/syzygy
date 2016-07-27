@@ -152,7 +152,7 @@ bool PEFileWriter::UpdateFileChecksum(const base::FilePath& path) {
     return false;
   }
 
-  size_t file_size = ::GetFileSize(image_handle.Get(), NULL);
+  DWORD file_size = ::GetFileSize(image_handle.Get(), NULL);
 
   // Create an anonymous read/write mapping on the file.
   base::win::ScopedHandle image_mapping(::CreateFileMapping(image_handle.Get(),
@@ -514,7 +514,7 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
     dst_addr += ref.offset();
 
     // Compute the new value of the reference.
-    uint32_t value = 0;
+    uintptr_t value = 0;
     switch (ref.type()) {
       case BlockGraph::ABSOLUTE_REF:
         value = image_base.value() + dst_addr.value();

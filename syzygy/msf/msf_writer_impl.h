@@ -68,7 +68,7 @@ class FreePageBitMap {
   //     to SetPageCount. This involves both clearing and setting bits in that
   //     case.
   void Finalize() {
-    uint32_t bits_left = data_.size() * 8 - page_count_;
+    uint32_t bits_left = static_cast<uint32_t>(data_.size()) * 8 - page_count_;
     DCHECK_LE(bits_left, 7u);
 
     // This leaves the top |bits_left| bits set.
@@ -166,7 +166,9 @@ bool WriteFreePageBitMap(const FreePageBitMap& free, FILE* file) {
   size_t page_index = 1;
   size_t bytes_to_write = kMsfPageSize;
   while (true) {
-    if (::fseek(file, page_index * kMsfPageSize, SEEK_SET) != 0) {
+    if (::fseek(file,
+                static_cast<long>(page_index * kMsfPageSize),
+                SEEK_SET) != 0) {
       LOG(ERROR) << "Failed to seek to page " << page_index << ".";
       return false;
     }
@@ -224,14 +226,14 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
 
   // Initialize the directory with stream count and lengths.
   std::vector<uint32_t> directory;
-  directory.push_back(msf_file.StreamCount());
-  for (size_t i = 0; i < msf_file.StreamCount(); ++i) {
+  directory.push_back(static_cast<uint32_t>(msf_file.StreamCount()));
+  for (uint32_t i = 0; i < msf_file.StreamCount(); ++i) {
     // Null streams have an implicit zero length.
     MsfStreamImpl<T>* stream = msf_file.GetStream(i).get();
     if (stream == NULL)
       directory.push_back(0);
     else
-      directory.push_back(stream->length());
+      directory.push_back(static_cast<uint32_t>(stream->length()));
   }
 
   // Reserve space for the header page, the two free page map pages, and a
@@ -250,7 +252,7 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
   // map bookkeeping later on.
   size_t stream0_start = directory.size();
   size_t stream0_end = 0;
-  for (size_t i = 0; i < msf_file.StreamCount(); ++i) {
+  for (uint32_t i = 0; i < msf_file.StreamCount(); ++i) {
     if (i == 1)
       stream0_end = directory.size();
 
@@ -292,7 +294,9 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
 
   // Write the header.
   if (!WriteHeader(root_directory_pages,
-                   sizeof(directory[0]) * directory.size(), page_count)) {
+                   static_cast<uint32_t>(
+                       sizeof(directory[0]) * directory.size()),
+                   page_count)) {
     LOG(ERROR) << "Failed to write MSF header.";
     return false;
   }
@@ -374,7 +378,7 @@ bool MsfWriterImpl<T>::AppendStream(MsfStreamImpl<T>* stream,
 template <MsfFileType T>
 bool MsfWriterImpl<T>::WriteHeader(
     const std::vector<uint32_t>& root_directory_pages,
-    size_t directory_size,
+    uint32_t directory_size,
     uint32_t page_count) {
   VLOG(1) << "Writing MSF Header ...";
 

@@ -100,9 +100,6 @@
         'dia_util_internal.h',
         'decomposer.cc',
         'decomposer.h',
-        'dos_stub.asm',
-        'dos_stub.cc',
-        'dos_stub.h',
         'find.cc',
         'find.h',
         'image_filter.cc',
@@ -147,6 +144,15 @@
         'relinker.h',
         'serialization.cc',
         'serialization.h',
+      ],
+      'conditions': [
+        ['target_arch == "ia32"', {
+          'sources': [
+            'dos_stub.asm',
+            'dos_stub.cc',
+            'dos_stub.h',
+          ]
+        }]
       ],
       'dependencies': [
         'dia_sdk',

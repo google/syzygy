@@ -48,8 +48,9 @@ bool CopySectionInfoToBlockGraph(
             section_index);
 
   // Iterate through the image sections, and create sections in the BlockGraph.
-  size_t num_sections = image_file.GetNTHeaders()->FileHeader.NumberOfSections;
-  for (size_t i = 0; i < num_sections; ++i) {
+  uint32_t num_sections =
+      image_file.GetNTHeaders()->FileHeader.NumberOfSections;
+  for (uint32_t i = 0; i < num_sections; ++i) {
     const IMAGE_SECTION_HEADER* header = image_file.GetSectionHeader(i);
     std::string name = GetSectionName(*header);
     BlockGraph::Section* section = block_graph->AddSection(
@@ -252,7 +253,9 @@ bool HotPatchingDecomposer::InferCodeReferences(Block* block,
 
     // Try to decode the next instruction.
     const uint8_t* inst_data = block->data() + offset;
-    if (!core::DecodeOneInstruction(inst_data, code_size - offset, &inst)) {
+    if (!core::DecodeOneInstruction(inst_data,
+                                    static_cast<int>(code_size - offset),
+                                    &inst)) {
       LOG(ERROR) << "Failed to decode instruction at offset " << offset
                  << " in block " << BlockInfo(block);
       return false;

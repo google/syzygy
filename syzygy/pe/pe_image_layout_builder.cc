@@ -89,7 +89,7 @@ class RelocWriter {
     IMAGE_BASE_RELOCATION* header =
         reinterpret_cast<IMAGE_BASE_RELOCATION*>(&buf_.at(curr_header_offset_));
 
-    header->SizeOfBlock = block_len;
+    header->SizeOfBlock = static_cast<uint32_t>(block_len);
   }
 
   void OpenPage(RelativeAddress addr) {
@@ -430,7 +430,7 @@ bool PEImageLayoutBuilder::CreateRelocsSection() {
     return false;
   }
   nt_headers->OptionalHeader.DataDirectory[
-      IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = relocs.size();
+      IMAGE_DIRECTORY_ENTRY_BASERELOC].Size = static_cast<DWORD>(relocs.size());
 
   // Layout the relocs.
   if (!OpenSection(kRelocSectionName, kRelocCharacteristics))
@@ -532,28 +532,37 @@ bool PEImageLayoutBuilder::FinalizeHeaders() {
   nt_headers->OptionalHeader.SizeOfInitializedData = 0;
   nt_headers->OptionalHeader.SizeOfUninitializedData = 0;
   nt_headers->OptionalHeader.BaseOfCode = 0;
+#ifndef _WIN64
   nt_headers->OptionalHeader.BaseOfData = 0;
+#endif
   for (size_t i = 0; i < image_layout_->sections.size(); ++i) {
     const ImageLayout::SectionInfo& section = image_layout_->sections[i];
     IMAGE_SECTION_HEADER& hdr = section_headers[i];
 
     if (section.characteristics& IMAGE_SCN_CNT_CODE) {
-      nt_headers->OptionalHeader.SizeOfCode += section.data_size;
+      nt_headers->OptionalHeader.SizeOfCode +=
+          static_cast<DWORD>(section.data_size);
       if (nt_headers->OptionalHeader.BaseOfCode == 0) {
         nt_headers->OptionalHeader.BaseOfCode = section.addr.value();
       }
     }
     if (section.characteristics & IMAGE_SCN_CNT_INITIALIZED_DATA) {
-      nt_headers->OptionalHeader.SizeOfInitializedData += section.data_size;
+      nt_headers->OptionalHeader.SizeOfInitializedData +=
+          static_cast<DWORD>(section.data_size);
 
+#ifndef _WIN64
       if (nt_headers->OptionalHeader.BaseOfData == 0)
         nt_headers->OptionalHeader.BaseOfData = section.addr.value();
+#endif
     }
     if (section.characteristics & IMAGE_SCN_CNT_UNINITIALIZED_DATA) {
       nt_headers->OptionalHeader.SizeOfUninitializedData +=
-          section.data_size;
+          static_cast<DWORD>(section.data_size);
+
+#ifndef _WIN64
       if (nt_headers->OptionalHeader.BaseOfData == 0)
         nt_headers->OptionalHeader.BaseOfData = section.addr.value();
+#endif
     }
 
     // Zero the header to get rid of any old crud in it.
@@ -562,9 +571,9 @@ bool PEImageLayoutBuilder::FinalizeHeaders() {
     strncpy(reinterpret_cast<char*>(hdr.Name),
             section.name.c_str(),
             arraysize(hdr.Name));
-    hdr.Misc.VirtualSize = section.size;
+    hdr.Misc.VirtualSize = static_cast<DWORD>(section.size);
     hdr.VirtualAddress = section.addr.value();
-    hdr.SizeOfRawData = section.data_size;
+    hdr.SizeOfRawData = static_cast<DWORD>(section.data_size);
     hdr.PointerToRawData = section_file_start.value();
     hdr.Characteristics = section.characteristics;
 

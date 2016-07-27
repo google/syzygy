@@ -291,7 +291,7 @@ template <class ImageNtHeaders, DWORD MagicValidation>
 bool PEFileBase<ImageNtHeaders, MagicValidation>::Translate(
     AbsoluteAddress abs, RelativeAddress* rel) const {
   DCHECK_NE(static_cast<RelativeAddress*>(NULL), rel);
-  uint32_t rel_addr = AbsToRelDisplacement(abs.value());
+  uintptr_t rel_addr = AbsToRelDisplacement(abs.value());
   if (rel_addr >= nt_headers_->OptionalHeader.SizeOfImage)
     return false;
   rel->set_value(rel_addr);

@@ -695,7 +695,9 @@ bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
       // IMAGE_IMPORT_BY_NAME.
 
       // Add the IAT/INT->thunk reference.
-      if (!AddRelative(thunk, &thunk->u1.AddressOfData)) {
+      // Assuming little endian representation.
+      if (!AddRelative(thunk, reinterpret_cast<const DWORD*>(
+          &thunk->u1.AddressOfData))) {
         LOG(ERROR) << "Unable to add import thunk reference.";
         return false;
       }
@@ -755,7 +757,9 @@ bool PEFileParser::ParseImportThunk(RelativeAddress thunk_addr,
       // Add the code reference. This will check that it is in fact a reference
       // to an address in the image, and track the associated block
       // automatically.
-      if (!AddAbsolute(thunk, &thunk->u1.AddressOfData)) {
+      // Assuming little endian representation.
+      if (!AddAbsolute(thunk, reinterpret_cast<const DWORD*>(
+          &thunk->u1.AddressOfData))) {
         LOG(ERROR) << "Unable to add import thunk reference.";
         return false;
       }

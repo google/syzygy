@@ -74,7 +74,9 @@ bool MsfFileStreamImpl<T>::ReadFromPage(void* dest,
   DCHECK(offset + count <= page_size_);
 
   size_t page_offset = page_size_ * page_num;
-  if (fseek(file_->file(), page_offset + offset, SEEK_SET) != 0) {
+  if (fseek(file_->file(),
+            static_cast<long>(page_offset + offset),
+            SEEK_SET) != 0) {
     LOG(ERROR) << "Page seek failed";
     return false;
   }

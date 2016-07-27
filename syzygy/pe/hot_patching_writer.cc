@@ -48,11 +48,11 @@ void FinalizeReferences(BlockGraph::Block* block) {
     DCHECK(ref.IsDirect());
 
     // Calculate the value that we need to write.
-    uint32_t value = 0;
+    uintptr_t value = 0;
     switch (ref.type()) {
       case BlockGraph::ABSOLUTE_REF: {
-        value =
-            reinterpret_cast<uint32_t>(ref.referenced()->data() + ref.offset());
+        value = reinterpret_cast<uintptr_t>(
+            ref.referenced()->data() + ref.offset());
         break;
       }
       case BlockGraph::PC_RELATIVE_REF: {

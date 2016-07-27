@@ -128,7 +128,8 @@ PdbStream* GetOrCreatePdbStreamByName(const char* stream_name,
     }
   } else {
     stream = new PdbByteStream();
-    uint32_t index = pdb_file->AppendStream(stream.get());
+    uint32_t index = static_cast<uint32_t>(
+        pdb_file->AppendStream(stream.get()));
     (*name_stream_map)[stream_name] = index;
   }
 

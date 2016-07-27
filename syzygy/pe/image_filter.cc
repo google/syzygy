@@ -262,7 +262,7 @@ bool ImageFilter::SaveToJSON(core::JSONFileWriter* json) const {
       !j.OutputKey(kChecksum) ||
       !OutputHexUint32(signature.module_checksum, json) ||
       !j.OutputKey(kSize) ||
-      !j.OutputInteger(signature.module_size) ||
+      !j.OutputInteger(static_cast<int>(signature.module_size)) ||
       !j.OutputKey(kTimeDateStamp) ||
       !OutputHexUint32(signature.module_time_date_stamp, json) ||
       !j.CloseDict()) {
@@ -282,7 +282,7 @@ bool ImageFilter::SaveToJSON(core::JSONFileWriter* json) const {
   for (; it != filter.marked_ranges().end(); ++it) {
     if (!j.OpenList() ||
         !OutputHexUint32(it->start().value(), json) ||
-        !j.OutputInteger(it->size()) ||
+        !j.OutputInteger(static_cast<int>(it->size())) ||
         !j.CloseList()) {
       return false;
     }

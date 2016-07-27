@@ -722,7 +722,8 @@ bool AlignCodeBlocks(ImageLayout* image_layout) {
     // least twice the alignment; this is used as a simple filter to avoid
     // adding alignment where unnecessary.
     if (block->attributes() & BlockGraph::BUILT_BY_UNSUPPORTED_COMPILER) {
-      uint32_t align = std::min(16u, block_it->first.start().GetAlignment());
+      uint32_t align = std::min(16u, static_cast<uint32_t>(
+          block_it->first.start().GetAlignment()));
       if (align >= 8 && block->size() >= 2 * align) {
         VLOG(1) << "Preserving alignment of " << BlockInfo(block) << " as "
                 << align << ".";
@@ -752,7 +753,7 @@ void GuessDataBlockAlignment(uint32_t max_alignment,
                              Block* block) {
   DCHECK_NE(static_cast<Block*>(NULL), block);
   DCHECK_EQ(BlockGraph::DATA_BLOCK, block->type());
-  uint32_t alignment = block_rva.GetAlignment();
+  uint32_t alignment = static_cast<uint32_t>(block_rva.GetAlignment());
   // Cap the alignment.
   if (alignment > max_alignment)
     alignment = max_alignment;
@@ -1512,7 +1513,7 @@ bool Decomposer::VisitLinkerSymbol(VisitLinkerSymbolContext* context,
 
   // We are looking for an opening symbol.
   if (context->current_group_index == -1) {
-    for (size_t i = 0; i < context->bracketing_groups.size(); ++i) {
+    for (uint32_t i = 0; i < context->bracketing_groups.size(); ++i) {
       std::string prefix;
       if (context->bracketing_groups[i].FullMatch(coffgroup->name, &prefix)) {
         context->current_group_index = i;

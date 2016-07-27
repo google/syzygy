@@ -54,7 +54,7 @@ class MsfWriterImpl {
 
   // Writes the MSF header after the directory has been written.
   bool WriteHeader(const std::vector<uint32_t>& root_directory_pages,
-                   size_t directory_size,
+                   uint32_t directory_size,
                    uint32_t page_count);
 
   // The current file handle open for writing.
