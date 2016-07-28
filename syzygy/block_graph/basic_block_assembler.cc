@@ -182,7 +182,7 @@ BasicBlockAssembler::BasicBlockSerializer::BasicBlockSerializer(
 void BasicBlockAssembler::BasicBlockSerializer::AppendInstruction(
     uint32_t location,
     const uint8_t* bytes,
-    size_t num_bytes,
+    uint32_t num_bytes,
     const ReferenceInfo* refs,
     size_t num_refs) {
   Instruction instruction;

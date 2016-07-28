@@ -93,8 +93,8 @@ void ShiftOffsetItemMap(BlockGraph::Offset offset,
   // the iterators in a different order depending on if we're shifting left
   // or right. This is to ensure that earlier shifts don't land on the values
   // of later unshifted offsets.
-  int start = 0;
-  int stop = item_its.size();
+  SSIZE_T start = 0;
+  SSIZE_T stop = item_its.size();
   int step = 1;
   if (distance > 0) {
     start = stop - 1;
@@ -102,7 +102,7 @@ void ShiftOffsetItemMap(BlockGraph::Offset offset,
     step = -1;
   }
 
-  for (int i = start; i != stop; i += step) {
+  for (SSIZE_T i = start; i != stop; i += step) {
     item_it = item_its[i];
     items->insert(std::make_pair(item_it->first + distance,
                                  item_it->second));

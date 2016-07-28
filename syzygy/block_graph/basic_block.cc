@@ -253,7 +253,7 @@ Instruction::Instruction(const Instruction& other)
 }
 
 bool Instruction::FromBuffer(const uint8_t* buf,
-                             size_t len,
+                             uint32_t len,
                              Instruction* inst) {
   DCHECK(buf != NULL);
   DCHECK_LT(0U, len);
@@ -274,8 +274,10 @@ const char* Instruction::GetName() const {
 
 bool Instruction::ToString(std::string* buf) const {
   DCHECK(buf != NULL);
-  return core::InstructionToString(
-      this->representation(), this->data(), this->size(), buf);
+  return core::InstructionToString(this->representation(),
+                                   this->data(),
+                                   static_cast<int>(this->size()),
+                                   buf);
 }
 
 bool Instruction::CallsNonReturningFunction() const {

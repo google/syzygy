@@ -338,10 +338,11 @@ bool BlockGraphSerializer::SaveBlockProperties(const BlockGraph::Block& block,
 
   // We use a signed integer for saving the section ID, as -1 is used to
   // indicate 'no section'.
-  if (!out_archive->Save(type) || !SaveUint32(block.size(), out_archive) ||
-      !SaveUint32(block.alignment(), out_archive) ||
+  if (!out_archive->Save(type) ||
+      !SaveUint32(static_cast<uint32_t>(block.size()), out_archive) ||
+      !SaveUint32(static_cast<uint32_t>(block.alignment()), out_archive) ||
       !SaveInt32(block.alignment_offset(), out_archive) ||
-      !SaveUint32(block.padding_before(), out_archive) ||
+      !SaveUint32(static_cast<uint32_t>(block.padding_before()), out_archive) ||
       !out_archive->Save(block.source_ranges()) ||
       !out_archive->Save(block.addr()) ||
       !SaveInt32(static_cast<uint32_t>(block.section()), out_archive) ||
@@ -444,7 +445,7 @@ bool BlockGraphSerializer::SaveBlockLabels(const BlockGraph::Block& block,
   if (has_attributes(BlockGraphSerializer::OMIT_LABELS))
     return true;
 
-  uint32_t count = block.labels().size();
+  uint32_t count = static_cast<uint32_t>(block.labels().size());
   if (!SaveUint32(count, out_archive)) {
     LOG(ERROR) << "Unable to save label count.";
     return false;
@@ -522,7 +523,7 @@ bool BlockGraphSerializer::SaveBlockData(const BlockGraph::Block& block,
   DCHECK(out_archive != NULL);
 
   // We always output the data size.
-  uint32_t data_size = block.data_size();
+  uint32_t data_size = static_cast<uint32_t>(block.data_size());
   if (!SaveUint32(data_size, out_archive)) {
     LOG(ERROR) << "Unable to save block data size for block with id "
                << block.id() << ".";

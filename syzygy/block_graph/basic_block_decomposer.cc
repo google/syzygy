@@ -224,7 +224,7 @@ bool BasicBlockDecomposer::DecodeInstruction(Offset offset,
 
   // Decode the instruction.
   const uint8_t* buffer = block_->data() + offset;
-  size_t max_length = code_end_offset - offset;
+  uint32_t max_length = code_end_offset - offset;
   if (!Instruction::FromBuffer(buffer, max_length, instruction)) {
     VLOG(1) << "Failed to decode instruction at offset " << offset
             << " of block '" << block_->name() << "'.";

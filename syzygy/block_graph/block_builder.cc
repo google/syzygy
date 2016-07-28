@@ -373,7 +373,8 @@ void MergeContext::CopySourceRange(const SourceRange& source_range,
 
 bool MergeContext::AssembleSuccessors(const BasicBlockLayoutInfo& info) {
   BasicBlock::Instructions instructions;
-  BasicBlockAssembler assm(info.start_offset + info.basic_block_size,
+  BasicBlockAssembler assm(static_cast<uint32_t>(info.start_offset +
+                                                     info.basic_block_size),
                            instructions.begin(), &instructions);
 
   // Copy the successor label, if any, to where it belongs.

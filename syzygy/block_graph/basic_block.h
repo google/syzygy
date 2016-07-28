@@ -246,7 +246,7 @@ class Instruction {
   typedef std::map<Offset, BasicBlockReference> BasicBlockReferenceMap;
 
   // The maximum size (in bytes) of an x86 instruction, per specs.
-  static const size_t kMaxSize = assm::kMaxInstructionLength;
+  static const uint32_t kMaxSize = assm::kMaxInstructionLength;
 
   // A default constructed Instruction will be a single byte NOP.
   Instruction();
@@ -258,7 +258,7 @@ class Instruction {
   // @param buf the data comprising the instruction.
   // @param len the maximum length (in bytes) of @p buf to consume
   // @returns true on success, false otherwise.
-  static bool FromBuffer(const uint8_t* buf, size_t len, Instruction* inst);
+  static bool FromBuffer(const uint8_t* buf, uint32_t len, Instruction* inst);
 
   // Accessors.
   // @{
