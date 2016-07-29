@@ -502,7 +502,7 @@ bool MergeContext::InsertNops(Offset offset, Size bytes, Block* new_block) {
   // Use an assembler to insert a proper NOP sequence.
   typedef assm::AssemblerImpl Assembler;
   assm::BufferSerializer serializer(buffer + offset, bytes);
-  uint32_t start_addr = reinterpret_cast<uint32_t>(buffer) + offset;
+  uintptr_t start_addr = reinterpret_cast<uintptr_t>(buffer) + offset;
   Assembler assm(start_addr, &serializer);
   assm.nop(bytes);
 
