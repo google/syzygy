@@ -114,15 +114,20 @@ BOOL CALLBACK ReadProcessMemoryProc64(HANDLE process,
                                       LPDWORD bytes_read) {
   DCHECK(buffer != NULL);
   DCHECK(bytes_read != NULL);
-  *bytes_read = 0;
+  SIZE_T actual_bytes_read = 0;
   LPCVOID base_address = reinterpret_cast<LPCVOID>(base_address_64);
-  if (::ReadProcessMemory(process, base_address, buffer, size, bytes_read))
+  if (::ReadProcessMemory(process, base_address, buffer, size,
+                          &actual_bytes_read)) {
+    *bytes_read = static_cast<DWORD>(actual_bytes_read);
     return TRUE;
+  }
 
   // Maybe it was just a partial read, which isn't fatal.
   DWORD error = ::GetLastError();
-  if (error == ERROR_PARTIAL_COPY)
+  if (error == ERROR_PARTIAL_COPY) {
+    *bytes_read = static_cast<DWORD>(actual_bytes_read);
     return TRUE;
+  }
 
   // Nope, it was a real error.
   LOG(ERROR) << "Failed to read process memory: " << ::common::LogWe(error)
@@ -393,6 +398,7 @@ bool AgentLogger::SaveMinidumpWithProtobufAndMemoryRanges(
     memory_ranges.push_back(memory_range);
   }
 
+#ifndef _WIN64
   kasko::MinidumpRequest request;
   request.client_exception_pointers = true;
   request.exception_info_address = exc_ptr;
@@ -443,6 +449,7 @@ bool AgentLogger::SaveMinidumpWithProtobufAndMemoryRanges(
                << ::common::LogWe(error) << ".";
     return false;
   }
+#endif
 
   return true;
 }

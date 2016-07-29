@@ -88,7 +88,7 @@ class TraceFileSegment {
  public:
   // Internal implementation of the trace record allocation function.
   void* AllocateTraceRecordImpl(int record_type,
-                                size_t record_size);
+                                uint32_t record_size);
 
   // The structure used to communicate buffer information between the
   // client and call trace service.

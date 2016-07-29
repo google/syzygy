@@ -211,7 +211,7 @@ bool TraceFileSegment::CanAllocate(size_t num_bytes) const {
   return CanAllocateRaw(num_bytes + sizeof(RecordPrefix));
 }
 
-void FillPrefix(RecordPrefix* prefix, int type, size_t size) {
+void FillPrefix(RecordPrefix* prefix, int type, uint32_t size) {
   prefix->size = size;
   prefix->version.hi = TRACE_VERSION_HI;
   prefix->version.lo = TRACE_VERSION_LO;
@@ -242,12 +242,12 @@ void TraceFileSegment::WriteSegmentHeader(SessionHandle session_handle) {
 }
 
 void* TraceFileSegment::AllocateTraceRecordImpl(int record_type,
-                                                size_t record_size) {
+                                                uint32_t record_size) {
   DCHECK(header != NULL);
   DCHECK(write_ptr != NULL);
   DCHECK(record_size != 0);
 
-  const size_t total_size = sizeof(RecordPrefix) + record_size;
+  const uint32_t total_size = sizeof(RecordPrefix) + record_size;
 
   DCHECK(CanAllocateRaw(total_size));
 

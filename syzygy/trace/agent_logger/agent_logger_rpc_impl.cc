@@ -67,6 +67,8 @@ void InitContext(const ExecutionContext* ext_ctx, CONTEXT* ctx) {
   ::memset(ctx, 0, sizeof(*ctx));
   ctx->ContextFlags = CONTEXT_CONTROL | CONTEXT_INTEGER;
 
+  // TODO(loskutov): port to win64
+#ifndef _WIN64
   // Populate the integer registers.
   ctx->Edi = ext_ctx->edi;
   ctx->Esi = ext_ctx->esi;
@@ -82,6 +84,7 @@ void InitContext(const ExecutionContext* ext_ctx, CONTEXT* ctx) {
   ctx->EFlags = ext_ctx->eflags;
   ctx->Esp = ext_ctx->esp;
   ctx->SegSs = ext_ctx->seg_ss;
+#endif
 }
 
 }  // namespace

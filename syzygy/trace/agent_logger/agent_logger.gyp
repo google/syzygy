@@ -33,12 +33,18 @@
         '<(src)/syzygy/application/application.gyp:application_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
-        '<(src)/syzygy/kasko/kasko.gyp:kasko',
-        '<(src)/syzygy/kasko/kasko.gyp:kasko_lib',
         '<(src)/syzygy/pe/pe.gyp:pe_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
       ],
+      'conditions': [
+        ['target_arch == "ia32"', {
+          'dependencies': [
+            '<(src)/syzygy/kasko/kasko.gyp:kasko',
+            '<(src)/syzygy/kasko/kasko.gyp:kasko_lib',
+          ]}
+        ]
+      ]
     },
     {
       'target_name': 'agent_logger_unittests',

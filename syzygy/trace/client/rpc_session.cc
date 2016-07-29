@@ -152,7 +152,8 @@ bool RpcSession::AllocateBuffer(size_t min_size, TraceFileSegment* segment) {
 
   bool succeeded =
       ::common::rpc::InvokeRpc(CallTraceClient_AllocateLargeBuffer,
-                               session_handle_, min_size + kHeaderSize,
+                               session_handle_,
+                               static_cast<ULONG>(min_size + kHeaderSize),
                                &segment->buffer_info).succeeded();
   if (!succeeded)
     return false;
