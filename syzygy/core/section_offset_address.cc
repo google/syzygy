@@ -135,11 +135,11 @@ void SectionOffsetAddress::operator-=(int32_t offset) {
   value_.offset -= offset;
 }
 
-SectionOffsetAddress SectionOffsetAddress::operator+(size_t offset) const {
+SectionOffsetAddress SectionOffsetAddress::operator+(uint32_t offset) const {
   return SectionOffsetAddress(section_id(), value_.offset + offset);
 }
 
-SectionOffsetAddress SectionOffsetAddress::operator-(size_t offset) const {
+SectionOffsetAddress SectionOffsetAddress::operator-(uint32_t offset) const {
   return SectionOffsetAddress(section_id(), value_.offset - offset);
 }
 
@@ -151,8 +151,8 @@ SectionOffsetAddress SectionOffsetAddress::AlignUp(size_t alignment) const {
   // guarantee an alignment on a power of 2 greater than 512.
   DCHECK_LE(alignment, kPESectionMinAlignment);
 
-  return SectionOffsetAddress(
-      section_id(), common::AlignUp(offset(), alignment));
+  return SectionOffsetAddress(section_id(),
+      static_cast<uint32_t>(common::AlignUp(offset(), alignment)));
 }
 
 bool SectionOffsetAddress::IsAligned(size_t alignment) const {
@@ -163,7 +163,7 @@ bool SectionOffsetAddress::IsAligned(size_t alignment) const {
 }
 
 uint32_t SectionOffsetAddress::GetAlignment() const {
-  uint32_t alignment = common::GetAlignment(offset());
+  uint32_t alignment = static_cast<uint32_t>(common::GetAlignment(offset()));
   if (alignment > kPESectionMinAlignment)
     return kPESectionMinAlignment;
   return alignment;

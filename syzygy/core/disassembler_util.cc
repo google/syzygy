@@ -167,7 +167,7 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
 
 bool DecodeOneInstruction(uint32_t address,
                           const uint8_t* buffer,
-                          size_t length,
+                          int length,
                           _DInst* instruction) {
   DCHECK(buffer != NULL);
   DCHECK(instruction != NULL);
@@ -200,7 +200,7 @@ bool DecodeOneInstruction(uint32_t address,
 }
 
 bool DecodeOneInstruction(const uint8_t* buffer,
-                          size_t length,
+                          int length,
                           _DInst* instruction) {
   DCHECK(buffer != NULL);
   DCHECK(instruction != NULL);

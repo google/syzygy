@@ -56,10 +56,10 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
 // @returns true if an instruction was decoded, false otherwise.
 bool DecodeOneInstruction(uint32_t address,
                           const uint8_t* buffer,
-                          size_t length,
+                          int length,
                           _DInst* instruction);
 bool DecodeOneInstruction(const uint8_t* buffer,
-                          size_t length,
+                          int length,
                           _DInst* instruction);
 
 // Dump text representation of exactly one instruction to a std::string.

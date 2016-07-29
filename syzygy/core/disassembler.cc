@@ -107,7 +107,7 @@ Disassembler::WalkResult Disassembler::Walk() {
     _DInst inst = {};
     for (; addr != AbsoluteAddress(0) && !terminate; addr += inst.size) {
       code.codeOffset = addr.value();
-      code.codeLen = code_size_ - (addr - code_addr_);
+      code.codeLen = static_cast<int>(code_size_) - (addr - code_addr_);
       code.code = code_ + (addr - code_addr_);
       if (code.codeLen == 0)
         break;

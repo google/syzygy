@@ -63,7 +63,7 @@ bool ZOutStream::Init(int level) {
   }
 
   zstream->next_out = reinterpret_cast<Bytef*>(&buffer_[0]);
-  zstream->avail_out = buffer_.size();
+  zstream->avail_out = static_cast<uInt>(buffer_.size());
 
   zstream_.reset(zstream.release());
 
@@ -80,7 +80,7 @@ bool ZOutStream::Write(size_t length, const Byte* bytes) {
   DCHECK(bytes != NULL);
 
   // Continue while we have data to process.
-  zstream_->avail_in = length;
+  zstream_->avail_in = static_cast<uInt>(length);
   zstream_->next_in = reinterpret_cast<Bytef*>(const_cast<Byte*>(bytes));
   while (zstream_->avail_in > 0) {
     // We don't do any forced flushing so as to have maximum compression.
@@ -137,7 +137,7 @@ bool ZOutStream::FlushBuffer() {
 
   // Update the output buffer data.
   zstream_->next_out = reinterpret_cast<Bytef*>(&buffer_[0]);
-  zstream_->avail_out = buffer_.size();
+  zstream_->avail_out = static_cast<uInt>(buffer_.size());
 
   return true;
 }
@@ -192,7 +192,7 @@ bool ZInStream::ReadImpl(size_t length, Byte* bytes, size_t* bytes_read) {
   DCHECK_EQ(buffer_.size(), kZStreamBufferSize);
 
   zstream_->next_out = reinterpret_cast<Bytef*>(bytes);
-  zstream_->avail_out = length;
+  zstream_->avail_out = static_cast<uInt>(length);
 
   int ret = Z_OK;
   while (true) {
@@ -228,7 +228,7 @@ bool ZInStream::ReadImpl(size_t length, Byte* bytes, size_t* bytes_read) {
       return false;
     }
     zstream_->next_in = reinterpret_cast<Bytef*>(&buffer_[0]);
-    zstream_->avail_in = bytes_read;
+    zstream_->avail_in = static_cast<uInt>(bytes_read);
   }
 
   *bytes_read = length - zstream_->avail_out;

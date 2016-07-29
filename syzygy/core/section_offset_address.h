@@ -64,8 +64,8 @@ class SectionOffsetAddress {
   void operator+=(int32_t offset);
   void operator-=(int32_t offset);
 
-  SectionOffsetAddress operator+(size_t offset) const;
-  SectionOffsetAddress operator-(size_t offset) const;
+  SectionOffsetAddress operator+(uint32_t offset) const;
+  SectionOffsetAddress operator-(uint32_t offset) const;
 
   const SectionOffset& value() const { return value_; }
   void set_value(const SectionOffset& value) { value_ = value; }

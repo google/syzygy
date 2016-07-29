@@ -19,11 +19,11 @@
 
 namespace core {
 
-static_assert(sizeof(RelativeAddress) == sizeof(uint32_t),
+static_assert(sizeof(RelativeAddress) == sizeof(uintptr_t),
               "RelativeAddress has the wrong size.");
-static_assert(sizeof(AbsoluteAddress) == sizeof(uint32_t),
+static_assert(sizeof(AbsoluteAddress) == sizeof(uintptr_t),
               "AbsoluteAddress has the wrong size.");
-static_assert(sizeof(FileOffsetAddress) == sizeof(uint32_t),
+static_assert(sizeof(FileOffsetAddress) == sizeof(uintptr_t),
               "FileOffsetAddress has the wrong size.");
 
 namespace detail {
