@@ -95,11 +95,13 @@
         'files/pcre_scanner.cc',
         'files/pcre_stringpiece.cc',
       ],
-      'msvs_settings': {
-        'VCCLCompilerTool': {
-          'AdditionalOptions': ['/wd4130', '/wd4018', '/wd4189', '/wd4996'],
-        },
-      },
+      'msvs_disabled_warnings': [
+        '4267',
+        '4130',
+        '4018',
+        '4189',
+        '4996',
+      ],
       'all_dependent_settings': {
         'defines': [
           'LINK_SIZE=2',

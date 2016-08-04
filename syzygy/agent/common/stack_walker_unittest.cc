@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/common/stack_walker_x86.h"
+#include "syzygy/agent/common/stack_walker.h"
 
 #include <windows.h>
 
@@ -22,17 +22,18 @@
 namespace agent {
 namespace common {
 
+
 namespace {
 
-class StackWalkerX86Test : public testing::Test {
+class StackWalkerTest : public testing::Test {
  public:
-  StackWalkerX86Test()
+  StackWalkerTest()
       : dummy_ebp_(nullptr), dummy_esp_(nullptr), dummy_ret_(0u) {
     ::memset(frames_, 0, sizeof(frames_));
     ::memset(frames2_, 0, sizeof(frames2_));
     ::memset(dummy_stack_, 0, sizeof(dummy_stack_));
   }
-
+#ifndef _WIN64
   static const uintptr_t kBaseRet = 0x1000000u;
 
   void Push(uintptr_t value) {
@@ -134,6 +135,8 @@ class StackWalkerX86Test : public testing::Test {
     PopEbp();
   }
 
+#endif  // !defined _WIN64
+
   static const size_t kMaxFrames = 100;
   void* frames_[kMaxFrames];
   void* frames2_[kMaxFrames];
@@ -146,7 +149,9 @@ class StackWalkerX86Test : public testing::Test {
 
 }  // namespace
 
-TEST_F(StackWalkerX86Test, ValidWalk) {
+#ifndef _WIN64
+
+TEST_F(StackWalkerTest, ValidWalk) {
   BuildValidFrame(0);
   ExpectSuccessfulWalk(2, 0);
   BuildValidFrame(2);
@@ -157,7 +162,7 @@ TEST_F(StackWalkerX86Test, ValidWalk) {
   ExpectSuccessfulWalk(2, 2);
 }
 
-TEST_F(StackWalkerX86Test, WalkStopsWhenFrameTooSmall) {
+TEST_F(StackWalkerTest, WalkStopsWhenFrameTooSmall) {
   BuildValidFrame(0);
   ExpectSuccessfulWalk(2, 0);
 
@@ -173,7 +178,7 @@ TEST_F(StackWalkerX86Test, WalkStopsWhenFrameTooSmall) {
   ExpectSuccessfulWalk(2, 1);
 }
 
-TEST_F(StackWalkerX86Test, WalkStopsAtNonIncreasingBasePointer) {
+TEST_F(StackWalkerTest, WalkStopsAtNonIncreasingBasePointer) {
   BuildValidFrame(0);
   ExpectSuccessfulWalk(2, 0);
 
@@ -188,7 +193,7 @@ TEST_F(StackWalkerX86Test, WalkStopsAtNonIncreasingBasePointer) {
   ExpectSuccessfulWalk(3, 1);
 }
 
-TEST_F(StackWalkerX86Test, WalkStopsAtUnalignedBasePointer) {
+TEST_F(StackWalkerTest, WalkStopsAtUnalignedBasePointer) {
   BuildValidFrame(0);
   ExpectSuccessfulWalk(2, 0);
 
@@ -203,7 +208,7 @@ TEST_F(StackWalkerX86Test, WalkStopsAtUnalignedBasePointer) {
   ExpectSuccessfulWalk(3, 1);
 }
 
-TEST_F(StackWalkerX86Test, WalkStopsAtInvalidReturnAddress) {
+TEST_F(StackWalkerTest, WalkStopsAtInvalidReturnAddress) {
   BuildValidFrame(0);
   ExpectSuccessfulWalk(2, 0);
 
@@ -217,7 +222,7 @@ TEST_F(StackWalkerX86Test, WalkStopsAtInvalidReturnAddress) {
   ExpectSuccessfulWalk(2, 0);
 }
 
-TEST_F(StackWalkerX86Test, WalkStopsAtInvalidBasePointer) {
+TEST_F(StackWalkerTest, WalkStopsAtInvalidBasePointer) {
   BuildValidFrame(0);
   ExpectSuccessfulWalk(2, 0);
 
@@ -232,7 +237,7 @@ TEST_F(StackWalkerX86Test, WalkStopsAtInvalidBasePointer) {
   ExpectSuccessfulWalk(3, 1);
 }
 
-TEST_F(StackWalkerX86Test, WalkStopAtOverflowingBasePointer) {
+TEST_F(StackWalkerTest, WalkStopAtOverflowingBasePointer) {
   BuildValidFrame(0);
   ExpectSuccessfulWalk(2, 0);
 
@@ -247,11 +252,13 @@ TEST_F(StackWalkerX86Test, WalkStopAtOverflowingBasePointer) {
   ExpectSuccessfulWalk(3, 1);
 }
 
-TEST_F(StackWalkerX86Test, CompareToCaptureStackBackTrace) {
+#endif  // !defined _WIN64
+
+TEST_F(StackWalkerTest, CompareToCaptureStackBackTrace) {
   // Use the OS stack walker to get the number of frames. Skip the top frame
   // (in this function) as WalkStack and CaptureStackBackTrace won't have the
   // same return address.
-  size_t num_frames =
+  uint32_t num_frames =
       ::CaptureStackBackTrace(1, kMaxFrames, frames_, nullptr);
 
   while (num_frames > 0) {

@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2016 Google Inc. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,17 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "syzygy/agent/common/stack_walker_x86.h"
+#include "syzygy/agent/common/stack_walker.h"
 
 #include <windows.h>
-#include <winnt.h>
 
+#ifndef _WIN64
 #include "base/logging.h"
 #include "syzygy/agent/common/stack_capture.h"
 #include "syzygy/common/align.h"
+#endif
 
 namespace agent {
 namespace common {
+
+#ifndef _WIN64
 
 namespace {
 
@@ -96,8 +99,8 @@ __forceinline bool CanAdvanceFrame(const StackFrame* frame) {
 
 }  // namespace
 
-size_t __declspec(noinline) WalkStack(size_t bottom_frames_to_skip,
-                                      size_t max_frame_count,
+size_t __declspec(noinline) WalkStack(uint32_t bottom_frames_to_skip,
+                                      uint32_t max_frame_count,
                                       void** frames,
                                       StackId* absolute_stack_id) {
   // Get the stack extents.
@@ -181,6 +184,21 @@ size_t WalkStackImpl(const void* current_ebp,
 
   return num_frames;
 }
+
+#else
+
+size_t __declspec(noinline) WalkStack(uint32_t bottom_frames_to_skip,
+                                      uint32_t max_frame_count,
+                                      void** frames,
+                                      StackId* absolute_stack_id) {
+  // Skip one more frame for call of this function
+  return CaptureStackBackTrace(bottom_frames_to_skip + 1,
+                               max_frame_count,
+                               frames,
+                               reinterpret_cast<PDWORD>(absolute_stack_id));
+}
+
+#endif  // !defined _WIN64
 
 }  // namespace common
 }  // namespace agent

@@ -17,7 +17,7 @@
 #include <algorithm>
 
 #include "base/logging.h"
-#include "syzygy/agent/common/stack_walker_x86.h"
+#include "syzygy/agent/common/stack_walker.h"
 #include "syzygy/core/address_space.h"
 
 // http://blogs.msdn.com/oldnewthing/archive/2004/10/25/247180.aspx

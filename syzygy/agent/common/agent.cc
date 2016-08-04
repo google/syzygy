@@ -29,8 +29,15 @@ void InitializeCrt() {
   // Disable SSE2 instructions. This is to ensure that our instrumentation
   // doesn't inadvertently tinker with SSE2 registers via the CRT, causing
   // instrumented SSE2 enabled instructions to screw up.
+#ifndef _WIN64
+  // SSE registers are a part of the x64 calling convention, so they
+  // cannot be disabled.
+  // The 64-bit version of the runtime is intended to run with LLVM/Clang
+  // provided instrumentation, and doesn't suffer to same problem as the
+  // Syzygy instrumentation.
   const int kDisableSSE2 = 0;
   _set_SSE2_enable(kDisableSSE2);
+#endif
 }
 
 }  // namespace common

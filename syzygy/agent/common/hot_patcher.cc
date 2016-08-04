@@ -78,7 +78,7 @@ bool HotPatcher::Patch(FunctionPointer function_entry_point,
   // Writes on x86 architecture are atomic within a cross 4-byte boundary.
   // NOTE: This can be loosened. Any two bytes starting at an address that meets
   //     the (address % 4 != 3) condition does not cross 4-byte boundary.
-  CHECK_EQ(0, reinterpret_cast<int>(jump_hook_place) % 2);
+  CHECK_EQ(0u, reinterpret_cast<uintptr_t>(jump_hook_place) % 2);
 
   // We write the instruction JMP -5 which is represented as: 0xEB 0xF9
   // We reverse the order of the bytes because of the little endian encoding

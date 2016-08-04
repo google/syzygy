@@ -154,6 +154,11 @@
           'BUILD_OUTPUT_DIR="<(output_dir_prefix)/Debug"',
          ],
       },
+      'Debug_x64': {
+        'defines': [
+          'BUILD_OUTPUT_DIR="<(output_dir_prefix)/Debug_x64"',
+         ],
+      },
       'conditions': [
         ['OS=="win"', {
           'Coverage_x64': {

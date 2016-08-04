@@ -21,7 +21,7 @@
 #include <windows.h>
 
 #include "base/logging.h"
-#include "syzygy/agent/common/stack_walker_x86.h"
+#include "syzygy/agent/common/stack_walker.h"
 #include "syzygy/common/asan_parameters.h"
 
 namespace agent {
@@ -221,7 +221,7 @@ __forceinline StackId StackCapture::StartStackId() {
 // static
 __forceinline StackId StackCapture::UpdateStackId(StackId stack_id,
                                                   const void* frame) {
-  stack_id += reinterpret_cast<StackId>(frame);
+  stack_id += static_cast<StackId>(reinterpret_cast<uintptr_t>(frame));
   stack_id += stack_id << 10;
   stack_id ^= stack_id >> 6;
   return stack_id;
