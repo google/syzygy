@@ -308,7 +308,7 @@ bool DbiStream::ReadDbiFileNameTable(pdb::PdbStream* stream,
       LOG(ERROR) << "Unable to read the name table of the file info substream.";
       return false;
     }
-    file_info_.second.insert(std::make_pair(pos, filename));
+    file_info_.second.emplace(static_cast<uint32_t>(pos), filename);
   }
 
   if (!reader.AtEnd()) {

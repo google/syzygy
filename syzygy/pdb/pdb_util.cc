@@ -592,8 +592,8 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   }
 
   // Calculate the hash table entry count and size.
-  uint32_t string_count = name_stream_map.size();
-  uint32_t table_size = GetNamedStreamsHashTableSize(string_count);
+  size_t string_count = name_stream_map.size();
+  size_t table_size = GetNamedStreamsHashTableSize(string_count);
 
   // Initialize the 'used' bitset.
   PdbBitSet used;
@@ -608,10 +608,12 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   NameStreamMap::const_iterator name_it = name_stream_map.begin();
   for (; name_it != name_stream_map.end(); ++name_it) {
     uint16_t hash = HashString(name_it->first);
-    size_t bucket = hash % table_size;
-    bucket = SetNamedStreamsHashTableBit(bucket, table_size, &used);
+    uint32_t bucket = hash % table_size;
+    bucket = static_cast<uint32_t>(
+        SetNamedStreamsHashTableBit(bucket, table_size, &used));
     name_infos.push_back(NamedStreamInfo(name_it, 0, bucket));
-    string_length += name_it->first.size() + 1;  // Include the trailing zero.
+    // Include the trailing zero.
+    string_length += static_cast<uint32_t>(name_it->first.size() + 1);
   }
 
   // Sort the strings in the order in which they will be output.
@@ -626,7 +628,7 @@ bool WriteHeaderInfoStream(const PdbInfoHeader70& pdb_header,
   for (size_t i = 0; i < name_infos.size(); ++i) {
     name_infos[i].offset = string_length;
     name_it = name_infos[i].it;
-    string_length += name_it->first.size() + 1;
+    string_length += static_cast<uint32_t>(name_it->first.size() + 1);
     if (!pdb_stream->Write(name_it->first.size() + 1, name_it->first.c_str())) {
       LOG(ERROR) << "Failed to write stream name.";
       return false;

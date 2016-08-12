@@ -40,7 +40,7 @@ bool ShouldSkipTest(size_t required_address_space_size) {
     return false;
   const ::testing::TestInfo* const test_info =
       ::testing::UnitTest::GetInstance()->current_test_info();
-  fprintf(stderr, "WARNING: %s.%s requires %d GB memory model, skipping.\n",
+  fprintf(stderr, "WARNING: %s.%s requires %zu GB memory model, skipping.\n",
           test_info->test_case_name(), test_info->name(),
           required_address_space_size);
   return true;

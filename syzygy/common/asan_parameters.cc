@@ -67,7 +67,7 @@ struct UpdateValueFromCommandLine {
       return kFlagError;
     }
 
-    *value = new_value;
+    *value = static_cast<Parser::ValueType>(new_value);
     VLOG(1) << "Set \"" << param_name << "\" to " << *value << ".";
     return kFlagSet;
   }

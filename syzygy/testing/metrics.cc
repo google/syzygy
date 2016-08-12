@@ -181,7 +181,7 @@ void EmitLineToMetricsFile(const base::StringPiece& line) {
   DWORD bytes_written = 0;
   if (!::WriteFile(handle.Get(),
                    line.data(),
-                   line.size(),
+                   static_cast<DWORD>(line.size()),
                    &bytes_written,
                    nullptr) ||
       bytes_written != line.size()) {

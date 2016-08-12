@@ -73,7 +73,9 @@ base::ProcessId GetClientProcessID(handle_t binding) {
     static const int kVersion = 2;
     RPC_CALL_ATTRIBUTES_V2 attribs = { kVersion, RPC_QUERY_CLIENT_PID };
     status = ::RpcServerInqCallAttributes(binding, &attribs);
-    result = reinterpret_cast<base::ProcessId>(attribs.ClientPID);
+    // TODO(loskutov): unify the PID sizes somehow.
+    result = static_cast<base::ProcessId>(
+        reinterpret_cast<uintptr_t>(attribs.ClientPID));
   } else {
     status = ::I_RpcBindingInqLocalClientPID(binding,
         reinterpret_cast<unsigned long*>(&result));
