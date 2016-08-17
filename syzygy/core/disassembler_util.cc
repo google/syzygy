@@ -82,6 +82,18 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
   return 0;
 }
 
+void AdjustOperandSizeTo16Bit(_Operand* op) {
+  DCHECK_EQ(32, op->size);
+
+  op->size = 16;
+  if (op->type == O_REG) {
+    DCHECK(op->index >= R_EAX && op->index < R_AX);
+    // Size classes for registers are 16 indices apart.
+    op->index += 16;
+    DCHECK(op->index >= R_AX && op->index < R_AL);
+  }
+}
+
 // Handle improperly decoded instructions. Returns true if an instruction was
 // handled, false otherwise. If this returns false then none of the output
 // parameters will have been changed.
@@ -96,6 +108,32 @@ bool HandleBadDecode(_CodeInfo* ci,
   DCHECK_NE(reinterpret_cast<_DecodeResult*>(NULL), ret);
 
   size_t size = 0;
+
+  // The instruction crc32 with a 16 bit size prefix does not decode.
+  if (ci->code[0] == 0x66) {
+    _CodeInfo co = *ci;
+    // Try to decode the instruction past the prefix.
+    ++co.code;
+    --co.codeLen;
+
+    _DecodeResult tmp_ret =
+        distorm_decompose(&co, result, 1, used_instructions_count);
+    if (tmp_ret == DECRES_SUCCESS && result->opcode == I_CRC32) {
+      // This is the CRC32 with a 16 bit prefix byte.
+      AdjustOperandSizeTo16Bit(&result->ops[0]);
+      AdjustOperandSizeTo16Bit(&result->ops[1]);
+      CHECK_EQ(O_NONE, result->ops[2].type);
+      CHECK_EQ(O_NONE, result->ops[3].type);
+
+      --result->addr;
+      ++result->size;
+
+      *used_instructions_count = 1;
+      *ret = DECRES_SUCCESS;
+
+      return true;
+    }
+  }
 
   if (ci->code[0] == 0xC4)
     size = Get3ByteVexEncodedInstructionSize(ci);

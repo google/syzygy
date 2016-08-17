@@ -84,6 +84,8 @@ const uint8_t kFstp[] = {0xDD, 0x1D, 0xE8, 0x74, 0xA3, 0x00};
 const uint8_t kFist[] = {0xDB, 0x15, 0xE0, 0x74, 0xA3, 0x00};
 // fistp qword ptr [0A374E8h]
 const uint8_t kFistp[] = {0xDB, 0x1D, 0xE0, 0x74, 0xA3, 0x00};
+// crc32 cx,word ptr [esi]
+const uint8_t kCrc32CX[] = {0x66, 0xF2, 0x0F, 0x38, 0xF1, 0x0E};
 
 // Nop Instruction byte sequences.
 const uint8_t kNop2Mov[] = {0x8B, 0xFF};
@@ -397,6 +399,13 @@ TEST(DisassemblerUtilTest, TestBadlyDecodedVcvtps2ph) {
 TEST(DisassemblerUtilTest, TestBadlyDecodedVcvtps2ps) {
   EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
       kVcvtps2ps, sizeof(kVcvtps2ps)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedCRC32) {
+  // CRC32 with a 16 bit operand size prefix is not handled correctly by
+  // distorm.
+  EXPECT_NO_FATAL_FAILURE(
+      TestBadlyDecodedInstruction(kCrc32CX, sizeof(kCrc32CX)));
 }
 
 }  // namespace core
