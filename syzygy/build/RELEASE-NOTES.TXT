@@ -1,6 +1,23 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.3
+[15ac4a9af6] Regress ToT to before VS2015 change to affect a build fix.
+
+Version 0.8.20.2
+
+[c76e874ec4] Added benchmarks archive back to build archive as it is still
+             required for official builds.
+
+Version 0.8.20.1
+
+[b142ab0a1f] Removed the benchmarks archive from the list of things that we
+             archive. Fixed the build configuration.
+
+Version 0.8.20.0
+
+[ae4b5c8f27] Switch to using VS2015.
+
 Version 0.8.19.0
 
 [c5c600f40e] Fix parsing of empty debug directories.
