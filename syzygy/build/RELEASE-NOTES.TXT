@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.5
+[63fbbf176d] Really fix the 16-bit CRC32 decoding, with a thorough test.
+
 Version 0.8.20.4
 [479cc1d8da] Work around broken distorm size-prefixed CRC32 decoding.
 
