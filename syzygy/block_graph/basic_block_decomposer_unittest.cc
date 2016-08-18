@@ -514,4 +514,158 @@ TEST_F(BasicBlockDecomposerTest, ContainsJECXZ) {
   EXPECT_TRUE(bbd.contains_unsupported_instructions());
 }
 
+TEST_F(BasicBlockDecomposerTest, ContainsCRC32) {
+  const uint8_t kAssembly[] = {
+      /*
+      This is a problem function from Chrome, where distorm has trouble
+      decoding the 16-bit form of the CRC32 instruction.
+
+      chrome!sse42::hash_fn [skchecksum_opts.h @ 87]:
+         87 0f322673 55              push    ebp
+         87 0f322674 8bec            mov     ebp,esp
+         90 0f322676 8b550c          mov     edx,dword ptr [ebp+0Ch]
+         90 0f322679 56              push    esi
+         90 0f32267a 8b7508          mov     esi,dword ptr [ebp+8]
+         90 0f32267d 6a0c            push    0Ch
+         90 0f32267f 58              pop     eax
+         90 0f322680 894508          mov     dword ptr [ebp+8],eax
+         90 0f322683 3bd0            cmp     edx,eax
+         90 0f322685 7235            jb      chrome!sse42::hash_fn+0x49
+      (0f3226bc)
+
+      chrome!sse42::hash_fn+0x14 [skchecksum_opts.h @ 97]:
+         97 0f322687 8bc2            mov     eax,edx
+         97 0f322689 33d2            xor     edx,edx
+         97 0f32268b f77508          div     eax,dword ptr [ebp+8]
+         97 0f32268e 53              push    ebx
+         97 0f32268f 57              push    edi
+         97 0f322690 8b7d10          mov     edi,dword ptr [ebp+10h]
+         97 0f322693 8bdf            mov     ebx,edi
+         97 0f322695 8bcf            mov     ecx,edi
+         98 0f322697 85c0            test    eax,eax
+         98 0f322699 7419            je      chrome!sse42::hash_fn+0x41
+      (0f3226b4)
+
+      chrome!sse42::hash_fn+0x28 [skchecksum_opts.h @ 99]:
+         99 0f32269b f20f38f13e      crc32   edi,dword ptr [esi]
+        100 0f3226a0 f20f38f15e04    crc32   ebx,dword ptr [esi+4]
+        101 0f3226a6 f20f38f14e08    crc32   ecx,dword ptr [esi+8]
+        102 0f3226ac 83c60c          add     esi,0Ch
+        102 0f3226af 83e801          sub     eax,1
+        102 0f3226b2 75e7            jne     chrome!sse42::hash_fn+0x28
+      (0f32269b)
+
+      chrome!sse42::hash_fn+0x41 [skchecksum_opts.h @ 105]:
+        105 0f3226b4 33cb            xor     ecx,ebx
+        105 0f3226b6 33cf            xor     ecx,edi
+        105 0f3226b8 5f              pop     edi
+        105 0f3226b9 5b              pop     ebx
+        105 0f3226ba eb05            jmp     chrome!sse42::hash_fn+0x4e
+      (0f3226c1)
+
+      chrome!sse42::hash_fn+0x49 [skchecksum_opts.h @ 125]:
+        125 0f3226bc 33c9            xor     ecx,ecx
+        125 0f3226be 8b4d10          mov     ecx,dword ptr [ebp+10h]
+
+      chrome!sse42::hash_fn+0x4e [skchecksum_opts.h @ 109]:
+        109 0f3226c1 83fa08          cmp     edx,8
+        109 0f3226c4 720b            jb      chrome!sse42::hash_fn+0x5e
+      (0f3226d1)
+
+      chrome!sse42::hash_fn+0x53 [skchecksum_opts.h @ 110]:
+        110 0f3226c6 f20f38f10e      crc32   ecx,dword ptr [esi]
+        111 0f3226cb 83ea04          sub     edx,4
+        112 0f3226ce 83c604          add     esi,4
+
+      chrome!sse42::hash_fn+0x5e [skchecksum_opts.h @ 116]:
+        116 0f3226d1 f6c204          test    dl,4
+        116 0f3226d4 7408            je      chrome!sse42::hash_fn+0x6b
+      (0f3226de)
+
+      chrome!sse42::hash_fn+0x63 [skchecksum_opts.h @ 117]:
+        117 0f3226d6 f20f38f10e      crc32   ecx,dword ptr [esi]
+        118 0f3226db 83c604          add     esi,4
+
+      chrome!sse42::hash_fn+0x6b [skchecksum_opts.h @ 120]:
+        120 0f3226de f6c202          test    dl,2
+        120 0f3226e1 7409            je      chrome!sse42::hash_fn+0x79
+      (0f3226ec)
+
+      chrome!sse42::hash_fn+0x70 [skchecksum_opts.h @ 121]:
+        121 0f3226e3 66f20f38f10e    crc32   cx,word ptr [esi]
+        122 0f3226e9 83c602          add     esi,2
+
+      chrome!sse42::hash_fn+0x79 [skchecksum_opts.h @ 124]:
+        124 0f3226ec f6c201          test    dl,1
+        124 0f3226ef 7405            je      chrome!sse42::hash_fn+0x83
+      (0f3226f6)
+
+      chrome!sse42::hash_fn+0x7e [skchecksum_opts.h @ 125]:
+        125 0f3226f1 f20f38f00e      crc32   ecx,byte ptr [esi]
+
+      chrome!sse42::hash_fn+0x83 [skchecksum_opts.h @ 127]:
+        127 0f3226f6 8bc1            mov     eax,ecx
+        127 0f3226f8 5e              pop     esi
+        128 0f3226f9 5d              pop     ebp
+        128 0f3226fa c3              ret
+      */
+      0x55, 0x8b, 0xec, 0x8b, 0x55, 0x0c, 0x56, 0x8b, 0x75, 0x08, 0x6a, 0x0c,
+      0x58, 0x89, 0x45, 0x08, 0x3b, 0xd0, 0x72, 0x35, 0x8b, 0xc2, 0x33, 0xd2,
+      0xf7, 0x75, 0x08, 0x53, 0x57, 0x8b, 0x7d, 0x10, 0x8b, 0xdf, 0x8b, 0xcf,
+      0x85, 0xc0, 0x74, 0x19, 0xf2, 0x0f, 0x38, 0xf1, 0x3e, 0xf2, 0x0f, 0x38,
+      0xf1, 0x5e, 0x04, 0xf2, 0x0f, 0x38, 0xf1, 0x4e, 0x08, 0x83, 0xc6, 0x0c,
+      0x83, 0xe8, 0x01, 0x75, 0xe7, 0x33, 0xcb, 0x33, 0xcf, 0x5f, 0x5b, 0xeb,
+      0x05, 0x33, 0xc9, 0x8b, 0x4d, 0x10, 0x83, 0xfa, 0x08, 0x72, 0x0b, 0xf2,
+      0x0f, 0x38, 0xf1, 0x0e, 0x83, 0xea, 0x04, 0x83, 0xc6, 0x04, 0xf6, 0xc2,
+      0x04, 0x74, 0x08, 0xf2, 0x0f, 0x38, 0xf1, 0x0e, 0x83, 0xc6, 0x04, 0xf6,
+      0xc2, 0x02, 0x74, 0x09, 0x66, 0xf2, 0x0f, 0x38, 0xf1, 0x0e, 0x83, 0xc6,
+      0x02, 0xf6, 0xc2, 0x01, 0x74, 0x05, 0xf2, 0x0f, 0x38, 0xf0, 0x0e, 0x8b,
+      0xc1, 0x5e, 0x5d, 0xc3,
+  };
+  ASSERT_NO_FATAL_FAILURE(InitBlockGraph());
+  BlockGraph::Block* crc32 = block_graph_.AddBlock(
+      BlockGraph::CODE_BLOCK, arraysize(kAssembly), "crc32");
+  ASSERT_TRUE(crc32 != NULL);
+  crc32->set_section(text_section_->id());
+
+  crc32->CopyData(arraysize(kAssembly), kAssembly);
+
+  BasicBlockSubGraph bbsg;
+  BasicBlockDecomposer bbd(crc32, &bbsg);
+  EXPECT_TRUE(bbd.Decompose());
+  EXPECT_EQ(15, bbsg.basic_blocks().size());
+
+  /*
+  Look for this basic block, which is at offset 0x70 from the start of the
+  function.
+
+  chrome!sse42::hash_fn+0x70 [skchecksum_opts.h @ 121]:
+    121 0f3226e3 66f20f38f10e    crc32   cx,word ptr [esi]
+    122 0f3226e9 83c602          add     esi,2
+  */
+  BasicCodeBlock* bb70 = nullptr;
+  for (auto bb : bbsg.basic_blocks()) {
+    if (bb->offset() == 0x70) {
+      bb70 = BasicCodeBlock::Cast(bb);
+      break;
+    }
+  }
+
+  ASSERT_TRUE(bb70 != nullptr);
+
+  // Check that the problem instruction has been decoded correctly as to
+  // length, register names and operand (access) sizes.
+  EXPECT_EQ(2, bb70->instructions().size());
+  Instruction inst = bb70->instructions().front();
+  EXPECT_EQ(6, inst.size());
+  const _DInst& repr = inst.representation();
+  EXPECT_EQ(I_CRC32, repr.opcode);
+
+  EXPECT_EQ(O_REG, repr.ops[0].type);
+  EXPECT_EQ(R_CX, repr.ops[0].index);
+  EXPECT_EQ(16, repr.ops[0].size);
+
+  EXPECT_EQ(16, repr.ops[1].size);
+}
+
 }  // namespace block_graph

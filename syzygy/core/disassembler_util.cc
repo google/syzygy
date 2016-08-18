@@ -116,9 +116,10 @@ bool HandleBadDecode(_CodeInfo* ci,
     ++co.code;
     --co.codeLen;
 
-    _DecodeResult tmp_ret =
-        distorm_decompose(&co, result, 1, used_instructions_count);
-    if (tmp_ret == DECRES_SUCCESS && result->opcode == I_CRC32) {
+    unsigned int decoded = 0;
+    _DecodeResult tmp_ret = distorm_decompose(&co, result, 1, &decoded);
+    if ((tmp_ret == DECRES_SUCCESS || tmp_ret == DECRES_MEMORYERR) &&
+        decoded == 1 && result->opcode == I_CRC32) {
       // This is the CRC32 with a 16 bit prefix byte.
       AdjustOperandSizeTo16Bit(&result->ops[0]);
       AdjustOperandSizeTo16Bit(&result->ops[1]);
