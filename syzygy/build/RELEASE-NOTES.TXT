@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.4
+[479cc1d8da] Work around broken distorm size-prefixed CRC32 decoding.
+
 Version 0.8.20.3
 [15ac4a9af6] Regress ToT to before VS2015 change to affect a build fix.
 
