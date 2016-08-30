@@ -62,17 +62,19 @@ void* LargeBlockHeap::Allocate(uint32_t bytes) {
 
   // TODO(chrisha): Make this allocate with the OS allocation granularity.
   size = ::common::AlignUp(size, GetPageSize());
-  void* alloc = ::VirtualAlloc(NULL, size, MEM_COMMIT, PAGE_READWRITE);
+  void* alloc = ::VirtualAlloc(nullptr, size, MEM_COMMIT, PAGE_READWRITE);
   Allocation allocation = { alloc, bytes };
 
-  if (alloc != NULL) {
+  if (alloc != nullptr) {
     ::common::AutoRecursiveLock lock(lock_);
 
     bool inserted = allocs_.insert(allocation).second;
     DCHECK(inserted);
   }
 
-  memory_notifier_->NotifyFutureHeapUse(alloc, size);
+  if (alloc != nullptr)
+    memory_notifier_->NotifyFutureHeapUse(alloc, size);
+
   return alloc;
 }
 
