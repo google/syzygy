@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.6
+[dea670f0a0] Fix a bug in the Large Block Heap.
+
 Version 0.8.20.5
 [63fbbf176d] Really fix the 16-bit CRC32 decoding, with a thorough test.
 
