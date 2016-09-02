@@ -1,6 +1,18 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.6
+[dea670f0a0] Fix a bug in the Large Block Heap.
+
+Version 0.8.20.5
+[63fbbf176d] Really fix the 16-bit CRC32 decoding, with a thorough test.
+
+Version 0.8.20.4
+[479cc1d8da] Work around broken distorm size-prefixed CRC32 decoding.
+
+Version 0.8.20.3
+[15ac4a9af6] Regress ToT to before VS2015 change to affect a build fix.
+
 Version 0.8.20.2
 
 [c76e874ec4] Added benchmarks archive back to build archive as it is still
