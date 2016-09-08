@@ -153,8 +153,9 @@ bool IsInstrumentable(const _Operand& op) {
 bool IsSpecialInstruction(uint16_t opcode) {
   switch (opcode) {
     case I_CMPS:
-    case I_STOS:
+    case I_LODS:
     case I_MOVS:
+    case I_STOS:
       return true;
 
     default:
@@ -632,7 +633,7 @@ bool ImportAsanCheckAccessHooks(
   }
 
   // Import the hooks for string/prefix memory accesses.
-  const _InstructionType strings[] = { I_CMPS, I_MOVS, I_STOS };
+  const _InstructionType strings[] = {I_CMPS, I_LODS, I_MOVS, I_STOS};
   int strings_length = sizeof(strings)/sizeof(_InstructionType);
 
   for (int access_size = 1; access_size <= 4; access_size *= 2) {

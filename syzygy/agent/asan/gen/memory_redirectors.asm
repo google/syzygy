@@ -60,6 +60,12 @@ PUBLIC asan_redirect_repz_1_byte_cmps_access
 PUBLIC asan_redirect_4_byte_cmps_access
 PUBLIC asan_redirect_2_byte_cmps_access
 PUBLIC asan_redirect_1_byte_cmps_access
+PUBLIC asan_redirect_repz_4_byte_lods_access
+PUBLIC asan_redirect_repz_2_byte_lods_access
+PUBLIC asan_redirect_repz_1_byte_lods_access
+PUBLIC asan_redirect_4_byte_lods_access
+PUBLIC asan_redirect_2_byte_lods_access
+PUBLIC asan_redirect_1_byte_lods_access
 PUBLIC asan_redirect_repz_4_byte_movs_access
 PUBLIC asan_redirect_repz_2_byte_movs_access
 PUBLIC asan_redirect_repz_1_byte_movs_access
@@ -146,6 +152,18 @@ asan_redirect_4_byte_cmps_access LABEL PROC
 asan_redirect_2_byte_cmps_access LABEL PROC
   call asan_redirect_tail
 asan_redirect_1_byte_cmps_access LABEL PROC
+  call asan_redirect_tail
+asan_redirect_repz_4_byte_lods_access LABEL PROC
+  call asan_redirect_tail
+asan_redirect_repz_2_byte_lods_access LABEL PROC
+  call asan_redirect_tail
+asan_redirect_repz_1_byte_lods_access LABEL PROC
+  call asan_redirect_tail
+asan_redirect_4_byte_lods_access LABEL PROC
+  call asan_redirect_tail
+asan_redirect_2_byte_lods_access LABEL PROC
+  call asan_redirect_tail
+asan_redirect_1_byte_lods_access LABEL PROC
   call asan_redirect_tail
 asan_redirect_repz_4_byte_movs_access LABEL PROC
   call asan_redirect_tail

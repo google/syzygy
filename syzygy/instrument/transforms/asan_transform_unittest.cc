@@ -169,7 +169,7 @@ class AsanTransformTest : public testing::TestDllTransformTest {
                  false);
     }
 
-    const _InstructionType strings[] = { I_CMPS, I_MOVS, I_STOS };
+    const _InstructionType strings[] = {I_CMPS, I_LODS, I_MOVS, I_STOS};
     int strings_length = arraysize(strings);
 
     for (int access_size = 1; access_size <= 4; access_size *= 2) {
@@ -786,6 +786,10 @@ TEST_F(AsanTransformTest, FilteredInstructionsNotInstrumented) {
 }
 
 TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
+  static const uint8_t lodsd[1] = {0xAD};
+  static const uint8_t lodsw[2] = {0x66, 0xAD};
+  static const uint8_t lodsb[1] = {0xAC};
+
   static const uint8_t movsd[1] = {0xA5};
   static const uint8_t movsw[2] = {0x66, 0xA5};
   static const uint8_t movsb[1] = {0xA4};
@@ -798,6 +802,9 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
   static const uint8_t stosw[2] = {0x66, 0xAB};
   static const uint8_t stosb[1] = {0xAA};
 
+  EXPECT_TRUE(AddInstructionFromBuffer(lodsd, sizeof(lodsd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(lodsw, sizeof(lodsw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(lodsb, sizeof(lodsb)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsd, sizeof(movsd)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsw, sizeof(movsw)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsb, sizeof(movsb)));
@@ -832,6 +839,10 @@ TEST_F(AsanTransformTest, InstrumentableStringInstructions) {
 }
 
 TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
+  static const uint8_t lodsd[2] = {0xF3, 0xAD};
+  static const uint8_t lodsw[3] = {0xF3, 0x66, 0xAD};
+  static const uint8_t lodsb[2] = {0xF3, 0xAC};
+
   static const uint8_t movsd[2] = {0xF3, 0xA5};
   static const uint8_t movsw[3] = {0xF3, 0x66, 0xA5};
   static const uint8_t movsb[2] = {0xF3, 0xA4};
@@ -844,6 +855,9 @@ TEST_F(AsanTransformTest, InstrumentableRepzStringInstructions) {
   static const uint8_t stosw[3] = {0xF3, 0x66, 0xAB};
   static const uint8_t stosb[2] = {0xF3, 0xAA};
 
+  EXPECT_TRUE(AddInstructionFromBuffer(lodsd, sizeof(lodsd)));
+  EXPECT_TRUE(AddInstructionFromBuffer(lodsw, sizeof(lodsw)));
+  EXPECT_TRUE(AddInstructionFromBuffer(lodsb, sizeof(lodsb)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsd, sizeof(movsd)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsw, sizeof(movsw)));
   EXPECT_TRUE(AddInstructionFromBuffer(movsb, sizeof(movsb)));
@@ -1188,22 +1202,28 @@ void CheckImportsAreRedirectedPe(
   expected.insert("asan_check_32_byte_write_access_no_flags");
 
   expected.insert("asan_check_repz_4_byte_cmps_access");
+  expected.insert("asan_check_repz_4_byte_lods_access");
   expected.insert("asan_check_repz_4_byte_movs_access");
   expected.insert("asan_check_repz_4_byte_stos_access");
   expected.insert("asan_check_repz_2_byte_cmps_access");
+  expected.insert("asan_check_repz_2_byte_lods_access");
   expected.insert("asan_check_repz_2_byte_movs_access");
   expected.insert("asan_check_repz_2_byte_stos_access");
   expected.insert("asan_check_repz_1_byte_cmps_access");
+  expected.insert("asan_check_repz_1_byte_lods_access");
   expected.insert("asan_check_repz_1_byte_movs_access");
   expected.insert("asan_check_repz_1_byte_stos_access");
 
   expected.insert("asan_check_4_byte_cmps_access");
+  expected.insert("asan_check_4_byte_lods_access");
   expected.insert("asan_check_4_byte_movs_access");
   expected.insert("asan_check_4_byte_stos_access");
   expected.insert("asan_check_2_byte_cmps_access");
+  expected.insert("asan_check_2_byte_lods_access");
   expected.insert("asan_check_2_byte_movs_access");
   expected.insert("asan_check_2_byte_stos_access");
   expected.insert("asan_check_1_byte_cmps_access");
+  expected.insert("asan_check_1_byte_lods_access");
   expected.insert("asan_check_1_byte_movs_access");
   expected.insert("asan_check_1_byte_stos_access");
 
@@ -1351,22 +1371,28 @@ TEST_F(AsanTransformTest, ImportsAreRedirectedCoff) {
   expected.insert("_asan_check_32_byte_write_access_no_flags");
 
   expected.insert("_asan_check_repz_4_byte_cmps_access");
+  expected.insert("_asan_check_repz_4_byte_lods_access");
   expected.insert("_asan_check_repz_4_byte_movs_access");
   expected.insert("_asan_check_repz_4_byte_stos_access");
   expected.insert("_asan_check_repz_2_byte_cmps_access");
+  expected.insert("_asan_check_repz_2_byte_lods_access");
   expected.insert("_asan_check_repz_2_byte_movs_access");
   expected.insert("_asan_check_repz_2_byte_stos_access");
   expected.insert("_asan_check_repz_1_byte_cmps_access");
+  expected.insert("_asan_check_repz_1_byte_lods_access");
   expected.insert("_asan_check_repz_1_byte_movs_access");
   expected.insert("_asan_check_repz_1_byte_stos_access");
 
   expected.insert("_asan_check_4_byte_cmps_access");
+  expected.insert("_asan_check_4_byte_lods_access");
   expected.insert("_asan_check_4_byte_movs_access");
   expected.insert("_asan_check_4_byte_stos_access");
   expected.insert("_asan_check_2_byte_cmps_access");
+  expected.insert("_asan_check_2_byte_lods_access");
   expected.insert("_asan_check_2_byte_movs_access");
   expected.insert("_asan_check_2_byte_stos_access");
   expected.insert("_asan_check_1_byte_cmps_access");
+  expected.insert("_asan_check_1_byte_lods_access");
   expected.insert("_asan_check_1_byte_movs_access");
   expected.insert("_asan_check_1_byte_stos_access");
 

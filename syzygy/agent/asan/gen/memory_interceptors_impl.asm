@@ -102,18 +102,24 @@ PUBLIC asan_check_repz_1_byte_cmps_access  ; Probe #58.
 PUBLIC asan_check_4_byte_cmps_access  ; Probe #59.
 PUBLIC asan_check_2_byte_cmps_access  ; Probe #60.
 PUBLIC asan_check_1_byte_cmps_access  ; Probe #61.
-PUBLIC asan_check_repz_4_byte_movs_access  ; Probe #62.
-PUBLIC asan_check_repz_2_byte_movs_access  ; Probe #63.
-PUBLIC asan_check_repz_1_byte_movs_access  ; Probe #64.
-PUBLIC asan_check_4_byte_movs_access  ; Probe #65.
-PUBLIC asan_check_2_byte_movs_access  ; Probe #66.
-PUBLIC asan_check_1_byte_movs_access  ; Probe #67.
-PUBLIC asan_check_repz_4_byte_stos_access  ; Probe #68.
-PUBLIC asan_check_repz_2_byte_stos_access  ; Probe #69.
-PUBLIC asan_check_repz_1_byte_stos_access  ; Probe #70.
-PUBLIC asan_check_4_byte_stos_access  ; Probe #71.
-PUBLIC asan_check_2_byte_stos_access  ; Probe #72.
-PUBLIC asan_check_1_byte_stos_access  ; Probe #73.
+PUBLIC asan_check_repz_4_byte_lods_access  ; Probe #62.
+PUBLIC asan_check_repz_2_byte_lods_access  ; Probe #63.
+PUBLIC asan_check_repz_1_byte_lods_access  ; Probe #64.
+PUBLIC asan_check_4_byte_lods_access  ; Probe #65.
+PUBLIC asan_check_2_byte_lods_access  ; Probe #66.
+PUBLIC asan_check_1_byte_lods_access  ; Probe #67.
+PUBLIC asan_check_repz_4_byte_movs_access  ; Probe #68.
+PUBLIC asan_check_repz_2_byte_movs_access  ; Probe #69.
+PUBLIC asan_check_repz_1_byte_movs_access  ; Probe #70.
+PUBLIC asan_check_4_byte_movs_access  ; Probe #71.
+PUBLIC asan_check_2_byte_movs_access  ; Probe #72.
+PUBLIC asan_check_1_byte_movs_access  ; Probe #73.
+PUBLIC asan_check_repz_4_byte_stos_access  ; Probe #74.
+PUBLIC asan_check_repz_2_byte_stos_access  ; Probe #75.
+PUBLIC asan_check_repz_1_byte_stos_access  ; Probe #76.
+PUBLIC asan_check_4_byte_stos_access  ; Probe #77.
+PUBLIC asan_check_2_byte_stos_access  ; Probe #78.
+PUBLIC asan_check_1_byte_stos_access  ; Probe #79.
 
 ; Create a new text segment to house the memory interceptors.
 .probes SEGMENT PAGE PUBLIC READ EXECUTE 'CODE'
@@ -4250,7 +4256,7 @@ skip_neg_direction_61 LABEL NEAR
 asan_check_1_byte_cmps_access ENDP
 
 ALIGN 16
-asan_check_repz_4_byte_movs_access PROC  ; Probe #62.
+asan_check_repz_4_byte_lods_access PROC  ; Probe #62.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4265,6 +4271,276 @@ asan_check_repz_4_byte_movs_access PROC  ; Probe #62.
   jz skip_neg_direction_62
   neg ebx
 skip_neg_direction_62 LABEL NEAR
+  ; By standard calling convention, direction flag must be forward.
+  cld
+  ; Push ARG(context), the Asan registers context.
+  push esp
+  ; Push ARG(compare), shortcut when memory contents differ.
+  push 1
+  ; Push ARG(increment), increment for EDI/EDI.
+  push ebx
+  ; Push ARG(access_size), the access size.
+  push 4
+  ; Push ARG(length), the number of memory accesses.
+  push ecx
+  ; Push ARG(src_access_mode), source access type.
+  push 0
+  ; Push ARG(src), the source pointer.
+  push esi
+  ; Push ARG(dst_access_mode), destination access type.
+  push 0
+  ; Push ARG(dst), the destination pointer.
+  push edi
+  ; Call the generic check strings function.
+  call asan_check_strings_memory_accesses
+  add esp, 36
+  ; Epilogue, restore context.
+  popad
+  popfd
+  ret
+asan_check_repz_4_byte_lods_access ENDP
+
+ALIGN 16
+asan_check_repz_2_byte_lods_access PROC  ; Probe #63.
+  ; Prologue, save context.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 8 bytes (e.g.EFLAGS / EIP was on stack).
+  add DWORD PTR[esp + 12], 8
+  ; Setup increment in EBX (depends on direction flag in EFLAGS).
+  mov ebx, 2
+  pushfd
+  pop eax
+  test eax, 400h
+  jz skip_neg_direction_63
+  neg ebx
+skip_neg_direction_63 LABEL NEAR
+  ; By standard calling convention, direction flag must be forward.
+  cld
+  ; Push ARG(context), the Asan registers context.
+  push esp
+  ; Push ARG(compare), shortcut when memory contents differ.
+  push 1
+  ; Push ARG(increment), increment for EDI/EDI.
+  push ebx
+  ; Push ARG(access_size), the access size.
+  push 2
+  ; Push ARG(length), the number of memory accesses.
+  push ecx
+  ; Push ARG(src_access_mode), source access type.
+  push 0
+  ; Push ARG(src), the source pointer.
+  push esi
+  ; Push ARG(dst_access_mode), destination access type.
+  push 0
+  ; Push ARG(dst), the destination pointer.
+  push edi
+  ; Call the generic check strings function.
+  call asan_check_strings_memory_accesses
+  add esp, 36
+  ; Epilogue, restore context.
+  popad
+  popfd
+  ret
+asan_check_repz_2_byte_lods_access ENDP
+
+ALIGN 16
+asan_check_repz_1_byte_lods_access PROC  ; Probe #64.
+  ; Prologue, save context.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 8 bytes (e.g.EFLAGS / EIP was on stack).
+  add DWORD PTR[esp + 12], 8
+  ; Setup increment in EBX (depends on direction flag in EFLAGS).
+  mov ebx, 1
+  pushfd
+  pop eax
+  test eax, 400h
+  jz skip_neg_direction_64
+  neg ebx
+skip_neg_direction_64 LABEL NEAR
+  ; By standard calling convention, direction flag must be forward.
+  cld
+  ; Push ARG(context), the Asan registers context.
+  push esp
+  ; Push ARG(compare), shortcut when memory contents differ.
+  push 1
+  ; Push ARG(increment), increment for EDI/EDI.
+  push ebx
+  ; Push ARG(access_size), the access size.
+  push 1
+  ; Push ARG(length), the number of memory accesses.
+  push ecx
+  ; Push ARG(src_access_mode), source access type.
+  push 0
+  ; Push ARG(src), the source pointer.
+  push esi
+  ; Push ARG(dst_access_mode), destination access type.
+  push 0
+  ; Push ARG(dst), the destination pointer.
+  push edi
+  ; Call the generic check strings function.
+  call asan_check_strings_memory_accesses
+  add esp, 36
+  ; Epilogue, restore context.
+  popad
+  popfd
+  ret
+asan_check_repz_1_byte_lods_access ENDP
+
+ALIGN 16
+asan_check_4_byte_lods_access PROC  ; Probe #65.
+  ; Prologue, save context.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 8 bytes (e.g.EFLAGS / EIP was on stack).
+  add DWORD PTR[esp + 12], 8
+  ; Setup increment in EBX (depends on direction flag in EFLAGS).
+  mov ebx, 4
+  pushfd
+  pop eax
+  test eax, 400h
+  jz skip_neg_direction_65
+  neg ebx
+skip_neg_direction_65 LABEL NEAR
+  ; By standard calling convention, direction flag must be forward.
+  cld
+  ; Push ARG(context), the Asan registers context.
+  push esp
+  ; Push ARG(compare), shortcut when memory contents differ.
+  push 1
+  ; Push ARG(increment), increment for EDI/EDI.
+  push ebx
+  ; Push ARG(access_size), the access size.
+  push 4
+  ; Push ARG(length), the number of memory accesses.
+  push 1
+  ; Push ARG(src_access_mode), source access type.
+  push 0
+  ; Push ARG(src), the source pointer.
+  push esi
+  ; Push ARG(dst_access_mode), destination access type.
+  push 0
+  ; Push ARG(dst), the destination pointer.
+  push edi
+  ; Call the generic check strings function.
+  call asan_check_strings_memory_accesses
+  add esp, 36
+  ; Epilogue, restore context.
+  popad
+  popfd
+  ret
+asan_check_4_byte_lods_access ENDP
+
+ALIGN 16
+asan_check_2_byte_lods_access PROC  ; Probe #66.
+  ; Prologue, save context.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 8 bytes (e.g.EFLAGS / EIP was on stack).
+  add DWORD PTR[esp + 12], 8
+  ; Setup increment in EBX (depends on direction flag in EFLAGS).
+  mov ebx, 2
+  pushfd
+  pop eax
+  test eax, 400h
+  jz skip_neg_direction_66
+  neg ebx
+skip_neg_direction_66 LABEL NEAR
+  ; By standard calling convention, direction flag must be forward.
+  cld
+  ; Push ARG(context), the Asan registers context.
+  push esp
+  ; Push ARG(compare), shortcut when memory contents differ.
+  push 1
+  ; Push ARG(increment), increment for EDI/EDI.
+  push ebx
+  ; Push ARG(access_size), the access size.
+  push 2
+  ; Push ARG(length), the number of memory accesses.
+  push 1
+  ; Push ARG(src_access_mode), source access type.
+  push 0
+  ; Push ARG(src), the source pointer.
+  push esi
+  ; Push ARG(dst_access_mode), destination access type.
+  push 0
+  ; Push ARG(dst), the destination pointer.
+  push edi
+  ; Call the generic check strings function.
+  call asan_check_strings_memory_accesses
+  add esp, 36
+  ; Epilogue, restore context.
+  popad
+  popfd
+  ret
+asan_check_2_byte_lods_access ENDP
+
+ALIGN 16
+asan_check_1_byte_lods_access PROC  ; Probe #67.
+  ; Prologue, save context.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 8 bytes (e.g.EFLAGS / EIP was on stack).
+  add DWORD PTR[esp + 12], 8
+  ; Setup increment in EBX (depends on direction flag in EFLAGS).
+  mov ebx, 1
+  pushfd
+  pop eax
+  test eax, 400h
+  jz skip_neg_direction_67
+  neg ebx
+skip_neg_direction_67 LABEL NEAR
+  ; By standard calling convention, direction flag must be forward.
+  cld
+  ; Push ARG(context), the Asan registers context.
+  push esp
+  ; Push ARG(compare), shortcut when memory contents differ.
+  push 1
+  ; Push ARG(increment), increment for EDI/EDI.
+  push ebx
+  ; Push ARG(access_size), the access size.
+  push 1
+  ; Push ARG(length), the number of memory accesses.
+  push 1
+  ; Push ARG(src_access_mode), source access type.
+  push 0
+  ; Push ARG(src), the source pointer.
+  push esi
+  ; Push ARG(dst_access_mode), destination access type.
+  push 0
+  ; Push ARG(dst), the destination pointer.
+  push edi
+  ; Call the generic check strings function.
+  call asan_check_strings_memory_accesses
+  add esp, 36
+  ; Epilogue, restore context.
+  popad
+  popfd
+  ret
+asan_check_1_byte_lods_access ENDP
+
+ALIGN 16
+asan_check_repz_4_byte_movs_access PROC  ; Probe #68.
+  ; Prologue, save context.
+  pushfd
+  pushad
+  ; Fix the original value of ESP in the Asan registers context.
+  ; Removing 8 bytes (e.g.EFLAGS / EIP was on stack).
+  add DWORD PTR[esp + 12], 8
+  ; Setup increment in EBX (depends on direction flag in EFLAGS).
+  mov ebx, 4
+  pushfd
+  pop eax
+  test eax, 400h
+  jz skip_neg_direction_68
+  neg ebx
+skip_neg_direction_68 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4295,7 +4571,7 @@ skip_neg_direction_62 LABEL NEAR
 asan_check_repz_4_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_repz_2_byte_movs_access PROC  ; Probe #63.
+asan_check_repz_2_byte_movs_access PROC  ; Probe #69.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4307,9 +4583,9 @@ asan_check_repz_2_byte_movs_access PROC  ; Probe #63.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_63
+  jz skip_neg_direction_69
   neg ebx
-skip_neg_direction_63 LABEL NEAR
+skip_neg_direction_69 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4340,7 +4616,7 @@ skip_neg_direction_63 LABEL NEAR
 asan_check_repz_2_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_repz_1_byte_movs_access PROC  ; Probe #64.
+asan_check_repz_1_byte_movs_access PROC  ; Probe #70.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4352,9 +4628,9 @@ asan_check_repz_1_byte_movs_access PROC  ; Probe #64.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_64
+  jz skip_neg_direction_70
   neg ebx
-skip_neg_direction_64 LABEL NEAR
+skip_neg_direction_70 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4385,7 +4661,7 @@ skip_neg_direction_64 LABEL NEAR
 asan_check_repz_1_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_4_byte_movs_access PROC  ; Probe #65.
+asan_check_4_byte_movs_access PROC  ; Probe #71.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4397,9 +4673,9 @@ asan_check_4_byte_movs_access PROC  ; Probe #65.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_65
+  jz skip_neg_direction_71
   neg ebx
-skip_neg_direction_65 LABEL NEAR
+skip_neg_direction_71 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4430,7 +4706,7 @@ skip_neg_direction_65 LABEL NEAR
 asan_check_4_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_2_byte_movs_access PROC  ; Probe #66.
+asan_check_2_byte_movs_access PROC  ; Probe #72.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4442,9 +4718,9 @@ asan_check_2_byte_movs_access PROC  ; Probe #66.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_66
+  jz skip_neg_direction_72
   neg ebx
-skip_neg_direction_66 LABEL NEAR
+skip_neg_direction_72 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4475,7 +4751,7 @@ skip_neg_direction_66 LABEL NEAR
 asan_check_2_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_1_byte_movs_access PROC  ; Probe #67.
+asan_check_1_byte_movs_access PROC  ; Probe #73.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4487,9 +4763,9 @@ asan_check_1_byte_movs_access PROC  ; Probe #67.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_67
+  jz skip_neg_direction_73
   neg ebx
-skip_neg_direction_67 LABEL NEAR
+skip_neg_direction_73 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4520,7 +4796,7 @@ skip_neg_direction_67 LABEL NEAR
 asan_check_1_byte_movs_access ENDP
 
 ALIGN 16
-asan_check_repz_4_byte_stos_access PROC  ; Probe #68.
+asan_check_repz_4_byte_stos_access PROC  ; Probe #74.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4532,9 +4808,9 @@ asan_check_repz_4_byte_stos_access PROC  ; Probe #68.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_68
+  jz skip_neg_direction_74
   neg ebx
-skip_neg_direction_68 LABEL NEAR
+skip_neg_direction_74 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4565,7 +4841,7 @@ skip_neg_direction_68 LABEL NEAR
 asan_check_repz_4_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_repz_2_byte_stos_access PROC  ; Probe #69.
+asan_check_repz_2_byte_stos_access PROC  ; Probe #75.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4577,9 +4853,9 @@ asan_check_repz_2_byte_stos_access PROC  ; Probe #69.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_69
+  jz skip_neg_direction_75
   neg ebx
-skip_neg_direction_69 LABEL NEAR
+skip_neg_direction_75 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4610,7 +4886,7 @@ skip_neg_direction_69 LABEL NEAR
 asan_check_repz_2_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_repz_1_byte_stos_access PROC  ; Probe #70.
+asan_check_repz_1_byte_stos_access PROC  ; Probe #76.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4622,9 +4898,9 @@ asan_check_repz_1_byte_stos_access PROC  ; Probe #70.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_70
+  jz skip_neg_direction_76
   neg ebx
-skip_neg_direction_70 LABEL NEAR
+skip_neg_direction_76 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4655,7 +4931,7 @@ skip_neg_direction_70 LABEL NEAR
 asan_check_repz_1_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_4_byte_stos_access PROC  ; Probe #71.
+asan_check_4_byte_stos_access PROC  ; Probe #77.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4667,9 +4943,9 @@ asan_check_4_byte_stos_access PROC  ; Probe #71.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_71
+  jz skip_neg_direction_77
   neg ebx
-skip_neg_direction_71 LABEL NEAR
+skip_neg_direction_77 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4700,7 +4976,7 @@ skip_neg_direction_71 LABEL NEAR
 asan_check_4_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_2_byte_stos_access PROC  ; Probe #72.
+asan_check_2_byte_stos_access PROC  ; Probe #78.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4712,9 +4988,9 @@ asan_check_2_byte_stos_access PROC  ; Probe #72.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_72
+  jz skip_neg_direction_78
   neg ebx
-skip_neg_direction_72 LABEL NEAR
+skip_neg_direction_78 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
@@ -4745,7 +5021,7 @@ skip_neg_direction_72 LABEL NEAR
 asan_check_2_byte_stos_access ENDP
 
 ALIGN 16
-asan_check_1_byte_stos_access PROC  ; Probe #73.
+asan_check_1_byte_stos_access PROC  ; Probe #79.
   ; Prologue, save context.
   pushfd
   pushad
@@ -4757,9 +5033,9 @@ asan_check_1_byte_stos_access PROC  ; Probe #73.
   pushfd
   pop eax
   test eax, 400h
-  jz skip_neg_direction_73
+  jz skip_neg_direction_79
   neg ebx
-skip_neg_direction_73 LABEL NEAR
+skip_neg_direction_79 LABEL NEAR
   ; By standard calling convention, direction flag must be forward.
   cld
   ; Push ARG(context), the Asan registers context.
