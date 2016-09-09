@@ -382,6 +382,10 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
         " \"0x00\", \"0x00\",\n"
         "      \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
         " \"0x00\", \"0x00\",\n"
+#ifdef _WIN64
+        "      \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
+        " \"0x00\", \"0x00\",\n"
+#endif
         "      \"0xC3\", \"0xC3\", \"0xC3\", \"0xC3\", \"0x00\", \"0x00\","
         " \"0x00\", \"0x00\",\n"
         "      \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
@@ -392,10 +396,15 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
         "  },\n"
         "  \"shadow\": {\n"
         "    \"type\": \"blob\",\n"
-        "    \"address\": \"0x%08X\",\n"
+        "    \"address\": \"0x%08zX\",\n"
         "    \"size\": null,\n"
         "    \"data\": [\n"
+#ifndef _WIN64
         "      \"0xE0\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\", \"0xF4\"\n"
+#else
+        "      \"0xE0\", \"0xFA\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\","
+        " \"0xF4\"\n"
+#endif
         "    ]\n"
         "  }\n"
         "}";
@@ -477,14 +486,22 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
         "  \"milliseconds-since-free\": 100,\n"
         "  \"contents\": {\n"
         "    \"type\": \"blob\",\n"
-        "    \"address\": \"0x%08X\",\n"
+        "    \"address\": \"0x%08zX\",\n"
+#ifndef _WIN64
         "    \"size\": 48,\n"
+#else
+        "    \"size\": 56,\n"
+#endif
         "    \"data\": null\n"
         "  },\n"
         "  \"shadow\": {\n"
         "    \"type\": \"blob\",\n"
-        "    \"address\": \"0x%08X\",\n"
+        "    \"address\": \"0x%08zX\",\n"
+#ifndef _WIN64
         "    \"size\": 6,\n"
+#else
+        "    \"size\": 7,\n"
+#endif
         "    \"data\": null\n"
         "  }\n"
         "}";
@@ -496,7 +513,11 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
     const char* kExpectedMemoryRangesAddresses[] = {
         reinterpret_cast<const char*>(block_info.header),
         reinterpret_cast<const char*>(BlockShadowAddress())};
+#ifndef _WIN64
     size_t kExpectedMemoryRangesSize[] = {48, 6};
+#else
+    size_t kExpectedMemoryRangesSize[] = {56, 7};
+#endif
     for (int i = 0; i < 2; i++) {
       EXPECT_EQ(kExpectedMemoryRangesAddresses[i], memory_ranges[i].first);
       EXPECT_EQ(kExpectedMemoryRangesSize[i], memory_ranges[i].second);
@@ -609,7 +630,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "    ],\n"
       "    \"contents\": {\n"
       "      \"type\": \"blob\",\n"
-      "      \"address\": \"0x%08X\",\n"
+      "      \"address\": \"0x%08zX\",\n"
       "      \"size\": null,\n"
       "      \"data\": [\n"
       "        \"0x80\", \"0xCA\", \"0x00\", \"0x00\", \"0x20\", \"0x00\","
@@ -618,6 +639,10 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       " \"0x00\", \"0x00\",\n"
       "        \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
       " \"0x00\", \"0x00\",\n"
+#ifdef _WIN64
+      "        \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
+      " \"0x00\", \"0x00\",\n"
+#endif
       "        \"0xC3\", \"0xC3\", \"0xC3\", \"0xC3\", \"0x00\", \"0x00\","
       " \"0x00\", \"0x00\",\n"
       "        \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
@@ -628,10 +653,15 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "    },\n"
       "    \"shadow\": {\n"
       "      \"type\": \"blob\",\n"
-      "      \"address\": \"0x%08X\",\n"
+      "      \"address\": \"0x%08zX\",\n"
       "      \"size\": null,\n"
       "      \"data\": [\n"
+#ifndef _WIN64
       "        \"0xE0\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\", \"0xF4\"\n"
+#else
+      "        \"0xE0\", \"0xFA\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\","
+      " \"0xF4\"\n"
+#endif
       "      ]\n"
       "    }\n"
       "  },\n"
@@ -641,7 +671,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "  \"shadow-memory-index\": 512,\n"
       "  \"shadow-memory\": {\n"
       "    \"type\": \"blob\",\n"
-      "    \"address\": \"0x%08X\",\n"
+      "    \"address\": \"0x%08zX\",\n"
       "    \"size\": null,\n"
       "    \"data\": [\n"
       "      \"0xF2\", \"0xF2\", \"0xF2\", \"0xF2\", \"0xF2\", \"0xF2\","
@@ -665,7 +695,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "  \"page-bits-index\": 0,\n"
       "  \"page-bits\": {\n"
       "    \"type\": \"blob\",\n"
-      "    \"address\": \"0x%08X\",\n"
+      "    \"address\": \"0x%08zX\",\n"
       "    \"size\": null,\n"
       "    \"data\": [\n"
       "      \"0x00\", \"0x00\", \"0x00\"\n"
@@ -784,14 +814,22 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "    ],\n"
       "    \"contents\": {\n"
       "      \"type\": \"blob\",\n"
-      "      \"address\": \"0x%08X\",\n"
+      "      \"address\": \"0x%08zX\",\n"
+#ifndef _WIN64
       "      \"size\": 48,\n"
+#else
+      "      \"size\": 56,\n"
+#endif
       "      \"data\": null\n"
       "    },\n"
       "    \"shadow\": {\n"
       "      \"type\": \"blob\",\n"
-      "      \"address\": \"0x%08X\",\n"
+      "      \"address\": \"0x%08zX\",\n"
+#ifndef _WIN64
       "      \"size\": 6,\n"
+#else
+      "      \"size\": 7,\n"
+#endif
       "      \"data\": null\n"
       "    }\n"
       "  },\n"
@@ -801,14 +839,14 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "  \"shadow-memory-index\": 512,\n"
       "  \"shadow-memory\": {\n"
       "    \"type\": \"blob\",\n"
-      "    \"address\": \"0x%08X\",\n"
+      "    \"address\": \"0x%08zX\",\n"
       "    \"size\": 64,\n"
       "    \"data\": null\n"
       "  },\n"
       "  \"page-bits-index\": 0,\n"
       "  \"page-bits\": {\n"
       "    \"type\": \"blob\",\n"
-      "    \"address\": \"0x%08X\",\n"
+      "    \"address\": \"0x%08zX\",\n"
       "    \"size\": 3,\n"
       "    \"data\": null\n"
       "  },\n"
@@ -871,7 +909,11 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       reinterpret_cast<const char*>(BlockShadowAddress()),
       reinterpret_cast<const char*>(shadow_memory.address),
       reinterpret_cast<const char*>(runtime_->shadow()->page_bits())};
+#ifndef _WIN64
   size_t kExpectedMemoryRangesSize[] = {48, 6, 64, 3};
+#else
+  size_t kExpectedMemoryRangesSize[] = {56, 7, 64, 3};
+#endif
   for (int i = 0; i < memory_ranges.size(); i++) {
     EXPECT_EQ(kExpectedMemoryRangesAddresses[i], memory_ranges[i].first)
         << " Where i = " << i;
