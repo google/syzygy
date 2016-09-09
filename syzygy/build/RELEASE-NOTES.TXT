@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.20.7
+[f10f8a119b] Add support for LODS instruction.
+
 Version 0.8.20.6
 [dea670f0a0] Fix a bug in the Large Block Heap.
 

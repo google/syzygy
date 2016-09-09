@@ -54,6 +54,10 @@ EXPORTS
   asan_check_repz_2_byte_cmps_access
   asan_check_repz_4_byte_cmps_access
 
+  asan_check_repz_1_byte_lods_access
+  asan_check_repz_2_byte_lods_access
+  asan_check_repz_4_byte_lods_access
+
   asan_check_repz_1_byte_movs_access
   asan_check_repz_2_byte_movs_access
   asan_check_repz_4_byte_movs_access
@@ -65,6 +69,10 @@ EXPORTS
   asan_check_1_byte_cmps_access
   asan_check_2_byte_cmps_access
   asan_check_4_byte_cmps_access
+
+  asan_check_1_byte_lods_access
+  asan_check_2_byte_lods_access
+  asan_check_4_byte_lods_access
 
   asan_check_1_byte_movs_access
   asan_check_2_byte_movs_access

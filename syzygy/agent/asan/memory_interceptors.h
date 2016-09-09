@@ -98,25 +98,31 @@ extern const size_t kNumMemoryAccessorVariants;
     F(16, write_access, AsanWriteAccess) \
     F(32, write_access, AsanWriteAccess)
 
-#define ASAN_STRING_INTERCEPT_FUNCTIONS(F) \
-    F(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 4, 1) \
-    F(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 2, 1) \
-    F(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 1, 1) \
-    F(cmps, _, 1, AsanReadAccess, AsanReadAccess, 4, 1) \
-    F(cmps, _, 1, AsanReadAccess, AsanReadAccess, 2, 1) \
-    F(cmps, _, 1, AsanReadAccess, AsanReadAccess, 1, 1) \
-    F(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 4, 0) \
-    F(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 2, 0) \
-    F(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 1, 0) \
-    F(movs, _, 1, AsanWriteAccess, AsanReadAccess, 4, 0) \
-    F(movs, _, 1, AsanWriteAccess, AsanReadAccess, 2, 0) \
-    F(movs, _, 1, AsanWriteAccess, AsanReadAccess, 1, 0) \
-    F(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 4, 0) \
-    F(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 2, 0) \
-    F(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 1, 0) \
-    F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 4, 0) \
-    F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0) \
-    F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
+#define ASAN_STRING_INTERCEPT_FUNCTIONS(F)                       \
+  F(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 4, 1)     \
+  F(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 2, 1)     \
+  F(cmps, _repz_, ecx, AsanReadAccess, AsanReadAccess, 1, 1)     \
+  F(cmps, _, 1, AsanReadAccess, AsanReadAccess, 4, 1)            \
+  F(cmps, _, 1, AsanReadAccess, AsanReadAccess, 2, 1)            \
+  F(cmps, _, 1, AsanReadAccess, AsanReadAccess, 1, 1)            \
+  F(lods, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 4, 0)    \
+  F(lods, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 2, 0)    \
+  F(lods, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 1, 0)    \
+  F(lods, _, 1, AsanWriteAccess, AsanReadAccess, 4, 0)           \
+  F(lods, _, 1, AsanWriteAccess, AsanReadAccess, 2, 0)           \
+  F(lods, _, 1, AsanWriteAccess, AsanReadAccess, 1, 0)           \
+  F(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 4, 0)    \
+  F(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 2, 0)    \
+  F(movs, _repz_, ecx, AsanWriteAccess, AsanReadAccess, 1, 0)    \
+  F(movs, _, 1, AsanWriteAccess, AsanReadAccess, 4, 0)           \
+  F(movs, _, 1, AsanWriteAccess, AsanReadAccess, 2, 0)           \
+  F(movs, _, 1, AsanWriteAccess, AsanReadAccess, 1, 0)           \
+  F(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 4, 0) \
+  F(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 2, 0) \
+  F(stos, _repz_, ecx, AsanWriteAccess, AsanUnknownAccess, 1, 0) \
+  F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 4, 0)        \
+  F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0)        \
+  F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
 
 }  // namespace asan
 }  // namespace agent

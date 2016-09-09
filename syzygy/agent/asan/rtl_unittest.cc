@@ -466,11 +466,10 @@ TEST_F(AsanRtlTest, AsanSingleStoInstructionCheckBadAccess) {
 }
 
 TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckGoodAccess) {
-  static const char* function_names[] = {
-      "asan_check_repz_4_byte_movs_access",
-      "asan_check_repz_4_byte_cmps_access",
-      "asan_check_repz_4_byte_stos_access"
-  };
+  static const char* function_names[] = {"asan_check_repz_4_byte_lods_access",
+                                         "asan_check_repz_4_byte_movs_access",
+                                         "asan_check_repz_4_byte_cmps_access",
+                                         "asan_check_repz_4_byte_stos_access"};
 
   // Allocate memory space.
   AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
@@ -493,11 +492,10 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckGoodAccess) {
 }
 
 TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckBadAccess) {
-  static const char* function_names[] = {
-      "asan_check_repz_4_byte_movs_access",
-      "asan_check_repz_4_byte_cmps_access",
-      "asan_check_repz_4_byte_stos_access"
-  };
+  static const char* function_names[] = {"asan_check_repz_4_byte_lods_access",
+                                         "asan_check_repz_4_byte_movs_access",
+                                         "asan_check_repz_4_byte_cmps_access",
+                                         "asan_check_repz_4_byte_stos_access"};
 
   // Allocate memory space.
   AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
@@ -526,11 +524,10 @@ TEST_F(AsanRtlTest, AsanPrefixedSpecialInstructionCheckBadAccess) {
 }
 
 TEST_F(AsanRtlTest, AsanDirectionSpecialInstructionCheckGoodAccess) {
-  static const char* function_names[] = {
-      "asan_check_repz_4_byte_movs_access",
-      "asan_check_repz_4_byte_cmps_access",
-      "asan_check_repz_4_byte_stos_access"
-  };
+  static const char* function_names[] = {"asan_check_repz_4_byte_lods_access",
+                                         "asan_check_repz_4_byte_movs_access",
+                                         "asan_check_repz_4_byte_cmps_access",
+                                         "asan_check_repz_4_byte_stos_access"};
 
   // Allocate memory space.
   AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
@@ -555,17 +552,18 @@ TEST_F(AsanRtlTest, AsanDirectionSpecialInstructionCheckGoodAccess) {
 }
 
 TEST_F(AsanRtlTest, AsanSpecialInstructionCheckZeroAccess) {
-  static const char* function_names[] = {
-      "asan_check_repz_1_byte_movs_access",
-      "asan_check_repz_1_byte_cmps_access",
-      "asan_check_repz_1_byte_stos_access",
-      "asan_check_repz_2_byte_movs_access",
-      "asan_check_repz_2_byte_cmps_access",
-      "asan_check_repz_2_byte_stos_access",
-      "asan_check_repz_4_byte_movs_access",
-      "asan_check_repz_4_byte_cmps_access",
-      "asan_check_repz_4_byte_stos_access"
-  };
+  static const char* function_names[] = {"asan_check_repz_1_byte_lods_access",
+                                         "asan_check_repz_1_byte_movs_access",
+                                         "asan_check_repz_1_byte_cmps_access",
+                                         "asan_check_repz_1_byte_stos_access",
+                                         "asan_check_repz_2_byte_lods_access",
+                                         "asan_check_repz_2_byte_movs_access",
+                                         "asan_check_repz_2_byte_cmps_access",
+                                         "asan_check_repz_2_byte_stos_access",
+                                         "asan_check_repz_4_byte_lods_access",
+                                         "asan_check_repz_4_byte_movs_access",
+                                         "asan_check_repz_4_byte_cmps_access",
+                                         "asan_check_repz_4_byte_stos_access"};
 
   // Allocate memory space.
   AllocMemoryBuffers(kAllocSize, sizeof(uint32_t));
@@ -590,6 +588,7 @@ TEST_F(AsanRtlTest, AsanSpecialInstructionCheckZeroAccess) {
 
 TEST_F(AsanRtlTest, AsanSpecialInstructionCheckShortcutAccess) {
   static const char* function_names[] = {
+      "asan_check_repz_1_byte_lods_access",
       "asan_check_repz_1_byte_cmps_access",
       "asan_check_repz_2_byte_cmps_access",
       "asan_check_repz_4_byte_cmps_access",
