@@ -215,7 +215,7 @@ bool DecodeOneInstruction(uint32_t address,
   code.dt = Decode32Bits;
   code.features = DF_NONE;
   code.codeOffset = address;
-  code.codeLen = length;
+  code.codeLen = static_cast<int>(length);
   code.code = buffer;
 
   unsigned int decoded = 0;
