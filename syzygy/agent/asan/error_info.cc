@@ -14,6 +14,7 @@
 
 #include "syzygy/agent/asan/error_info.h"
 
+#include <limits>
 #include <string>
 
 #include "base/strings/string_util.h"
@@ -407,7 +408,7 @@ HeapType HeapTypeStrToEnum(const std::string& heap_type) {
 }
 
 uint64_t CastAddress(const void* address) {
-  return static_cast<uint64_t>(reinterpret_cast<uint32_t>(address));
+  return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(address));
 }
 
 void PopulateStackTrace(const void* const* frames,

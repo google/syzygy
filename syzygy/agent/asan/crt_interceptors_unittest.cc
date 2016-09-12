@@ -51,7 +51,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemset) {
   ASSERT_TRUE(mem.get() != NULL);
   SetCallBackFunction(&AsanErrorCallback);
   EXPECT_EQ(mem.get(), memsetFunction(mem.GetAs<void*>(), 0xAA, kAllocSize));
-  for (size_t i = 0; i < kAllocSize; ++i)
+  for (uint32_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(0xAA, mem[i]);
 
   memsetFunctionFailing(mem.get() - 1, 0xBB, kAllocSize);
@@ -124,7 +124,7 @@ TEST_F(CrtInterceptorsTest, AsanCheckMemcpy) {
   SetCallBackFunction(&AsanErrorCallback);
   EXPECT_EQ(mem_dst.get(),
             memcpyFunction(mem_dst.get(), mem_src.get(), kAllocSize));
-  for (size_t i = 0; i < kAllocSize; ++i)
+  for (uint32_t i = 0; i < kAllocSize; ++i)
     EXPECT_EQ(mem_dst[i], mem_src[i]);
 
   memcpyFunctionFailing(mem_dst.get(), mem_src.get(), kAllocSize + 1);

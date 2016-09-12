@@ -67,12 +67,12 @@ TEST_F(AsanRtlImplTest, CreateDestroy) {
 }
 
 TEST_F(AsanRtlImplTest, Alloc) {
-  for (size_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
+  for (uint32_t size = 10; size < kMaxAllocSize; size = size * 5 + 123) {
     void* mem = asan_HeapAlloc(heap_, 0, size);
     ASSERT_TRUE(mem != NULL);
     ::memset(mem, '\0', size);
 
-    size_t new_size = size;
+    uint32_t new_size = size;
     while (new_size == size)
       new_size = base::RandInt(size / 2, size * 2);
 
@@ -122,7 +122,7 @@ TEST_F(AsanRtlImplTest, Walk) {
 
 TEST_F(AsanRtlImplTest, SetQueryInformation) {
   ULONG compat_flag = ULONG_MAX;
-  unsigned long ret = 0;
+  SIZE_T ret = 0;
   // QueryInformation isn't supported by the current heap implementation and
   // should always return false.
   ASSERT_FALSE(

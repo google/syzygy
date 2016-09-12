@@ -116,6 +116,7 @@
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/syzygy/trace/common/common.gyp:trace_common_lib',
         '<(src)/syzygy/trace/protocol/protocol.gyp:protocol_lib',
+        '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
         '<(src)/third_party/crashpad/files/client/client.gyp:crashpad_client',
       ],
       'conditions': [
@@ -131,7 +132,6 @@
           ],
           'dependencies': [
             '<(src)/syzygy/kasko/kasko.gyp:kasko',
-            '<(src)/syzygy/trace/rpc/rpc.gyp:logger_rpc_lib',
           ],
         }],
       ],
@@ -210,10 +210,36 @@
         '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'conditions': [
-        ['target_arch == "ia32"', {
-          'sources': [
+        ['target_arch == "x64"', {
+          'sources!': [
+            'block_unittest.cc',
+            'error_info_unittest.cc',
             'reporters/kasko_reporter_unittest.cc',
+            'crt_interceptors_unittest.cc',
+            'block_utils_unittest.cc',
+            'heap_checker_unittest.cc',
+            'iat_patcher_unittest.cc',
+            'logger_unittest.cc',
+            'memory_interceptors_patcher_unittest.cc',
+            'memory_interceptors_unittest.cc',
+            'page_protection_helpers_unittest.cc',
+            'registry_cache_unittest.cc',
+            'rtl_unittest.cc',
+            'shadow_unittest.cc',
+            'runtime_unittest.cc',
+            'rtl_impl_unittest.cc',
+            'rtl_utils_unittest.cc',
+            'system_interceptors_unittest.cc',
+            'heap_managers/block_heap_manager_unittest.cc',
+            'memory_notifiers/shadow_memory_notifier_unittest.cc',
           ],
+        }, {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              # Disable support for large address spaces.
+              'LargeAddressAware': 1,
+            },
+          },
         }],
       ],
       'dependencies': [
@@ -233,12 +259,6 @@
         '<(src)/testing/gtest.gyp:gtest',
         '<(src)/third_party/crashpad/files/client/client.gyp:crashpad_client',
        ],
-      'msvs_settings': {
-        'VCLinkerTool': {
-          # Disable support for large address spaces.
-          'LargeAddressAware': 1,
-        },
-      },
       'defines': [
         'SYZYGY_UNITTESTS_USE_LONG_TIMEOUT=1',
       ],
@@ -329,8 +349,8 @@
         # This file must have a .def extension in order for GYP to
         # automatically configure it as the ModuleDefinitionFile
         # (we usually suffix generated files with .gen).
-        'dummy_shadow.cc',
         'gen/system_interceptors.def',
+        'dummy_shadow.cc',
         'syzyasan_rtl.cc',
         'syzyasan_rtl.rc',
       ],

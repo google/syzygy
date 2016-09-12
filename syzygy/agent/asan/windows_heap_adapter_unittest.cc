@@ -34,8 +34,8 @@ class LenientMockHeapManager : public HeapManagerInterface {
  public:
   MOCK_METHOD0(CreateHeap, HeapId());
   MOCK_METHOD1(DestroyHeap, bool(HeapId));
-  MOCK_METHOD2(Size, size_t(HeapId, const void*));
-  MOCK_METHOD2(Allocate, void*(HeapId, size_t));
+  MOCK_METHOD2(Size, uint32_t(HeapId, const void*));
+  MOCK_METHOD2(Allocate, void*(HeapId, uint32_t));
   MOCK_METHOD2(Free, bool(HeapId, void*));
   MOCK_METHOD1(Lock, void(HeapId));
   MOCK_METHOD1(Unlock, void(HeapId));
@@ -49,11 +49,11 @@ class WindowsHeapAdapterTest : public testing::Test {
  public:
   WindowsHeapAdapterTest() { }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     WindowsHeapAdapter::SetUp(&mock_heap_manager_);
   }
 
-  virtual void TearDown() override { WindowsHeapAdapter::TearDown(); }
+  void TearDown() override { WindowsHeapAdapter::TearDown(); }
 
  protected:
   const HeapManagerInterface::HeapId kFakeHeapId =

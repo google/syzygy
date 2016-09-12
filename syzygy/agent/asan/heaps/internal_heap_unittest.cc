@@ -14,6 +14,8 @@
 
 #include "syzygy/agent/asan/heaps/internal_heap.h"
 
+#include <set>
+
 #include "gtest/gtest.h"
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/agent/asan/heaps/large_block_heap.h"
@@ -49,7 +51,7 @@ TEST(InternalHeapTest, EndToEnd) {
 
   // Make a bunch of different sized allocations.
   std::set<void*> allocs;
-  for (size_t i = 1; i < 1024 * 1024; i <<= 1) {
+  for (uint32_t i = 1; i < 1024 * 1024; i <<= 1) {
     void* alloc = h.Allocate(i);
     allocs.insert(alloc);
   }

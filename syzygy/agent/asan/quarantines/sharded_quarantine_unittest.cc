@@ -48,7 +48,7 @@ struct DummyObjectSizeFunctor {
 };
 
 struct DummyObjectHashFunctor {
-  uint32_t operator()(const DummyObject& o) { return o.hash; }
+  size_t operator()(const DummyObject& o) { return o.hash; }
 };
 
 typedef std::vector<DummyObject> DummyObjectVector;
@@ -146,8 +146,8 @@ TEST(ShardedQuarantineTest, StressTest) {
 
   for (size_t i = 0; i < 1000000; ++i) {
     // Generates a logarithmic distribution of element sizes.
-    size_t logsize = (1 << rand() % 11);
-    size_t size = (rand() & (logsize - 1)) | logsize;
+    uint32_t logsize = (1 << rand() % 11);
+    uint32_t size = (rand() & (logsize - 1)) | logsize;
     DummyObject d(size);
 
     size_t old_size = q.GetSizeForTesting();

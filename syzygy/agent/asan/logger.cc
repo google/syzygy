@@ -151,7 +151,7 @@ void AsanLogger::SaveMinidumpWithProtobufAndMemoryRanges(
   const EXCEPTION_POINTERS pointers = { &exception, context };
   ::common::rpc::InvokeRpc(
       &LoggerClient_SaveMinidumpWithProtobufAndMemoryRanges, rpc_binding_.Get(),
-      ::GetCurrentThreadId(), reinterpret_cast<unsigned long>(&pointers),
+      ::GetCurrentThreadId(), reinterpret_cast<uintptr_t>(&pointers),
       reinterpret_cast<const byte*>(protobuf.data()),
       static_cast<unsigned long>(protobuf.size()),
       reinterpret_cast<const unsigned long*>(base_addresses.data()),

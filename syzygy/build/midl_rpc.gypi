@@ -62,13 +62,19 @@
         'midl.exe', '<(RULE_INPUT_PATH)',
             '/nologo',
             '/char', 'signed',
-            '/env', 'win32',
             '/Oicf',
             '/prefix', 'all', '<(prefix)Client_',
             '/prefix', 'server', '<(prefix)Service_',
             '/robust',
             '/h', '<(RULE_INPUT_ROOT).h',
             '/out', '<(midl_out_dir)',
+      ],
+      'conditions': [
+        ['target_arch == "x64"', {
+          'action': [ '/env', 'amd64' ]
+        }, {
+          'action': [ '/env', 'win32' ]
+        }],
       ],
       # This causes the output files to automatically be compiled into object
       # code included in the current target.

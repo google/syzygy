@@ -65,7 +65,7 @@ class AsanRtlReadFileTest : public testing::TestAsanRtl {
   }
 
   static const char kTestString[];
-  static const size_t kTestStringLength;
+  static const uint32_t kTestStringLength;
 
   void IsValidQuarantinedTestStringContent(const char* s) {
     bool is_test_string = ::strncmp(kTestString, s, kTestStringLength);
@@ -81,7 +81,7 @@ class AsanRtlReadFileTest : public testing::TestAsanRtl {
 };
 
 const char AsanRtlReadFileTest::kTestString[] = "Test of asan_ReadFile";
-const size_t AsanRtlReadFileTest::kTestStringLength =
+const uint32_t AsanRtlReadFileTest::kTestStringLength =
     sizeof(AsanRtlReadFileTest::kTestString);
 
 }  // namespace
@@ -230,9 +230,9 @@ class AsanRtlWriteFileTest : public testing::TestAsanRtl {
     SetCallBackFunction(&AsanErrorCallbackWithoutComparingContext);
   }
 
-  bool ReadFileContent(std::string* pipe_content, size_t kOffset) {
+  bool ReadFileContent(std::string* pipe_content, uint32_t kOffset) {
     EXPECT_TRUE(pipe_content != NULL);
-    const size_t kMaxContentLength = 64;
+    const uint32_t kMaxContentLength = 64;
     pipe_content->clear();
     pipe_content->resize(kMaxContentLength);
     DWORD bytes_read = 0;

@@ -63,15 +63,15 @@ void InitializeBlockHeaderPadding(BlockInfo* block_info) {
   if (block_info->header_padding_size == 0)
     return;
   DCHECK(IsAligned(block_info->header_padding_size, kShadowRatio));
-  DCHECK(IsAligned(block_info->header_padding_size, 2 * sizeof(size_t)));
+  DCHECK(IsAligned(block_info->header_padding_size, 2 * sizeof(uint32_t)));
 
-  ::memset(block_info->RawHeaderPadding() + sizeof(size_t),
+  ::memset(block_info->RawHeaderPadding() + sizeof(uint32_t),
            kBlockHeaderPaddingByte,
-           block_info->header_padding_size - 2 * sizeof(size_t));
-  size_t* head = reinterpret_cast<size_t*>(block_info->header_padding);
-  size_t* tail = reinterpret_cast<size_t*>(block_info->RawHeaderPadding() +
+           block_info->header_padding_size - 2 * sizeof(uint32_t));
+  uint32_t* head = reinterpret_cast<uint32_t*>(block_info->header_padding);
+  uint32_t* tail = reinterpret_cast<uint32_t*>(block_info->RawHeaderPadding() +
                                                block_info->header_padding_size -
-                                               sizeof(size_t));
+                                               sizeof(uint32_t));
   *head = block_info->header_padding_size;
   *tail = block_info->header_padding_size;
 }
@@ -142,7 +142,7 @@ bool BlockInfoFromMemoryImpl(const BlockHeader* const_header,
 
   // The raw_block header must be minimally aligned and begin with the expected
   // magic.
-  if (!IsAligned(reinterpret_cast<uint32_t>(header), kShadowRatio))
+  if (!IsAligned(reinterpret_cast<uintptr_t>(header), kShadowRatio))
     return false;
   if (header->magic != kBlockHeaderMagic)
     return false;
@@ -179,7 +179,7 @@ bool BlockInfoFromMemoryImpl(const BlockHeader* const_header,
   // Parse the trailer. The end of it must be 8 aligned.
   BlockTrailer* trailer = reinterpret_cast<BlockTrailer*>(
       body + header->body_size + trailer_padding_size);
-  if (!IsAligned(reinterpret_cast<uint32_t>(trailer + 1), kShadowRatio))
+  if (!IsAligned(reinterpret_cast<uintptr_t>(trailer + 1), kShadowRatio))
     return false;
 
   block_info->header = header;
@@ -198,7 +198,7 @@ BlockHeader* BlockGetHeaderFromBodyImpl(const BlockBody* const_body) {
   void* body = const_cast<BlockBody*>(const_body);
 
   // The header must be appropriately aligned.
-  if (!IsAligned(reinterpret_cast<uint32_t>(body), kShadowRatio))
+  if (!IsAligned(reinterpret_cast<uintptr_t>(body), kShadowRatio))
     return NULL;
 
   // First assume that there is no padding, and check if a valid block header
@@ -291,7 +291,7 @@ void BlockInitialize(const BlockLayout& layout,
                      bool is_nested,
                      BlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), allocation);
-  DCHECK(IsAligned(reinterpret_cast<uint32_t>(allocation),
+  DCHECK(IsAligned(reinterpret_cast<uintptr_t>(allocation),
                    layout.block_alignment));
 
   // If no output structure is provided then use a local one. We need the data

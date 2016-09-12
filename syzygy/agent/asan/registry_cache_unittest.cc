@@ -74,12 +74,14 @@ class RegistryCacheTest : public testing::Test {
 
   base::Time RecentTime() const {
     return base::Time::Now() -
-        base::TimeDelta::FromDays(registry_cache_.max_days_in_registry_ / 2);
+        base::TimeDelta::FromDays(
+            static_cast<uint32_t>(registry_cache_.max_days_in_registry_ / 2));
   }
 
   base::Time OldTime() const {
     return base::Time::Now() -
-        base::TimeDelta::FromDays(registry_cache_.max_days_in_registry_ + 9);
+        base::TimeDelta::FromDays(
+            static_cast<uint32_t>(registry_cache_.max_days_in_registry_ + 9));
   }
 
   // Returns the number of keys that exist in a registry location.

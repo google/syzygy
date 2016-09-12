@@ -452,7 +452,7 @@ BlockState BlockDetermineMostLikelyState(const Shadow* shadow,
 //     than kBlockHeaderChecksumBits are meaningless.
 bool BlockBitFlipsFixChecksum(BlockState block_state,
                               const BlockInfo& block_info,
-                              uint32_t bitflips);
+                              size_t bitflips);
 
 // Explores a block to see how many bitflips are required to make the checksum
 // valid. This is always at most kBlockHeaderChecksumBits.
@@ -466,9 +466,9 @@ bool BlockBitFlipsFixChecksum(BlockState block_state,
 // @note The pages of the block must be readable and writable.
 // @nore Any checksum can be made good using exactly kBlockHeaderChecksumBits
 //     bitflips.
-uint32_t BlockBitFlipsRequired(BlockState block_state,
+size_t BlockBitFlipsRequired(BlockState block_state,
                                const BlockInfo& block_info,
-                               uint32_t max_bitflips);
+                               size_t max_bitflips);
 
 // @name Block analysis related functions and declarations.
 // @{

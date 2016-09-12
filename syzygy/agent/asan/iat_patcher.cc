@@ -40,9 +40,9 @@ PatchResult UpdateImportThunk(volatile PIMAGE_THUNK_DATA iat,
   // detect races on VM operations as well as on assignment.
 
   __try {
-    DWORD old_fn = iat->u1.Function;
-    DWORD new_fn = reinterpret_cast<DWORD>(function);
-    DWORD prev_fn =
+    uintptr_t old_fn = iat->u1.Function;
+    uintptr_t new_fn = reinterpret_cast<uintptr_t>(function);
+    uintptr_t prev_fn =
         ::InterlockedCompareExchange(&iat->u1.Function, new_fn, old_fn);
     // Check whether we collided on the assignment.
     if (prev_fn != old_fn)

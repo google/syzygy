@@ -346,12 +346,12 @@ class ScopedAsanAlloc : public std::unique_ptr<T, AsanDeleteHelper> {
     ::memset(get(), 0, size * sizeof(T));
   }
 
-  T operator[](int i) const {
+  T operator[](size_t i) const {
     CHECK(get() != NULL);
     return get()[i];
   }
 
-  T& operator[](int i) {
+  T& operator[](size_t i) {
     CHECK(get() != NULL);
     return get()[i];
   }
@@ -410,7 +410,7 @@ struct FakeAsanBlock {
   static const uint8_t kBufferTrailerValue = 0xEA;
 
   FakeAsanBlock(Shadow* shadow,
-                size_t alloc_alignment_log,
+                uint32_t alloc_alignment_log,
                 StackCaptureCache* stack_cache);
 
   ~FakeAsanBlock();
@@ -418,7 +418,7 @@ struct FakeAsanBlock {
   // Initialize an Asan block in the buffer.
   // @param alloc_size The user size of the Asan block.
   // @returns true on success, false otherwise.
-  bool InitializeBlock(size_t alloc_size);
+  bool InitializeBlock(uint32_t alloc_size);
 
   // Ensures that this block has a valid block header.
   bool TestBlockMetadata();
@@ -439,8 +439,8 @@ struct FakeAsanBlock {
   agent::asan::BlockInfo block_info;
 
   // The alignment of the current allocation.
-  size_t alloc_alignment;
-  size_t alloc_alignment_log;
+  uint32_t alloc_alignment;
+  uint32_t alloc_alignment_log;
 
   // The sizes of the different sub-structures in the buffer.
   size_t buffer_header_size;
@@ -487,10 +487,10 @@ class LenientMockHeap : public agent::asan::HeapInterface {
   virtual ~LenientMockHeap() { }
   MOCK_CONST_METHOD0(GetHeapType, agent::asan::HeapType());
   MOCK_CONST_METHOD0(GetHeapFeatures, uint32_t());
-  MOCK_METHOD1(Allocate, void*(size_t));
+  MOCK_METHOD1(Allocate, void*(uint32_t));
   MOCK_METHOD1(Free, bool(void*));
   MOCK_METHOD1(IsAllocated, bool(const void*));
-  MOCK_METHOD1(GetAllocationSize, size_t(const void*));
+  MOCK_METHOD1(GetAllocationSize, uint32_t(const void*));
   MOCK_METHOD0(Lock, void());
   MOCK_METHOD0(Unlock, void());
   MOCK_METHOD0(TryLock, bool());
@@ -514,10 +514,12 @@ class MemoryAccessorTester {
   explicit MemoryAccessorTester(IgnoreFlags ignore_flags);
   ~MemoryAccessorTester();
 
+#ifndef _WIN64
   // Checks that @p access_fn doesn't raise exceptions on access checking
   // @p ptr, and that @p access_fn doesn't modify any registers or flags
   // when executed.
   void CheckAccessAndCompareContexts(FARPROC access_fn, void* ptr);
+#endif
 
   // Checks that @p access_fn generates @p bad_access_type on checking @p ptr.
   void AssertMemoryErrorIsDetected(
@@ -527,11 +529,13 @@ class MemoryAccessorTester {
     DIRECTION_FORWARD,
     DIRECTION_BACKWARD
   };
+#ifndef _WIN64
   // Checks that @p access_fn doesn't raise exceptions on access checking
   // for a given @p direction, @p src, @p dst and @p len.
   void CheckSpecialAccessAndCompareContexts(
       FARPROC access_fn, StringOperationDirection direction,
       void* dst, void* src, int len);
+#endif
 
   // Checks that @p access_fn generates @p bad_access_type on access checking
   // for a given @p direction, @p src, @p dst and @p len.
@@ -616,10 +620,12 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
   void SetUp() override;
   void TearDown() override;
 
+#ifndef _WIN64
   template <size_t N>
   void TestValidAccess(const InterceptFunction (&fns)[N]) {
     TestValidAccess(fns, N);
   }
+#endif
   template <size_t N>
   void TestValidAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
     TestValidAccessIgnoreFlags(fns, N);
@@ -650,9 +656,11 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
   }
 
  protected:
+#ifndef _WIN64
   void TestValidAccess(const InterceptFunction* fns, size_t num_fns);
   void TestValidAccessIgnoreFlags(const InterceptFunction* fns,
                                   size_t num_fns);
+#endif
   void TestOverrunAccess(const InterceptFunction* fns, size_t num_fns);
   void TestOverrunAccessIgnoreFlags(const InterceptFunction* fns,
                                     size_t num_fns);
@@ -679,18 +687,18 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
 // safe.
 class DummyHeap : public agent::asan::HeapInterface {
  public:
-  virtual ~DummyHeap() { }
-  virtual agent::asan::HeapType GetHeapType() const {
+  ~DummyHeap() override { }
+  agent::asan::HeapType GetHeapType() const override {
     return agent::asan::kUnknownHeapType;
   }
-  virtual uint32_t GetHeapFeatures() const { return 0; }
-  virtual void* Allocate(size_t bytes) { return ::malloc(bytes); }
-  virtual bool Free(void* alloc) { ::free(alloc); return true; }
-  virtual bool IsAllocated(const void* alloc) { return false; }
-  virtual size_t GetAllocationSize(const void* alloc) { return 0; }
-  virtual void Lock() { return; }
-  virtual void Unlock() { return; }
-  virtual bool TryLock() { return true; }
+  uint32_t GetHeapFeatures() const override { return 0; }
+  void* Allocate(uint32_t bytes) override { return ::malloc(bytes); }
+  bool Free(void* alloc) override { ::free(alloc); return true; }
+  bool IsAllocated(const void* alloc) override { return false; }
+  uint32_t GetAllocationSize(const void* alloc) override { return 0; }
+  void Lock() override { return; }
+  void Unlock() override { return; }
+  bool TryLock() override { return true; }
 };
 
 // Test read and write access.

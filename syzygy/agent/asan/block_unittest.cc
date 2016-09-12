@@ -16,6 +16,7 @@
 
 #include <memory>
 #include <set>
+#include <vector>
 
 #include "windows.h"
 
@@ -31,13 +32,13 @@ namespace {
 
 using testing::_;
 
-BlockLayout BuildBlockLayout(size_t block_alignment,
-                             size_t block_size,
-                             size_t header_size,
-                             size_t header_padding_size,
-                             size_t body_size,
-                             size_t trailer_padding_size,
-                             size_t trailer_size) {
+BlockLayout BuildBlockLayout(uint32_t block_alignment,
+                             uint32_t block_size,
+                             uint32_t header_size,
+                             uint32_t header_padding_size,
+                             uint32_t body_size,
+                             uint32_t trailer_padding_size,
+                             uint32_t trailer_size) {
   BlockLayout layout = { block_alignment, block_size, header_size,
       header_padding_size, body_size, trailer_padding_size, trailer_size };
   return layout;
@@ -89,20 +90,20 @@ void IsValidBlockImpl(const BlockInfo& block, bool just_initialized) {
               *reinterpret_cast<const uint32_t*>(block.RawHeaderPadding() +
                                                  block.header_padding_size -
                                                  sizeof(uint32_t)));
-    for (size_t i = sizeof(uint32_t);
+    for (uint32_t i = sizeof(uint32_t);
          i < block.header_padding_size - sizeof(uint32_t); ++i) {
       EXPECT_EQ(kBlockHeaderPaddingByte, block.RawHeaderPadding(i));
     }
   }
 
   // Check the trailer padding.
-  size_t start_of_trailer_iteration = 0;
+  uint32_t start_of_trailer_iteration = 0;
   if (block.header->has_excess_trailer_padding) {
     start_of_trailer_iteration = 4;
     EXPECT_EQ(block.trailer_padding_size,
               *reinterpret_cast<const uint32_t*>(block.trailer_padding));
   }
-  for (size_t i = start_of_trailer_iteration; i < block.trailer_padding_size;
+  for (uint32_t i = start_of_trailer_iteration; i < block.trailer_padding_size;
        ++i) {
     EXPECT_EQ(kBlockTrailerPaddingByte, block.RawTrailerPadding(i));
   }
@@ -154,6 +155,7 @@ bool operator==(const BlockInfo& bi1, const BlockInfo& bi2) {
 TEST_F(BlockTest, BlockPlanLayout) {
   BlockLayout layout = {};
 
+#ifndef _WIN64
   // Zero sized allocations should work fine.
   EXPECT_TRUE(BlockPlanLayout(8, 8, 0, 0, 0, &layout));
   EXPECT_EQ(BuildBlockLayout(8, 40, 16, 0, 0, 4, 20), layout);
@@ -173,6 +175,27 @@ TEST_F(BlockTest, BlockPlanLayout) {
   // Plan a layout that would use guard pages.
   EXPECT_TRUE(BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout));
   EXPECT_EQ(BuildBlockLayout(4096, 3 * 4096, 16, 8072, 100, 4080, 20), layout);
+#else
+  // Zero sized allocations should work fine.
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 0, 0, 0, &layout));
+  EXPECT_EQ(BuildBlockLayout(8, 48, 24, 0, 0, 4, 20), layout);
+
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 32, 32, &layout));
+  EXPECT_EQ(BuildBlockLayout(8, 128, 24, 8, 60, 16, 20), layout);
+
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 0, 0, &layout));
+  EXPECT_EQ(BuildBlockLayout(8, 104, 24, 0, 60, 0, 20), layout);
+
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 64, 0, 0, &layout));
+  EXPECT_EQ(BuildBlockLayout(8, 112, 24, 0, 64, 4, 20), layout);
+
+  EXPECT_TRUE(BlockPlanLayout(8, 8, 61, 0, 0, &layout));
+  EXPECT_EQ(BuildBlockLayout(8, 112, 24, 0, 61, 7, 20), layout);
+
+  // Plan a layout that would use guard pages.
+  EXPECT_TRUE(BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout));
+  EXPECT_EQ(BuildBlockLayout(4096, 3 * 4096, 24, 8064, 100, 4080, 20), layout);
+#endif
 
   // Plan a layout with an invalid size, this should fail.
   EXPECT_FALSE(BlockPlanLayout(8, 8, 0xffffffff, 0, 0, &layout));
@@ -183,25 +206,22 @@ TEST_F(BlockTest, EndToEnd) {
   BlockInfo block_info = {};
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 4, 0, 0, &layout));
-  std::unique_ptr<uint8_t[]> block_data(new uint8_t[layout.block_size]);
-  ::memset(block_data.get(), 0, layout.block_size);
-  BlockInitialize(layout, block_data.get(), false, &block_info);
+  std::vector<uint8_t> block_data(layout.block_size);
+  BlockInitialize(layout, block_data.data(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  block_data.reset(nullptr);
+  block_data.clear();
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 61, 0, 0, &layout));
-  block_data.reset(new uint8_t[layout.block_size]);
-  ::memset(block_data.get(), 0, layout.block_size);
-  BlockInitialize(layout, block_data.get(), false, &block_info);
+  block_data.resize(layout.block_size);
+  BlockInitialize(layout, block_data.data(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  block_data.reset(nullptr);
+  block_data.clear();
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 32, 32, &layout));
-  block_data.reset(new uint8_t[layout.block_size]);
-  ::memset(block_data.get(), 0, layout.block_size);
-  BlockInitialize(layout, block_data.get(), false, &block_info);
+  block_data.resize(layout.block_size);
+  BlockInitialize(layout, block_data.data(), false, &block_info);
   EXPECT_NO_FATAL_FAILURE(IsValidInitializedBlock(block_info));
-  block_data.reset(nullptr);
+  block_data.clear();
 
   // Do an allocation that uses entire pages.
   EXPECT_TRUE(BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout));
@@ -363,7 +383,7 @@ TEST_F(BlockTest, BlockInfoFromMemory) {
   // sizes.
   const size_t kAllocSize = 3 * GetPageSize();
   void* alloc = ::VirtualAlloc(NULL, kAllocSize, MEM_COMMIT, PAGE_READWRITE);
-  for (size_t block_size = 0; block_size < kShadowRatio * 2; ++block_size) {
+  for (uint32_t block_size = 0; block_size < kShadowRatio * 2; ++block_size) {
     BlockLayout layout = {};
     EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, block_size, 0, 0,
                                 &layout));
@@ -653,7 +673,7 @@ TEST_F(BlockTest, ChecksumDetectsTampering) {
   const common::StackCapture* valid_stack =
       runtime.stack_cache()->SaveStackTrace(capture);
 
-  size_t kSizes[] = { 1, 4, 7, 16, 23, 32, 117, 1000, 4096 };
+  uint32_t kSizes[] = { 1, 4, 7, 16, 23, 32, 117, 1000, 4096 };
 
   // Doing a single allocation makes this test a bit faster.
   size_t kAllocSize = 4 * 4096;
@@ -667,10 +687,10 @@ TEST_F(BlockTest, ChecksumDetectsTampering) {
   // the tests require multiple iterations. Be careful playing with these
   // constants or the unittest time can easily spiral out of control! This
   // currently requires less than half a second, and is strictly CPU bound.
-  for (size_t chunk_size = kShadowRatio; chunk_size <= GetPageSize();
+  for (uint32_t chunk_size = kShadowRatio; chunk_size <= GetPageSize();
        chunk_size *= 2) {
-    for (size_t align = kShadowRatio; align <= chunk_size; align *= 2) {
-      for (size_t redzone = 0; redzone <= chunk_size; redzone += chunk_size) {
+    for (uint32_t align = kShadowRatio; align <= chunk_size; align *= 2) {
+      for (uint32_t redzone = 0; redzone <= chunk_size; redzone += chunk_size) {
         for (size_t i = 0; i < arraysize(kSizes); ++i) {
           BlockLayout layout = {};
           EXPECT_TRUE(BlockPlanLayout(chunk_size, align, kSizes[i], redzone,

@@ -143,7 +143,7 @@ TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
 
   size_t new_period =
       StackCaptureCache::GetDefaultCompressionReportingPeriod() + 1024;
-  std::string new_period_str = base::UintToString(new_period);
+  std::string new_period_str = base::SizeTToString(new_period);
   current_command_line_.AppendSwitchASCII(
       ::common::kParamReportingPeriod, new_period_str);
 
@@ -156,7 +156,7 @@ TEST_F(AsanRuntimeTest, SetCompressionReportingPeriod) {
 
 TEST_F(AsanRuntimeTest, SetBottomFramesToSkip) {
   size_t frames_to_skip = common::StackCapture::bottom_frames_to_skip() + 1;
-  std::string new_frames_to_skip_str = base::UintToString(frames_to_skip);
+  std::string new_frames_to_skip_str = base::SizeTToString(frames_to_skip);
   current_command_line_.AppendSwitchASCII(
       ::common::kParamBottomFramesToSkip, new_frames_to_skip_str);
 

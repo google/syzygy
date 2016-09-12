@@ -162,11 +162,11 @@ class PageProtectionHelpersTest : public testing::OnExceptionCallbackTest {
   }
 
   // Tests that all page protection transitions work.
-  void TestAllProtectionTransitions(size_t chunk_size,
-                                    size_t alignment,
-                                    size_t size,
-                                    size_t min_left_redzone_size,
-                                    size_t min_right_redzone_size) {
+  void TestAllProtectionTransitions(uint32_t chunk_size,
+                                    uint32_t alignment,
+                                    uint32_t size,
+                                    uint32_t min_left_redzone_size,
+                                    uint32_t min_right_redzone_size) {
     // Create and initialize the given block.
     BlockLayout layout = {};
     EXPECT_TRUE(BlockPlanLayout(chunk_size, alignment, size,
@@ -271,7 +271,7 @@ TEST_F(PageProtectionHelpersTest, ProtectionTransitions) {
 
 TEST_F(PageProtectionHelpersTest, BlockProtectAuto) {
   BlockLayout layout = {};
-  const size_t kPageSize = GetPageSize();
+  const uint32_t kPageSize = static_cast<uint32_t>(GetPageSize());
   EXPECT_TRUE(BlockPlanLayout(kPageSize, kPageSize, kPageSize, kPageSize,
                               kPageSize, &layout));
   void* alloc = ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT,

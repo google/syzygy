@@ -100,6 +100,7 @@ TEST_F(AsanRtlTest, GetProcessHeap) {
                                      asan_heap_handle);
 }
 
+#ifndef _WIN64
 TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
   FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
@@ -117,6 +118,7 @@ TEST_F(AsanRtlTest, AsanCheckGoodAccess) {
         tester.CheckAccessAndCompareContexts(check_access_fn, mem.get() + i));
   }
 }
+#endif
 
 TEST_F(AsanRtlTest, AsanCheckHeapBufferOverflow) {
   FARPROC check_access_fn =
@@ -198,6 +200,7 @@ TEST_F(AsanRtlTest, AsanCheckWildAccess) {
   EXPECT_TRUE(LogContains(kWildAccess));
 }
 
+#ifndef _WIN64
 // It is not possible to test the near-nullptr access with heap corruption
 // execution path since it depends on the unhandled exception filter which is
 // not installed in the rtl library.
@@ -211,6 +214,7 @@ TEST_F(AsanRtlTest, AsanIgnoreInvalidAccess) {
   tester.CheckAccessAndCompareContexts(check_access_fn, nullptr);
   EXPECT_FALSE(LogContains(kInvalidAddress));
 }
+#endif
 
 TEST_F(AsanRtlTest, AsanReportInvalidAccess) {
   FARPROC check_access_fn =

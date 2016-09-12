@@ -39,7 +39,7 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
 
   // @name Accessors.
   // @{
-  size_t len() const { return len_; }
+  uint32_t len() const { return len_; }
   const uint8_t* buf() const { return buf_; }
   size_t num_reference_infos() const { return num_reference_infos_; }
   const ReferenceInfo* reference_infos() const { return reference_infos_; }
@@ -129,7 +129,7 @@ class AssemblerBase<ReferenceType>::InstructionBuffer {
   AssemblerBase* asm_;
   size_t num_reference_infos_;
   ReferenceInfo reference_infos_[2];
-  size_t len_;
+  uint32_t len_;
   uint8_t buf_[kMaxInstructionLength];
 };
 
@@ -387,7 +387,8 @@ void AssemblerBase<ReferenceType>::InstructionBuffer::Emit32BitPCRelative(
 
   // Turn the absolute imm into a imm relative to the address of
   // the end of the emitted constant.
-  uint32_t relative_value = imm.value() - (location + len_ + 4);
+  uint32_t relative_value = static_cast<uint32_t>(imm.value() -
+                                                  (location + len_ + 4));
   EmitByte(relative_value);
   EmitByte(relative_value >> 8);
   EmitByte(relative_value >> 16);

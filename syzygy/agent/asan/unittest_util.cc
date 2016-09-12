@@ -290,7 +290,7 @@ void TestWithAsanLogger::AppendToLoggerEnv(const std::string &instance) {
 }
 
 FakeAsanBlock::FakeAsanBlock(Shadow* shadow,
-                             size_t alloc_alignment_log,
+                             uint32_t alloc_alignment_log,
                              StackCaptureCache* stack_cache)
     : is_initialized(false), alloc_alignment_log(alloc_alignment_log),
       alloc_alignment(1 << alloc_alignment_log), shadow_(shadow),
@@ -310,7 +310,7 @@ FakeAsanBlock::~FakeAsanBlock() {
   ::memset(buffer, 0, sizeof(buffer));
 }
 
-bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
+bool FakeAsanBlock::InitializeBlock(uint32_t alloc_size) {
   BlockLayout layout = {};
   EXPECT_TRUE(BlockPlanLayout(alloc_alignment,
                               alloc_alignment,
@@ -350,7 +350,8 @@ bool FakeAsanBlock::InitializeBlock(size_t alloc_size) {
   EXPECT_EQ(buffer_align_begin, block_info.RawBlock());
 
   void* expected_user_ptr = reinterpret_cast<void*>(
-      buffer_align_begin + std::max(sizeof(BlockHeader), alloc_alignment));
+      buffer_align_begin + std::max(static_cast<uint32_t>(sizeof(BlockHeader)),
+                                    alloc_alignment));
   EXPECT_EQ(block_info.body, expected_user_ptr);
 
   size_t i = 0;
@@ -503,6 +504,7 @@ void ExpectEqualContexts(const CONTEXT& c1,
   EXPECT_EQ(static_cast<WORD>(c1.SegEs), static_cast<WORD>(c2.SegEs));
   EXPECT_EQ(static_cast<WORD>(c1.SegDs), static_cast<WORD>(c2.SegDs));
 
+#ifndef _WIN64
   // General registers.
   EXPECT_EQ(c1.Edi, c2.Edi);
   EXPECT_EQ(c1.Esi, c2.Esi);
@@ -514,10 +516,13 @@ void ExpectEqualContexts(const CONTEXT& c1,
   // "Control" registers.
   EXPECT_EQ(c1.Ebp, c2.Ebp);
   EXPECT_EQ(c1.Eip, c2.Eip);
+#endif
   EXPECT_EQ(static_cast<WORD>(c1.SegCs), static_cast<WORD>(c2.SegCs));
   if (!ignore_flags)
     EXPECT_EQ(c1.EFlags, c2.EFlags);
+#ifndef _WIN64
   EXPECT_EQ(c1.Esp, c2.Esp);
+#endif
   EXPECT_EQ(static_cast<WORD>(c1.SegSs), static_cast<WORD>(c2.SegSs));
 }
 
@@ -555,6 +560,7 @@ void MemoryAccessorTester::Initialize() {
   ::memset(&last_error_info_, 0, sizeof(last_error_info_));
 }
 
+#ifndef _WIN64
 namespace {
 
 void CheckAccessAndCaptureContexts(
@@ -673,6 +679,7 @@ void MemoryAccessorTester::CheckSpecialAccessAndCompareContexts(
 
   check_access_fn = NULL;
 }
+#endif
 
 void MemoryAccessorTester::AsanErrorCallbackImpl(AsanErrorInfo* error_info) {
   // TODO(sebmarchand): Stash the error info in a fixture-static variable and
@@ -743,7 +750,9 @@ void MemoryAccessorTester::AsanErrorCallback(AsanErrorInfo* error_info) {
 void MemoryAccessorTester::AssertMemoryErrorIsDetected(
   FARPROC access_fn, void* ptr, BadAccessKind bad_access_type) {
   expected_error_type_ = bad_access_type;
+#ifndef _WIN64
   CheckAccessAndCompareContexts(access_fn, ptr);
+#endif
   ASSERT_TRUE(memory_error_detected_);
 }
 
@@ -761,10 +770,12 @@ void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
 
   expected_error_type_ = bad_access_type;
 
+#ifndef _WIN64
   // Perform memory accesses inside the range.
   ASSERT_NO_FATAL_FAILURE(
       CheckSpecialAccessAndCompareContexts(
           access_fn, direction, dst, src, length));
+  #endif
 
   EXPECT_EQ(expect_error, memory_error_detected_);
   check_access_fn = NULL;
@@ -817,6 +828,7 @@ void TestMemoryInterceptors::TearDown() {
   testing::TestWithAsanLogger::TearDown();
 }
 
+#ifndef _WIN64
 void TestMemoryInterceptors::TestValidAccess(
     const InterceptFunction* fns, size_t num_fns) {
   for (size_t i = 0; i < num_fns; ++i) {
@@ -842,6 +854,7 @@ void TestMemoryInterceptors::TestValidAccessIgnoreFlags(
     ASSERT_FALSE(tester.memory_error_detected());
   }
 }
+#endif
 
 void TestMemoryInterceptors::TestOverrunAccess(
     const InterceptFunction* fns, size_t num_fns) {
@@ -911,6 +924,7 @@ void TestMemoryInterceptors::TestUnderrunAccessIgnoreFlags(
   }
 }
 
+#ifndef _WIN64
 void TestMemoryInterceptors::TestStringValidAccess(
     const StringInterceptFunction* fns, size_t num_fns) {
   for (size_t i = 0; i < num_fns; ++i) {
@@ -920,18 +934,19 @@ void TestMemoryInterceptors::TestStringValidAccess(
     tester.CheckSpecialAccessAndCompareContexts(
         reinterpret_cast<FARPROC>(fn.function),
         MemoryAccessorTester::DIRECTION_FORWARD,
-        dst_, src_, kAllocSize / fn.size);
+        dst_, src_, static_cast<int>(kAllocSize / fn.size));
     ASSERT_FALSE(tester.memory_error_detected());
 
     tester.CheckSpecialAccessAndCompareContexts(
         reinterpret_cast<FARPROC>(fn.function),
         MemoryAccessorTester::DIRECTION_BACKWARD,
         dst_ + kAllocSize - fn.size, src_ + kAllocSize - fn.size,
-        kAllocSize / fn.size);
+        static_cast<int>(kAllocSize / fn.size));
 
     ASSERT_FALSE(tester.memory_error_detected());
   }
 }
+#endif
 
 void TestMemoryInterceptors::TestStringOverrunAccess(
     const StringInterceptFunction* fns, size_t num_fns) {
@@ -962,7 +977,7 @@ void TestMemoryInterceptors::TestStringOverrunAccess(
     tester.ExpectSpecialMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
         MemoryAccessorTester::DIRECTION_FORWARD, true,
-        oob_dst, src_, oob_len,
+        oob_dst, src_, static_cast<int>(oob_len),
         MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
 
     if (fn.src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
@@ -970,7 +985,7 @@ void TestMemoryInterceptors::TestStringOverrunAccess(
       tester.ExpectSpecialMemoryErrorIsDetected(
           reinterpret_cast<FARPROC>(fn.function),
           MemoryAccessorTester::DIRECTION_FORWARD, true,
-          dst_, oob_src, oob_len,
+          dst_, oob_src, static_cast<int>(oob_len),
           MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
     }
 
@@ -989,7 +1004,7 @@ void TestMemoryInterceptors::TestStringOverrunAccess(
     tester.ExpectSpecialMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
         MemoryAccessorTester::DIRECTION_BACKWARD, true,
-        oob_dst, src_ + kAllocSize - fn.size, oob_len,
+        oob_dst, src_ + kAllocSize - fn.size, static_cast<int>(oob_len),
         MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
 
     if (fn.src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
@@ -997,7 +1012,7 @@ void TestMemoryInterceptors::TestStringOverrunAccess(
       tester.ExpectSpecialMemoryErrorIsDetected(
           reinterpret_cast<FARPROC>(fn.function),
           MemoryAccessorTester::DIRECTION_BACKWARD, true,
-          dst_ + kAllocSize - fn.size, oob_dst, oob_len,
+          dst_ + kAllocSize - fn.size, oob_dst, static_cast<int>(oob_len),
           MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
     }
   }

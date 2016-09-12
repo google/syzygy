@@ -23,7 +23,7 @@ namespace asan {
 // The ratio of shadow memory to actual memory. This governs the behaviour, size
 // and alignment requirements of many Asan structures.
 static const size_t kShadowRatioLog = 3;
-static const size_t kShadowRatio = (1 << kShadowRatioLog);
+static const unsigned kShadowRatio = (1 << kShadowRatioLog);
 
 // Expected page sizes and allocation granularities. Some usages of these are
 // at compile time, thus we need accessible constants.

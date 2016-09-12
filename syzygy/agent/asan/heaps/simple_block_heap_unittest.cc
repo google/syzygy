@@ -61,7 +61,7 @@ TEST(SimpleBlockHeapTest, EndToEnd) {
 
   // Make a bunch of different sized allocations.
   BlockInfoSet blocks;
-  for (size_t i = 1; i < 1024 * 1024; i <<= 1) {
+  for (uint32_t i = 1; i < 1024 * 1024; i <<= 1) {
     void* alloc = h.AllocateBlock(i, 0, 0, &layout);
     BlockInitialize(layout, alloc, false, &block);
     blocks.insert(block);

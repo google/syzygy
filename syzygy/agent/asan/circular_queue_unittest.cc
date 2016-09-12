@@ -36,10 +36,10 @@ TEST(CircularQueue, MaxCapacity) {
 }
 
 TEST(CircularQueue, PushIncreasesSize) {
-  size_t capacity = 100;
+  uint32_t capacity = 100;
   CircularQueue<int> q(capacity);
 
-  for (size_t i = 0; i < capacity; ++i) {
+  for (uint32_t i = 0; i < capacity; ++i) {
     EXPECT_EQ(i, q.size());
     q.push(i);
     EXPECT_EQ(i + 1, q.size());
@@ -47,10 +47,10 @@ TEST(CircularQueue, PushIncreasesSize) {
 }
 
 TEST(CircularQueue, PopDecreasesSize) {
-  size_t capacity = 100;
+  uint32_t capacity = 100;
   CircularQueue<int> q(capacity);
 
-  for (size_t i = 0; i < capacity; ++i) {
+  for (uint32_t i = 0; i < capacity; ++i) {
     for (size_t j = 0; j < i; ++j)
       q.push(i);
     for (size_t j = 0; j < i; ++j) {
@@ -65,11 +65,11 @@ TEST(CircularQueue, ComplyWithLIFO) {
   size_t capacity = 100;
   CircularQueue<int> q(capacity);
 
-  size_t initial = 10;
-  for (size_t i = 0; i < initial; ++i)
+  uint32_t initial = 10;
+  for (uint32_t i = 0; i < initial; ++i)
     EXPECT_TRUE(q.push(i));
 
-  for (size_t i = initial; i < 1000 * capacity; ++i) {
+  for (uint32_t i = initial; i < 1000 * capacity; ++i) {
     EXPECT_TRUE(q.push(i));
     EXPECT_EQ(i - initial, q.front());
     EXPECT_TRUE(q.pop());
@@ -81,8 +81,8 @@ TEST(CircularQueue, Stress) {
   CircularQueue<int> q(capacity);
   EXPECT_TRUE(q.empty());
 
-  for (size_t i = 0; i < capacity; ++i) {
-    for (size_t j = 0; j < i; ++j) {
+  for (uint32_t i = 0; i < capacity; ++i) {
+    for (uint32_t j = 0; j < i; ++j) {
       EXPECT_TRUE(q.push(i));
       EXPECT_FALSE(q.empty());
     }
@@ -100,7 +100,7 @@ TEST(CircularQueue, PushWhenFull) {
   CircularQueue<int> q(capacity);
   EXPECT_TRUE(q.empty());
 
-  for (size_t i = 0; i < capacity; ++i) {
+  for (uint32_t i = 0; i < capacity; ++i) {
     EXPECT_TRUE(q.push(i));
     EXPECT_FALSE(q.empty());
   }
@@ -127,7 +127,7 @@ TEST(CircularQueue, PopUntilEmpty) {
   size_t capacity = 100;
   CircularQueue<int> q(capacity);
 
-  for (size_t i = 0; i < capacity; ++i) {
+  for (uint32_t i = 0; i < capacity; ++i) {
     EXPECT_TRUE(q.push(i));
     EXPECT_FALSE(q.empty());
   }

@@ -76,7 +76,7 @@ TEST(LargeBlockHeapTest, EndToEnd) {
 
   // Make a bunch of different sized allocations.
   BlockInfoSet blocks;
-  for (size_t i = 1, j = 1; i < 1024 * 1024; i <<= 1, ++j) {
+  for (uint32_t i = 1, j = 1; i < 1024 * 1024; i <<= 1, ++j) {
     void* alloc = h.AllocateBlock(i, 0, 0, &layout);
     EXPECT_EQ(j, h.size());
     EXPECT_EQ(0u, layout.block_size % GetPageSize());

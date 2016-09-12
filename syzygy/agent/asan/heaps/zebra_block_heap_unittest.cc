@@ -107,7 +107,7 @@ TEST(ZebraBlockHeapTest, EndToEnd) {
 
   // Make a bunch of different sized allocations.
   std::vector<BlockInfo> blocks;
-  for (size_t i = 1; i < 100; i++) {
+  for (uint32_t i = 1; i < 100; i++) {
     void* alloc = h.AllocateBlock(i, 0, 0, &layout);
     EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
@@ -126,9 +126,9 @@ TEST(ZebraBlockHeapTest, BlocksHaveCorrectAlignment) {
   BlockInfo block = {};
 
   // Allocate blocks with different header, body and trailer sizes .
-  for (size_t header_size = 0; header_size < 100; header_size += 3) {
-    for (size_t trailer_size = 0; trailer_size < 100; trailer_size += 3) {
-      for (size_t body_size = 0; body_size < 100; body_size += 3) {
+  for (uint32_t header_size = 0; header_size < 100; header_size += 3) {
+    for (uint32_t trailer_size = 0; trailer_size < 100; trailer_size += 3) {
+      for (uint32_t body_size = 0; body_size < 100; body_size += 3) {
         void* alloc = h.AllocateBlock(body_size, header_size,
                                       trailer_size, &layout);
 
@@ -144,12 +144,13 @@ TEST(ZebraBlockHeapTest, BlocksHaveCorrectAlignment) {
         EXPECT_TRUE(IsAligned(block.header, GetPageSize()));
         EXPECT_TRUE(IsAligned(block.trailer + 1, GetPageSize()));
 
-        size_t right_redzone_size = block.TotalTrailerSize();
+        uint32_t right_redzone_size = block.TotalTrailerSize();
 
         EXPECT_EQ(2 * GetPageSize(), block.block_size);
         EXPECT_LE(GetPageSize(), right_redzone_size);
 
-        size_t body_offset = AlignUp(block.RawTrailerPadding(), GetPageSize()) -
+        uint32_t body_offset = AlignUp(block.RawTrailerPadding(),
+                                       GetPageSize()) -
             block.RawTrailerPadding();
 
         // The body must be as close as possible to the page.
@@ -165,16 +166,17 @@ TEST(ZebraBlockHeapTest, AllocateSizeLimits) {
   TestZebraBlockHeap h;
 
   // Test all possible allocation sizes.
-  for (size_t i = 1; i <= GetPageSize(); ++i) {
-    uint8_t* alloc = reinterpret_cast<uint8_t*>(h.Allocate(i));
-    EXPECT_NE(reinterpret_cast<uint8_t*>(NULL), alloc);
+  for (uint32_t i = 1; i <= GetPageSize(); ++i) {
+    uint8_t* alloc = static_cast<uint8_t*>(h.Allocate(i));
+    EXPECT_NE(static_cast<uint8_t*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
     EXPECT_TRUE(h.Free(alloc));
   }
 
   // Impossible allocation sizes.
-  for (size_t delta = 1; delta < 10000; delta += 7)
-    EXPECT_EQ(reinterpret_cast<void*>(NULL), h.Allocate(GetPageSize() + delta));
+  for (uint32_t delta = 1; delta < 10000; delta += 7)
+    EXPECT_EQ(reinterpret_cast<void*>(NULL),
+              h.Allocate(static_cast<uint32_t>(GetPageSize()) + delta));
 }
 
 
@@ -183,10 +185,11 @@ TEST(ZebraBlockHeapTest, AllocateBlockSizeLimits) {
   BlockLayout layout = {};
   BlockInfo block = {};
 
-  const size_t kMaxAllowedBlockSize = GetPageSize() - sizeof(BlockHeader);
+  const uint32_t kMaxAllowedBlockSize = static_cast<uint32_t>(GetPageSize()) -
+      sizeof(BlockHeader);
 
   // Allocate all possible block sizes.
-  for (size_t i = 0; i <= kMaxAllowedBlockSize; ++i) {
+  for (uint32_t i = 0; i <= kMaxAllowedBlockSize; ++i) {
     uint8_t* alloc = reinterpret_cast<uint8_t*>(
         h.AllocateBlock(i, sizeof(BlockHeader), sizeof(BlockTrailer), &layout));
 
@@ -196,7 +199,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockSizeLimits) {
   }
 
   // Impossible block sizes.
-  for (size_t delta = 1; delta < 10000; delta += 7)
+  for (uint32_t delta = 1; delta < 10000; delta += 7)
     EXPECT_EQ(reinterpret_cast<uint8_t*>(NULL),
               h.AllocateBlock(kMaxAllowedBlockSize + delta, sizeof(BlockHeader),
                               sizeof(BlockTrailer), &layout));
@@ -311,15 +314,16 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
   BlockLayout layout = {};
   BlockInfo block = {};
 
-  size_t block_header_size = sizeof(BlockHeader);
-  size_t block_trailer_size = sizeof(BlockTrailer);
+  uint32_t block_header_size = sizeof(BlockHeader);
+  uint32_t block_trailer_size = sizeof(BlockTrailer);
+  uint32_t page_size = static_cast<uint32_t>(GetPageSize());
 
   // Edge-case sizes for testing corner cases.
-  const size_t kSizes[] = { 0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 17, 1023, 1024, 1025,
-      1235, 1365, 2014, 2047, 2048, 2049, 3000, 7000, 12345,
-      GetPageSize() - 1,
-      GetPageSize(),
-      GetPageSize() + 1,
+  const uint32_t kSizes[] = { 0, 1, 2, 3, 4, 5, 7, 8, 9, 15, 17, 1023, 1024,
+      1025, 1235, 1365, 2014, 2047, 2048, 2049, 3000, 7000, 12345,
+      page_size - 1,
+      page_size,
+      page_size + 1,
       kShadowRatio - 1,
       kShadowRatio,
       kShadowRatio + 1,
@@ -329,19 +333,19 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
       block_trailer_size - 1,
       block_trailer_size,
       block_trailer_size + 1,
-      GetPageSize() - block_header_size - 1,
-      GetPageSize() - block_header_size,
-      GetPageSize() - block_header_size + 1,
-      GetPageSize() - block_trailer_size - 1,
-      GetPageSize() - block_trailer_size,
-      GetPageSize() - block_trailer_size + 1 };
+      page_size - block_header_size - 1,
+      page_size - block_header_size,
+      page_size - block_header_size + 1,
+      page_size - block_trailer_size - 1,
+      page_size - block_trailer_size,
+      page_size - block_trailer_size + 1 };
 
   for (size_t i = 0; i < arraysize(kSizes); ++i) {
     for (size_t j = 0; j < arraysize(kSizes); ++j) {
       for (size_t k = 0; k < arraysize(kSizes); ++k) {
-        size_t header_size = kSizes[i];
-        size_t body_size = kSizes[j];
-        size_t trailer_size = kSizes[k];
+        uint32_t header_size = kSizes[i];
+        uint32_t body_size = kSizes[j];
+        uint32_t trailer_size = kSizes[k];
 
         // Check if there is capacity to do the allocation.
         EXPECT_FALSE(h.IsHeapFull());

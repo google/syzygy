@@ -130,7 +130,7 @@ bool CrashpadReporter::SetMemoryRanges(const MemoryRanges& memory_ranges) {
   for (size_t i = 0; i < count; ++i) {
     const auto& range = memory_ranges[i];
     ranges->Insert(crashpad::CheckedRange<uint64_t>(
-        reinterpret_cast<uint32_t>(range.first), range.second));
+        reinterpret_cast<uintptr_t>(range.first), range.second));
   }
 
   // Swap out the old bag for the new.

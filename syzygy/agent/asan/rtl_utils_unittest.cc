@@ -61,6 +61,7 @@ TEST(AsanRtlUtilsTest, ContextToAsanContext) {
   base::RandBytes(reinterpret_cast<void*>(&context), sizeof(context));
   ContextToAsanContext(context, &asan_context);
 
+#ifndef _WIN64
   EXPECT_EQ(context.Eax, asan_context.original_eax);
   EXPECT_EQ(context.Ebp, asan_context.original_ebp);
   EXPECT_EQ(context.Ebx, asan_context.original_ebx);
@@ -70,6 +71,7 @@ TEST(AsanRtlUtilsTest, ContextToAsanContext) {
   EXPECT_EQ(context.Eip, asan_context.original_eip);
   EXPECT_EQ(context.Esi, asan_context.original_esi);
   EXPECT_EQ(context.Esp, asan_context.original_esp);
+#endif
   EXPECT_EQ(context.EFlags, asan_context.original_eflags);
 }
 
@@ -87,6 +89,7 @@ TEST(AsanRtlUtilsTest, ReportBadMemoryAccess) {
   EXPECT_EQ(bad_location, last_error_info.location);
   EXPECT_EQ(access_size, last_error_info.access_size);
   EXPECT_EQ(access_mode, last_error_info.access_mode);
+#ifndef _WIN64
   EXPECT_EQ(asan_context.original_eax, last_error_info.context.Eax);
   EXPECT_EQ(asan_context.original_ebp, last_error_info.context.Ebp);
   EXPECT_EQ(asan_context.original_ebx, last_error_info.context.Ebx);
@@ -96,6 +99,7 @@ TEST(AsanRtlUtilsTest, ReportBadMemoryAccess) {
   EXPECT_EQ(asan_context.original_eip, last_error_info.context.Eip);
   EXPECT_EQ(asan_context.original_esi, last_error_info.context.Esi);
   EXPECT_EQ(asan_context.original_esp, last_error_info.context.Esp);
+#endif
   EXPECT_EQ(asan_context.original_eflags, last_error_info.context.EFlags);
 }
 

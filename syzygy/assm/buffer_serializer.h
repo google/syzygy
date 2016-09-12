@@ -46,7 +46,7 @@ class BufferSerializer : public AssemblerImpl::InstructionSerializer {
   typedef assm::AssemblerImpl::ReferenceInfo ReferenceInfo;
   void AppendInstruction(uint32_t location,
                          const uint8_t* bytes,
-                         size_t num_bytes,
+                         uint32_t num_bytes,
                          const ReferenceInfo* refs,
                          size_t num_refs) override {
     uint8_t* write_location = static_cast<uint8_t*>(0) + location;

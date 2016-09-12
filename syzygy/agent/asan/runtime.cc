@@ -335,7 +335,7 @@ void AsanDbgPrintContext(const CONTEXT& context) {
   if (!base::debug::BeingDebugged())
     return;
   AsanDbgMessage(L"Caller's context (%p) and stack trace:", &context);
-  AsanDbgCmd(L".cxr %p; kv", reinterpret_cast<uint32_t>(&context));
+  AsanDbgCmd(L".cxr %p; kv", reinterpret_cast<uintptr_t>(&context));
 }
 
 // Returns the maximum allocation size that can be made safely. This leaves
