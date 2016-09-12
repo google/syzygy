@@ -70,7 +70,7 @@ interface Logger {
   boolean WriteWithTrace(
       [in] handle_t binding,
       [in, string] const char* text,
-      [in, size_is(trace_length)] const unsigned long trace_data[*],
+      [in, size_is(trace_length)] const unsigned __int3264 trace_data[*],
       [in] long trace_length);
 
   // Generate a minidump for the calling process.

@@ -71,7 +71,7 @@ class SymbolInfo {
 };
 
 void GetSymbolInfo(HANDLE process,
-                   DWORD frame_ptr,
+                   uintptr_t frame_ptr,
                    std::string* name,
                    DWORD64* offset) {
   DCHECK(frame_ptr != NULL);
@@ -180,7 +180,7 @@ bool AgentLogger::JoinImpl() {
 }
 
 bool AgentLogger::AppendTrace(HANDLE process,
-                              const DWORD* trace_data,
+                              const uintptr_t* trace_data,
                               size_t trace_length,
                               std::string* message) {
   DCHECK(trace_data != NULL);
@@ -249,7 +249,7 @@ bool AgentLogger::AppendTrace(HANDLE process,
 
   // Append each line of the trace to the message string.
   for (size_t i = 0; i < trace_length; ++i) {
-    DWORD frame_ptr = trace_data[i];
+    uintptr_t frame_ptr = trace_data[i];
     DWORD64 offset = 0;
     std::string symbol_name;
     std::string line_info;
@@ -277,7 +277,7 @@ bool AgentLogger::AppendTrace(HANDLE process,
 
 bool AgentLogger::CaptureRemoteTrace(HANDLE process,
                                      CONTEXT* context,
-                                     std::vector<DWORD>* trace_data) {
+                                     std::vector<uintptr_t>* trace_data) {
   DCHECK(context != NULL);
   DCHECK(trace_data != NULL);
 

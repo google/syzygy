@@ -134,7 +134,7 @@ boolean LoggerService_WriteWithContext(
   // Capture the stack trace for the caller's context.
   CONTEXT context = {};
   InitContext(exc_context, &context);
-  std::vector<DWORD> trace_data;
+  std::vector<uintptr_t> trace_data;
   if (!instance->CaptureRemoteTrace(handle.Get(), &context, &trace_data)) {
     return false;
   }
@@ -157,7 +157,7 @@ boolean LoggerService_WriteWithContext(
 boolean LoggerService_WriteWithTrace(
     /* [in] */ handle_t binding,
     /* [in, string] */ const unsigned char* text,
-    /* [in, size_is(trace_length)] */ const unsigned long* trace_data,
+    /* [in, size_is(trace_length)] */ const uintptr_t* trace_data,
     /* [in] */ LONG trace_length) {
   if (binding == NULL || text == NULL || trace_data == NULL) {
     LOG(ERROR) << "Invalid input parameter(s).";

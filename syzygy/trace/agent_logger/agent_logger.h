@@ -67,7 +67,7 @@ class AgentLogger : public trace::common::Service {
   //
   // Calls to this method are serialized under symbol_lock_.
   bool AppendTrace(HANDLE process,
-                   const DWORD* trace_data,
+                   const uintptr_t* trace_data,
                    size_t trace_length,
                    std::string* message);
 
@@ -78,7 +78,7 @@ class AgentLogger : public trace::common::Service {
   // @returns true on success, false otherwise.
   bool CaptureRemoteTrace(HANDLE process,
                           CONTEXT* context,
-                          std::vector<DWORD>* trace_data);
+                          std::vector<uintptr_t>* trace_data);
 
   // Write @p message to the log destination. Note that calls to this method
   // are serialized using write_lock_.

@@ -118,7 +118,7 @@ void AsanLogger::WriteWithStackTrace(const std::string& message,
     ::common::rpc::InvokeRpc(
         &LoggerClient_WriteWithTrace, rpc_binding_.Get(),
         reinterpret_cast<const unsigned char*>(message.c_str()),
-        reinterpret_cast<const DWORD*>(trace_data), trace_length);
+        reinterpret_cast<const uintptr_t*>(trace_data), trace_length);
   }
 }
 

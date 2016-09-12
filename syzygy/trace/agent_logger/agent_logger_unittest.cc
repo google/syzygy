@@ -92,7 +92,7 @@ class LoggerTest : public testing::Test {
       : io_thread_("LoggerTest IO Thread"), instance_manager_(&logger_) {
   }
 
-  virtual void SetUp() override {
+  void SetUp() override {
     ASSERT_NO_FATAL_FAILURE(testing::Test::SetUp());
 
     // Create a log file.
@@ -141,7 +141,7 @@ class LoggerTest : public testing::Test {
         .WillOnce(Return(true));
   }
 
-  virtual void TearDown() override {
+  void TearDown() override {
     if (logger_.state() != AgentLogger::kStopped) {
       ASSERT_TRUE(logger_.Stop());
       ASSERT_NO_FATAL_FAILURE(WaitForLoggerToFinish());
@@ -155,7 +155,8 @@ class LoggerTest : public testing::Test {
     ASSERT_EQ(AgentLogger::kStopped, logger_.state());
   }
 
-  void DoCaptureRemoteTrace(HANDLE process, std::vector<DWORD>* trace_data) {
+  void DoCaptureRemoteTrace(HANDLE process,
+                            std::vector<uintptr_t>* trace_data) {
     CONTEXT context = {};
     ::RtlCaptureContext(&context);
     ASSERT_TRUE(logger_.CaptureRemoteTrace(process, &context, trace_data));
@@ -236,7 +237,7 @@ void DoRpcCreateMiniDump(handle_t rpc_binding) {
 
 TEST_F(LoggerTest, StackTraceHandling) {
   HANDLE process = ::GetCurrentProcess();
-  std::vector<DWORD> trace_data;
+  std::vector<uintptr_t> trace_data;
   ASSERT_NO_FATAL_FAILURE(ExecuteCallbackWithKnownStack(base::Bind(
       &LoggerTest::DoCaptureRemoteTrace,
       base::Unretained(this),
@@ -324,7 +325,7 @@ TEST_F(LoggerTest, RpcWriteWithStack) {
   ASSERT_TRUE(rpc_binding.Open(kLoggerRpcProtocol, endpoint));
 
   HANDLE process = ::GetCurrentProcess();
-  std::vector<DWORD> trace_data;
+  std::vector<uintptr_t> trace_data;
   ASSERT_NO_FATAL_FAILURE(ExecuteCallbackWithKnownStack(base::Bind(
       &LoggerTest::DoCaptureRemoteTrace,
       base::Unretained(this),
