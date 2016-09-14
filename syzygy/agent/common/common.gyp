@@ -43,7 +43,6 @@
       'dependencies': [
         '<(src)/syzygy/common/common.gyp:common_lib',
         '<(src)/syzygy/common/rpc/rpc.gyp:common_rpc_lib',
-        '<(src)/syzygy/pe/pe.gyp:test_dll',
         '<(src)/syzygy/trace/client/client.gyp:rpc_client_lib',
         '<(src)/syzygy/trace/rpc/rpc.gyp:call_trace_rpc_lib',
       ],
