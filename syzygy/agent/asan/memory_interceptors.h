@@ -140,6 +140,7 @@ void asan_string_no_check();
 // itself will not be modified, but the pointers it points to will be.
 extern const void* asan_shadow_references[];
 
+#ifndef _WIN64
 #define DECLARE_MEM_INTERCEPT_FUNCTIONS(access_size, access_mode_str,      \
                                         access_mode_value)                 \
   void asan_redirect_##access_size##_byte_##access_mode_str();             \
@@ -165,6 +166,7 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(DECLARE_MEM_INTERCEPT_FUNCTIONS)
 ASAN_STRING_INTERCEPT_FUNCTIONS(DECLARE_STRING_INTERCEPT_FUNCTIONS)
 
 #undef DECLARE_STRING_INTERCEPT_FUNCTIONS
+#endif
 
 }  // extern "C"
 

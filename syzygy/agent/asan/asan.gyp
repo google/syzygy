@@ -123,7 +123,7 @@
         # By default, target_arch is set to ia32 on Windows.
         # To get a 64-bit build, one needs to explicitly set
         # `target_arch` and `host_arch` to `x64`.
-        ['target_arch=="ia32"', {
+        ['target_arch == "ia32"', {
           'sources': [
             'gen/memory_interceptors_impl.asm',
             'gen/memory_redirectors.asm',
@@ -133,6 +133,11 @@
           'dependencies': [
             '<(src)/syzygy/kasko/kasko.gyp:kasko',
           ],
+        }, {
+          'sources': [
+            'memory_interceptors_impl_x64.cc',
+            'memory_interceptors_impl_x64.h',
+          ]
         }],
       ],
       'export_dependent_settings': [
@@ -210,36 +215,36 @@
         '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'conditions': [
-        ['target_arch == "x64"', {
-          'sources!': [
-            'block_unittest.cc',
-            'error_info_unittest.cc',
-            'reporters/kasko_reporter_unittest.cc',
-            'crt_interceptors_unittest.cc',
-            'block_utils_unittest.cc',
-            'heap_checker_unittest.cc',
-            'iat_patcher_unittest.cc',
-            'logger_unittest.cc',
-            'memory_interceptors_patcher_unittest.cc',
-            'memory_interceptors_unittest.cc',
-            'page_protection_helpers_unittest.cc',
-            'registry_cache_unittest.cc',
-            'rtl_unittest.cc',
-            'shadow_unittest.cc',
-            'runtime_unittest.cc',
-            'rtl_impl_unittest.cc',
-            'rtl_utils_unittest.cc',
-            'system_interceptors_unittest.cc',
-            'heap_managers/block_heap_manager_unittest.cc',
-            'memory_notifiers/shadow_memory_notifier_unittest.cc',
-          ],
-        }, {
+        ['target_arch == "ia32"', {
           'msvs_settings': {
             'VCLinkerTool': {
               # Disable support for large address spaces.
               'LargeAddressAware': 1,
             },
           },
+        }, {
+          'sources!': [
+            # Static shadow doesn't work for large address spaces.
+            'static_shadow.cc',
+            # Kasko is to be removed.
+            'reporters/kasko_reporter_unittest.cc',
+            # Redirectors are not currently implemented for win64.
+            'memory_interceptors_patcher_unittest.cc',
+            # Relies on full set of probes.
+            'memory_interceptors_unittest.cc',
+            # Win64 binaries currently don't have the version info.
+            'registry_cache_unittest.cc',
+            'logger_unittest.cc',
+            # PE lib for win64 is sort of stub, so there's nothing
+            # to test there.
+            'iat_patcher_unittest.cc',
+            # IsHeapCorrupt fails.
+            # TODO(loskutov): fix IsHeapCorrupt.
+            'heap_checker_unittest.cc',
+            # Uses 32bit assembler.
+            'heap_managers/block_heap_manager_unittest.cc',
+          ],
+          'sources': ['dummy_shadow.cc']
         }],
       ],
       'dependencies': [
@@ -346,10 +351,6 @@
         'agent_link_settings.gypi',
       ],
       'sources': [
-        # This file must have a .def extension in order for GYP to
-        # automatically configure it as the ModuleDefinitionFile
-        # (we usually suffix generated files with .gen).
-        'gen/system_interceptors.def',
         'dummy_shadow.cc',
         'syzyasan_rtl.cc',
         'syzyasan_rtl.rc',
@@ -369,6 +370,18 @@
         },
       },
       'conditions': [
+        ['target_arch == "ia32"', {
+          'sources': [
+            # This file must have a .def extension in order for GYP to
+            # automatically configure it as the ModuleDefinitionFile
+            # (we usually suffix generated files with .gen).
+            'gen/system_interceptors.def',
+          ]
+        }, {
+          'sources': [
+            'system_interceptors_x64.def'
+          ]
+        }],
         ['pgo_phase==1', {
           'msvs_settings': {
             'VCLinkerTool': {

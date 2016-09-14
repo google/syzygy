@@ -43,6 +43,7 @@ Shadow* SetMemoryInterceptorShadow(Shadow* shadow) {
 }
 
 const MemoryAccessorVariants kMemoryAccessorVariants[] = {
+#ifndef _WIN64
 #define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, access_mode_str,   \
                                              access_mode_value)              \
   { "asan_check_" #access_size "_byte_" #access_mode_str,                    \
@@ -55,11 +56,19 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
      asan_no_check,                                                          \
      asan_check_##access_size##_byte_##access_mode_str##_no_flags_2gb,       \
      asan_check_##access_size##_byte_##access_mode_str##_no_flags_4gb},
+#else
+#define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, access_mode_str,   \
+                                             access_mode_value)              \
+  { "asan_check_" #access_size "_byte_" #access_mode_str},                   \
+  { "asan_check_" #access_size "_byte_" #access_mode_str "_no_flags",        \
+    asan_no_check},
+#endif
 
   ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS
 
+#ifndef _WIN64
 #define ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS( \
     func, prefix, counter, dst_mode, src_mode, access_size, compare)         \
   { "asan_check" #prefix #access_size "_byte_" #func "_access",              \
@@ -72,6 +81,7 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
   ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS
+#endif
 };
 
 const size_t kNumMemoryAccessorVariants = arraysize(kMemoryAccessorVariants);
