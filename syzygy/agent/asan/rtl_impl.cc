@@ -221,12 +221,12 @@ void WINAPI asan_SetOnExceptionCallback(OnExceptionCallback callback) {
   }
 }
 
-#ifndef _WIN64
 // Unittesting seam.
 AsanRuntime* WINAPI asan_GetActiveRuntime() {
   return asan_runtime;
 }
 
+#ifndef _WIN64
 void __declspec(naked) asan_SetAllocationFilterFlag() {
   __asm {
     pushad
