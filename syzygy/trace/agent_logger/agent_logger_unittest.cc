@@ -180,6 +180,8 @@ void DoRpcWriteWithContext(handle_t rpc_binding, const unsigned char* message) {
   ::RtlCaptureContext(&rtl_context);
 
   ExecutionContext exc_context = {};
+
+#ifndef _WIN64
   exc_context.edi = rtl_context.Edi;
   exc_context.esi = rtl_context.Esi;
   exc_context.ebx = rtl_context.Ebx;
@@ -192,6 +194,20 @@ void DoRpcWriteWithContext(handle_t rpc_binding, const unsigned char* message) {
   exc_context.eflags = rtl_context.EFlags;
   exc_context.esp = rtl_context.Esp;
   exc_context.seg_ss = rtl_context.SegSs;
+#else
+  exc_context.rdi = rtl_context.Rdi;
+  exc_context.rsi = rtl_context.Rsi;
+  exc_context.rbx = rtl_context.Rbx;
+  exc_context.rdx = rtl_context.Rdx;
+  exc_context.rcx = rtl_context.Rcx;
+  exc_context.rax = rtl_context.Rax;
+  exc_context.rbp = rtl_context.Rbp;
+  exc_context.rip = rtl_context.Rip;
+  exc_context.seg_cs = rtl_context.SegCs;
+  exc_context.eflags = rtl_context.EFlags;
+  exc_context.rsp = rtl_context.Rsp;
+  exc_context.seg_ss = rtl_context.SegSs;
+#endif
 
   ASSERT_TRUE(
       LoggerClient_WriteWithContext(rpc_binding, message, &exc_context));
@@ -209,7 +225,7 @@ void DoRpcCreateMiniDump(handle_t rpc_binding) {
   CONTEXT ctx = {};
   ::RtlCaptureContext(&ctx);
   EXCEPTION_RECORD exc_rec = {};
-  exc_rec.ExceptionAddress = reinterpret_cast<void*>(ctx.Eip);
+  exc_rec.ExceptionAddress = agent::asan::GetInstructionPointer(ctx);
   exc_rec.ExceptionCode = EXCEPTION_ARRAY_BOUNDS_EXCEEDED;
   EXCEPTION_POINTERS exc_ptrs = { &exc_rec, &ctx };
 
@@ -224,11 +240,12 @@ void DoRpcCreateMiniDump(handle_t rpc_binding) {
   agent::asan::MemoryRanges memory_ranges;
   memory_ranges.push_back(
       std::make_pair(protobuf_str.data(), protobuf_str.size()));
-  unsigned long proto_size = protobuf_str.size();
+  unsigned long proto_size = static_cast<unsigned long>(protobuf_str.size());
   ASSERT_TRUE(LoggerClient_SaveMinidumpWithProtobufAndMemoryRanges(
       rpc_binding, ::GetCurrentThreadId(),
-      reinterpret_cast<unsigned long>(&exc_ptrs),
-      reinterpret_cast<const byte*>(protobuf_str.data()), protobuf_str.size(),
+      reinterpret_cast<uintptr_t>(&exc_ptrs),
+      reinterpret_cast<const byte*>(protobuf_str.data()),
+      static_cast<unsigned long>(protobuf_str.size()),
       reinterpret_cast<const unsigned long*>(protobuf_str.data()), &proto_size,
       1));
 }
@@ -336,7 +353,8 @@ TEST_F(LoggerTest, RpcWriteWithStack) {
   ASSERT_TRUE(LoggerClient_WriteWithTrace(rpc_binding.Get(),
                                           MakeUnsigned(kLine1),
                                           trace_data.data(),
-                                          trace_data.size()));
+                                          static_cast<unsigned long>(
+                                              trace_data.size())));
   ASSERT_TRUE(LoggerClient_Stop(rpc_binding.Get()));
   ASSERT_TRUE(rpc_binding.Close());
 

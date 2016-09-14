@@ -84,6 +84,21 @@ void InitContext(const ExecutionContext* ext_ctx, CONTEXT* ctx) {
   ctx->EFlags = ext_ctx->eflags;
   ctx->Esp = ext_ctx->esp;
   ctx->SegSs = ext_ctx->seg_ss;
+#else
+  ctx->Rdi = ext_ctx->rdi;
+  ctx->Rsi = ext_ctx->rsi;
+  ctx->Rbx = ext_ctx->rbx;
+  ctx->Rdx = ext_ctx->rdx;
+  ctx->Rcx = ext_ctx->rcx;
+  ctx->Rax = ext_ctx->rax;
+
+  // Populate the control registers.
+  ctx->Rbp = ext_ctx->rbp;
+  ctx->Rip = ext_ctx->rip;
+  ctx->SegCs = ext_ctx->seg_cs;
+  ctx->EFlags = ext_ctx->eflags;
+  ctx->Rsp = ext_ctx->rsp;
+  ctx->SegSs = ext_ctx->seg_ss;
 #endif
 }
 
@@ -190,7 +205,7 @@ boolean LoggerService_WriteWithTrace(
 boolean LoggerService_SaveMinidumpWithProtobufAndMemoryRanges(
     /* [in] */ handle_t binding,
     /* [in] */ unsigned long thread_id,
-    /* [in] */ unsigned long exception,
+    /* [in] */ unsigned __int64 exception,
     /* [size_is][in] */ const byte protobuf[],
     /* [in] */ unsigned long protobuf_length,
     /* [size_is][in] */ const unsigned long memory_ranges_base_addresses[],

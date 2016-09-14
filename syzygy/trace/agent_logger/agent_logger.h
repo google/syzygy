@@ -104,7 +104,7 @@ class AgentLogger : public trace::common::Service {
       HANDLE process,
       base::ProcessId pid,
       DWORD tid,
-      DWORD exc_ptr,
+      unsigned __int64 exc_ptr,
       const byte* protobuf,
       size_t protobuf_length,
       const void* const* memory_ranges_base_addresses,
