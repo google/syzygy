@@ -29,11 +29,11 @@ namespace detail {
 
 template <MsfFileType T>
 MsfFileStreamImpl<T>::MsfFileStreamImpl(RefCountedFILE* file,
-                                        size_t length,
+                                        uint32_t length,
                                         const uint32_t* pages,
-                                        size_t page_size)
+                                        uint32_t page_size)
     : MsfStreamImpl(length), file_(file), page_size_(page_size) {
-  size_t num_pages = (length + page_size - 1) / page_size;
+  uint32_t num_pages = (length + page_size - 1) / page_size;
   pages_.assign(pages, pages + num_pages);
 }
 

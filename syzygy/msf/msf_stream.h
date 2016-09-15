@@ -32,7 +32,7 @@ class WritableMsfStreamImpl;
 template <MsfFileType T>
 class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
  public:
-  explicit MsfStreamImpl(size_t length);
+  explicit MsfStreamImpl(uint32_t length);
 
   // Reads @p count bytes of data starting at @p pos into the destination
   // buffer. The caller is responsible for ensuring that the destination
@@ -70,7 +70,7 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
 
   // Gets the stream's length.
   // @returns the total number of bytes in the stream.
-  size_t length() const { return length_; }
+  uint32_t length() const { return length_; }
 
  protected:
   friend base::RefCounted<MsfStreamImpl>;
@@ -79,11 +79,11 @@ class MsfStreamImpl : public base::RefCounted<MsfStreamImpl<T>> {
   virtual ~MsfStreamImpl();
 
   // Sets the stream's length.
-  void set_length(size_t length) { length_ = length; }
+  void set_length(uint32_t length) { length_ = length; }
 
  private:
   // The length of the stream.
-  size_t length_;
+  uint32_t length_;
 
   DISALLOW_COPY_AND_ASSIGN(MsfStreamImpl);
 };
@@ -109,7 +109,7 @@ class WritableMsfStreamImpl : public base::RefCounted<WritableMsfStreamImpl<T>>,
   virtual ~WritableMsfStreamImpl() {}
 
   // Forwarded from common::BufferWriter.
-  virtual uint8_t* GrowBuffer(size_t size) = 0;
+  virtual uint8_t* GrowBuffer(uint32_t size) = 0;
 };
 
 }  // namespace detail

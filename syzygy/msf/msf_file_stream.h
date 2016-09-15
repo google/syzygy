@@ -62,9 +62,9 @@ class MsfFileStreamImpl : public MsfStreamImpl<T> {
   //     stream length and the page size.
   // @param page_size the size of the pages, in bytes.
   MsfFileStreamImpl(RefCountedFILE* file,
-                    size_t length,
+                    uint32_t length,
                     const uint32_t* pages,
-                    size_t page_size);
+                    uint32_t page_size);
 
   // MsfStreamImpl implementation.
   bool ReadBytesAt(size_t pos, size_t count, void* dest) override;

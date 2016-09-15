@@ -97,7 +97,7 @@ bool SetOmapStream(size_t dbi_dbg_index_offset,
   scoped_refptr<PdbByteStream> stream = new PdbByteStream();
   if (!omap_list.empty()) {
     if (!stream->Init(reinterpret_cast<const uint8_t*>(&omap_list.at(0)),
-                      omap_list.size() * sizeof(OMAP))) {
+                      static_cast<uint32_t>(omap_list.size() * sizeof(OMAP)))) {
       LOG(ERROR) << "Failed to initialize OMAP stream.";
       return false;
     }

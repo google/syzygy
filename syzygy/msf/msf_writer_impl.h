@@ -90,7 +90,7 @@ class FreePageBitMap {
 template <MsfFileType T>
 class ReadOnlyMsfStream : public MsfStreamImpl<T> {
  public:
-  ReadOnlyMsfStream(const void* data, size_t bytes)
+  ReadOnlyMsfStream(const void* data, uint32_t bytes)
       : MsfStreamImpl(bytes), data_(data) {}
 
   bool ReadBytesAt(size_t pos, size_t count, void* dest) override {
@@ -273,7 +273,8 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
   // Write the directory, and keep track of the pages it is written to.
   std::vector<uint32_t> directory_pages;
   scoped_refptr<MsfStreamImpl<T>> directory_stream(new ReadOnlyMsfStream<T>(
-      directory.data(), sizeof(directory[0]) * directory.size()));
+      directory.data(),
+      static_cast<uint32_t>(sizeof(directory[0]) * directory.size())));
   if (!AppendStream(directory_stream.get(), &directory_pages, &page_count)) {
     LOG(ERROR) << "Failed to write directory.";
     return false;
@@ -285,7 +286,8 @@ bool MsfWriterImpl<T>::Write(const base::FilePath& msf_path,
   scoped_refptr<MsfStreamImpl<T>> root_directory_stream(
       new ReadOnlyMsfStream<T>(
           directory_pages.data(),
-          sizeof(directory_pages[0]) * directory_pages.size()));
+          sizeof(directory_pages[0]) *
+              static_cast<uint32_t>(directory_pages.size())));
   if (!AppendStream(root_directory_stream.get(), &root_directory_pages,
                     &page_count)) {
     LOG(ERROR) << "Failed to write root directory.";

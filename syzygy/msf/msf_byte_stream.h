@@ -30,13 +30,13 @@ class MsfByteStreamImpl : public MsfStreamImpl<T> {
   MsfByteStreamImpl();
 
   // Initializes the stream from the contents of a byte array.
-  bool Init(const uint8_t* data, size_t length);
+  bool Init(const uint8_t* data, uint32_t length);
 
   // Initializes the stream from the whole contents of another MsfStreamImpl.
   bool Init(MsfStreamImpl* stream);
 
   // Initializes the stream from the part of another MsfStreamImpl.
-  bool Init(MsfStreamImpl* stream, size_t pos, size_t length);
+  bool Init(MsfStreamImpl* stream, uint32_t pos, uint32_t length);
 
   // @name MsfStreamImpl implementation.
   // @{

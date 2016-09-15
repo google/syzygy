@@ -33,7 +33,7 @@ const size_t kInvalidLength = 0xFFFFFFFF;
 }  // namespace
 
 template <MsfFileType T>
-MsfStreamImpl<T>::MsfStreamImpl(size_t length)
+MsfStreamImpl<T>::MsfStreamImpl(uint32_t length)
     : length_(length == kInvalidLength ? 0 : length) {
 }
 
