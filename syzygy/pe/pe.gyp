@@ -46,8 +46,12 @@
         ],
         'msvs_settings': {
           'VCLinkerTool': {
-            'AdditionalLibraryDirectories': [
-              '<(dia_sdk_dir)/lib',
+            'conditions': [
+              ['target_arch == "ia32"', {
+                'AdditionalLibraryDirectories': ['<(dia_sdk_dir)/lib']
+              }, {
+                'AdditionalLibraryDirectories': ['<(dia_sdk_dir)/lib/amd64']
+              }]
             ],
             # GYP has a bug or misfeature whereby a library dependency used
             # from another GYP file in a different directory picks up the path

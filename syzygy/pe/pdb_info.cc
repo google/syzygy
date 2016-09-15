@@ -42,7 +42,11 @@ bool PdbInfo::Init(const CvInfoPdb70& cv_info_pdb) {
   return true;
 }
 
+#ifndef _WIN64
 bool PdbInfo::Init(const PEFile& pe_file) {
+#else
+bool PdbInfo::Init(const PEFile64& pe_file) {
+#endif
   const IMAGE_DATA_DIRECTORY& debug_data_dir =
       pe_file.nt_headers()->OptionalHeader.DataDirectory[
           IMAGE_DIRECTORY_ENTRY_DEBUG];
@@ -88,7 +92,11 @@ bool PdbInfo::Init(const PEFile& pe_file) {
 bool PdbInfo::Init(const base::FilePath& pe_path) {
   DCHECK(!pe_path.empty());
 
+#ifndef _WIN64
   PEFile pe_file;
+#else
+  PEFile64 pe_file;
+#endif
   if (!pe_file.Init(pe_path)) {
     LOG(ERROR) << "Unable to process PE file: " << pe_path.value();
     return false;

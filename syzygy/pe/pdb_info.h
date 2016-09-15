@@ -36,7 +36,11 @@ class PdbInfo {
 
   // Initializes this object from an already loaded PE file @p pe_file.
   // @returns true on success, false otherwise.
+#ifndef _WIN64
   bool Init(const PEFile& pe_file);
+#else
+  bool Init(const PEFile64& pe_file);
+#endif
 
   // Initializes this object from the provided PE file @pe_path.
   // @returns true on success, false otherwise.
