@@ -402,27 +402,27 @@ TEST(PageAllocatorTest, MultiSlabsPagesBiggerThanAllGranularity) {
 }
 
 TEST(TypedPageAllocatorTest, SingleEndToEnd) {
-  TypedPageAllocator<uint32_t, 1, 1000, true> pa;
+  TypedPageAllocator<size_t, 1, 1000, true> pa;
   for (size_t i = 0; i < 1600; ++i) {
-    uint32_t* alloc = pa.Allocate(1);
+    size_t* alloc = pa.Allocate(1);
     if ((i % 3) == 0)
       pa.Free(alloc, 1);
   }
 }
 
 TEST(TypedPageAllocatorTest, MultiEndToEnd) {
-  TypedPageAllocator<uint32_t, 10, 1000, true> pa;
+  TypedPageAllocator<size_t, 10, 1000, true> pa;
   for (size_t i = 0; i < 100; ++i) {
     size_t requested = (i % 10) + 1;
     size_t received = 0;
-    uint32_t* alloc = pa.Allocate(requested, &received);
+    size_t* alloc = pa.Allocate(requested, &received);
     if ((i % 3) == 0)
       pa.Free(alloc, received);
   }
 
   for (size_t i = 0; i < 100; ++i) {
     size_t requested = (i % 10) + 1;
-    uint32_t* alloc = pa.Allocate(requested);
+    size_t* alloc = pa.Allocate(requested);
     if ((i % 3) == 0)
       pa.Free(alloc, requested);
   }
