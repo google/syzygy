@@ -194,9 +194,15 @@ TEST_F(AsanRtlTest, AsanCheckWildAccess) {
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
   ASSERT_TRUE(check_access_fn != NULL);
 
+#ifndef _WIN64
+  void* addr = reinterpret_cast<void*>(0x80000000);
+#else
+  void* addr = reinterpret_cast<void*>(1ULL << 63);
+#endif
+
   MemoryAccessorTester tester;
   tester.AssertMemoryErrorIsDetected(
-      check_access_fn, reinterpret_cast<void*>(0x80000000), WILD_ACCESS);
+      check_access_fn, addr, WILD_ACCESS);
   EXPECT_TRUE(LogContains(kWildAccess));
 }
 
@@ -223,10 +229,10 @@ TEST_F(AsanRtlTest, AsanReportInvalidAccess) {
 
   MemoryAccessorTester tester;
   agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
-  ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
+  ASSERT_NE(static_cast<agent::asan::AsanRuntime*>(nullptr), runtime);
   runtime->params().report_invalid_accesses = true;
   tester.AssertMemoryErrorIsDetected(
-      check_access_fn, reinterpret_cast<void*>(0x00000000), INVALID_ADDRESS);
+      check_access_fn, static_cast<void*>(nullptr), INVALID_ADDRESS);
   EXPECT_TRUE(LogContains(kInvalidAddress));
 }
 
@@ -244,7 +250,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptBlock) {
 TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, "asan_check_4_byte_read_access");
-  ASSERT_TRUE(check_access_fn != NULL);
+  ASSERT_TRUE(check_access_fn != nullptr);
 
   agent::asan::AsanRuntime* runtime = GetActiveRuntimeFunction();
   ASSERT_NE(reinterpret_cast<agent::asan::AsanRuntime*>(NULL), runtime);
@@ -304,6 +310,7 @@ TEST_F(AsanRtlTest, AsanCheckCorruptHeap) {
   }
 }
 
+#ifndef _WIN64
 TEST_F(AsanRtlTest, AsanSingleSpecial1byteInstructionCheckGoodAccess) {
   static const char* function_names[] = {
       "asan_check_1_byte_movs_access",
@@ -630,6 +637,7 @@ TEST_F(AsanRtlTest, AllocationFilterFlag) {
   SetAllocationFilterFlagFunction();
   EXPECT_TRUE(runtime->allocation_filter_flag());
 }
+#endif
 
 namespace {
 
