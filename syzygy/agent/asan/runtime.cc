@@ -675,10 +675,12 @@ bool AsanRuntime::SetUpShadow() {
     if (shadow_->shadow() == nullptr)
       return false;
 
+#ifndef _WIN64
     // Patch the memory interceptors to refer to the newly allocated shadow.
     // If this fails simply explode because it is unsafe to continue.
     CHECK(PatchMemoryInterceptorShadowReferences(
         asan_memory_interceptors_shadow_memory, shadow_->shadow()));
+#endif
   }
 
   // Setup the shadow and configure the various interceptors to use it.
@@ -699,11 +701,13 @@ void AsanRuntime::TearDownShadow() {
   agent::asan::SetCrtInterceptorShadow(nullptr);
   agent::asan::SetMemoryInterceptorShadow(nullptr);
   agent::asan::SetSystemInterceptorShadow(nullptr);
+#ifndef _WIN64
   // Unpatch the probes if necessary.
   if (shadow_->shadow() != asan_memory_interceptors_shadow_memory) {
     CHECK(PatchMemoryInterceptorShadowReferences(
         shadow_->shadow(), asan_memory_interceptors_shadow_memory));
   }
+#endif
   shadow_.reset();
 }
 
