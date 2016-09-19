@@ -53,7 +53,7 @@ void InitializeBlockHeader(BlockInfo* block_info) {
   block_info->header->is_nested = block_info->is_nested;
   block_info->header->has_header_padding = block_info->header_padding_size > 0;
   block_info->header->has_excess_trailer_padding =
-      block_info->trailer_padding_size > sizeof(size_t);
+      block_info->trailer_padding_size > sizeof(uint32_t);
   block_info->header->state = ALLOCATED_BLOCK;
   block_info->header->body_size = block_info->body_size;
 }
@@ -86,7 +86,7 @@ void InitializeBlockTrailerPadding(BlockInfo* block_info) {
     // This is guaranteed by kShadowRatio being >= 8, but we double check
     // for sanity's sake.
     DCHECK_LE(sizeof(uint32_t), block_info->trailer_padding_size);
-    size_t* head = reinterpret_cast<size_t*>(block_info->trailer_padding);
+    uint32_t* head = reinterpret_cast<uint32_t*>(block_info->trailer_padding);
     *head = block_info->trailer_padding_size;
   }
 }
