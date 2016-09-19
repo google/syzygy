@@ -752,6 +752,8 @@ void MemoryAccessorTester::AssertMemoryErrorIsDetected(
   expected_error_type_ = bad_access_type;
 #ifndef _WIN64
   CheckAccessAndCompareContexts(access_fn, ptr);
+#else
+  reinterpret_cast<void(*)(const void*)>(access_fn)(ptr);
 #endif
   ASSERT_TRUE(memory_error_detected_);
 }
