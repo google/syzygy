@@ -26,6 +26,58 @@ namespace asan {
 
 namespace {
 
+#ifdef _WIN64
+// A lock under which the shadow instance is modified.
+base::Lock shadow_instance_lock;
+
+// The pointer for the exception handler to know what shadow object is
+// currently used. Under shadow_instance_lock.
+// TODO(loskutov): eliminate this by enforcing Shadow to be a singleton.
+const Shadow* shadow_instance;
+
+// The exception handler, intended to map the pages for shadow and page_bits
+// on demand. When a page fault happens, the operating systems calls
+// this handler, and if the page is inside shadow or page_bits, it gets
+// commited seamlessly for the caller, and then execution continues.
+// Otherwise, the OS keeps searching for an appropriate handler.
+LONG NTAPI ShadowExceptionHandler(PEXCEPTION_POINTERS exception_pointers) {
+  // Only handle access violations.
+  if (exception_pointers->ExceptionRecord->ExceptionCode !=
+      EXCEPTION_ACCESS_VIOLATION) {
+    return EXCEPTION_CONTINUE_SEARCH;
+  }
+
+  // Only handle access violations that land within the shadow memory
+  // or the page bits.
+
+  void* addr = reinterpret_cast<void*>(
+      exception_pointers->ExceptionRecord->ExceptionInformation[1]);
+
+  base::AutoLock lock(shadow_instance_lock);
+
+  bool is_outside_of_shadow = shadow_instance == nullptr ||
+      addr < shadow_instance->shadow() ||
+      addr >= shadow_instance->shadow() + shadow_instance->length();
+  bool is_outside_of_page_bits = shadow_instance == nullptr ||
+      addr < shadow_instance->page_bits() ||
+      addr >= shadow_instance->page_bits() + shadow_instance->page_bits_size();
+
+  // Check valid shadow range.
+  if (is_outside_of_shadow && is_outside_of_page_bits)
+    return EXCEPTION_CONTINUE_SEARCH;
+
+  // This is an access violation while trying to read from the shadow. Commit
+  // the relevant page and let execution continue.
+
+  // Commit the page.
+  void* result = ::VirtualAlloc(addr, 1, MEM_COMMIT, PAGE_READWRITE);
+
+  return result != nullptr
+      ? EXCEPTION_CONTINUE_EXECUTION
+      : EXCEPTION_CONTINUE_SEARCH;
+}
+#endif  // defined _WIN64
+
 static const size_t kPageSize = GetPageSize();
 
 // Converts an address to a page index and bit mask.
@@ -57,8 +109,17 @@ Shadow::Shadow(void* shadow, size_t length)
 }
 
 Shadow::~Shadow() {
+#ifdef _WIN64
+  RemoveVectoredExceptionHandler(exception_handler_);
+
+  {
+    base::AutoLock lock(shadow_instance_lock);
+    shadow_instance = nullptr;
+  }
+#endif
   if (own_memory_)
     CHECK(::VirtualFree(shadow_, 0, MEM_RELEASE));
+  CHECK(::VirtualFree(page_bits_, 0, MEM_RELEASE));
   own_memory_ = false;
   shadow_ = nullptr;
   length_ = 0;
@@ -88,12 +149,14 @@ void Shadow::SetUp() {
   DCHECK(::common::IsAligned(self_size, kShadowRatio));
   Poison(self, self_size, kAsanMemoryMarker);
 
-  // Poison the shadow memory.
-  Poison(shadow_, length_, kAsanMemoryMarker);
   // Poison the first 64k of the memory as they're not addressable.
   Poison(0, kAddressLowerBound, kInvalidAddressMarker);
+#ifndef _WIN64
+  // Poison the shadow memory.
+  Poison(shadow_, length_, kAsanMemoryMarker);
   // Poison the protection bits array.
-  Poison(page_bits_.data(), page_bits_.size(), kAsanMemoryMarker);
+  Poison(page_bits_, page_bits_length_, kAsanMemoryMarker);
+#endif
 }
 
 void Shadow::TearDown() {
@@ -105,12 +168,14 @@ void Shadow::TearDown() {
   DCHECK(::common::IsAligned(self_size, kShadowRatio));
   Unpoison(self, self_size);
 
-  // Unpoison the shadow memory.
-  Unpoison(shadow_, length_);
   // Unpoison the first 64k of the memory.
   Unpoison(0, kAddressLowerBound);
+#ifndef _WIN64
+  // Unpoison the shadow memory.
+  Unpoison(shadow_, length_);
   // Unpoison the protection bits array.
-  Unpoison(page_bits_.data(), page_bits_.size());
+  Unpoison(page_bits_, page_bits_length_);
+#endif
 }
 
 bool Shadow::IsClean() const {
@@ -122,9 +187,9 @@ bool Shadow::IsClean() const {
       reinterpret_cast<uintptr_t>(shadow_ + length_) >> kShadowRatioLog;
 
   const size_t page_bits_begin =
-      reinterpret_cast<uintptr_t>(page_bits_.data()) >> kShadowRatioLog;
+      reinterpret_cast<uintptr_t>(page_bits_) >> kShadowRatioLog;
   const size_t page_bits_end =
-      reinterpret_cast<uintptr_t>(page_bits_.data() + page_bits_.size()) >>
+      reinterpret_cast<uintptr_t>(page_bits_ + page_bits_length_) >>
           kShadowRatioLog;
 
   void const* self = nullptr;
@@ -142,16 +207,33 @@ bool Shadow::IsClean() const {
       return false;
   }
 
-  for (; i < length_; ++i) {
-    if ((i >= shadow_begin && i < shadow_end) ||
-        (i >= page_bits_begin && i < page_bits_end) ||
-        (i >= this_begin && i < this_end)) {
-      if (shadow_[i] != kAsanMemoryMarker)
-        return false;
-    } else {
-      if (shadow_[i] != kHeapAddressableMarker)
-        return false;
+  auto cursor = shadow_ + i;
+  MEMORY_BASIC_INFORMATION info = {};
+  while (i < length_) {
+    auto next_cursor = cursor;
+    while (cursor < shadow_ + length_) {
+      auto ret = ::VirtualQuery(cursor, &info, sizeof(info));
+      DCHECK_GT(ret, 0u);
+      next_cursor = static_cast<uint8_t*>(info.BaseAddress) + info.RegionSize;
+      if (info.Type == MEM_COMMIT)
+        break;
+      cursor = next_cursor;
     }
+    i = cursor - shadow_;
+    next_cursor = std::min(next_cursor, shadow_ + length_);
+    auto next_i = next_cursor - shadow_;
+    for (; i < next_i; ++i) {
+      if ((i >= shadow_begin && i < shadow_end) ||
+          (i >= page_bits_begin && i < page_bits_end) ||
+          (i >= this_begin && i < this_end)) {
+        if (shadow_[i] != kAsanMemoryMarker)
+          return false;
+      } else {
+        if (shadow_[i] != kHeapAddressableMarker)
+          return false;
+      }
+    }
+    cursor = next_cursor;
   }
 
   return true;
@@ -186,12 +268,25 @@ void Shadow::GetPointerAndSizeImpl(void const** self, size_t* size) const {
 void Shadow::Init(size_t length) {
   DCHECK_LT(0u, length);
 
+#ifndef _WIN64
   // The allocation may fail and it needs to be handled gracefully.
   void* mem = ::VirtualAlloc(nullptr, length, MEM_COMMIT, PAGE_READWRITE);
+#else
+  void* mem = ::VirtualAlloc(nullptr, length, MEM_RESERVE, PAGE_NOACCESS);
+#endif
   Init(true, mem, length);
 }
 
 void Shadow::Init(bool own_memory, void* shadow, size_t length) {
+#ifdef _WIN64
+  {
+    base::AutoLock lock(shadow_instance_lock);
+    shadow_instance = this;
+  }
+  exception_handler_ =
+      AddVectoredExceptionHandler(TRUE, ShadowExceptionHandler);
+#endif
+
   // Handle the case of a failed allocation.
   if (shadow == nullptr) {
     own_memory_ = false;
@@ -204,23 +299,33 @@ void Shadow::Init(bool own_memory, void* shadow, size_t length) {
   DCHECK(::common::IsAligned(shadow, kShadowRatio));
 
   own_memory_ = own_memory;
-  shadow_ = reinterpret_cast<uint8_t*>(shadow);
+  shadow_ = static_cast<uint8_t*>(shadow);
   length_ = length;
 
   // Initialize the page bits array.
   uint64_t memory_size = static_cast<uint64_t>(length) << kShadowRatioLog;
   DCHECK_EQ(0u, memory_size % kPageSize);
   size_t page_count = memory_size / kPageSize;
-  size_t page_bytes = page_count / 8;
-  page_bits_.resize(page_bytes);
-
-  // Zero the memory.
-  Reset();
+  page_bits_length_ = page_count / 8;
+#ifndef _WIN64
+  page_bits_ = static_cast<uint8_t*>(::VirtualAlloc(nullptr, page_bits_length_,
+                                                    MEM_COMMIT,
+                                                    PAGE_READWRITE));
+#else
+  page_bits_ = static_cast<uint8_t*>(::VirtualAlloc(nullptr, page_bits_length_,
+                                                    MEM_RESERVE,
+                                                    PAGE_NOACCESS));
+#endif
 }
 
 void Shadow::Reset() {
+#ifndef _WIN64
   ::memset(shadow_, 0, length_);
-  ::memset(page_bits_.data(), 0, page_bits_.size());
+  ::memset(page_bits_, 0, page_bits_length_);
+#else
+  ::VirtualFree(shadow_, length_, MEM_DECOMMIT);
+  ::VirtualFree(page_bits_, page_bits_length_, MEM_DECOMMIT);
+#endif
 
   SetShadowMemory(0, kShadowRatio * length_, kHeapAddressableMarker);
 }
@@ -356,8 +461,6 @@ bool Shadow::IsAccessible(const void* addr) const {
 }
 
 bool Shadow::IsRangeAccessible(const void* addr, size_t size) const {
-  DCHECK_NE(static_cast<const void*>(nullptr), addr);
-
   // A zero byte access is always valid.
   if (size == 0U)
     return true;
@@ -554,11 +657,11 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   // body of the allocation modulo the shadow ratio, so that the exact length
   // can be inferred from inspecting the shadow memory.
   uint8_t body_size_mod = info.body_size % kShadowRatio;
-  uint8_t header_marker = ShadowMarkerHelper::BuildBlockStart(
+  ShadowMarker header_marker = ShadowMarkerHelper::BuildBlockStart(
       true, info.header->is_nested, body_size_mod);
 
   // Determine the marker byte for the trailer.
-  uint8_t trailer_marker =
+  ShadowMarker trailer_marker =
       ShadowMarkerHelper::BuildBlockEnd(true, info.header->is_nested);
 
   // Poison the header and left padding.
@@ -1007,60 +1110,110 @@ void ShadowWalker::Reset() {
   // Walk to the beginning of the first non-nested block, or to the end
   // of the range, whichever comes first.
   nesting_depth_ = -1;
-  for (cursor_ = lower_bound_; cursor_ != upper_bound_;
-       cursor_ += kShadowRatio) {
-    uint8_t marker = shadow_->GetShadowMarkerForAddress(cursor_);
-    if (ShadowMarkerHelper::IsBlockStart(marker) &&
-        !ShadowMarkerHelper::IsNestedBlockStart(marker)) {
-      break;
+  shadow_cursor_ = shadow_->GetShadowMemoryForAddress(lower_bound_);
+  auto shadow_upper_bound = shadow_->GetShadowMemoryForAddress(upper_bound_);
+  MEMORY_BASIC_INFORMATION memory_info = {};
+  const uint8_t* next_shadow_cursor = shadow_cursor_;
+
+  while (shadow_cursor_ < shadow_upper_bound) {
+    while (shadow_cursor_ < shadow_upper_bound) {
+      size_t ret = ::VirtualQuery(shadow_cursor_, &memory_info,
+                                sizeof(memory_info));
+      DCHECK_GT(ret, 0u);
+      next_shadow_cursor = static_cast<uint8_t*>(memory_info.BaseAddress) +
+                           memory_info.RegionSize;
+      if (memory_info.State == MEM_COMMIT)
+        break;
+      shadow_cursor_ = next_shadow_cursor;
+    }
+    next_shadow_cursor = std::min(next_shadow_cursor, shadow_upper_bound);
+    for (; shadow_cursor_ != next_shadow_cursor; ++shadow_cursor_) {
+      uint8_t marker = *shadow_cursor_;
+      if (ShadowMarkerHelper::IsBlockStart(marker) &&
+          !ShadowMarkerHelper::IsNestedBlockStart(marker)) {
+        // Break both loops.
+        shadow_upper_bound = shadow_cursor_;
+        break;
+      }
     }
   }
 
-  shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
+  cursor_ = reinterpret_cast<uint8_t*>((shadow_cursor_ - shadow_->shadow()) *
+      kShadowRatio);
 }
 
 bool ShadowWalker::Next(BlockInfo* info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
 
-  // Iterate until a reportable block is encountered, or the slab is exhausted.
-  for (; cursor_ != upper_bound_; cursor_ += kShadowRatio) {
-    uint8_t marker = shadow_->GetShadowMarkerForAddress(cursor_);
+  auto shadow_upper_bound = shadow_->GetShadowMemoryForAddress(upper_bound_);
+  MEMORY_BASIC_INFORMATION memory_info = {};
+  const uint8_t* next_shadow_cursor = shadow_cursor_;
 
-    // Update the nesting depth when block end markers are encountered.
-    if (ShadowMarkerHelper::IsBlockEnd(marker)) {
-      DCHECK_LE(0, nesting_depth_);
-      --nesting_depth_;
-      continue;
+  // Iterate until a reportable block is encountered, or the slab is exhausted.
+  while (cursor_ < upper_bound_) {
+    // Find a range of commited pages in the shadow memory.
+    shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
+    while (shadow_cursor_ != shadow_upper_bound) {
+      size_t ret = ::VirtualQuery(shadow_cursor_, &memory_info,
+                                  sizeof(memory_info));
+      DCHECK_GT(ret, 0u);
+      next_shadow_cursor = static_cast<uint8_t*>(memory_info.BaseAddress) +
+                           memory_info.RegionSize;
+      if (memory_info.State == MEM_COMMIT)
+        break;
+      shadow_cursor_ = next_shadow_cursor;
     }
 
-    // Look for a block start marker.
-    if (ShadowMarkerHelper::IsBlockStart(marker)) {
-      // Update the nesting depth when block start bytes are encountered.
-      ++nesting_depth_;
+    cursor_ = reinterpret_cast<uint8_t*>((shadow_cursor_ - shadow_->shadow()) *
+                                         kShadowRatio);
 
-      // Non-nested blocks should only be encountered at depth 0.
-      bool is_nested = ShadowMarkerHelper::IsNestedBlockStart(marker);
-      DCHECK(is_nested || nesting_depth_ == 0);
+    if (cursor_ >= upper_bound_)
+      break;
 
-      // Determine if the block is to be reported.
-      if (!is_nested || recursive_) {
-        // This can only fail if the shadow memory is malformed.
-        CHECK(shadow_->BlockInfoFromShadow(cursor_, info));
+    auto next_shadow_index = next_shadow_cursor - shadow_->shadow();
+    auto next_cursor = std::min(upper_bound_,
+                                reinterpret_cast<const uint8_t*>(
+                                    next_shadow_index * kShadowRatio));
 
-        // In a recursive descent we have to process body contents.
-        if (recursive_) {
-          cursor_ += kShadowRatio;
-        } else {
-          // Otherwise we can skip the body of the block we just reported.
-          // We skip directly to the end marker (but not past it so that depth
-          // bookkeeping works properly).
-          cursor_ += info->block_size - kShadowRatio;
-        }
+    for (; cursor_ != next_cursor; cursor_ += kShadowRatio) {
+      uint8_t marker = shadow_->GetShadowMarkerForAddress(cursor_);
 
-        shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
-        return true;
+      // Update the nesting depth when block end markers are encountered.
+      if (ShadowMarkerHelper::IsBlockEnd(marker)) {
+        DCHECK_LE(0, nesting_depth_);
+        --nesting_depth_;
+        continue;
       }
-      continue;
+
+      // Look for a block start marker.
+      if (ShadowMarkerHelper::IsBlockStart(marker)) {
+        // Update the nesting depth when block start bytes are encountered.
+        ++nesting_depth_;
+
+        // Non-nested blocks should only be encountered at depth 0.
+        bool is_nested = ShadowMarkerHelper::IsNestedBlockStart(marker);
+        DCHECK(is_nested || nesting_depth_ == 0);
+
+        // Determine if the block is to be reported.
+        if (!is_nested || recursive_) {
+          // This can only fail if the shadow memory is malformed.
+          CHECK(shadow_->BlockInfoFromShadow(cursor_, info));
+
+          // In a recursive descent we have to process body contents.
+          if (recursive_) {
+            cursor_ += kShadowRatio;
+          } else {
+            // Otherwise we can skip the body of the block we just reported.
+            // We skip directly to the end marker (but not past it so that depth
+            // bookkeeping works properly).
+            cursor_ += info->block_size - kShadowRatio;
+          }
+
+          shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
+          return true;
+        }
+        continue;
+      }
     }
   }
 

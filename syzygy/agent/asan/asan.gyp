@@ -238,9 +238,6 @@
             # PE lib for win64 is sort of stub, so there's nothing
             # to test there.
             'iat_patcher_unittest.cc',
-            # IsHeapCorrupt fails.
-            # TODO(loskutov): fix IsHeapCorrupt.
-            'heap_checker_unittest.cc',
             # Uses 32bit assembler.
             'heap_managers/block_heap_manager_unittest.cc',
           ],

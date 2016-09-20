@@ -144,22 +144,29 @@ TEST_F(ShadowTest, SetUpAndTearDown) {
   // time.
   const size_t kLookupInterval = 25;
 
-  intptr_t shadow_array_start = reinterpret_cast<intptr_t>(test_shadow.shadow_);
-  size_t shadow_start = shadow_array_start >> 3;
-  size_t shadow_end = shadow_start + (test_shadow.length() >> 3);
-
   const size_t non_addressable_memory_end = (0x10000 >> 3);
 
   test_shadow.SetUp();
+
+// For large address spaces, the shadow memory is too large to be poisoned.
+#ifndef _WIN64
+  intptr_t shadow_array_start = reinterpret_cast<intptr_t>(test_shadow.shadow_);
+  size_t shadow_start = shadow_array_start >> 3;
+  size_t shadow_end = shadow_start + (test_shadow.length() >> 3);
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
     ASSERT_EQ(kAsanMemoryMarker, test_shadow.shadow_[i]);
+#endif
 
   for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
     ASSERT_EQ(kInvalidAddressMarker, test_shadow.shadow_[i]);
 
   test_shadow.TearDown();
+
+// For large address spaces, the shadow memory is too large to be poisoned.
+#ifndef _WIN64
   for (size_t i = shadow_start; i < shadow_end; i += kLookupInterval)
     ASSERT_EQ(kHeapAddressableMarker, test_shadow.shadow_[i]);
+#endif
 
   for (size_t i = 0; i < non_addressable_memory_end; i += kLookupInterval)
     ASSERT_EQ(kHeapAddressableMarker, test_shadow.shadow_[i]);
@@ -611,7 +618,8 @@ TEST_F(ShadowTest, BlockInfoFromShadow) {
   BlockLayout layout1 = {};
   BlockLayout layout2 = {};
   EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio,
-      ::common::AlignUp(layout0.block_size, kShadowRatio) + 4, 0, 0,
+      static_cast<uint32_t>(
+          ::common::AlignUp(layout0.block_size, kShadowRatio) + 4), 0, 0,
       &layout1));
   ASSERT_EQ(0u, layout1.header_padding_size);
   ASSERT_EQ(0u, layout1.trailer_padding_size);

@@ -68,7 +68,6 @@
 #define SYZYGY_AGENT_ASAN_SHADOW_H_
 
 #include <string>
-#include <vector>
 
 #include "base/logging.h"
 #include "base/synchronization/lock.h"
@@ -306,10 +305,10 @@ class Shadow {
   size_t length() const { return length_; }
 
   // Read only accessor of page protection bits.
-  const uint8_t* page_bits() const { return page_bits_.data(); }
+  const uint8_t* page_bits() const { return page_bits_; }
 
   // Returns the length of the page bits array.
-  size_t const page_bits_size() const { return page_bits_.size(); }
+  size_t const page_bits_size() const { return page_bits_length_; }
 
   // Determines if the shadow memory is clean. That is, it reflects the
   // state of shadow memory immediately after construction and a call to
@@ -385,7 +384,9 @@ class Shadow {
   // If this is true then this shadow object owns the memory.
   bool own_memory_;
 
-  // The actual shadow that is being referred to.
+  // The actual shadow that is being referred to. In case of large
+  // address spaces it's stored as a sparse array
+  // (see ShadowExceptionHandler in the .cc file).
   uint8_t* shadow_;
 
   // The length of the underlying shadow.
@@ -394,9 +395,19 @@ class Shadow {
   // A lock under which page protection bits are modified.
   base::Lock page_bits_lock_;
 
-  // Data about which pages are protected. This changes relatively rarely, so
+  // Data about which pages are protected. As with large address spaces
+  // there are a lot of pages, in that case it's stored as a sparse array,
+  // in the same manner as the shadow. This changes relatively rarely, so
   // is reasonable to synchronize. Under page_bits_lock_.
-  std::vector<uint8_t> page_bits_;
+  uint8_t* page_bits_;
+
+  // The length of page_bits_. Under page_bits_lock_.
+  size_t page_bits_length_;
+
+#ifdef _WIN64
+  // The exception handler handle to be able to remove it on object destruction.
+  HANDLE exception_handler_;
+#endif
 };
 
 // A helper class to walk over the blocks contained in a given memory region.
