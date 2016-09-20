@@ -48,11 +48,21 @@ void InitExecutionContext(const CONTEXT& rtl_context,
   exc_context->eax = rtl_context.Eax;
   exc_context->ebp = rtl_context.Ebp;
   exc_context->eip = rtl_context.Eip;
-  exc_context->seg_cs = rtl_context.SegCs;
-  exc_context->eflags = rtl_context.EFlags;
   exc_context->esp = rtl_context.Esp;
-  exc_context->seg_ss = rtl_context.SegSs;
+#else
+  exc_context->rdi = rtl_context.Rdi;
+  exc_context->rsi = rtl_context.Rsi;
+  exc_context->rbx = rtl_context.Rbx;
+  exc_context->rdx = rtl_context.Rdx;
+  exc_context->rcx = rtl_context.Rcx;
+  exc_context->rax = rtl_context.Rax;
+  exc_context->rbp = rtl_context.Rbp;
+  exc_context->rip = rtl_context.Rip;
+  exc_context->rsp = rtl_context.Rsp;
 #endif
+  exc_context->eflags = rtl_context.EFlags;
+  exc_context->seg_cs = rtl_context.SegCs;
+  exc_context->seg_ss = rtl_context.SegSs;
 }
 
 }  // namespace
