@@ -96,6 +96,10 @@ class RegistryCache {
                 size_t max_modules,
                 size_t max_versions);
 
+  // Returns true if the registry is available, false otherwise. On Chrome
+  // renderer processes the sandbox prevents access to the registry.
+  static bool RegistryAvailable();
+
   // Initializes the registry cache and prunes old values in the registry. This
   // must be called once, before any other method. Note that this function is
   // not thread-safe.

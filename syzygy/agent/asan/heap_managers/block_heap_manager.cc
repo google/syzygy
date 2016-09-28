@@ -82,8 +82,7 @@ BlockHeapManager::BlockHeapManager(Shadow* shadow,
       zebra_block_heap_id_(0),
       large_block_heap_id_(0),
       locked_heaps_(nullptr),
-      enable_page_protections_(true),
-      corrupt_block_registry_cache_(L"SyzyAsanCorruptBlocks") {
+      enable_page_protections_(true) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_NE(static_cast<StackCaptureCache*>(nullptr), stack_cache);
   DCHECK_NE(static_cast<MemoryNotifierInterface*>(nullptr), memory_notifier);
@@ -106,7 +105,14 @@ void BlockHeapManager::Init() {
   {
     base::AutoLock lock(lock_);
     InitInternalHeap();
-    corrupt_block_registry_cache_.Init();
+
+    // Only create a registry cache if the registry is available. It is not
+    // available in sandboxed Chrome renderer processes.
+    if (RegistryCache::RegistryAvailable()) {
+      corrupt_block_registry_cache_.reset(
+          new RegistryCache(L"SyzyAsanCorruptBlocks"));
+      corrupt_block_registry_cache_->Init();
+    }
   }
 
   // This takes care of its own locking, as its reentrant.
@@ -952,12 +958,15 @@ bool BlockHeapManager::ShouldReportCorruptBlock(const BlockInfo* block_info) {
 
   // Look at the registry cache to see if an error has already been reported
   // for this allocation stack trace, if so prevent from reporting another one.
-  if (corrupt_block_registry_cache_.DoesIdExist(relative_alloc_stack_id))
-    return false;
+  if (corrupt_block_registry_cache_.get()) {
+    if (corrupt_block_registry_cache_->DoesIdExist(relative_alloc_stack_id))
+      return false;
 
-  // Update the corrupt block registry cache to prevent from crashing if we
-  // encounter a corrupt block that has the same allocation stack trace.
-  corrupt_block_registry_cache_.AddOrUpdateStackId(relative_alloc_stack_id);
+    // Update the corrupt block registry cache to prevent from crashing if we
+    // encounter a corrupt block that has the same allocation stack trace.
+    corrupt_block_registry_cache_->AddOrUpdateStackId(relative_alloc_stack_id);
+  }
+
   return true;
 }
 

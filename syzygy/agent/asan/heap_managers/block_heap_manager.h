@@ -433,8 +433,9 @@ class BlockHeapManager : public HeapManagerInterface {
   bool enable_page_protections_;
 
   // The registry cache that we use to store the allocation stack ID of the
-  // corrupt block for which we've already reported an error.
-  RegistryCache corrupt_block_registry_cache_;
+  // corrupt block for which we've already reported an error. This isn't used
+  // in processes where registry access is blocked (ie, Chrome renderers).
+  std::unique_ptr<RegistryCache> corrupt_block_registry_cache_;
 
  private:
   // Background thread that takes care of trimming the quarantine

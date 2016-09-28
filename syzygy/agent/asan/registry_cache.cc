@@ -59,7 +59,18 @@ RegistryCache::RegistryCache(const wchar_t* registry_name,
   registry_cache_key_.append(registry_name);
 }
 
+// static
+bool RegistryCache::RegistryAvailable() {
+  base::win::RegKey test_key(kRegistryRootKey, L"SYSTEM", KEY_ALL_ACCESS);
+  if (!test_key.Valid())
+    return false;
+  test_key.Close();
+  return true;
+}
+
 bool RegistryCache::Init() {
+  DCHECK(RegistryAvailable());
+
   // Always start by cleaning up the values, to limit the size of entries in
   // the registry.
   CleanUp();
