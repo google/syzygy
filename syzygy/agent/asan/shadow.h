@@ -294,8 +294,11 @@ class Shadow {
   // @note Grabs a global shadow lock.
   void MarkPagesUnprotected(const void* addr, size_t size);
 
-  // Returns the size of memory represented by the shadow.
-  const size_t memory_size() const { return length_ << kShadowRatioLog; }
+  // Returns the size of memory represented by the shadow. This is a 64-bit
+  // result to prevent overflow for 4GB 32-bit processes.
+  const uint64_t memory_size() const {
+    return static_cast<uint64_t>(length_) << kShadowRatioLog;
+  }
 
   // Read only accessor of shadow memory.
   // @returns a pointer to the actual shadow memory.
@@ -422,7 +425,8 @@ class ShadowWalker {
   // @param lower_bound The lower bound of the region that this walker should
   //     cover in the actual memory.
   // @param upper_bound The upper bound of the region that this walker should
-  //     cover in the actual memory.
+  //     cover in the actual memory. This can overflow to 0 to indicate walking
+  //     all of memory.
   ShadowWalker(const Shadow* shadow,
                bool recursive,
                const void* lower_bound,
@@ -448,17 +452,13 @@ class ShadowWalker {
   // blocks.
   bool recursive_;
 
-  // The bounds of the memory region for this walker.
-  const uint8_t* lower_bound_;
-  const uint8_t* upper_bound_;
+  // The bounds of the memory region for this walker, expressed as pointers in
+  // the shadow memory. This allows walking to occur without worrying about
+  // overflow.
+  size_t lower_index_;
+  size_t upper_index_;
 
-  // The current cursor of the shadow walker. This points to upper_bound_ when
-  // the walk is terminated.
-  const uint8_t* cursor_;
-
-  // The shadow cursor. This is maintained simply for debugging and to ensure
-  // that the shadow memory associated with |cursor_| makes it into the crash
-  // report.
+  // The shadow cursor.
   const uint8_t* shadow_cursor_;
 
   // The current nesting depth. Starts at -1.

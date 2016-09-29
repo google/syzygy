@@ -37,24 +37,27 @@ bool HeapChecker::IsHeapCorrupt(CorruptRangesVector* corrupt_ranges) {
   ::common::AutoRecursiveLock scoped_lock(block_protect_lock);
 
   // Walk over all of the addressable memory to find the corrupt blocks.
+  // Allow memory_size to overflow to 0 for 4GB 32-bit processes.
   // TODO(sebmarchand): Iterates over the heap slabs once we have switched to
   //     a new memory allocator.
   GetCorruptRangesInSlab(
       reinterpret_cast<const uint8_t*>(Shadow::kAddressLowerBound),
-      shadow_->memory_size() - Shadow::kAddressLowerBound - 1, corrupt_ranges);
+      reinterpret_cast<const uint8_t*>(shadow_->memory_size()),
+      corrupt_ranges);
 
   return !corrupt_ranges->empty();
 }
 
 void HeapChecker::GetCorruptRangesInSlab(const uint8_t* lower_bound,
-                                         size_t length,
+                                         const uint8_t* upper_bound,
                                          CorruptRangesVector* corrupt_ranges) {
   DCHECK_NE(static_cast<const uint8_t*>(nullptr), lower_bound);
-  DCHECK_NE(0U, length);
+  DCHECK(upper_bound == nullptr || lower_bound <= upper_bound);
   DCHECK_NE(static_cast<CorruptRangesVector*>(nullptr), corrupt_ranges);
 
+  // An overflowed |upper_bound| is handled correctly by the ShadowWalker.
   ShadowWalker shadow_walker(
-      shadow_, false, lower_bound, lower_bound + length);
+      shadow_, false, lower_bound, upper_bound);
 
   AsanCorruptBlockRange* current_corrupt_range = nullptr;
 

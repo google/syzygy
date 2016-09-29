@@ -943,7 +943,8 @@ void AsanRuntime::WriteCorruptHeapInfo(
     ++block_infos;
 
     // Use a shadow walker to find the first corrupt block in this range and
-    // copy its metadata.
+    // copy its metadata. It's fine for the upper bound address calculation to
+    // overflow to 0, as this represents the end of the 4GB address space.
     ShadowWalker shadow_walker(
         shadow(), false,
         reinterpret_cast<const uint8_t*>(corrupt_ranges[i].address),

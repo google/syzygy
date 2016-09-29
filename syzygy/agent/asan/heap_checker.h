@@ -53,12 +53,13 @@ class HeapChecker {
 
  private:
   // Get the information about the corrupt ranges in a heap slab.
-  // @param lower_bound The lower bound for this slab.
-  // @param length The length of this slab.
+  // @param lower_bound The lower bound for this slab (inclusive).
+  // @param upper_bound The upper bound for this slab (exclusive). An
+  //     overflowed value of 0 indicates the end of all memory.
   // @param corrupt_ranges Will receive the information about the corrupt ranges
   //     in this slab.
   void GetCorruptRangesInSlab(const uint8_t* lower_bound,
-                              size_t length,
+                              const uint8_t* upper_bound,
                               CorruptRangesVector* corrupt_ranges);
 
   // The shadow memory that will be analyzed.

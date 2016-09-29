@@ -79,11 +79,15 @@ void ShadowUtilTest() {
 // A derived class to expose protected members for unit-testing.
 class TestShadow : public Shadow {
  public:
-  TestShadow() : Shadow(kTestShadowSize) {
+  TestShadow() : Shadow(kDefaultTestShadowSize) {
+  }
+
+  TestShadow(size_t digits, size_t power)
+      : Shadow(digits << (power - kShadowRatioLog)) {
   }
 
   // We'll simulate memory as being 1GB in size.
-  static const size_t kTestShadowSize =
+  static const size_t kDefaultTestShadowSize =
       (1 * 1024 * 1024 * 1024) >> kShadowRatioLog;
 
   // Protected functions that we want to unittest directly.
@@ -748,6 +752,22 @@ class ShadowWalkerTest : public testing::Test {
 };
 
 }  // namespace
+
+TEST_F(ShadowWalkerTest, WalkEmptyRange) {
+  ShadowWalker w(&test_shadow, true, &test_shadow, &test_shadow);
+  BlockInfo i = {};
+  EXPECT_FALSE(w.Next(&i));
+}
+
+TEST_F(ShadowWalkerTest, WalkRangeAtEndOfAddressSpace) {
+  TestShadow ts1(4, 30);  // 4GB.
+  ShadowWalker w(
+      &ts1, true,
+      reinterpret_cast<const void*>(ts1.memory_size() - 100),
+      reinterpret_cast<const void*>(ts1.memory_size()));
+  BlockInfo i = {};
+  EXPECT_FALSE(w.Next(&i));
+}
 
 TEST_F(ShadowWalkerTest, WalksNonNestedBlocks) {
   BlockLayout l = {};

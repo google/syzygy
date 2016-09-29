@@ -1092,96 +1092,77 @@ ShadowWalker::ShadowWalker(const Shadow* shadow,
                            bool recursive,
                            const void* lower_bound,
                            const void* upper_bound)
-    : shadow_(shadow), recursive_(recursive), lower_bound_(0), upper_bound_(0),
-      cursor_(nullptr), shadow_cursor_(nullptr), nesting_depth_(0) {
+    : shadow_(shadow), recursive_(recursive), lower_index_(0), upper_index_(0),
+      shadow_cursor_(nullptr), nesting_depth_(0) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_LE(Shadow::kAddressLowerBound, reinterpret_cast<size_t>(lower_bound));
-  DCHECK_GE(shadow->memory_size(), reinterpret_cast<size_t>(upper_bound));
-  DCHECK_LE(lower_bound, upper_bound);
 
-  lower_bound_ = ::common::AlignDown(
-      reinterpret_cast<const uint8_t*>(lower_bound), kShadowRatio);
-  upper_bound_ = ::common::AlignUp(
-      reinterpret_cast<const uint8_t*>(upper_bound), kShadowRatio);
+  // Get the bounds as shadow indices, being careful to deal with overflow
+  // of |upper_bound|.
+  lower_index_ = reinterpret_cast<uintptr_t>(lower_bound) >> kShadowRatioLog;
+  upper_index_ = reinterpret_cast<size_t>(::common::AlignUp(
+      reinterpret_cast<const uint8_t*>(upper_bound), kShadowRatio));
+  upper_index_--;
+  upper_index_ >>= kShadowRatioLog;
+  upper_index_++;
+
+  DCHECK_LE(lower_index_, upper_index_);
+  DCHECK_GE(shadow->length(), upper_index_);
+
   Reset();
 }
 
 void ShadowWalker::Reset() {
-  // Walk to the beginning of the first non-nested block, or to the end
-  // of the range, whichever comes first.
   nesting_depth_ = -1;
-  shadow_cursor_ = shadow_->GetShadowMemoryForAddress(lower_bound_);
-  auto shadow_upper_bound = shadow_->GetShadowMemoryForAddress(upper_bound_);
-  MEMORY_BASIC_INFORMATION memory_info = {};
-  const uint8_t* next_shadow_cursor = shadow_cursor_;
-
-  while (shadow_cursor_ < shadow_upper_bound) {
-    while (shadow_cursor_ < shadow_upper_bound) {
-      size_t ret = ::VirtualQuery(shadow_cursor_, &memory_info,
-                                sizeof(memory_info));
-      DCHECK_GT(ret, 0u);
-      next_shadow_cursor = static_cast<uint8_t*>(memory_info.BaseAddress) +
-                           memory_info.RegionSize;
-      if (memory_info.State == MEM_COMMIT)
-        break;
-      shadow_cursor_ = next_shadow_cursor;
-    }
-    next_shadow_cursor = std::min(next_shadow_cursor, shadow_upper_bound);
-    for (; shadow_cursor_ != next_shadow_cursor; ++shadow_cursor_) {
-      uint8_t marker = *shadow_cursor_;
-      if (ShadowMarkerHelper::IsBlockStart(marker) &&
-          !ShadowMarkerHelper::IsNestedBlockStart(marker)) {
-        // Break both loops.
-        shadow_upper_bound = shadow_cursor_;
-        break;
-      }
-    }
-  }
-
-  cursor_ = reinterpret_cast<uint8_t*>((shadow_cursor_ - shadow_->shadow()) *
-      kShadowRatio);
+  shadow_cursor_ = shadow_->shadow() + lower_index_;
 }
 
 bool ShadowWalker::Next(BlockInfo* info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
 
-  auto shadow_upper_bound = shadow_->GetShadowMemoryForAddress(upper_bound_);
-  MEMORY_BASIC_INFORMATION memory_info = {};
-  const uint8_t* next_shadow_cursor = shadow_cursor_;
+  auto shadow_upper_bound = shadow_->shadow() + upper_index_;
 
-  // Iterate until a reportable block is encountered, or the slab is exhausted.
-  while (cursor_ < upper_bound_) {
-    // Find a range of commited pages in the shadow memory.
-    shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
-    while (shadow_cursor_ != shadow_upper_bound) {
-      size_t ret = ::VirtualQuery(shadow_cursor_, &memory_info,
-                                  sizeof(memory_info));
-      DCHECK_GT(ret, 0u);
-      next_shadow_cursor = static_cast<uint8_t*>(memory_info.BaseAddress) +
-                           memory_info.RegionSize;
-      if (memory_info.State == MEM_COMMIT)
-        break;
-      shadow_cursor_ = next_shadow_cursor;
+  while (shadow_cursor_ < shadow_upper_bound) {
+    // Skip uncommitted ranges of memory. This is possible when using a sparse
+    // shadow that maps its pages in on demand.
+    MEMORY_BASIC_INFORMATION memory_info = {};
+    size_t ret = ::VirtualQuery(shadow_cursor_, &memory_info,
+                                sizeof(memory_info));
+    DCHECK_GT(ret, 0u);
+    auto start_of_region =
+        static_cast<const uint8_t*>(memory_info.BaseAddress);
+    auto end_of_region = start_of_region + memory_info.RegionSize;
+
+    // If the region isn't committed and readable memory then skip it.
+    if (memory_info.State != MEM_COMMIT) {
+      // If the next region is beyond the part of the shadow being scanned
+      // then bail early (be careful to handle overflow here).
+      if (end_of_region > shadow_upper_bound || end_of_region == nullptr)
+        return false;
+
+      // Step to the beginning of the next region and try again.
+      shadow_cursor_ = start_of_region;
+      continue;
     }
 
-    cursor_ = reinterpret_cast<uint8_t*>((shadow_cursor_ - shadow_->shadow()) *
-                                         kShadowRatio);
+    // Getting here then |start_of_region| and |end_of_region| are a part of
+    // the shadow that should be scanned. Calculate where to stop for this
+    // region, taking care to handle overflow.
+    if (!end_of_region) {
+      end_of_region = shadow_upper_bound;
+    } else {
+      end_of_region = std::min(shadow_upper_bound, end_of_region);
+    }
 
-    if (cursor_ >= upper_bound_)
-      break;
-
-    auto next_shadow_index = next_shadow_cursor - shadow_->shadow();
-    auto next_cursor = std::min(upper_bound_,
-                                reinterpret_cast<const uint8_t*>(
-                                    next_shadow_index * kShadowRatio));
-
-    for (; cursor_ != next_cursor; cursor_ += kShadowRatio) {
-      uint8_t marker = shadow_->GetShadowMarkerForAddress(cursor_);
+    // Scan this committed portion of the shadow.
+    while (shadow_cursor_ < end_of_region) {
+      uint8_t marker = *shadow_cursor_;
 
       // Update the nesting depth when block end markers are encountered.
       if (ShadowMarkerHelper::IsBlockEnd(marker)) {
         DCHECK_LE(0, nesting_depth_);
         --nesting_depth_;
+        ++shadow_cursor_;
         continue;
       }
 
@@ -1197,24 +1178,34 @@ bool ShadowWalker::Next(BlockInfo* info) {
         // Determine if the block is to be reported.
         if (!is_nested || recursive_) {
           // This can only fail if the shadow memory is malformed.
-          CHECK(shadow_->BlockInfoFromShadow(cursor_, info));
+          size_t block_index = shadow_cursor_ - shadow_->shadow();
+          void* block_address = reinterpret_cast<void*>(
+              block_index << kShadowRatioLog);
+          CHECK(shadow_->BlockInfoFromShadow(block_address, info));
 
           // In a recursive descent we have to process body contents.
           if (recursive_) {
-            cursor_ += kShadowRatio;
+            // Jump straight to the body of the nested block.
+            shadow_cursor_ = shadow_->GetShadowMemoryForAddress(
+                info->body);
           } else {
             // Otherwise we can skip the body of the block we just reported.
             // We skip directly to the end marker (but not past it so that depth
             // bookkeeping works properly).
-            cursor_ += info->block_size - kShadowRatio;
+            auto block_end = reinterpret_cast<const uint8_t*>(info->header) +
+                info->block_size;
+            shadow_cursor_ = shadow_->GetShadowMemoryForAddress(block_end) - 1;
           }
 
-          shadow_cursor_ = shadow_->GetShadowMemoryForAddress(cursor_);
+          // A block has been found and its |info| is parsed. Return to the
+          // caller.
           return true;
         }
-        continue;
       }
-    }
+
+      // Advance the shadow cursor.
+      ++shadow_cursor_;
+    }  // while (shadow_cursor_ < end_of_region)
   }
 
   return false;
