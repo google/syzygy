@@ -1,6 +1,13 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.22.0
+[2662b3a8a2] SyzyAsan - More careful handling when freeing corrupt blocks.
+[745955797d] SyzyAsan - Fix potential race when shutting down the deferred
+             free thread.
+[c86c6caeae] SyzyAsan - Fix overflow error in ShadowWalker for 4GB 32-bit
+             processes.
+
 Version 0.8.21.0
 [dca3e80883] Switch back to using VS2015.
 
@@ -8,7 +15,7 @@ Version 0.8.20.7
 [f10f8a119b] Add support for LODS instruction.
 
 Version 0.8.20.6
-[dea670f0a0] Fix a bug in the Large Block Heap.
+[dea670f0a0] SyzyAsan - Fix a bug in the Large Block Heap.
 
 Version 0.8.20.5
 [63fbbf176d] Really fix the 16-bit CRC32 decoding, with a thorough test.
