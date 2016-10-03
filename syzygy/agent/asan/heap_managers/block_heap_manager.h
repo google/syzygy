@@ -294,7 +294,7 @@ class BlockHeapManager : public HeapManagerInterface {
   bool FreeUnguardedAlloc(HeapId heap_id, void* alloc);
 
   // Clears the metadata of a corrupt block. After calling this function the
-  // block can safely be passed to FreeBlock.
+  // block can safely be passed to FreeBlock, but only if heap_id is non-zero.
   // @param block_info The information about this block.
   void ClearCorruptBlockMetadata(BlockInfo* block_info);
 
@@ -361,6 +361,11 @@ class BlockHeapManager : public HeapManagerInterface {
   // thread is not running.
   // @returns the thread ID.
   base::PlatformThreadId GetDeferredFreeThreadId();
+
+  // Helper function for finding the heap ID associated with a corrupt block.
+  // This is best effort, and can return 0 when no heap can be found with
+  // certainty.
+  HeapId GetCorruptBlockHeapId(const BlockInfo* block_info);
 
   // The shadow memory that is notified by all activity in this heap manager.
   Shadow* shadow_;

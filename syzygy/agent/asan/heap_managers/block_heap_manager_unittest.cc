@@ -214,6 +214,7 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::HeapQuarantinePair;
 
   using BlockHeapManager::FreePotentiallyCorruptBlock;
+  using BlockHeapManager::GetCorruptBlockHeapId;
   using BlockHeapManager::GetHeapId;
   using BlockHeapManager::GetHeapFromId;
   using BlockHeapManager::GetHeapTypeUnlocked;
@@ -226,10 +227,13 @@ class TestBlockHeapManager : public BlockHeapManager {
   using BlockHeapManager::TrimQuarantine;
 
   using BlockHeapManager::allocation_filter_flag_tls_;
+  using BlockHeapManager::corrupt_block_registry_cache_;
+  using BlockHeapManager::enable_page_protections_;
   using BlockHeapManager::heaps_;
   using BlockHeapManager::large_block_heap_id_;
   using BlockHeapManager::locked_heaps_;
   using BlockHeapManager::parameters_;
+  using BlockHeapManager::shadow_;
   using BlockHeapManager::shared_quarantine_;
   using BlockHeapManager::zebra_block_heap_;
   using BlockHeapManager::zebra_block_heap_id_;
@@ -1761,65 +1765,141 @@ TEST_F(BlockHeapManagerTest, DeferredFreeThreadTest) {
 
 namespace {
 
-bool ShadowIsConsistentPostAlloc(
-    Shadow* shadow, const void* alloc, size_t size) {
-  uintptr_t index = reinterpret_cast<uintptr_t>(alloc);
-  index >>= kShadowRatioLog;
-  uintptr_t index_end = index + (size >> kShadowRatioLog);
-  for (size_t i = index; i < index_end; ++i) {
-    if (shadow->shadow()[i] != ShadowMarker::kHeapAddressableMarker)
-      return false;
+// Helper function for extracting the two default heaps.
+void GetHeapIds(TestBlockHeapManager* heap_manager,
+                HeapId* large_block_heap,
+                HeapId* win_heap) {
+  ASSERT_TRUE(heap_manager);
+  ASSERT_TRUE(large_block_heap);
+  ASSERT_TRUE(win_heap);
+  ASSERT_EQ(2u, heap_manager->heaps_.size());
+
+  *large_block_heap = 0;
+  *win_heap = 0;
+
+  for (auto h = heap_manager->heaps_.begin();
+       h != heap_manager->heaps_.end(); ++h) {
+    HeapId heap_id = heap_manager->GetHeapId(h);
+    if (h->first->GetHeapType() == kWinHeap) {
+      *win_heap = heap_id;
+    } else {
+      ASSERT_EQ(kLargeBlockHeap, h->first->GetHeapType());
+      *large_block_heap = heap_id;
+    }
   }
-  return true;
+
+  ASSERT_NE(0u, *large_block_heap);
+  ASSERT_NE(0u, *win_heap);
 }
-
-bool ShadowIsConsistentPostFree(
-    Shadow* shadow, const void* alloc, size_t size) {
-  DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
-  uintptr_t index = reinterpret_cast<uintptr_t>(alloc);
-  index >>= kShadowRatioLog;
-  uintptr_t index_end = index + (size >> kShadowRatioLog);
-
-  uint8_t m = shadow->shadow()[index];
-  if (m != ShadowMarker::kHeapAddressableMarker &&
-      m != ShadowMarker::kAsanReservedMarker &&
-      m != ShadowMarker::kHeapFreedMarker) {
-    return false;
-  }
-
-  // We expect green memory only for large allocations which are directly
-  // mapped. Small allocations should be returned to a common pool and
-  // marked as reserved.CtMalloc heap.
-  if (m == ShadowMarker::kHeapAddressableMarker && size < 1 * 1024 * 1024)
-    return false;
-
-  for (size_t i = index; i < index_end; ++i) {
-    if (shadow->shadow()[index] != m)
-      return false;
-  }
-  return true;
-}
-
-class BlockHeapManagerIntegrationTest : public testing::Test {
- public:
-  BlockHeapManagerIntegrationTest()
-      : shadow_() {
-  }
-
-  void SetUp() override {
-    shadow_.SetUp();
-    ASSERT_TRUE(shadow_.IsClean());
-  }
-
-  void TearDown() override {
-    ASSERT_TRUE(shadow_.IsClean());
-    shadow_.TearDown();
-  }
-
-  testing::DebugShadow shadow_;
-};
 
 }  // namespace
+
+TEST_F(BlockHeapManagerTest, GetCorruptBlockHeapIdTrailerIsGood) {
+  // Disable page protections so that the LBH allocated block can be
+  // accessed.
+  heap_manager_->enable_page_protections_ = false;
+
+  HeapId lbh = 0;
+  HeapId wh = 0;
+  GetHeapIds(heap_manager_, &lbh, &wh);
+
+  // Create a second win heap. This means that there are multiple heaps
+  // not supporting IsAllocated.
+  heap_manager_->CreateHeap();
+
+  void* alloc = heap_manager_->Allocate(lbh, 64 * 4096);
+  BlockInfo bi = {};
+  GetBlockInfo(
+      heap_manager_->shadow_, reinterpret_cast<BlockBody*>(alloc), &bi);
+
+  // Test that the heap ID is correctly returned even in one of many
+  // non-reporting heaps, given that the correct heap id is actually in the
+  // trailer.
+  EXPECT_EQ(lbh, heap_manager_->GetCorruptBlockHeapId(&bi));
+}
+
+TEST_F(BlockHeapManagerTest, GetCorruptBlockHeapIdInReportingHeap) {
+  // Disable page protections so that the LBH allocated block can be
+  // accessed.
+  heap_manager_->enable_page_protections_ = false;
+
+  HeapId lbh = 0;
+  HeapId wh = 0;
+  GetHeapIds(heap_manager_, &lbh, &wh);
+
+  // Create a second win heap. This means that there are multiple heaps
+  // not supporting IsAllocated.
+  heap_manager_->CreateHeap();
+
+  void* alloc = heap_manager_->Allocate(lbh, 32);
+  BlockInfo bi = {};
+  GetBlockInfo(
+      heap_manager_->shadow_, reinterpret_cast<BlockBody*>(alloc), &bi);
+  bi.trailer->heap_id = 0;
+
+  // Test the the correct heap is found, even though there are multiple
+  // non-reporting heaps and the trailer is corrupt.
+  EXPECT_EQ(lbh, heap_manager_->GetCorruptBlockHeapId(&bi));
+}
+
+TEST_F(BlockHeapManagerTest, GetCorruptBlockHeapIdInSingleNonReportingHeap) {
+  HeapId lbh = 0;
+  HeapId wh = 0;
+  GetHeapIds(heap_manager_, &lbh, &wh);
+
+  void* alloc = heap_manager_->Allocate(wh, 32);
+  BlockInfo bi = {};
+  GetBlockInfo(
+      heap_manager_->shadow_, reinterpret_cast<BlockBody*>(alloc), &bi);
+  bi.trailer->heap_id = 0;
+
+  // Test the the correct heap is found, even though its a non-reporting heap
+  // and the trailer is corrupt.
+  EXPECT_EQ(wh, heap_manager_->GetCorruptBlockHeapId(&bi));
+}
+
+TEST_F(BlockHeapManagerTest, GetCorruptBlockHeapIdNotFound) {
+  HeapId lbh = 0;
+  HeapId wh = 0;
+  GetHeapIds(heap_manager_, &lbh, &wh);
+
+  // Create a second win heap. This means that there are multiple heaps
+  // not supporting IsAllocated.
+  heap_manager_->CreateHeap();
+
+  void* alloc = heap_manager_->Allocate(wh, 32);
+  BlockInfo bi = {};
+  GetBlockInfo(
+      heap_manager_->shadow_, reinterpret_cast<BlockBody*>(alloc), &bi);
+  bi.trailer->heap_id = 0;
+
+  // Expect this to fail, as there are multiple non-reporting heaps and
+  // the block trailer is corrupt.
+  EXPECT_EQ(0u, heap_manager_->GetCorruptBlockHeapId(&bi));
+}
+
+TEST_F(BlockHeapManagerTest, FreeCorruptedBlockWorks) {
+  // Enable to registry filter.
+  heap_manager_->parameters_.prevent_duplicate_corruption_crashes = true;
+
+  HeapId lbh = 0;
+  HeapId wh = 0;
+  GetHeapIds(heap_manager_, &lbh, &wh);
+
+  void* alloc = heap_manager_->Allocate(wh, 32);
+  BlockInfo bi = {};
+  GetBlockInfo(
+      heap_manager_->shadow_, reinterpret_cast<BlockBody*>(alloc), &bi);
+
+  // Add the stack ID to the registry cache, so that it will decide not
+  // to crash upon freeing.
+  heap_manager_->corrupt_block_registry_cache_->AddOrUpdateStackId(
+      bi.header->alloc_stack->relative_stack_id());
+
+  // Clear the heap ID and delete the block, expecting this to succeed.
+  bi.trailer->heap_id = 0;
+  EXPECT_TRUE(heap_manager_->Free(wh, alloc));
+}
 
 }  // namespace heap_managers
 }  // namespace asan

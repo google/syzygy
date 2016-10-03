@@ -809,6 +809,19 @@ bool BlockHeapManager::FreeCorruptBlock(BlockInfo* block_info) {
   DCHECK(initialized_);
   DCHECK_NE(static_cast<BlockInfo*>(nullptr), block_info);
   ClearCorruptBlockMetadata(block_info);
+
+  // ClearCorruptBlockMetadata couldn't figure out which heap owns this block.
+  // Explode, as there's no way to safely move forward here. Note that the only
+  // way to get here is if ReportCorruptBlock decided it didn't want to report
+  // this block earlier, and decided to move forward in trying to free it.
+  // TODO(chrisha): Entertain the idea of keeping track of such blocks, and
+  //     simply reporting them en masse when things finally do go south, or at
+  //     process termination.
+  if (block_info->trailer->heap_id == 0)
+    ReportHeapError(block_info->body, CORRUPT_BLOCK);
+
+  // At this point there's very high confidence that the heap_id is valid so
+  // go ahead and try to free the block like normal.
   return FreePristineBlock(block_info);
 }
 
@@ -883,6 +896,8 @@ void BlockHeapManager::ClearCorruptBlockMetadata(BlockInfo* block_info) {
       block_info->header->free_stack)) {
     block_info->header->free_stack = nullptr;
   }
+
+  block_info->trailer->heap_id = GetCorruptBlockHeapId(block_info);
 }
 
 void BlockHeapManager::ReportHeapError(void* address, BadAccessKind kind) {
@@ -963,19 +978,25 @@ bool BlockHeapManager::ShouldReportCorruptBlock(const BlockInfo* block_info) {
   if (!parameters_.prevent_duplicate_corruption_crashes)
     return true;
 
+  if (!corrupt_block_registry_cache_.get())
+    return true;
+
+  // At this point none of the block content can be trusted, so proceed with
+  // extreme caution.
   const common::StackCapture* alloc_stack = block_info->header->alloc_stack;
+  if (!stack_cache_->StackCapturePointerIsValid(alloc_stack))
+    return true;
+
   StackId relative_alloc_stack_id = alloc_stack->relative_stack_id();
 
   // Look at the registry cache to see if an error has already been reported
   // for this allocation stack trace, if so prevent from reporting another one.
-  if (corrupt_block_registry_cache_.get()) {
-    if (corrupt_block_registry_cache_->DoesIdExist(relative_alloc_stack_id))
-      return false;
+  if (corrupt_block_registry_cache_->DoesIdExist(relative_alloc_stack_id))
+    return false;
 
-    // Update the corrupt block registry cache to prevent from crashing if we
-    // encounter a corrupt block that has the same allocation stack trace.
-    corrupt_block_registry_cache_->AddOrUpdateStackId(relative_alloc_stack_id);
-  }
+  // Update the corrupt block registry cache to prevent from crashing if we
+  // encounter a corrupt block that has the same allocation stack trace.
+  corrupt_block_registry_cache_->AddOrUpdateStackId(relative_alloc_stack_id);
 
   return true;
 }
@@ -1032,6 +1053,67 @@ void BlockHeapManager::EnableDeferredFreeThreadWithCallback(
   base::AutoLock lock(deferred_free_thread_lock_);
   deferred_free_thread_.reset(new DeferredFreeThread(deferred_free_callback));
   deferred_free_thread_->Start();
+}
+
+HeapId BlockHeapManager::GetCorruptBlockHeapId(const BlockInfo* block_info) {
+  base::AutoLock lock(lock_);
+
+  // Check the heap specified in the trailer first.
+  bool trailer_has_valid_heap_id = false;
+  if (block_info->trailer->heap_id != 0) {
+    for (auto hq = heaps_.begin(); hq != heaps_.end(); ++hq) {
+      HeapId heap_id = GetHeapId(hq);
+      if (heap_id == block_info->trailer->heap_id) {
+        if ((hq->first->GetHeapFeatures() &
+                 BlockHeapInterface::kHeapSupportsIsAllocated) == 0) {
+          // If the trailer heap id is valid but the heap doesn't support
+          // IsAllocated then remember this as a backup answer for later.
+          trailer_has_valid_heap_id = true;
+        } else {
+          // If the advertised heap can be confirmed to own this block then
+          // return that heap id.
+          if (hq->first->IsAllocated(block_info->header))
+            return heap_id;
+        }
+
+        break;
+      }
+    }
+  }
+
+  // These keep track of heaps that don't support IsAllocated in the loop
+  // below.
+  HeapId unsupported_heap_id = 0;
+  size_t unsupported_heap_count = 0;
+
+  // Check against every outstanding heap.
+  for (auto hq = heaps_.begin(); hq != heaps_.end(); ++hq) {
+    HeapId heap_id = GetHeapId(hq);
+
+    // Skip heaps that don't support IsAllocated.
+    if ((hq->first->GetHeapFeatures() &
+            BlockHeapInterface::kHeapSupportsIsAllocated) == 0) {
+      unsupported_heap_id = heap_id;
+      ++unsupported_heap_count;
+      continue;
+    }
+
+    if (hq->first->IsAllocated(block_info->header))
+      return heap_id;
+  }
+
+  // If no heap was found but only a single heap doesn't support
+  // IsAllocated, then that's the heap by process of elimination.
+  if (unsupported_heap_count == 1)
+    return unsupported_heap_id;
+
+  // If the trailer contained a valid heap ID but it simply couldn't be
+  // confirmed to be owner of the block then assume that's the heap.
+  if (trailer_has_valid_heap_id)
+    return block_info->trailer->heap_id;
+
+  // Unfortunately, there's no way to know which heap this block belongs to.
+  return 0;
 }
 
 }  // namespace heap_managers
