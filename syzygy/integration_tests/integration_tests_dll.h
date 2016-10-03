@@ -184,7 +184,8 @@ namespace testing {
     decl(kAsanNearNullptrAccessNoHeapCorruptionUninstrumented, \
          testing::AsanNearNullptrAccessNoHeapCorruptionUninstrumented) \
     decl(kAsanNullptrAccessNoHeapCorruptionUninstrumented, \
-         testing::AsanNullptrAccessNoHeapCorruptionUninstrumented)
+         testing::AsanNullptrAccessNoHeapCorruptionUninstrumented) \
+    decl(kAsanDeferredFreeTLS, testing::AsanDeferredFreeTLS)
 
 // This enumeration contains an unique id for each end to end test. It is used
 // to perform an indirect call through the DLL entry point 'EndToEndTest'.

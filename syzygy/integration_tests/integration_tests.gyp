@@ -98,6 +98,8 @@
         'behavior_tests.h',
         'coverage_tests.cc',
         'coverage_tests.h',
+        'deferred_free_tests.cc',
+        'deferred_free_tests.h',
         'integration_tests_dll.cc',
         'integration_tests_dll.def',
         'integration_tests_dll.h',

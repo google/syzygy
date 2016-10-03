@@ -23,6 +23,7 @@
 #include "syzygy/integration_tests/bb_entry_tests.h"
 #include "syzygy/integration_tests/behavior_tests.h"
 #include "syzygy/integration_tests/coverage_tests.h"
+#include "syzygy/integration_tests/deferred_free_tests.h"
 #include "syzygy/integration_tests/profile_tests.h"
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {

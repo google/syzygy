@@ -639,11 +639,21 @@ void BlockHeapManager::EnableDeferredFreeThread() {
 
 void BlockHeapManager::DisableDeferredFreeThread() {
   DCHECK(IsDeferredFreeThreadRunning());
+
+  // Reset |deferred_free_thread_| which disables the features. This is done
+  // before stopping the feature as to avoid locking |deferred_free_thread_old|
+  // while joining the thread, which can lead to a deadlock. The old value is
+  // preserved as it is needed to stop the thread.
+  std::unique_ptr<DeferredFreeThread> deferred_free_thread_old;
+  {
+    base::AutoLock lock(deferred_free_thread_lock_);
+    deferred_free_thread_old.swap(deferred_free_thread_);
+  }
+
   // Stop the thread and wait for it to exit.
-  base::AutoLock lock(deferred_free_thread_lock_);
-  if (deferred_free_thread_)
-    deferred_free_thread_->Stop();
-  deferred_free_thread_.reset();
+  if (deferred_free_thread_old)
+    deferred_free_thread_old->Stop();
+
   // Set the overbudget size to 0 to remove the hysteresis.
   shared_quarantine_.SetOverbudgetSize(0);
 }

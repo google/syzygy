@@ -133,7 +133,6 @@ const uint32_t kAsanParametersSectionCharacteristics =
     IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ;
 
 // Default values of HeapProxy parameters
-const uint32_t kDefaultQuarantineSize = 16 * 1024 * 1024;
 const uint32_t kDefaultQuarantineBlockSize = 4 * 1024 * 1024;
 const uint32_t kDefaultTrailerPaddingSize = 0;
 const float kDefaultAllocationGuardRate = 1.0;

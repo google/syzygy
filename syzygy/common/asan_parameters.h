@@ -222,7 +222,7 @@ class FlatAsanParameters {
 };
 
 // Default values of HeapProxy parameters
-extern const uint32_t kDefaultQuarantineSize;
+const uint32_t kDefaultQuarantineSize = 16 * 1024 * 1024;  // Exposed for tests.
 extern const uint32_t kDefaultQuarantineBlockSize;
 extern const uint32_t kDefaultTrailerPaddingSize;
 extern const float kDefaultAllocationGuardRate;

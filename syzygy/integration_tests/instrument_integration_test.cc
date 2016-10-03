@@ -1771,4 +1771,12 @@ TEST_F(InstrumentAppIntegrationTest, ProfileWithImportsEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(ProfileCheckTestDll(true));
 }
 
+TEST_F(InstrumentAppIntegrationTest, DeferredFreeTLS) {
+  ASSERT_NO_FATAL_FAILURE(StartService());
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_EQ(0, InvokeTestDllFunction(testing::kAsanDeferredFreeTLS));
+  ASSERT_NO_FATAL_FAILURE(UnloadDll());
+  ASSERT_NO_FATAL_FAILURE(StopService());
+}
+
 }  // namespace integration_tests
