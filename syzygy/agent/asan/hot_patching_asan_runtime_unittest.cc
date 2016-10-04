@@ -34,8 +34,15 @@ class HotPatchingAsanRelinkHelper : public testing::PELibUnitTest {
   }
 
   void SetUp() override {
+    testing::PELibUnitTest::SetUp();
     this->CreateTemporaryDir(&temp_dir_);
     hp_test_dll_path_ = temp_dir_.Append(testing::kTestDllName);
+  }
+
+  void TearDown() override {
+    module_.Reset(nullptr);
+    ASSERT_TRUE(base::DeleteFile(temp_dir_, true));
+    testing::PELibUnitTest::TearDown();
   }
 
   // This is a workaround so that we can use this class in the unittest
@@ -152,6 +159,9 @@ TEST_F(HotPatchingAsanRuntimeTest, TestRuntime) {
 
   // The test module should remain in set of hot patched modules.
   ASSERT_EQ(1U, runtime_->hot_patched_modules().count(relink_helper.module_));
+
+  // Ensure the relink helper is torn down.
+  relink_helper.TearDown();
 }
 
 }  // namespace asan
