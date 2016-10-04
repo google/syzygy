@@ -305,11 +305,6 @@ TEST_F(AsanRuntimeTest, PropagateFeatureSet) {
         static_cast<TestBlockHeapManager*>(asan_runtime_.heap_manager_.get());
     EXPECT_EQ(test_block_heap_manager->enable_page_protections_,
               ((feature_set & ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS) != 0U));
-
-    // Expect the Crashpad bit to always be cleared, as the crash reporter
-    // can't be initialized without a Crashpad server running.
-    EXPECT_EQ(0u,
-        asan_runtime_.GetEnabledFeatureSet() & ASAN_FEATURE_ENABLE_CRASHPAD);
   }
 
   ASSERT_NO_FATAL_FAILURE(asan_runtime_.TearDown());

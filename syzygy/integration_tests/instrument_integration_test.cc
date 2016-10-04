@@ -53,14 +53,6 @@ namespace integration_tests {
 
 namespace {
 
-// The exit code used by report_crash_with_protobuf_harness if the
-// exception was appropriately dispatched but did not contain a valid protobuf.
-const int kExeReportCrashWithProtobufExitCodeBadProtobuf = 97;
-
-// The exit code used by report_crash_with_protobuf_harness if the
-// exception was appropriately dispatched and contained a valid protobuf.
-const int kExeReportCrashWithProtobufExitCode = 98;
-
 // The exit code used by crash_for_exception_harness if the exception
 // was appropriately dispatched.
 const int kExeCrashForExceptionExitCode = 99;
@@ -1513,19 +1505,6 @@ TEST_F(InstrumentAppIntegrationTest,
       kAsanCorruptHeap, NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanHeapCheckerCallsReportCrashWithProtobuf) {
-  // Heap checker failures do get reported to ReportCrashWithProtobuf if it is
-  // defined.
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-
-  int exit_code = RunOutOfProcessFunction(
-      L"report_crash_with_protobuf_harness.exe",
-      testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader, true);
-  EXPECT_EQ(kExeReportCrashWithProtobufExitCode, exit_code);
-}
-
 TEST_F(InstrumentAppIntegrationTest, AsanOverflowCallsCrashForException) {
   // Asan-detected violations go through CrashForException if it is available.
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1534,18 +1513,6 @@ TEST_F(InstrumentAppIntegrationTest, AsanOverflowCallsCrashForException) {
       RunOutOfProcessFunction(L"crash_for_exception_harness.exe",
                               testing::kAsanRead8BufferOverflow, true);
   EXPECT_EQ(kExeCrashForExceptionExitCode, exit_code);
-}
-
-TEST_F(InstrumentAppIntegrationTest,
-       AsanOverflowCallsReportCrashWithProtobuf) {
-  // Asan-detected violations go through ReportCrashWithProtobuf if it is
-  // available.
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  int exit_code =
-      RunOutOfProcessFunction(L"report_crash_with_protobuf_harness.exe",
-                              testing::kAsanRead8BufferOverflow, true);
-  EXPECT_EQ(kExeReportCrashWithProtobufExitCode, exit_code);
 }
 
 TEST_F(InstrumentAppIntegrationTest,

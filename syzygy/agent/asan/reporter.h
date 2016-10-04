@@ -31,7 +31,6 @@ namespace asan {
 class ReporterInterface {
  public:
   // This is the stream type defined to hold the Crashdata protobuf.
-  // This was initially defined by Kasko, but is reused elsewhere.
   enum : uint32_t { kCrashdataProtobufStreamType = 0x4B6B0001 };
 
   // An enumeration of the features supported by this crash reporter. This

@@ -127,11 +127,6 @@
           'sources': [
             'gen/memory_interceptors_impl.asm',
             'gen/memory_redirectors.asm',
-            'reporters/kasko_reporter.cc',
-            'reporters/kasko_reporter.h',
-          ],
-          'dependencies': [
-            '<(src)/syzygy/kasko/kasko.gyp:kasko',
           ],
         }, {
           'sources': [
@@ -226,8 +221,6 @@
           'sources!': [
             # Static shadow doesn't work for large address spaces.
             'static_shadow.cc',
-            # Kasko is to be removed.
-            'reporters/kasko_reporter_unittest.cc',
             # Redirectors are not currently implemented for win64.
             'memory_interceptors_patcher_unittest.cc',
             # Relies on full set of probes.

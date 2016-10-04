@@ -90,7 +90,8 @@ enum AsanFeature : uint32_t {
   ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP = (1 << 2),
   // This feature flag is currently deprecated and ignored.
   DEPRECATED_ASAN_FEATURE_ENABLE_KASKO = (1 << 3),
-  ASAN_FEATURE_ENABLE_CRASHPAD = (1 << 4),
+  // This feature flag is currently deprecated and ignored.
+  DEPRECATED_ASAN_FEATURE_ENABLE_CRASHPAD = (1 << 4),
   ASAN_FEATURE_MAX = (1 << 5),
 };
 using AsanFeatureSet = uint32_t;
@@ -98,12 +99,13 @@ using AsanFeatureSet = uint32_t;
 // Feature set for all valid features.
 const AsanFeatureSet kAsanValidFeatures =
     ASAN_FEATURE_ENABLE_PAGE_PROTECTIONS |
-    ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP | ASAN_FEATURE_ENABLE_CRASHPAD;
+    ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP;
 
 // Feature set for all deprecated features.
 const AsanFeatureSet kAsanDeprecatedFeatures =
     DEPRECATED_ASAN_FEATURE_ENABLE_CTMALLOC |
-    DEPRECATED_ASAN_FEATURE_ENABLE_KASKO;
+    DEPRECATED_ASAN_FEATURE_ENABLE_KASKO |
+    DEPRECATED_ASAN_FEATURE_ENABLE_CRASHPAD;
 
 // Store the information that we want to report about a block.
 // TODO(sebmarchand): Rename this to avoid the confusion with the BlockInfo
@@ -217,8 +219,8 @@ struct AsanErrorShadowMemory {
 typedef base::Callback<void(AsanErrorInfo* asan_error_info)>
     HeapErrorCallback;
 
-// Contains pairs of address/size of data to be reported to Kasko during a
-// crash.
+// Contains pairs of address/size of data to be reported to the crash reporter
+// during a crash.
 typedef std::vector<std::pair<const char*, size_t>> MemoryRanges;
 
 // Returns a string describing a bad access kind.
