@@ -208,12 +208,22 @@ struct BlockTrailer {
   // The time at which the block was freed (zero if not yet freed).
   uint32_t free_ticks;
   // The ID of the heap that allocated the block.
-  uint32_t heap_id;
+  size_t heap_id;
+#ifdef _WIN64
+  // Add some padding so the trailer size will be a multiple of size
+  // (n + 1/2) * kShadowRatio.
+  // TODO(sebmarchand): Use this bytes to store more information.
+  uint32_t padding_;
+#endif
 };
 #pragma pack(pop)
 static_assert((sizeof(BlockTrailer) % kShadowRatio) == (kShadowRatio / 2),
               "Invalid BlockTrailer mod size.");
+#ifndef _WIN64
 static_assert(sizeof(BlockTrailer) == 20, "Invalid BlockTrailer size.");
+#else
+static_assert(sizeof(BlockTrailer) == 28, "Invalid BlockTrailer size.");
+#endif
 
 // A structure for recording the minimum pertinent information about a block.
 // Can easily be expanded into a BlockInfo, but requires less space. This makes

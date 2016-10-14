@@ -185,6 +185,7 @@ void TestWithAsanLogger::SetUp() {
   // Save the environment we found.
   std::unique_ptr<base::Environment> env(base::Environment::Create());
   env->GetVar(kSyzygyRpcInstanceIdEnvVar, &old_logger_env_);
+  env->GetVar(common::kSyzyAsanOptionsEnvVar, &old_asan_options_env_);
 
   // Configure the environment (to pass the instance id to the agent DLL).
   // We append "-0" to the process id to avoid potential conflict with other
@@ -193,6 +194,7 @@ void TestWithAsanLogger::SetUp() {
   AppendToLoggerEnv(base::StringPrintf("%ls,%ls",
                                        kSyzyAsanRtlDll,
                                        instance_id_.c_str()));
+  env->UnSetVar(common::kSyzyAsanOptionsEnvVar);
 
   log_contents_read_ = false;
   StartLogger();
@@ -204,6 +206,7 @@ void TestWithAsanLogger::TearDown() {
   // Restore the environment variable as we found it.
   std::unique_ptr<base::Environment> env(base::Environment::Create());
   env->SetVar(kSyzygyRpcInstanceIdEnvVar, old_logger_env_);
+  env->SetVar(common::kSyzyAsanOptionsEnvVar, old_asan_options_env_);
 }
 
 bool TestWithAsanLogger::LogContains(const base::StringPiece& message) {

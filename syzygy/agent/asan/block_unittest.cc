@@ -178,23 +178,23 @@ TEST_F(BlockTest, BlockPlanLayout) {
 #else
   // Zero sized allocations should work fine.
   EXPECT_TRUE(BlockPlanLayout(8, 8, 0, 0, 0, &layout));
-  EXPECT_EQ(BuildBlockLayout(8, 48, 24, 0, 0, 4, 20), layout);
+  EXPECT_EQ(BuildBlockLayout(8, 56, 24, 0, 0, 4, 28), layout);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 32, 32, &layout));
-  EXPECT_EQ(BuildBlockLayout(8, 128, 24, 8, 60, 16, 20), layout);
+  EXPECT_EQ(BuildBlockLayout(8, 128, 24, 8, 60, 8, 28), layout);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 60, 0, 0, &layout));
-  EXPECT_EQ(BuildBlockLayout(8, 104, 24, 0, 60, 0, 20), layout);
+  EXPECT_EQ(BuildBlockLayout(8, 112, 24, 0, 60, 0, 28), layout);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 64, 0, 0, &layout));
-  EXPECT_EQ(BuildBlockLayout(8, 112, 24, 0, 64, 4, 20), layout);
+  EXPECT_EQ(BuildBlockLayout(8, 120, 24, 0, 64, 4, 28), layout);
 
   EXPECT_TRUE(BlockPlanLayout(8, 8, 61, 0, 0, &layout));
-  EXPECT_EQ(BuildBlockLayout(8, 112, 24, 0, 61, 7, 20), layout);
+  EXPECT_EQ(BuildBlockLayout(8, 120, 24, 0, 61, 7, 28), layout);
 
   // Plan a layout that would use guard pages.
   EXPECT_TRUE(BlockPlanLayout(4096, 8, 100, 4096, 4096, &layout));
-  EXPECT_EQ(BuildBlockLayout(4096, 3 * 4096, 24, 8064, 100, 4080, 20), layout);
+  EXPECT_EQ(BuildBlockLayout(4096, 3 * 4096, 24, 8064, 100, 4072, 28), layout);
 #endif
 
   // Plan a layout with an invalid size, this should fail.

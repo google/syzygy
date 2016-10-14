@@ -79,16 +79,11 @@ void ShadowUtilTest() {
 // A derived class to expose protected members for unit-testing.
 class TestShadow : public Shadow {
  public:
-  TestShadow() : Shadow(kDefaultTestShadowSize) {
-  }
+  TestShadow() : Shadow() {}
 
   TestShadow(size_t digits, size_t power)
       : Shadow(digits << (power - kShadowRatioLog)) {
   }
-
-  // We'll simulate memory as being 1GB in size.
-  static const size_t kDefaultTestShadowSize =
-      (1 * 1024 * 1024 * 1024) >> kShadowRatioLog;
 
   TestShadow(void* shadow, size_t length) : Shadow(shadow, length) {}
 
@@ -409,8 +404,15 @@ TEST_F(ShadowTest, PoisonAllocatedBlock) {
             kHeapRightPaddingMarker);
   EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 6 * 8),
             kHeapRightPaddingMarker);
+#ifndef _WIN64
   EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 7 * 8),
             kHeapBlockEndMarker);
+#else
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 7 * 8),
+            kHeapRightPaddingMarker);
+  EXPECT_EQ(test_shadow.GetShadowMarkerForAddress(data + 8 * 8),
+            kHeapBlockEndMarker);
+#endif
 
   uint8_t* cursor = info.RawHeader();
   for (; cursor < info.RawBody(); ++cursor)

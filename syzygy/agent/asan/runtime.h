@@ -317,7 +317,7 @@ class AsanRuntime {
   // The set of thread IDs that have been seen in the current process.
   // This is used to validate thread IDs in a block trailer.
   base::Lock thread_ids_lock_;
-  base::hash_set<uint32_t> thread_ids_;  // Under thread_ids_lock_.
+  std::unordered_set<uint32_t> thread_ids_;  // Under thread_ids_lock_.
 
   // A random key that is generated on object creation. This is used for
   // correlating duplicate crash reports on the back-end.

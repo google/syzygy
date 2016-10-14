@@ -316,7 +316,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
     EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
     const char kExpected[] =
         "{\n"
-        "  \"header\": \"0x%08X\",\n"
+        "  \"header\": \"0x%08IX\",\n"
         "  \"user-size\": 8,\n"
         "  \"state\": \"allocated\",\n"
         "  \"heap-type\": \"WinHeap\",\n"
@@ -352,7 +352,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
     EXPECT_TRUE(crashdata::ToJson(true, &value, &json));
     const char kExpected[] =
         "{\n"
-        "  \"header\": \"0x%08X\",\n"
+        "  \"header\": \"0x%08IX\",\n"
         "  \"user-size\": 8,\n"
         "  \"state\": \"quarantined (flooded)\",\n"
         "  \"heap-type\": \"WinHeap\",\n"
@@ -373,7 +373,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
         "  \"milliseconds-since-free\": 100,\n"
         "  \"contents\": {\n"
         "    \"type\": \"blob\",\n"
-        "    \"address\": \"0x%08X\",\n"
+        "    \"address\": \"0x%08IX\",\n"
         "    \"size\": null,\n"
         "    \"data\": [\n"
         "      \"0x80\", \"0xCA\", \"0x00\", \"0x00\", \"0x20\", \"0x00\","
@@ -388,6 +388,10 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
 #endif
         "      \"0xC3\", \"0xC3\", \"0xC3\", \"0xC3\", \"0x00\", \"0x00\","
         " \"0x00\", \"0x00\",\n"
+#ifdef _WIN64
+        "      \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
+        " \"0x00\", \"0x00\",\n"
+#endif
         "      \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
         " \"0x00\", \"0x00\",\n"
         "      \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
@@ -396,14 +400,14 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfo) {
         "  },\n"
         "  \"shadow\": {\n"
         "    \"type\": \"blob\",\n"
-        "    \"address\": \"0x%08zX\",\n"
+        "    \"address\": \"0x%08IX\",\n"
         "    \"size\": null,\n"
         "    \"data\": [\n"
 #ifndef _WIN64
         "      \"0xE0\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\", \"0xF4\"\n"
 #else
         "      \"0xE0\", \"0xFA\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\","
-        " \"0xF4\"\n"
+        " \"0xFB\", \"0xF4\"\n"
 #endif
         "    ]\n"
         "  }\n"
@@ -428,7 +432,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
     EXPECT_TRUE(crashdata::ToJson(true, &info, &json));
     const char kExpected[] =
         "{\n"
-        "  \"header\": \"0x%08X\",\n"
+        "  \"header\": \"0x%08IX\",\n"
         "  \"user-size\": 8,\n"
         "  \"state\": \"allocated\",\n"
         "  \"heap-type\": \"WinHeap\",\n"
@@ -465,7 +469,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
     EXPECT_TRUE(crashdata::ToJson(true, &value, &json));
     const char kExpected[] =
         "{\n"
-        "  \"header\": \"0x%08X\",\n"
+        "  \"header\": \"0x%08IX\",\n"
         "  \"user-size\": 8,\n"
         "  \"state\": \"quarantined (flooded)\",\n"
         "  \"heap-type\": \"WinHeap\",\n"
@@ -490,7 +494,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
 #ifndef _WIN64
         "    \"size\": 48,\n"
 #else
-        "    \"size\": 56,\n"
+        "    \"size\": 64,\n"
 #endif
         "    \"data\": null\n"
         "  },\n"
@@ -500,7 +504,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
 #ifndef _WIN64
         "    \"size\": 6,\n"
 #else
-        "    \"size\": 7,\n"
+        "    \"size\": 8,\n"
 #endif
         "    \"data\": null\n"
         "  }\n"
@@ -516,7 +520,7 @@ TEST_F(AsanErrorInfoTest, PopulateBlockInfoWithMemoryRanges) {
 #ifndef _WIN64
     size_t kExpectedMemoryRangesSize[] = {48, 6};
 #else
-    size_t kExpectedMemoryRangesSize[] = {56, 7};
+    size_t kExpectedMemoryRangesSize[] = {64, 8};
 #endif
     for (int i = 0; i < 2; i++) {
       EXPECT_EQ(kExpectedMemoryRangesAddresses[i], memory_ranges[i].first);
@@ -548,7 +552,7 @@ TEST_F(AsanErrorInfoTest, PopulateCorruptBlockRange) {
       "  \"block-count\": 100,\n"
       "  \"blocks\": [\n"
       "    {\n"
-      "      \"header\": \"0x%08X\",\n"
+      "      \"header\": \"0x%08IX\",\n"
       "      \"user-size\": 8,\n"
       "      \"state\": \"allocated\",\n"
       "      \"heap-type\": \"WinHeap\",\n"
@@ -614,7 +618,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "  \"location\": \"0x00001000\",\n"
       "  \"crash-stack-id\": 1234,\n"
       "  \"block-info\": {\n"
-      "    \"header\": \"0x%08X\",\n"
+      "    \"header\": \"0x%08IX\",\n"
       "    \"user-size\": 8,\n"
       "    \"state\": \"allocated\",\n"
       "    \"heap-type\": \"WinHeap\",\n"
@@ -645,6 +649,10 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
 #endif
       "        \"0xC3\", \"0xC3\", \"0xC3\", \"0xC3\", \"0x00\", \"0x00\","
       " \"0x00\", \"0x00\",\n"
+#ifdef _WIN64
+      "        \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
+      " \"0x00\", \"0x00\",\n"
+#endif
       "        \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
       " \"0x00\", \"0x00\",\n"
       "        \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\", \"0x00\","
@@ -660,7 +668,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "        \"0xE0\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\", \"0xF4\"\n"
 #else
       "        \"0xE0\", \"0xFA\", \"0xFA\", \"0x00\", \"0xFB\", \"0xFB\","
-      " \"0xF4\"\n"
+      " \"0xFB\", \"0xF4\"\n"
 #endif
       "      ]\n"
       "    }\n"
@@ -711,7 +719,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfo) {
       "      \"block-count\": 100,\n"
       "      \"blocks\": [\n"
       "        {\n"
-      "          \"header\": \"0x%08X\",\n"
+      "          \"header\": \"0x%08IX\",\n"
       "          \"user-size\": 8,\n"
       "          \"state\": \"allocated\",\n"
       "          \"heap-type\": \"WinHeap\",\n"
@@ -798,7 +806,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "  \"location\": \"0x00001000\",\n"
       "  \"crash-stack-id\": 1234,\n"
       "  \"block-info\": {\n"
-      "    \"header\": \"0x%08X\",\n"
+      "    \"header\": \"0x%08IX\",\n"
       "    \"user-size\": 8,\n"
       "    \"state\": \"allocated\",\n"
       "    \"heap-type\": \"WinHeap\",\n"
@@ -814,21 +822,21 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "    ],\n"
       "    \"contents\": {\n"
       "      \"type\": \"blob\",\n"
-      "      \"address\": \"0x%08zX\",\n"
+      "      \"address\": \"0x%08IX\",\n"
 #ifndef _WIN64
       "      \"size\": 48,\n"
 #else
-      "      \"size\": 56,\n"
+      "      \"size\": 64,\n"
 #endif
       "      \"data\": null\n"
       "    },\n"
       "    \"shadow\": {\n"
       "      \"type\": \"blob\",\n"
-      "      \"address\": \"0x%08zX\",\n"
+      "      \"address\": \"0x%08IX\",\n"
 #ifndef _WIN64
       "      \"size\": 6,\n"
 #else
-      "      \"size\": 7,\n"
+      "      \"size\": 8,\n"
 #endif
       "      \"data\": null\n"
       "    }\n"
@@ -839,14 +847,14 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "  \"shadow-memory-index\": 512,\n"
       "  \"shadow-memory\": {\n"
       "    \"type\": \"blob\",\n"
-      "    \"address\": \"0x%08zX\",\n"
+      "    \"address\": \"0x%08IX\",\n"
       "    \"size\": 64,\n"
       "    \"data\": null\n"
       "  },\n"
       "  \"page-bits-index\": 0,\n"
       "  \"page-bits\": {\n"
       "    \"type\": \"blob\",\n"
-      "    \"address\": \"0x%08zX\",\n"
+      "    \"address\": \"0x%08IX\",\n"
       "    \"size\": 3,\n"
       "    \"data\": null\n"
       "  },\n"
@@ -860,7 +868,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
       "      \"block-count\": 100,\n"
       "      \"blocks\": [\n"
       "        {\n"
-      "          \"header\": \"0x%08X\",\n"
+      "          \"header\": \"0x%08IX\",\n"
       "          \"user-size\": 8,\n"
       "          \"state\": \"allocated\",\n"
       "          \"heap-type\": \"WinHeap\",\n"
@@ -912,7 +920,7 @@ TEST_F(AsanErrorInfoTest, PopulateErrorInfoWithMemoryRanges) {
 #ifndef _WIN64
   size_t kExpectedMemoryRangesSize[] = {48, 6, 64, 3};
 #else
-  size_t kExpectedMemoryRangesSize[] = {56, 7, 64, 3};
+  size_t kExpectedMemoryRangesSize[] = {64, 8, 64, 3};
 #endif
   for (int i = 0; i < memory_ranges.size(); i++) {
     EXPECT_EQ(kExpectedMemoryRangesAddresses[i], memory_ranges[i].first)

@@ -125,7 +125,17 @@ TEST_F(AsanLoggerTest, EndToEnd) {
   using base::FileEnumerator;
   FileEnumerator fe(temp_dir_.path(), false, FileEnumerator::FILES, L"*.dmp");
   base::FilePath minidump(fe.Next());
+#ifndef _WIN64
   EXPECT_FALSE(minidump.empty());
+#else
+  // The 64 bit version of the logger doesn't support writing minidumps yet
+  // because it relies on Kasko, which hasn't been ported to 64-bit. Make sure
+  // that no PDB get produced until we switch the minidump generation to using
+  // Crashpad.
+  // TODO(sebmarchand): Add support for generating minidumps to the 64-bit
+  // version of the logger.
+  EXPECT_TRUE(minidump.empty());
+#endif
   EXPECT_TRUE(fe.Next().empty());
 
   // TODO(rogerm): Inspect the contents of the minidump.

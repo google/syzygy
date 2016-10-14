@@ -1023,7 +1023,8 @@ void AsanRuntime::GetBadAccessInformation(AsanErrorInfo* error_info) {
 
   // Checks if this is an access to an internal structure or if it's an access
   // in the upper region of the memory (over the 2 GB limit).
-  if ((reinterpret_cast<size_t>(error_info->location) & (1 << 31)) != 0 ||
+  if ((reinterpret_cast<size_t>(error_info->location) >=
+       shadow()->memory_size()) ||
       shadow()->GetShadowMarkerForAddress(error_info->location) ==
           kAsanMemoryMarker) {
     error_info->error_type = WILD_ACCESS;
@@ -1051,7 +1052,7 @@ void AsanRuntime::AddThreadId(uint32_t thread_id) {
 
 bool AsanRuntime::ThreadIdIsValid(uint32_t thread_id) {
   base::AutoLock lock(thread_ids_lock_);
-  return thread_ids_.count(thread_id) > 0;
+  return thread_ids_.find(thread_id) != thread_ids_.end();
 }
 
 bool AsanRuntime::HeapIdIsValid(HeapManagerInterface::HeapId heap_id) {

@@ -146,9 +146,14 @@ bool RegistryCache::InitModuleInfo() {
     module_version_ = version_info->product_version();
   if (module_version_.empty()) {
     // If that fails, we try grabbing the version from the PE signature.
+#ifndef _WIN64
     pe::PEFile pe_file;
+    pe::PEFile::Signature signature;
+#else
+    pe::PEFile64 pe_file;
+    pe::PEFile64::Signature signature;
+#endif
     if (pe_file.Init(file_path)) {
-      pe::PEFile::Signature signature;
       pe_file.GetSignature(&signature);
       module_version_ = base::StringPrintf(
           L"%08X%x", signature.module_time_date_stamp, signature.module_size);

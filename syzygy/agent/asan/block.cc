@@ -733,7 +733,7 @@ bool IsValidTicks(uint32_t ticks) {
 }
 
 // Determines if a heap id is valid by referring to the runtime.
-bool IsValidHeapId(uint32_t heap_id) {
+bool IsValidHeapId(size_t heap_id) {
   AsanRuntime* runtime = AsanRuntime::runtime();
   DCHECK_NE(static_cast<AsanRuntime*>(nullptr), runtime);
   if (!runtime->HeapIdIsValid(heap_id))

@@ -225,9 +225,6 @@
             'memory_interceptors_patcher_unittest.cc',
             # Relies on full set of probes.
             'memory_interceptors_unittest.cc',
-            # Win64 binaries currently don't have the version info.
-            'registry_cache_unittest.cc',
-            'logger_unittest.cc',
             # PE lib for win64 is sort of stub, so there's nothing
             # to test there.
             'iat_patcher_unittest.cc',

@@ -132,6 +132,9 @@ class TestWithAsanLogger : public OnExceptionCallbackTest {
   // Value of the logger instance environment variable before SetUp.
   std::string old_logger_env_;
 
+  // Value of the asan options environment variable before SetUp.
+  std::string old_asan_options_env_;
+
   // Redirection files for the logger.
   base::ScopedFILE logger_stdin_file_;
   base::ScopedFILE logger_stdout_file_;
