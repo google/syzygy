@@ -90,6 +90,8 @@ class TestShadow : public Shadow {
   static const size_t kDefaultTestShadowSize =
       (1 * 1024 * 1024 * 1024) >> kShadowRatioLog;
 
+  TestShadow(void* shadow, size_t length) : Shadow(shadow, length) {}
+
   // Protected functions that we want to unittest directly.
   using Shadow::Reset;
   using Shadow::ScanLeftForBracketingBlockStart;
@@ -918,6 +920,72 @@ TEST_F(ShadowWalkerTest, WalksNestedBlocks) {
 
   test_shadow.Unpoison(data, data_size);
   delete [] data;
+}
+
+TEST_F(ShadowWalkerTest, WalkShadowWithUncommittedRanges) {
+  // Create a 512k memory block.
+  const size_t kMemorySize = 512 * 1024;
+  uint8_t memory_block[kMemorySize];
+  const size_t shadow_size = Shadow::RequiredLength();
+
+  // Allocate the shadow memory, only reserve the memory.
+  uint8_t* shadow_memory = static_cast<uint8_t*>(
+      ::VirtualAlloc(nullptr, shadow_size, MEM_RESERVE, PAGE_READWRITE));
+  EXPECT_NE(nullptr, shadow_memory);
+
+  uint8_t* memory_block_shadow_start =
+      shadow_memory + reinterpret_cast<size_t>(memory_block) / kShadowRatio;
+
+  TestShadow ts1(shadow_memory, Shadow::RequiredLength());
+
+  std::vector<BlockInfo> block_info_vec;
+  BlockLayout l = {};
+  EXPECT_TRUE(BlockPlanLayout(kShadowRatio, kShadowRatio, 7, 0, 0, &l));
+  EXPECT_LT(l.block_size, GetPageSize() * kShadowRatio);
+
+  // Calculate the size of the shadow necessary to cover this block
+  // as well as the number of pages in it.
+  const size_t kBlockShadowSize = kMemorySize / kShadowRatio;
+  size_t shadow_page_count = kBlockShadowSize / GetPageSize();
+
+  // Allocate a block that will fit on every other pages of the shadow.
+  for (size_t i = 0; i < shadow_page_count; ++i) {
+    if (i % 2 == 0)
+      continue;
+    // Address of the shadow memory for this page.
+    uint8_t* shadow_address = memory_block_shadow_start + i * GetPageSize();
+    uint8_t* shadow_address_page_begin =
+        ::common::AlignDown(shadow_address, GetPageSize());
+    // Commit the shadow memory for this block.
+    EXPECT_EQ(static_cast<void*>(shadow_address_page_begin),
+              ::VirtualAlloc(shadow_address, GetPageSize(), MEM_COMMIT,
+                             PAGE_READWRITE));
+
+    // Address of the memory for this block.
+    uint8_t* page_address = ::common::AlignUp(
+        memory_block + i * GetPageSize() * kShadowRatio, kShadowRatio);
+    BlockInfo block_info = {};
+    BlockInitialize(l, page_address, false, &block_info);
+    block_info_vec.push_back(block_info);
+
+    // Poison the block.
+    ts1.PoisonAllocatedBlock(block_info);
+  }
+
+  size_t block_count = 0;
+  ShadowWalker w(&ts1, true, memory_block, memory_block + kMemorySize);
+  BlockInfo i = {};
+  while (w.Next(&i)) {
+    EXPECT_LT(block_count, block_info_vec.size());
+    EXPECT_EQ(block_info_vec[block_count].header, i.header);
+    EXPECT_EQ(block_info_vec[block_count].body, i.body);
+    EXPECT_EQ(block_info_vec[block_count].trailer, i.trailer);
+    block_count++;
+  }
+  EXPECT_EQ(block_info_vec.size(), block_count);
+  EXPECT_FALSE(w.Next(&i));
+
+  EXPECT_GT(::VirtualFree(shadow_memory, 0, MEM_RELEASE), 0U);
 }
 
 }  // namespace asan

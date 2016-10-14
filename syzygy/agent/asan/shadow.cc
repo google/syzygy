@@ -33,7 +33,7 @@ base::Lock shadow_instance_lock;
 // The pointer for the exception handler to know what shadow object is
 // currently used. Under shadow_instance_lock.
 // TODO(loskutov): eliminate this by enforcing Shadow to be a singleton.
-const Shadow* shadow_instance;
+const Shadow* shadow_instance = nullptr;
 
 // The exception handler, intended to map the pages for shadow and page_bits
 // on demand. When a page fault happens, the operating systems calls
@@ -41,6 +41,7 @@ const Shadow* shadow_instance;
 // commited seamlessly for the caller, and then execution continues.
 // Otherwise, the OS keeps searching for an appropriate handler.
 LONG NTAPI ShadowExceptionHandler(PEXCEPTION_POINTERS exception_pointers) {
+  DCHECK_NE(static_cast<const Shadow*>(nullptr), shadow_instance);
   // Only handle access violations.
   if (exception_pointers->ExceptionRecord->ExceptionCode !=
       EXCEPTION_ACCESS_VIOLATION) {
@@ -215,7 +216,7 @@ bool Shadow::IsClean() const {
       auto ret = ::VirtualQuery(cursor, &info, sizeof(info));
       DCHECK_GT(ret, 0u);
       next_cursor = static_cast<uint8_t*>(info.BaseAddress) + info.RegionSize;
-      if (info.Type == MEM_COMMIT)
+      if (info.State == MEM_COMMIT)
         break;
       cursor = next_cursor;
     }
@@ -284,7 +285,7 @@ void Shadow::Init(bool own_memory, void* shadow, size_t length) {
     shadow_instance = this;
   }
   exception_handler_ =
-      AddVectoredExceptionHandler(TRUE, ShadowExceptionHandler);
+      ::AddVectoredExceptionHandler(TRUE, ShadowExceptionHandler);
 #endif
 
   // Handle the case of a failed allocation.
@@ -884,9 +885,23 @@ bool Shadow::ScanLeftForBracketingBlockStart(
 
   size_t left = cursor;
   int nesting_depth = static_cast<int>(initial_nesting_depth);
+
+  MEMORY_BASIC_INFORMATION memory_info = {};
+  SIZE_T ret =
+      ::VirtualQuery(&shadow_[left], &memory_info, sizeof(memory_info));
+  DCHECK_GT(ret, 0u);
+  if (memory_info.State != MEM_COMMIT)
+    return false;
+
   if (ShadowMarkerHelper::IsBlockEnd(shadow_[left]))
     --nesting_depth;
   while (true) {
+    if (&shadow_[left] < static_cast<const uint8_t*>(memory_info.BaseAddress)) {
+      ret = ::VirtualQuery(&shadow_[left], &memory_info, sizeof(memory_info));
+      DCHECK_GT(ret, 0u);
+      if (memory_info.State != MEM_COMMIT)
+        return false;
+    }
     if (ShadowMarkerHelper::IsBlockStart(shadow_[left])) {
       if (nesting_depth == 0) {
         *location = left;
@@ -1107,7 +1122,7 @@ ShadowWalker::ShadowWalker(const Shadow* shadow,
   upper_index_++;
 
   DCHECK_LE(lower_index_, upper_index_);
-  DCHECK_GE(shadow->length(), upper_index_);
+  DCHECK_GE(shadow->length(), upper_index_ - lower_index_);
 
   Reset();
 }
@@ -1141,7 +1156,7 @@ bool ShadowWalker::Next(BlockInfo* info) {
         return false;
 
       // Step to the beginning of the next region and try again.
-      shadow_cursor_ = start_of_region;
+      shadow_cursor_ = end_of_region;
       continue;
     }
 
