@@ -217,6 +217,9 @@
               'LargeAddressAware': 1,
             },
           },
+          'dependencies': [
+            '<(src)/syzygy/pe/pe.gyp:test_dll',
+          ],
         }, {
           'sources!': [
             # Static shadow doesn't work for large address spaces.
@@ -225,13 +228,13 @@
             'memory_interceptors_patcher_unittest.cc',
             # Relies on full set of probes.
             'memory_interceptors_unittest.cc',
-            # PE lib for win64 is sort of stub, so there's nothing
-            # to test there.
-            'iat_patcher_unittest.cc',
             # Uses 32bit assembler.
             'heap_managers/block_heap_manager_unittest.cc',
           ],
-          'sources': ['dummy_shadow.cc']
+          'sources': ['dummy_shadow.cc'],
+          'dependencies': [
+            '<(src)/syzygy/pe/pe.gyp:test_dll_x64',
+          ],
         }],
       ],
       'dependencies': [

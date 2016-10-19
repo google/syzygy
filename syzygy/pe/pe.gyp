@@ -378,6 +378,7 @@
         'test_dll_x64.rc',
       ],
       'dependencies': [
+        'export_dll_x64',
         '<(src)/syzygy/version/version.gyp:syzygy_version',
       ],
       'msvs_settings': {
@@ -501,6 +502,30 @@
         'VCLinkerTool': {
           # Force MSVS to produce the same output name as Ninja.
           'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
+        },
+      },
+    },
+    {
+      'target_name': 'export_dll_x64',
+      'type': 'shared_library',
+      'sources': [
+        'export_dll.cc',
+        'export_dll_x64.def',
+      ],
+      'msvs_settings': {
+      },
+      'configurations': {
+        'Common_Base': {
+          'msvs_settings': {
+            'VCLinkerTool': {
+              'VCLinkerTool': {
+                # Force MSVS to produce the same output name as Ninja.
+                'ImportLibrary': '$(OutDir)lib\$(TargetFileName).lib'
+              },
+            },
+          },
+          'msvs_target_platform': 'x64',
+          'msvs_configuration_platform': 'x64',
         },
       },
     },

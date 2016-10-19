@@ -38,7 +38,11 @@ class LenientIATPatcherTest : public testing::Test {
 
   void SetUp() override {
     base::FilePath path =
+#ifndef _WIN64
         testing::GetExeRelativePath(L"test_dll.dll");
+#else
+        testing::GetExeRelativePath(L"test_dll_x64.dll");
+#endif
     test_dll_ = ::LoadLibrary(path.value().c_str());
     ASSERT_NE(nullptr, test_dll_);
   }
