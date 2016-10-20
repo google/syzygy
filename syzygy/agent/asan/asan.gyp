@@ -63,6 +63,7 @@
         'logger.h',
         'memory_interceptors.cc',
         'memory_interceptors.h',
+        'memory_interceptors_impl.h',
         'memory_interceptors_patcher.cc',
         'memory_interceptors_patcher.h',
         'memory_notifier.h',
@@ -128,11 +129,6 @@
             'gen/memory_interceptors_impl.asm',
             'gen/memory_redirectors.asm',
           ],
-        }, {
-          'sources': [
-            'memory_interceptors_impl_x64.cc',
-            'memory_interceptors_impl_x64.h',
-          ]
         }],
       ],
       'export_dependent_settings': [

@@ -120,6 +120,7 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
   if (mode == MEMORY_ACCESSOR_MODE_NOOP && asan_runtime != nullptr)
     TearDownAsanRuntime(&asan_runtime);
 
+#ifndef _WIN64
   // Build the IAT patch map.
   IATPatchMap patch_map;
   for (size_t i = 0; i < kNumMemoryAccessorVariants; ++i) {
@@ -146,6 +147,7 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
       patch_complete = true;
     }
   }
+#endif
 
   return mode;
 }

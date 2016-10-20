@@ -40,6 +40,18 @@ static const TestMemoryInterceptors::InterceptFunction intercept_functions[] = {
 #undef DEFINE_INTERCEPT_FUNCTION_TABLE
 };
 
+static const TestMemoryInterceptors::ClangInterceptFunction
+    clang_intercept_functions[] = {
+#define DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE(access_size, access_mode_str, \
+                                              access_mode)                  \
+  { asan_##access_mode_str##access_size##_2gb, access_size }                \
+  , {asan_##access_mode_str##access_size##_4gb, access_size},
+        CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(
+            DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE)
+
+#undef DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE
+};
+
 static const TestMemoryInterceptors::InterceptFunction
     intercept_functions_no_flags[] = {
 #define DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS(access_size, access_mode_str, \
@@ -56,14 +68,13 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS)
 #undef DEFINE_INTERCEPT_FUNCTION_TABLE_NO_FLAGS
 };
 
-static const TestMemoryInterceptors::InterceptFunction
-    redirect_functions[] = {
-#define DEFINE_REDIRECT_FUNCTION_TABLE(access_size, access_mode_str, \
-    access_mode) \
-  { asan_redirect_ ## access_size ## _byte_ ## access_mode_str, \
-    access_size }, \
+static const TestMemoryInterceptors::InterceptFunction redirect_functions[] = {
+#define DEFINE_REDIRECT_FUNCTION_TABLE(access_size, access_mode_str,    \
+                                       access_mode)                     \
+  { asan_redirect_##access_size##_byte_##access_mode_str, access_size } \
+  ,
 
-ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_REDIRECT_FUNCTION_TABLE)
+    ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_REDIRECT_FUNCTION_TABLE)
 
 #undef DEFINE_REDIRECT_FUNCTION_TABLE
 };
@@ -75,7 +86,7 @@ static const TestMemoryInterceptors::InterceptFunction
   { asan_redirect_ ## access_size ## _byte_ ## access_mode_str ## _no_flags, \
     access_size },
 
-ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_REDIRECT_FUNCTION_TABLE_NO_FLAGS)
+        ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_REDIRECT_FUNCTION_TABLE_NO_FLAGS)
 
 #undef DEFINE_REDIRECT_FUNCTION_TABLE_NO_FLAGS
 };
@@ -132,17 +143,17 @@ class MemoryInterceptorsTest : public TestMemoryInterceptors {
 }  // namespace
 
 TEST_F(MemoryInterceptorsTest, TestValidAccess) {
-  TestValidAccess(intercept_functions);
+  TestValidAccess(intercept_functions, clang_intercept_functions);
   TestValidAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
 TEST_F(MemoryInterceptorsTest, TestOverrunAccess) {
-  TestOverrunAccess(intercept_functions);
+  TestOverrunAccess(intercept_functions, clang_intercept_functions);
   TestOverrunAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
 TEST_F(MemoryInterceptorsTest, TestUnderrunAccess) {
-  TestUnderrunAccess(intercept_functions);
+  TestUnderrunAccess(intercept_functions, clang_intercept_functions);
   TestUnderrunAccessIgnoreFlags(intercept_functions_no_flags);
 }
 
@@ -151,12 +162,13 @@ TEST_F(MemoryInterceptorsTest, TestRedirectorsNoop) {
   EXPECT_CALL(*this, OnRedirectorInvocation(_))
       .Times(arraysize(redirect_functions))
       .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_NOOP));
-  TestValidAccess(redirect_functions);
+  TestValidAccess(redirect_functions, arraysize(redirect_functions));
 
   EXPECT_CALL(*this, OnRedirectorInvocation(_))
       .Times(arraysize(redirect_functions_no_flags))
       .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_NOOP));
-  TestValidAccessIgnoreFlags(redirect_functions_no_flags);
+  TestValidAccessIgnoreFlags(redirect_functions_no_flags,
+                             arraysize(redirect_functions_no_flags));
 }
 
 TEST_F(MemoryInterceptorsTest, TestRedirectors2G) {
@@ -165,9 +177,9 @@ TEST_F(MemoryInterceptorsTest, TestRedirectors2G) {
       .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
 
   // Test valid, underrun and overrun.
-  TestValidAccess(redirect_functions);
-  TestUnderrunAccess(redirect_functions);
-  TestOverrunAccess(redirect_functions);
+  TestValidAccess(redirect_functions, arraysize(redirect_functions));
+  TestUnderrunAccess(redirect_functions, arraysize(redirect_functions));
+  TestOverrunAccess(redirect_functions, arraysize(redirect_functions));
 
   EXPECT_CALL(*this, OnRedirectorInvocation(_))
       .Times(3 * arraysize(redirect_functions_no_flags))

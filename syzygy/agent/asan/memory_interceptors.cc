@@ -17,6 +17,7 @@
 
 #include "base/logging.h"
 #include "base/macros.h"
+#include "syzygy/agent/asan/memory_interceptors_impl.h"
 #include "syzygy/agent/asan/rtl_utils.h"
 #include "syzygy/agent/asan/shadow.h"
 
@@ -42,8 +43,8 @@ Shadow* SetMemoryInterceptorShadow(Shadow* shadow) {
   return old_shadow;
 }
 
-const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 #ifndef _WIN64
+const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 #define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, access_mode_str,   \
                                              access_mode_value)              \
   { "asan_check_" #access_size "_byte_" #access_mode_str,                    \
@@ -56,19 +57,11 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
      asan_no_check,                                                          \
      asan_check_##access_size##_byte_##access_mode_str##_no_flags_2gb,       \
      asan_check_##access_size##_byte_##access_mode_str##_no_flags_4gb},
-#else
-#define ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS(access_size, access_mode_str,   \
-                                             access_mode_value)              \
-  { "asan_check_" #access_size "_byte_" #access_mode_str},                   \
-  { "asan_check_" #access_size "_byte_" #access_mode_str "_no_flags",        \
-    asan_no_check},
-#endif
 
-  ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
+    ASAN_MEM_INTERCEPT_FUNCTIONS(ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_MEM_INTERCEPT_FUNCTION_VARIANTS
 
-#ifndef _WIN64
 #define ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS( \
     func, prefix, counter, dst_mode, src_mode, access_size, compare)         \
   { "asan_check" #prefix #access_size "_byte_" #func "_access",              \
@@ -78,13 +71,13 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
     asan_check ## prefix ## access_size ## _byte_ ## func ## _access,        \
   },
 
-  ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
+        ASAN_STRING_INTERCEPT_FUNCTIONS(ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS)
 
 #undef ENUM_STRING_INTERCEPT_FUNCTION_VARIANTS
-#endif
 };
 
 const size_t kNumMemoryAccessorVariants = arraysize(kMemoryAccessorVariants);
+#endif
 
 void SetRedirectEntryCallback(const RedirectEntryCallback& callback) {
   redirect_entry_callback = callback;
@@ -113,6 +106,7 @@ static_assert((kHeapNonAccessibleMarkerMask & (1 << 7)) != 0,
 
 extern "C" {
 
+#ifndef _WIN64
 // Check if the memory accesses done by a string instructions are valid.
 // @param dst The destination memory address of the access.
 // @param dst_access_mode The destination mode of the access.
@@ -195,6 +189,7 @@ MemoryAccessorFunction asan_redirect_stub_entry(
   NOTREACHED();
   return NULL;
 }
+#endif
 
 // A simple wrapper to agent::asan::ReportBadMemoryAccess that has C linkage
 // so it can be referred to in memory_interceptors.asm.

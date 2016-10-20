@@ -56,6 +56,7 @@ using RedirectEntryCallback =
 // Sets the callback invoked on entry to a redirect stub.
 void SetRedirectEntryCallback(const RedirectEntryCallback& callback);
 
+#ifndef _WIN64
 // This type is not accurate, as the memory accessors have a custom calling
 // convention, but it's nice to have a type for them.
 typedef void (*MemoryAccessorFunction)();
@@ -123,14 +124,36 @@ extern const size_t kNumMemoryAccessorVariants;
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 4, 0)        \
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0)        \
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
+#endif
+
+// List of the Asan-Clang memory accessor functions.
+#define CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(F) \
+  F(1, load, AsanReadAccess)                  \
+  F(2, load, AsanReadAccess)                  \
+  F(4, load, AsanReadAccess)                  \
+  F(8, load, AsanReadAccess)                  \
+  F(10, load, AsanReadAccess)                 \
+  F(16, load, AsanReadAccess)                 \
+  F(32, load, AsanReadAccess)                 \
+  F(1, store, AsanWriteAccess)                \
+  F(2, store, AsanWriteAccess)                \
+  F(4, store, AsanWriteAccess)                \
+  F(8, store, AsanWriteAccess)                \
+  F(10, store, AsanWriteAccess)               \
+  F(16, store, AsanWriteAccess)
 
 }  // namespace asan
 }  // namespace agent
 
 extern "C" {
 
+#ifndef _WIN64
 // The no-op memory access checker.
 void asan_no_check();
+#endif
+
+// The Clang no-op memory access checker.
+void asan_clang_no_check(const void*);
 
 // The no-op string instruction memory access checker.
 void asan_string_no_check();
@@ -167,6 +190,17 @@ ASAN_STRING_INTERCEPT_FUNCTIONS(DECLARE_STRING_INTERCEPT_FUNCTIONS)
 
 #undef DECLARE_STRING_INTERCEPT_FUNCTIONS
 #endif
+
+#define DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS(access_size, access_mode_str, \
+                                              access_mode_value)            \
+  void asan_redirect_##access_mode_str##access_size##(const void*);         \
+  void asan_##access_mode_str##access_size##_2gb(const void*);              \
+  void asan_##access_mode_str##access_size##_4gb(const void*);
+
+// Declare all the Clang-Asan memory interceptor functions.
+CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS)
+
+#undef DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS
 
 }  // extern "C"
 

@@ -135,8 +135,6 @@ bool TestAccess(void* address, bool expect_access_violation) {
 
 }  // namespace
 
-MemoryAccessorTester* MemoryAccessorTester::instance_ = NULL;
-
 // Define the function pointers.
 #define DEFINE_FUNCTION_PTR_VARIABLE(convention, ret, name, args, argnames)  \
     name##FunctionPtr TestAsanRtl::name##Function;
@@ -531,39 +529,111 @@ void ExpectEqualContexts(const CONTEXT& c1,
 
 }  // namespace
 
+MemoryAccessorTester* MemoryAccessorTester::instance_ = nullptr;
+
 MemoryAccessorTester::MemoryAccessorTester()
     : expected_error_type_(agent::asan::UNKNOWN_BAD_ACCESS),
-      memory_error_detected_(false),
-      ignore_flags_(false) {
-  EXPECT_EQ(static_cast<MemoryAccessorTester*>(NULL), instance_);
-
+      memory_error_detected_(false) {
   Initialize();
-  instance_ = this;
-}
-
-MemoryAccessorTester::MemoryAccessorTester(IgnoreFlags /* ignore_flags */)
-    : expected_error_type_(agent::asan::UNKNOWN_BAD_ACCESS),
-      memory_error_detected_(false),
-      ignore_flags_(true) {
-  EXPECT_EQ(static_cast<MemoryAccessorTester*>(NULL), instance_);
-
-  Initialize();
-  instance_ = this;
 }
 
 MemoryAccessorTester::~MemoryAccessorTester() {
-  EXPECT_EQ(this, instance_);
-  instance_ = NULL;
+  DCHECK_NE(static_cast<MemoryAccessorTester*>(nullptr), instance_);
+  instance_ = nullptr;
 }
 
 void MemoryAccessorTester::Initialize() {
-  ::memset(&context_before_hook_, 0xCD, sizeof(context_before_hook_));
-  ::memset(&context_after_hook_, 0xCE, sizeof(context_after_hook_));
+  DCHECK_EQ(static_cast<MemoryAccessorTester*>(nullptr), instance_);
+  instance_ = this;
   ::memset(&error_context_, 0xCF, sizeof(error_context_));
   ::memset(&last_error_info_, 0, sizeof(last_error_info_));
 }
 
+void MemoryAccessorTester::AsanErrorCallbackImpl(AsanErrorInfo* error_info) {
+  EXPECT_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
+  EXPECT_NE(agent::asan::UNKNOWN_BAD_ACCESS, error_info->error_type);
+
+  EXPECT_EQ(expected_error_type_, error_info->error_type);
+  if (error_info->error_type >= agent::asan::USE_AFTER_FREE) {
+    // We should at least have the stack trace of the allocation of this block.
+    EXPECT_GT(error_info->block_info.alloc_stack_size, 0U);
+    EXPECT_NE(0U, error_info->block_info.alloc_tid);
+    if (error_info->error_type == agent::asan::USE_AFTER_FREE ||
+        error_info->error_type == agent::asan::DOUBLE_FREE) {
+      EXPECT_GT(error_info->block_info.free_stack_size, 0U);
+      EXPECT_NE(0U, error_info->block_info.free_tid);
+    } else {
+      EXPECT_EQ(error_info->block_info.free_stack_size, 0U);
+      EXPECT_EQ(0U, error_info->block_info.free_tid);
+    }
+  }
+
+  if (error_info->error_type == agent::asan::HEAP_BUFFER_OVERFLOW) {
+    EXPECT_TRUE(strstr(error_info->shadow_info, "beyond") != NULL);
+  } else if (error_info->error_type == agent::asan::HEAP_BUFFER_UNDERFLOW) {
+    EXPECT_TRUE(strstr(error_info->shadow_info, "before") != NULL);
+  }
+
+  memory_error_detected_ = true;
+  last_error_info_ = *error_info;
+
+  // Copy the corrupt range's information.
+  if (error_info->heap_is_corrupt) {
+    EXPECT_GE(1U, error_info->corrupt_range_count);
+    for (size_t i = 0; i < error_info->corrupt_range_count; ++i) {
+      last_corrupt_ranges_.push_back(CorruptRangeInfo());
+      CorruptRangeInfo* range_info = &last_corrupt_ranges_.back();
+      range_info->first = error_info->corrupt_ranges[i];
+      AsanBlockInfoVector* block_infos = &range_info->second;
+      for (size_t j = 0; j < range_info->first.block_info_count; ++j) {
+        agent::asan::AsanBlockInfo block_info = range_info->first.block_info[j];
+        for (size_t k = 0; k < range_info->first.block_info[j].alloc_stack_size;
+             ++k) {
+          block_info.alloc_stack[k] =
+              range_info->first.block_info[j].alloc_stack[k];
+        }
+        for (size_t k = 0; k < range_info->first.block_info[j].free_stack_size;
+             ++k) {
+          block_info.free_stack[k] =
+              range_info->first.block_info[j].free_stack[k];
+        }
+        block_infos->push_back(block_info);
+      }
+    }
+  }
+
+  error_context_ = error_info->context;
+}
+
+void MemoryAccessorTester::AsanErrorCallback(AsanErrorInfo* error_info) {
+  DCHECK_NE(static_cast<MemoryAccessorTester*>(nullptr), instance_);
+  instance_->AsanErrorCallbackImpl(error_info);
+}
+
 #ifndef _WIN64
+SyzyAsanMemoryAccessorTester::SyzyAsanMemoryAccessorTester()
+    : ignore_flags_(false) {
+}
+SyzyAsanMemoryAccessorTester::SyzyAsanMemoryAccessorTester(
+    IgnoreFlags /* ignore_flags */)
+    : ignore_flags_(true) {
+}
+
+void SyzyAsanMemoryAccessorTester::Initialize() {
+  ::memset(&context_before_hook_, 0xCD, sizeof(context_before_hook_));
+  ::memset(&context_after_hook_, 0xCE, sizeof(context_after_hook_));
+  MemoryAccessorTester::Initialize();
+}
+
+void SyzyAsanMemoryAccessorTester::AssertMemoryErrorIsDetected(
+    FARPROC access_fn,
+    void* ptr,
+    BadAccessKind bad_access_type) {
+  expected_error_type_ = bad_access_type;
+  CheckAccessAndCompareContexts(access_fn, ptr);
+  ASSERT_TRUE(memory_error_detected_);
+}
+
 namespace {
 
 void CheckAccessAndCaptureContexts(
@@ -599,8 +669,9 @@ void CheckAccessAndCaptureContexts(
 
 }  // namespace
 
-void MemoryAccessorTester::CheckAccessAndCompareContexts(
-    FARPROC access_fn, void* ptr) {
+void SyzyAsanMemoryAccessorTester::CheckAccessAndCompareContexts(
+    FARPROC access_fn,
+    void* ptr) {
   memory_error_detected_ = false;
 
   check_access_fn = access_fn;
@@ -608,13 +679,9 @@ void MemoryAccessorTester::CheckAccessAndCompareContexts(
   CheckAccessAndCaptureContexts(
       &context_before_hook_, &context_after_hook_, ptr);
 
-  ExpectEqualContexts(context_before_hook_,
-                      context_after_hook_,
-                      ignore_flags_);
+  ExpectEqualContexts(context_before_hook_, context_after_hook_, ignore_flags_);
   if (memory_error_detected_) {
-    ExpectEqualContexts(context_before_hook_,
-                        error_context_,
-                        ignore_flags_);
+    ExpectEqualContexts(context_before_hook_, error_context_, ignore_flags_);
   }
 
   check_access_fn = NULL;
@@ -660,9 +727,12 @@ void CheckSpecialAccess(CONTEXT* before, CONTEXT* after,
 
 }  // namespace
 
-void MemoryAccessorTester::CheckSpecialAccessAndCompareContexts(
-    FARPROC access_fn, StringOperationDirection direction,
-    void* dst, void* src, int len) {
+void SyzyAsanMemoryAccessorTester::CheckSpecialAccessAndCompareContexts(
+    FARPROC access_fn,
+    StringOperationDirection direction,
+    void* dst,
+    void* src,
+    int len) {
   memory_error_detected_ = false;
 
   direction_flag_forward = (direction == DIRECTION_FORWARD);
@@ -671,97 +741,15 @@ void MemoryAccessorTester::CheckSpecialAccessAndCompareContexts(
   CheckSpecialAccess(
       &context_before_hook_, &context_after_hook_, dst, src, len);
 
-  ExpectEqualContexts(context_before_hook_,
-                      context_after_hook_,
-                      ignore_flags_);
+  ExpectEqualContexts(context_before_hook_, context_after_hook_, ignore_flags_);
   if (memory_error_detected_) {
-    ExpectEqualContexts(context_before_hook_,
-                        error_context_,
-                        ignore_flags_);
+    ExpectEqualContexts(context_before_hook_, error_context_, ignore_flags_);
   }
 
   check_access_fn = NULL;
 }
-#endif
 
-void MemoryAccessorTester::AsanErrorCallbackImpl(AsanErrorInfo* error_info) {
-  // TODO(sebmarchand): Stash the error info in a fixture-static variable and
-  // assert on specific conditions after the fact.
-  EXPECT_NE(reinterpret_cast<AsanErrorInfo*>(NULL), error_info);
-  EXPECT_NE(agent::asan::UNKNOWN_BAD_ACCESS, error_info->error_type);
-
-  EXPECT_EQ(expected_error_type_, error_info->error_type);
-  if (error_info->error_type >= agent::asan::USE_AFTER_FREE) {
-    // We should at least have the stack trace of the allocation of this block.
-    EXPECT_GT(error_info->block_info.alloc_stack_size, 0U);
-    EXPECT_NE(0U, error_info->block_info.alloc_tid);
-    if (error_info->error_type == agent::asan::USE_AFTER_FREE ||
-      error_info->error_type == agent::asan::DOUBLE_FREE) {
-      EXPECT_GT(error_info->block_info.free_stack_size, 0U);
-      EXPECT_NE(0U, error_info->block_info.free_tid);
-    } else {
-      EXPECT_EQ(error_info->block_info.free_stack_size, 0U);
-      EXPECT_EQ(0U, error_info->block_info.free_tid);
-    }
-  }
-
-  if (error_info->error_type == agent::asan::HEAP_BUFFER_OVERFLOW) {
-    EXPECT_TRUE(strstr(error_info->shadow_info, "beyond") != NULL);
-  } else if (error_info->error_type == agent::asan::HEAP_BUFFER_UNDERFLOW) {
-    EXPECT_TRUE(strstr(error_info->shadow_info, "before") != NULL);
-  }
-
-  memory_error_detected_ = true;
-  last_error_info_ = *error_info;
-
-  // Copy the corrupt range's information.
-  if (error_info->heap_is_corrupt) {
-    EXPECT_GE(1U, error_info->corrupt_range_count);
-    for (size_t i = 0; i < error_info->corrupt_range_count; ++i) {
-      last_corrupt_ranges_.push_back(CorruptRangeInfo());
-      CorruptRangeInfo* range_info = &last_corrupt_ranges_.back();
-      range_info->first = error_info->corrupt_ranges[i];
-      AsanBlockInfoVector* block_infos = &range_info->second;
-      for (size_t j = 0; j < range_info->first.block_info_count; ++j) {
-        agent::asan::AsanBlockInfo block_info = range_info->first.block_info[j];
-        for (size_t k = 0;
-             k < range_info->first.block_info[j].alloc_stack_size;
-             ++k) {
-          block_info.alloc_stack[k] =
-              range_info->first.block_info[j].alloc_stack[k];
-        }
-        for (size_t k = 0;
-             k < range_info->first.block_info[j].free_stack_size;
-             ++k) {
-          block_info.free_stack[k] =
-              range_info->first.block_info[j].free_stack[k];
-        }
-        block_infos->push_back(block_info);
-      }
-    }
-  }
-
-  error_context_ = error_info->context;
-}
-
-void MemoryAccessorTester::AsanErrorCallback(AsanErrorInfo* error_info) {
-  ASSERT_NE(reinterpret_cast<MemoryAccessorTester*>(NULL), instance_);
-
-  instance_->AsanErrorCallbackImpl(error_info);
-}
-
-void MemoryAccessorTester::AssertMemoryErrorIsDetected(
-  FARPROC access_fn, void* ptr, BadAccessKind bad_access_type) {
-  expected_error_type_ = bad_access_type;
-#ifndef _WIN64
-  CheckAccessAndCompareContexts(access_fn, ptr);
-#else
-  reinterpret_cast<void(*)(const void*)>(access_fn)(ptr);
-#endif
-  ASSERT_TRUE(memory_error_detected_);
-}
-
-void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
+void SyzyAsanMemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
     FARPROC access_fn,
     StringOperationDirection direction,
     bool expect_error,
@@ -775,15 +763,30 @@ void MemoryAccessorTester::ExpectSpecialMemoryErrorIsDetected(
 
   expected_error_type_ = bad_access_type;
 
-#ifndef _WIN64
   // Perform memory accesses inside the range.
   ASSERT_NO_FATAL_FAILURE(
       CheckSpecialAccessAndCompareContexts(
           access_fn, direction, dst, src, length));
-  #endif
 
   EXPECT_EQ(expect_error, memory_error_detected_);
   check_access_fn = NULL;
+}
+#endif
+
+void ClangMemoryAccessorTester::CheckAccess(FARPROC access_fn, void* ptr) {
+  memory_error_detected_ = false;
+  check_access_fn = access_fn;
+  reinterpret_cast<void (*)(const void*)>(access_fn)(ptr);
+  check_access_fn = NULL;
+}
+
+void ClangMemoryAccessorTester::AssertMemoryErrorIsDetected(
+    FARPROC access_fn,
+    void* ptr,
+    BadAccessKind bad_access_type) {
+  expected_error_type_ = bad_access_type;
+  reinterpret_cast<void (*)(const void*)>(access_fn)(ptr);
+  ASSERT_TRUE(memory_error_detected_);
 }
 
 TestMemoryInterceptors::TestMemoryInterceptors()
@@ -839,7 +842,7 @@ void TestMemoryInterceptors::TestValidAccess(
   for (size_t i = 0; i < num_fns; ++i) {
     const InterceptFunction& fn = fns[i];
 
-    MemoryAccessorTester tester;
+    SyzyAsanMemoryAccessorTester tester;
     tester.CheckAccessAndCompareContexts(
         reinterpret_cast<FARPROC>(fn.function), src_);
 
@@ -852,25 +855,24 @@ void TestMemoryInterceptors::TestValidAccessIgnoreFlags(
   for (size_t i = 0; i < num_fns; ++i) {
     const InterceptFunction& fn = fns[i];
 
-    MemoryAccessorTester tester(MemoryAccessorTester::IGNORE_FLAGS);
+    SyzyAsanMemoryAccessorTester tester(
+        SyzyAsanMemoryAccessorTester::IGNORE_FLAGS);
     tester.CheckAccessAndCompareContexts(
         reinterpret_cast<FARPROC>(fn.function), src_);
 
     ASSERT_FALSE(tester.memory_error_detected());
   }
 }
-#endif
 
 void TestMemoryInterceptors::TestOverrunAccess(
     const InterceptFunction* fns, size_t num_fns) {
   for (size_t i = 0; i < num_fns; ++i) {
     const InterceptFunction& fn = fns[i];
 
-    MemoryAccessorTester tester;
+    SyzyAsanMemoryAccessorTester tester;
     tester.AssertMemoryErrorIsDetected(
-        reinterpret_cast<FARPROC>(fn.function),
-        src_ + kAllocSize,
-        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+        reinterpret_cast<FARPROC>(fn.function), src_ + kAllocSize,
+        SyzyAsanMemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
 
     ASSERT_TRUE(tester.memory_error_detected());
   }
@@ -881,7 +883,8 @@ void TestMemoryInterceptors::TestOverrunAccessIgnoreFlags(
   for (size_t i = 0; i < num_fns; ++i) {
     const InterceptFunction& fn = fns[i];
 
-    MemoryAccessorTester tester(MemoryAccessorTester::IGNORE_FLAGS);
+    SyzyAsanMemoryAccessorTester tester(
+        SyzyAsanMemoryAccessorTester::IGNORE_FLAGS);
     tester.AssertMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
         src_ + kAllocSize,
@@ -900,7 +903,7 @@ void TestMemoryInterceptors::TestUnderrunAccess(
     //     underrun. I guess the checkers test a single shadow byte at most
     //     whereas it'd be more correct for access checkers to test as many
     //     shadow bytes as is appropriate for the range of memory they touch.
-    MemoryAccessorTester tester;
+    SyzyAsanMemoryAccessorTester tester;
     tester.AssertMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
         src_ - 8,
@@ -919,7 +922,8 @@ void TestMemoryInterceptors::TestUnderrunAccessIgnoreFlags(
     //     underrun. I guess the checkers test a single shadow byte at most
     //     whereas it'd be more correct for access checkers to test as many
     //     shadow bytes as is appropriate for the range of memory they touch.
-    MemoryAccessorTester tester(MemoryAccessorTester::IGNORE_FLAGS);
+    SyzyAsanMemoryAccessorTester tester(
+        SyzyAsanMemoryAccessorTester::IGNORE_FLAGS);
     tester.AssertMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
         src_ - 8,
@@ -929,36 +933,34 @@ void TestMemoryInterceptors::TestUnderrunAccessIgnoreFlags(
   }
 }
 
-#ifndef _WIN64
 void TestMemoryInterceptors::TestStringValidAccess(
     const StringInterceptFunction* fns, size_t num_fns) {
   for (size_t i = 0; i < num_fns; ++i) {
     const StringInterceptFunction& fn = fns[i];
 
-    MemoryAccessorTester tester;
+    SyzyAsanMemoryAccessorTester tester;
     tester.CheckSpecialAccessAndCompareContexts(
         reinterpret_cast<FARPROC>(fn.function),
-        MemoryAccessorTester::DIRECTION_FORWARD,
-        dst_, src_, static_cast<int>(kAllocSize / fn.size));
+        SyzyAsanMemoryAccessorTester::DIRECTION_FORWARD, dst_, src_,
+        static_cast<int>(kAllocSize / fn.size));
     ASSERT_FALSE(tester.memory_error_detected());
 
     tester.CheckSpecialAccessAndCompareContexts(
         reinterpret_cast<FARPROC>(fn.function),
-        MemoryAccessorTester::DIRECTION_BACKWARD,
+        SyzyAsanMemoryAccessorTester::DIRECTION_BACKWARD,
         dst_ + kAllocSize - fn.size, src_ + kAllocSize - fn.size,
         static_cast<int>(kAllocSize / fn.size));
 
     ASSERT_FALSE(tester.memory_error_detected());
   }
 }
-#endif
 
 void TestMemoryInterceptors::TestStringOverrunAccess(
     const StringInterceptFunction* fns, size_t num_fns) {
   for (size_t i = 0; i < num_fns; ++i) {
     const StringInterceptFunction& fn = fns[i];
 
-    MemoryAccessorTester tester;
+    SyzyAsanMemoryAccessorTester tester;
     size_t oob_len = 0;
     byte* oob_dst = NULL;
     byte* oob_src = NULL;
@@ -981,16 +983,16 @@ void TestMemoryInterceptors::TestStringOverrunAccess(
     // Overflow on dst forwards.
     tester.ExpectSpecialMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
-        MemoryAccessorTester::DIRECTION_FORWARD, true,
-        oob_dst, src_, static_cast<int>(oob_len),
+        SyzyAsanMemoryAccessorTester::DIRECTION_FORWARD, true, oob_dst, src_,
+        static_cast<int>(oob_len),
         MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
 
     if (fn.src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
       // Overflow on src forwards.
       tester.ExpectSpecialMemoryErrorIsDetected(
           reinterpret_cast<FARPROC>(fn.function),
-          MemoryAccessorTester::DIRECTION_FORWARD, true,
-          dst_, oob_src, static_cast<int>(oob_len),
+          SyzyAsanMemoryAccessorTester::DIRECTION_FORWARD, true, dst_, oob_src,
+          static_cast<int>(oob_len),
           MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
     }
 
@@ -1008,18 +1010,61 @@ void TestMemoryInterceptors::TestStringOverrunAccess(
     // Overflow on dst backwards.
     tester.ExpectSpecialMemoryErrorIsDetected(
         reinterpret_cast<FARPROC>(fn.function),
-        MemoryAccessorTester::DIRECTION_BACKWARD, true,
-        oob_dst, src_ + kAllocSize - fn.size, static_cast<int>(oob_len),
+        SyzyAsanMemoryAccessorTester::DIRECTION_BACKWARD, true, oob_dst,
+        src_ + kAllocSize - fn.size, static_cast<int>(oob_len),
         MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
 
     if (fn.src_access_mode != agent::asan::ASAN_UNKNOWN_ACCESS) {
       // Overflow on src backwards.
       tester.ExpectSpecialMemoryErrorIsDetected(
           reinterpret_cast<FARPROC>(fn.function),
-          MemoryAccessorTester::DIRECTION_BACKWARD, true,
+          SyzyAsanMemoryAccessorTester::DIRECTION_BACKWARD, true,
           dst_ + kAllocSize - fn.size, oob_dst, static_cast<int>(oob_len),
           MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
     }
+  }
+}
+#endif
+
+void TestMemoryInterceptors::TestClangValidAccess(
+    const ClangInterceptFunction* fns,
+    size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const ClangInterceptFunction& fn = fns[i];
+
+    ClangMemoryAccessorTester tester;
+    tester.CheckAccess(reinterpret_cast<FARPROC>(fn.function), src_);
+
+    ASSERT_FALSE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestClangOverrunAccess(
+    const ClangInterceptFunction* fns,
+    size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const ClangInterceptFunction& fn = fns[i];
+
+    ClangMemoryAccessorTester tester;
+    tester.AssertMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function), src_ + kAllocSize,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_OVERFLOW);
+
+    ASSERT_TRUE(tester.memory_error_detected());
+  }
+}
+
+void TestMemoryInterceptors::TestClangUnderrunAccess(
+    const ClangInterceptFunction* fns,
+    size_t num_fns) {
+  for (size_t i = 0; i < num_fns; ++i) {
+    const ClangInterceptFunction& fn = fns[i];
+    ClangMemoryAccessorTester tester;
+    tester.AssertMemoryErrorIsDetected(
+        reinterpret_cast<FARPROC>(fn.function), src_ - 8,
+        MemoryAccessorTester::BadAccessKind::HEAP_BUFFER_UNDERFLOW);
+
+    ASSERT_TRUE(tester.memory_error_detected());
   }
 }
 

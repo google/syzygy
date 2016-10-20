@@ -595,51 +595,24 @@ typedef std::pair<agent::asan::AsanCorruptBlockRange, AsanBlockInfoVector>
     CorruptRangeInfo;
 typedef std::vector<CorruptRangeInfo> CorruptRangeVector;
 
-// A helper for testing SyzyAsan memory accessor instrumentation functions.
+// A helper for testing the memory accessor instrumentation functions.
+//
+// This is an abstract class that should be overridden for each types
+// of probes (with a different calling convention).
 class MemoryAccessorTester {
  public:
   typedef agent::asan::BadAccessKind BadAccessKind;
 
-  enum IgnoreFlags {
-    IGNORE_FLAGS
-  };
   MemoryAccessorTester();
-  explicit MemoryAccessorTester(IgnoreFlags ignore_flags);
-  ~MemoryAccessorTester();
+  virtual ~MemoryAccessorTester();
 
-#ifndef _WIN64
-  // Checks that @p access_fn doesn't raise exceptions on access checking
-  // @p ptr, and that @p access_fn doesn't modify any registers or flags
-  // when executed.
-  void CheckAccessAndCompareContexts(FARPROC access_fn, void* ptr);
-#endif
+  // Call |access_fn| to test an access on |ptr| and make sure that an invalid
+  // access of type |bad_access_kind| is detected.
+  virtual void AssertMemoryErrorIsDetected(FARPROC access_fn,
+                                           void* ptr,
+                                           BadAccessKind bad_access_type) = 0;
 
-  // Checks that @p access_fn generates @p bad_access_type on checking @p ptr.
-  void AssertMemoryErrorIsDetected(
-      FARPROC access_fn, void* ptr, BadAccessKind bad_access_type);
-
-  enum StringOperationDirection {
-    DIRECTION_FORWARD,
-    DIRECTION_BACKWARD
-  };
-#ifndef _WIN64
-  // Checks that @p access_fn doesn't raise exceptions on access checking
-  // for a given @p direction, @p src, @p dst and @p len.
-  void CheckSpecialAccessAndCompareContexts(
-      FARPROC access_fn, StringOperationDirection direction,
-      void* dst, void* src, int len);
-#endif
-
-  // Checks that @p access_fn generates @p bad_access_type on access checking
-  // for a given @p direction, @p src, @p dst and @p len.
-  void ExpectSpecialMemoryErrorIsDetected(FARPROC access_fn,
-                                          StringOperationDirection direction,
-                                          bool expect_error,
-                                          void* dst,
-                                          void* src,
-                                          int32_t length,
-                                          BadAccessKind bad_access_type);
-
+  // The callback used to report the errors.
   static void AsanErrorCallback(AsanErrorInfo* error_info);
 
   void set_expected_error_type(BadAccessKind expected) {
@@ -655,8 +628,8 @@ class MemoryAccessorTester {
     return last_corrupt_ranges_;
   }
 
- private:
-  void Initialize();
+ protected:
+  virtual void Initialize();
   void AsanErrorCallbackImpl(AsanErrorInfo* error_info);
 
   // This will be used in the asan callback to ensure that we detect the right
@@ -666,12 +639,6 @@ class MemoryAccessorTester {
   // detected.
   bool memory_error_detected_;
 
-  // Indicates whether to ignore changes to the flags register.
-  bool ignore_flags_;
-
-  // The pre- and post-invocation contexts.
-  CONTEXT context_before_hook_;
-  CONTEXT context_after_hook_;
   // Context captured on error.
   CONTEXT error_context_;
 
@@ -679,8 +646,79 @@ class MemoryAccessorTester {
   AsanErrorInfo last_error_info_;
   CorruptRangeVector last_corrupt_ranges_;
 
-  // There shall be only one!
+  // Prevent from instantiating several instances of this class at the same
+  // time as the instance gets used as a callback by the runtime.
   static MemoryAccessorTester* instance_;
+};
+
+#ifndef _WIN64
+// Specialization of a |MemoryAccessorTester| for the probes with the SyzyAsan
+// custom calling convention.
+class SyzyAsanMemoryAccessorTester : public MemoryAccessorTester {
+ public:
+  enum IgnoreFlags {
+    IGNORE_FLAGS
+  };
+
+  SyzyAsanMemoryAccessorTester();
+  explicit SyzyAsanMemoryAccessorTester(IgnoreFlags ignore_flags);
+  virtual ~SyzyAsanMemoryAccessorTester() {}
+
+  // Checks that @p access_fn doesn't raise exceptions on access checking
+  // @p ptr, and that @p access_fn doesn't modify any registers or flags
+  // when executed.
+  void CheckAccessAndCompareContexts(FARPROC access_fn, void* ptr);
+
+  // Checks that @p access_fn generates @p bad_access_type on checking @p ptr.
+  void AssertMemoryErrorIsDetected(FARPROC access_fn,
+                                   void* ptr,
+                                   BadAccessKind bad_access_type) override;
+
+  enum StringOperationDirection {
+    DIRECTION_FORWARD,
+    DIRECTION_BACKWARD
+  };
+
+  // Checks that @p access_fn doesn't raise exceptions on access checking
+  // for a given @p direction, @p src, @p dst and @p len.
+  void CheckSpecialAccessAndCompareContexts(
+      FARPROC access_fn, StringOperationDirection direction,
+      void* dst, void* src, int len);
+
+  // Checks that @p access_fn generates @p bad_access_type on access checking
+  // for a given @p direction, @p src, @p dst and @p len.
+  void ExpectSpecialMemoryErrorIsDetected(FARPROC access_fn,
+                                          StringOperationDirection direction,
+                                          bool expect_error,
+                                          void* dst,
+                                          void* src,
+                                          int32_t length,
+                                          BadAccessKind bad_access_type);
+
+ protected:
+  void Initialize() override;
+
+  // Indicates whether to ignore changes to the flags register.
+  bool ignore_flags_;
+
+  // The pre- and post-invocation contexts.
+  CONTEXT context_before_hook_;
+  CONTEXT context_after_hook_;
+};
+#endif
+
+// Specialization of a |MemoryAccessorTester| for the probes with the Clang
+// calling convention (cdecl).
+class ClangMemoryAccessorTester : public MemoryAccessorTester {
+ public:
+  ClangMemoryAccessorTester() {}
+  virtual ~ClangMemoryAccessorTester() {}
+
+  void AssertMemoryErrorIsDetected(FARPROC access_fn,
+                                   void* ptr,
+                                   BadAccessKind bad_access_type) override;
+
+  void CheckAccess(FARPROC access_fn, void* ptr);
 };
 
 // A fixture class for testing memory interceptors.
@@ -695,6 +733,11 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
 
   struct InterceptFunction {
     void(*function)();
+    size_t size;
+  };
+
+  struct ClangInterceptFunction {
+    void (*function)(const void*);
     size_t size;
   };
 
@@ -713,27 +756,38 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
   void SetUp() override;
   void TearDown() override;
 
+  template <size_t N_1, size_t N_2>
+  void TestValidAccess(const InterceptFunction(&fns)[N_1],
+                       const ClangInterceptFunction(&clang_fns)[N_2]) {
 #ifndef _WIN64
-  template <size_t N>
-  void TestValidAccess(const InterceptFunction (&fns)[N]) {
-    TestValidAccess(fns, N);
-  }
+    TestValidAccess(fns, N_1);
 #endif
+    TestClangValidAccess(clang_fns, N_2);
+  }
+  template <size_t N_1, size_t N_2>
+  void TestOverrunAccess(const InterceptFunction(&fns)[N_1],
+                         const ClangInterceptFunction(&clang_fns)[N_2]) {
+#ifndef _WIN64
+    TestOverrunAccess(fns, N_2);
+#endif
+    TestClangOverrunAccess(clang_fns, N_2);
+  }
+  template <size_t N_1, size_t N_2>
+  void TestUnderrunAccess(const InterceptFunction(&fns)[N_1],
+                          const ClangInterceptFunction(&clang_fns)[N_2]) {
+#ifndef _WIN64
+    TestUnderrunAccess(fns, N_1);
+#endif
+    TestClangUnderrunAccess(clang_fns, N_2);
+  }
+#ifndef _WIN64
   template <size_t N>
   void TestValidAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
     TestValidAccessIgnoreFlags(fns, N);
   }
   template <size_t N>
-  void TestOverrunAccess(const InterceptFunction (&fns)[N]) {
-    TestOverrunAccess(fns, N);
-  }
-  template <size_t N>
   void TestOverrunAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
     TestOverrunAccessIgnoreFlags(fns, N);
-  }
-  template <size_t N>
-  void TestUnderrunAccess(const InterceptFunction (&fns)[N]) {
-    TestUnderrunAccess(fns, N);
   }
   template <size_t N>
   void TestUnderrunAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
@@ -747,13 +801,13 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
   void TestStringOverrunAccess(const StringInterceptFunction (&fns)[N]) {
     TestStringOverrunAccess(fns, N);
   }
+#endif
 
  protected:
 #ifndef _WIN64
   void TestValidAccess(const InterceptFunction* fns, size_t num_fns);
   void TestValidAccessIgnoreFlags(const InterceptFunction* fns,
                                   size_t num_fns);
-#endif
   void TestOverrunAccess(const InterceptFunction* fns, size_t num_fns);
   void TestOverrunAccessIgnoreFlags(const InterceptFunction* fns,
                                     size_t num_fns);
@@ -764,6 +818,12 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
       const StringInterceptFunction* fns, size_t num_fns);
   void TestStringOverrunAccess(
       const StringInterceptFunction* fns, size_t num_fns);
+#endif
+  void TestClangValidAccess(const ClangInterceptFunction* fns, size_t num_fns);
+  void TestClangOverrunAccess(const ClangInterceptFunction* fns,
+                              size_t num_fns);
+  void TestClangUnderrunAccess(const ClangInterceptFunction* fns,
+                               size_t num_fns);
 
   const size_t kAllocSize = 64;
 
