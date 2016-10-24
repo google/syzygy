@@ -128,6 +128,12 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
         std::make_pair(kMemoryAccessorVariants[i].name,
                        kMemoryAccessorVariants[i].accessors[mode]));
   }
+  for (size_t i = 0; i < kNumClangMemoryAccessorVariants; ++i) {
+    patch_map.insert(
+        std::make_pair(kClangMemoryAccessorVariants[i].name,
+                       reinterpret_cast<FunctionPointer>(
+                           kClangMemoryAccessorVariants[i].accessors[mode])));
+  }
 
   // Grab the patching lock only while patching the caller's IAT. Assuming no
   // other parties are patching this IAT, this is sufficient to prevent

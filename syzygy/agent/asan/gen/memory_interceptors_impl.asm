@@ -31,6 +31,7 @@ EXTERN C asan_check_strings_memory_accesses:PROC
 
 ; Declare the redirect function.
 EXTERN C asan_redirect_stub_entry:PROC
+EXTERN C asan_redirect_clang_stub_entry:PROC
 
 ; Declare the error handling funtion.
 EXTERN C asan_report_bad_memory_access:PROC
@@ -39,6 +40,7 @@ EXTERN C asan_report_bad_memory_access:PROC
 PUBLIC asan_no_check
 PUBLIC asan_string_no_check
 PUBLIC asan_redirect_tail
+PUBLIC asan_redirect_tail_clang
 PUBLIC asan_shadow_references
 PUBLIC asan_check_1_byte_read_access_2gb  ; Probe #0.
 PUBLIC asan_check_1_byte_write_access_2gb  ; Probe #1.
@@ -176,6 +178,41 @@ asan_redirect_tail PROC
   ; return to the stashed stub.
   ret
 asan_redirect_tail ENDP
+
+
+; On entry the stack has:
+; - the address to check.
+; - return address to original caller.
+; - return address to redirection stub.
+ALIGN 16
+asan_redirect_tail_clang PROC
+  ; Prologue, save context.
+  pushfd
+  pushad
+
+  ; Normalize the string operation direction.
+  cld
+
+  ; Compute the address of the calling function and push it.
+  mov eax, DWORD PTR[esp + 9 * 4]
+  sub eax, 5  ; Length of call instruction.
+  push eax
+  ; Push the original caller's address.
+  push DWORD PTR[esp + 11 * 4]
+  call asan_redirect_clang_stub_entry
+  ; Clean arguments off the stack.
+  add esp, 8
+
+  ; Overwrite access_size with the stub to return to.
+  mov DWORD PTR[esp + 9 * 4], eax
+
+  ; Restore context.
+  popad
+  popfd
+
+  ; return to the stashed stub.
+  ret
+asan_redirect_tail_clang ENDP
 
 ; On entry, the address to check is in EDX and the previous contents of
 ; EDX are on stack. On exit the previous contents of EDX have been restored

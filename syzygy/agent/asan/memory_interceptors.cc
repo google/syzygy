@@ -35,6 +35,40 @@ RedirectEntryCallback redirect_entry_callback;
 // shadow memory must be patched directly.
 Shadow* memory_interceptor_shadow_ = nullptr;
 
+// Helper function to find a redirector variant.
+// @param variants The array containing all the different probe variants,
+//     it should be an array of MemoryAccessorVariants or any type derived
+//     from this.
+// @param caller_address The address of the function that called the Asan
+//     redirector.
+// @param called_redirect The address of the redirect probe that has been
+//     called.
+// @tparam T The type of the function pointers returned by the probes defined
+//     in |variants|.
+// @tparam T2 The type of the entry in the array |variants|.
+// @tparam N The size of the array |variants|.
+template <typename T, typename T2, size_t N>
+T FindMemoryRedirectorVariant(const T2(&variants)[N],
+                              const void* caller_address,
+                              T called_redirect) {
+  MemoryAccessorMode mode = MEMORY_ACCESSOR_MODE_NOOP;
+
+  // TODO(siggi): Does it make sense to CHECK on this?
+  if (!redirect_entry_callback.is_null())
+    mode = redirect_entry_callback.Run(caller_address);
+
+  for (size_t i = 0; i < N; ++i) {
+    if (variants[i].redirect_accessor != called_redirect)
+      continue;
+    CHECK_LE(0u, mode);
+    CHECK_GT(MEMORY_ACCESSOR_MODE_MAX, mode);
+    return variants[i].accessors[mode];
+  }
+
+  NOTREACHED();
+  return NULL;
+}
+
 }  // namespace
 
 Shadow* SetMemoryInterceptorShadow(Shadow* shadow) {
@@ -77,6 +111,26 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 };
 
 const size_t kNumMemoryAccessorVariants = arraysize(kMemoryAccessorVariants);
+
+const ClangMemoryAccessorVariants kClangMemoryAccessorVariants[] = {
+#define ENUM_MEM_INTERCEPT_CLANG_FUNCTION_VARIANTS(                          \
+    access_size, access_mode_str, access_mode_value)                         \
+  {                                                                          \
+    "__asan_" #access_mode_str #access_size,                                 \
+        asan_redirect_##access_mode_str##access_size##, asan_clang_no_check, \
+        asan_##access_mode_str##access_size##_2gb,                           \
+        asan_##access_mode_str##access_size##_4gb,                           \
+  }                                                                          \
+  ,
+
+    CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(
+        ENUM_MEM_INTERCEPT_CLANG_FUNCTION_VARIANTS)
+
+#undef ENUM_MEM_INTERCEPT_CLANG_FUNCTION_VARIANTS
+};
+
+const size_t kNumClangMemoryAccessorVariants =
+    arraysize(kClangMemoryAccessorVariants);
 #endif
 
 void SetRedirectEntryCallback(const RedirectEntryCallback& callback) {
@@ -169,25 +223,20 @@ void asan_check_strings_memory_accesses(uint8_t* dst,
   }
 }
 
+// Redirect stub for the SyzyAsan probes.
 MemoryAccessorFunction asan_redirect_stub_entry(
     const void* caller_address,
     MemoryAccessorFunction called_redirect) {
-  MemoryAccessorMode mode = MEMORY_ACCESSOR_MODE_NOOP;
+  return FindMemoryRedirectorVariant(kMemoryAccessorVariants, caller_address,
+                                     called_redirect);
+}
 
-  // TODO(siggi): Does it make sense to CHECK on this?
-  if (!redirect_entry_callback.is_null())
-    mode = redirect_entry_callback.Run(caller_address);
-
-  for (size_t i = 0; i < arraysize(kMemoryAccessorVariants); ++i) {
-    if (kMemoryAccessorVariants[i].redirect_accessor != called_redirect)
-      continue;
-    CHECK_LE(0u, mode);
-    CHECK_GT(MEMORY_ACCESSOR_MODE_MAX, mode);
-    return kMemoryAccessorVariants[i].accessors[mode];
-  }
-
-  NOTREACHED();
-  return NULL;
+// Redirect stub for the Clang-Asan probes.
+ClangMemoryAccessorFunction asan_redirect_clang_stub_entry(
+    const void* caller_address,
+    ClangMemoryAccessorFunction called_redirect) {
+  return FindMemoryRedirectorVariant(kClangMemoryAccessorVariants,
+                                     caller_address, called_redirect);
 }
 #endif
 

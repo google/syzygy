@@ -79,8 +79,32 @@ struct MemoryAccessorVariants {
 static_assert(sizeof(MemoryAccessorVariants) == 5 * sizeof(uintptr_t),
               "MemoryAccessorVariants definition is out of sync");
 
+// Function signature of the Clang-Asan memory accessor functions. These
+// functions use the cdecl calling convention.
+typedef void (*ClangMemoryAccessorFunction)(const void*);
+
+struct ClangMemoryAccessorVariants {
+  // Canonical name of the exported function, e.g. __asan_[store|load]XX.
+  const char* name;
+  ClangMemoryAccessorFunction redirect_accessor;
+  union {
+    struct {
+      // The MemoryAccessorMode enumeration and the following list must remain
+      // in sync.
+      ClangMemoryAccessorFunction accessor_noop;
+      ClangMemoryAccessorFunction accessor_2G;
+      ClangMemoryAccessorFunction accessor_4G;
+    };
+    ClangMemoryAccessorFunction accessors[MEMORY_ACCESSOR_MODE_MAX];
+  };
+};
+static_assert(sizeof(ClangMemoryAccessorVariants) == 5 * sizeof(uintptr_t),
+              "ClangMemoryAccessorFunction definition is out of sync");
+
 extern const MemoryAccessorVariants kMemoryAccessorVariants[];
 extern const size_t kNumMemoryAccessorVariants;
+extern const ClangMemoryAccessorVariants kClangMemoryAccessorVariants[];
+extern const size_t kNumClangMemoryAccessorVariants;
 
 // List of the memory accessor function variants this file implements.
 #define ASAN_MEM_INTERCEPT_FUNCTIONS(F) \
@@ -124,7 +148,6 @@ extern const size_t kNumMemoryAccessorVariants;
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 4, 0)        \
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0)        \
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
-#endif
 
 // List of the Asan-Clang memory accessor functions.
 #define CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(F) \
@@ -140,7 +163,9 @@ extern const size_t kNumMemoryAccessorVariants;
   F(4, store, AsanWriteAccess)                \
   F(8, store, AsanWriteAccess)                \
   F(10, store, AsanWriteAccess)               \
-  F(16, store, AsanWriteAccess)
+  F(16, store, AsanWriteAccess)               \
+  F(32, store, AsanWriteAccess)
+#endif
 
 }  // namespace asan
 }  // namespace agent
@@ -180,16 +205,15 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(DECLARE_MEM_INTERCEPT_FUNCTIONS)
 #undef DECLARE_MEM_INTERCEPT_FUNCTIONS
 
 #define DECLARE_STRING_INTERCEPT_FUNCTIONS(func, prefix, counter, dst_mode, \
-                                           src_mode, access_size, compare) \
-  void asan_redirect ## prefix ## access_size ## _byte_ ## func ## _access(); \
-  void asan_check ## prefix ## access_size ## _byte_ ## func ## _access(); \
+                                           src_mode, access_size, compare)  \
+  void asan_redirect##prefix##access_size##_byte_##func##_access();         \
+  void asan_check##prefix##access_size##_byte_##func##_access();
 
 // Declare all the string instruction interceptor functions. Note that these
 // functions have a custom calling convention, and can't be invoked directly.
 ASAN_STRING_INTERCEPT_FUNCTIONS(DECLARE_STRING_INTERCEPT_FUNCTIONS)
 
 #undef DECLARE_STRING_INTERCEPT_FUNCTIONS
-#endif
 
 #define DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS(access_size, access_mode_str, \
                                               access_mode_value)            \
@@ -201,6 +225,8 @@ ASAN_STRING_INTERCEPT_FUNCTIONS(DECLARE_STRING_INTERCEPT_FUNCTIONS)
 CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS)
 
 #undef DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS
+
+#endif  // !defined(_WIN64)
 
 }  // extern "C"
 

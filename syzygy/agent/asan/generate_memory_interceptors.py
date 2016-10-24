@@ -54,6 +54,7 @@ END
 _REDIRECTORS_EXTERN = """\
 ; Declare the tail function all the stubs direct to.
 EXTERN C asan_redirect_tail:PROC
+EXTERN C asan_redirect_tail_clang:PROC
 """
 
 
@@ -88,6 +89,7 @@ EXTERN C asan_check_strings_memory_accesses:PROC
 
 ; Declare the redirect function.
 EXTERN C asan_redirect_stub_entry:PROC
+EXTERN C asan_redirect_clang_stub_entry:PROC
 
 ; Declare the error handling funtion.
 EXTERN C asan_report_bad_memory_access:PROC
@@ -96,6 +98,7 @@ EXTERN C asan_report_bad_memory_access:PROC
 PUBLIC asan_no_check
 PUBLIC asan_string_no_check
 PUBLIC asan_redirect_tail
+PUBLIC asan_redirect_tail_clang
 PUBLIC asan_shadow_references"""
 
 
@@ -189,6 +192,41 @@ asan_redirect_tail PROC
   ; return to the stashed stub.
   ret
 asan_redirect_tail ENDP
+
+
+; On entry the stack has:
+; - the address to check.
+; - return address to original caller.
+; - return address to redirection stub.
+ALIGN 16
+asan_redirect_tail_clang PROC
+  ; Prologue, save context.
+  pushfd
+  pushad
+
+  ; Normalize the string operation direction.
+  cld
+
+  ; Compute the address of the calling function and push it.
+  mov eax, DWORD PTR[esp + 9 * 4]
+  sub eax, 5  ; Length of call instruction.
+  push eax
+  ; Push the original caller's address.
+  push DWORD PTR[esp + 11 * 4]
+  call asan_redirect_clang_stub_entry
+  ; Clean arguments off the stack.
+  add esp, 8
+
+  ; Overwrite access_size with the stub to return to.
+  mov DWORD PTR[esp + 9 * 4], eax
+
+  ; Restore context.
+  popad
+  popfd
+
+  ; return to the stashed stub.
+  ret
+asan_redirect_tail_clang ENDP
 """
 
 
@@ -427,18 +465,30 @@ PUBLIC asan_check_{access_size}_byte_{access_mode_str}_no_flags_{mem_model}  \
 #   access_size: The size of the access (in byte).
 #   access_mode_str: The string representing the access mode (read_access
 #       or write_access).
-#   access_mode_value: The internal value representing this kind of
-#       access.
 #   suffix: The suffix - if any - for this function name
 _REDIRECT_FUNCTION = """\
 asan_redirect_{access_size}_byte_{access_mode_str}{suffix} LABEL PROC
   call asan_redirect_tail"""
 
-
 # Declare the public label.
 _REDIRECT_FUNCTION_DECL = """\
 PUBLIC asan_redirect_{access_size}_byte_{access_mode_str}{suffix}"""
 
+# Generates the Clang-Asan memory accessor redirector stubs.
+#
+# The name of the generated method will be
+# asan_redirect_(@p access_mode_str)(@p access_size)().
+#
+# Args:
+#   access_size: The size of the access (in byte).
+#   access_mode_str: The string representing the access mode (load or store).
+_CLANG_REDIRECT_FUNCTION = """\
+asan_redirect_{access_mode_str}{access_size} LABEL PROC
+  call asan_redirect_tail_clang"""
+
+# Declare the public label.
+_CLANG_REDIRECT_FUNCTION_DECL = """\
+PUBLIC asan_redirect_{access_mode_str}{access_size}"""
 
 # Generates the Asan check access functions for a string instruction.
 #
@@ -572,6 +622,10 @@ _ASAN_UNKNOWN_ACCESS = 2
 _ACCESS_MODES = [
     ('read_access', _ASAN_READ_ACCESS),
     ('write_access', _ASAN_WRITE_ACCESS),
+]
+_CLANG_ACCESS_MODES = [
+    ('load', _ASAN_READ_ACCESS),
+    ('store', _ASAN_WRITE_ACCESS),
 ]
 
 
@@ -777,6 +831,13 @@ def _GenerateRedirectorsAsmFile():
                               access_mode_value=access_name,
                               suffix=suffix))
 
+  # Generate the Clang-Asan probes
+  for access_size in _ACCESS_SIZES:
+    for access, access_name in _CLANG_ACCESS_MODES:
+      parts.append(f.format(_CLANG_REDIRECT_FUNCTION_DECL,
+                            access_mode_str=access,
+                            access_size=access_size))
+
   # Declare string operation redirectors.
   for (fn, p, c, dst_mode, src_mode, size, compare) in _STRING_ACCESSORS:
     parts.append(f.format(_STRING_REDIRECT_FUNCTION_DECL,
@@ -799,6 +860,13 @@ def _GenerateRedirectorsAsmFile():
                               access_mode_str=access,
                               access_mode_value=access_name,
                               suffix=suffix))
+
+  # Generate the Clang-Asan accessor redirectors
+  for access_size in _ACCESS_SIZES:
+    for access, access_name in _CLANG_ACCESS_MODES:
+      parts.append(f.format(_CLANG_REDIRECT_FUNCTION,
+                            access_mode_str=access,
+                            access_size=access_size))
 
   # Generate string operation redirectors.
   for (fn, p, c, dst_mode, src_mode, size, compare) in _STRING_ACCESSORS:

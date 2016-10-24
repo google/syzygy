@@ -756,31 +756,19 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
   void SetUp() override;
   void TearDown() override;
 
-  template <size_t N_1, size_t N_2>
-  void TestValidAccess(const InterceptFunction(&fns)[N_1],
-                       const ClangInterceptFunction(&clang_fns)[N_2]) {
 #ifndef _WIN64
-    TestValidAccess(fns, N_1);
-#endif
-    TestClangValidAccess(clang_fns, N_2);
+  template <size_t N>
+  void TestValidAccess(const InterceptFunction(&fns)[N]) {
+    TestValidAccess(fns, N);
   }
-  template <size_t N_1, size_t N_2>
-  void TestOverrunAccess(const InterceptFunction(&fns)[N_1],
-                         const ClangInterceptFunction(&clang_fns)[N_2]) {
-#ifndef _WIN64
-    TestOverrunAccess(fns, N_2);
-#endif
-    TestClangOverrunAccess(clang_fns, N_2);
+  template <size_t N>
+  void TestOverrunAccess(const InterceptFunction(&fns)[N]) {
+    TestOverrunAccess(fns, N);
   }
-  template <size_t N_1, size_t N_2>
-  void TestUnderrunAccess(const InterceptFunction(&fns)[N_1],
-                          const ClangInterceptFunction(&clang_fns)[N_2]) {
-#ifndef _WIN64
-    TestUnderrunAccess(fns, N_1);
-#endif
-    TestClangUnderrunAccess(clang_fns, N_2);
+  template <size_t N>
+  void TestUnderrunAccess(const InterceptFunction(&fns)[N]) {
+    TestUnderrunAccess(fns, N);
   }
-#ifndef _WIN64
   template <size_t N>
   void TestValidAccessIgnoreFlags(const InterceptFunction (&fns)[N]) {
     TestValidAccessIgnoreFlags(fns, N);
@@ -802,6 +790,18 @@ class TestMemoryInterceptors : public TestWithAsanLogger {
     TestStringOverrunAccess(fns, N);
   }
 #endif
+  template <size_t N>
+  void TestValidAccess(const ClangInterceptFunction(&fns)[N]) {
+    TestClangValidAccess(fns, N);
+  }
+  template <size_t N>
+  void TestOverrunAccess(const ClangInterceptFunction(&fns)[N]) {
+    TestClangOverrunAccess(fns, N);
+  }
+  template <size_t N>
+  void TestUnderrunAccess(const ClangInterceptFunction(&fns)[N]) {
+    TestClangUnderrunAccess(fns, N);
+  }
 
  protected:
 #ifndef _WIN64

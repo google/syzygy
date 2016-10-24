@@ -119,6 +119,18 @@ ASAN_STRING_INTERCEPT_FUNCTIONS(DEFINE_STRING_REDIRECT_FUNCTION_TABLE)
 #undef DEFINE_STRING_REDIRECT_FUNCTION_TABLE
 };
 
+static const TestMemoryInterceptors::ClangInterceptFunction
+    clang_redirect_functions[] = {
+#define DEFINE_CLANG_REDIRECT_FUNCTION_TABLE(access_size, access_mode_str, \
+                                             access_mode)                  \
+  { asan_redirect_##access_mode_str##access_size, access_size }            \
+  ,
+
+        CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_CLANG_REDIRECT_FUNCTION_TABLE)
+
+#undef DEFINE_CLANG_REDIRECT_FUNCTION_TABLE
+};
+
 class MemoryInterceptorsTest : public TestMemoryInterceptors {
  public:
   MOCK_METHOD1(OnRedirectorInvocation,
@@ -140,55 +152,164 @@ class MemoryInterceptorsTest : public TestMemoryInterceptors {
   }
 };
 
+// Define an interface for testing different kind of memory accesses
+// with different types of memory interceptors (using different calling
+// conventions).
+class MemoryInterceptorTester {
+ public:
+  MemoryInterceptorTester() : test_fixture_(nullptr) {}
+  virtual ~MemoryInterceptorTester() {}
+
+  // Test the interceptors.
+  virtual void TestValidAccess() = 0;
+  virtual void TestOverrunAccess() = 0;
+  virtual void TestUnderrunAccess() = 0;
+
+  // Test the redirectors.
+  virtual void TestRedirectorValidAccess() = 0;
+  virtual void TestRedirectorOverrunAccess() = 0;
+  virtual void TestRedirectorUnderrunAccess() = 0;
+
+  // Number of interceptors.
+  virtual size_t InterceptorsCount() = 0;
+
+  // Number of redirectors.
+  virtual size_t RedirectorsCount() = 0;
+
+  // Set the test fixture that shoul be used to test the memory accesses.
+  void SetTestFixture(MemoryInterceptorsTest* fixture) {
+    test_fixture_ = fixture;
+  }
+
+ protected:
+  MemoryInterceptorsTest* test_fixture_;
+};
+
+#ifndef _WIN64
+// Specialization of the MemoryInterceptorTester class for the probes with the
+// SyzyAsan custom calling convention (value to check in EDX).
+class SyzyAsanMemoryInterceptorTester : public MemoryInterceptorTester {
+ public:
+  void TestValidAccess() override {
+    test_fixture_->TestValidAccess(intercept_functions);
+    test_fixture_->TestValidAccessIgnoreFlags(intercept_functions_no_flags);
+  }
+  void TestOverrunAccess() override {
+    test_fixture_->TestOverrunAccess(intercept_functions);
+    test_fixture_->TestOverrunAccessIgnoreFlags(intercept_functions_no_flags);
+  }
+  void TestUnderrunAccess() override {
+    test_fixture_->TestUnderrunAccess(intercept_functions);
+    test_fixture_->TestUnderrunAccessIgnoreFlags(intercept_functions_no_flags);
+  }
+  void TestRedirectorValidAccess() override {
+    test_fixture_->TestValidAccess(redirect_functions);
+    test_fixture_->TestValidAccessIgnoreFlags(redirect_functions_no_flags);
+  }
+  void TestRedirectorOverrunAccess() override {
+    test_fixture_->TestOverrunAccess(redirect_functions);
+    test_fixture_->TestOverrunAccessIgnoreFlags(redirect_functions_no_flags);
+  }
+  void TestRedirectorUnderrunAccess() override {
+    test_fixture_->TestUnderrunAccess(redirect_functions);
+    test_fixture_->TestUnderrunAccessIgnoreFlags(redirect_functions_no_flags);
+  }
+  size_t InterceptorsCount() override {
+    return arraysize(intercept_functions) +
+           arraysize(intercept_functions_no_flags);
+  };
+  size_t RedirectorsCount() override {
+    return arraysize(redirect_functions) +
+           arraysize(redirect_functions_no_flags);
+  };
+};
+#endif
+
+// Specialization of the MemoryInterceptorTester class for the probes with the
+// cdecl calling convention.
+class ClangMemoryInterceptorTester : public MemoryInterceptorTester {
+ public:
+  void TestValidAccess() override {
+    test_fixture_->TestValidAccess(clang_intercept_functions);
+  }
+  void TestOverrunAccess() override {
+    test_fixture_->TestOverrunAccess(clang_intercept_functions);
+  }
+  void TestUnderrunAccess() override {
+    test_fixture_->TestUnderrunAccess(clang_intercept_functions);
+  }
+  void TestRedirectorValidAccess() override {
+    test_fixture_->TestValidAccess(clang_redirect_functions);
+  }
+  void TestRedirectorOverrunAccess() override {
+    test_fixture_->TestOverrunAccess(clang_redirect_functions);
+  }
+  void TestRedirectorUnderrunAccess() override {
+    test_fixture_->TestUnderrunAccess(clang_redirect_functions);
+  }
+  size_t InterceptorsCount() override {
+    return arraysize(clang_intercept_functions);
+  };
+  size_t RedirectorsCount() override {
+    return arraysize(clang_redirect_functions);
+  };
+};
+
+// Specialization of the MemoryInterceptorsTest for the test that should be done
+// with different sets of probes.
+template <class T>
+class MemoryInterceptorsTypedTest : public MemoryInterceptorsTest {
+ public:
+  ~MemoryInterceptorsTypedTest() override {}
+
+  void SetUp() override {
+    MemoryInterceptorsTest::SetUp();
+    tester_.SetTestFixture(this);
+  }
+
+ protected:
+  T tester_;
+};
+
+#ifndef _WIN64
+typedef ::testing::Types<SyzyAsanMemoryInterceptorTester,
+                         ClangMemoryInterceptorTester> MemoryInterceptorsTypes;
+#else
+typedef ::testing::Types<ClangMemoryInterceptorTester> MemoryInterceptorsTypes;
+#endif
+TYPED_TEST_CASE(MemoryInterceptorsTypedTest, MemoryInterceptorsTypes);
+
 }  // namespace
 
-TEST_F(MemoryInterceptorsTest, TestValidAccess) {
-  TestValidAccess(intercept_functions, clang_intercept_functions);
-  TestValidAccessIgnoreFlags(intercept_functions_no_flags);
+TYPED_TEST(MemoryInterceptorsTypedTest, TestValidAccess) {
+  tester_.TestValidAccess();
 }
 
-TEST_F(MemoryInterceptorsTest, TestOverrunAccess) {
-  TestOverrunAccess(intercept_functions, clang_intercept_functions);
-  TestOverrunAccessIgnoreFlags(intercept_functions_no_flags);
+TYPED_TEST(MemoryInterceptorsTypedTest, TestOverrunAccess) {
+  tester_.TestOverrunAccess();
 }
 
-TEST_F(MemoryInterceptorsTest, TestUnderrunAccess) {
-  TestUnderrunAccess(intercept_functions, clang_intercept_functions);
-  TestUnderrunAccessIgnoreFlags(intercept_functions_no_flags);
+TYPED_TEST(MemoryInterceptorsTypedTest, TestUnderrunAccess) {
+  tester_.TestUnderrunAccess();
 }
 
-TEST_F(MemoryInterceptorsTest, TestRedirectorsNoop) {
+TYPED_TEST(MemoryInterceptorsTypedTest, TestRedirectorsNoop) {
   // Test that the redirect functions pass through to the noop tester.
   EXPECT_CALL(*this, OnRedirectorInvocation(_))
-      .Times(arraysize(redirect_functions))
+      .Times(static_cast<int>(tester_.RedirectorsCount()))
       .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_NOOP));
-  TestValidAccess(redirect_functions, arraysize(redirect_functions));
-
-  EXPECT_CALL(*this, OnRedirectorInvocation(_))
-      .Times(arraysize(redirect_functions_no_flags))
-      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_NOOP));
-  TestValidAccessIgnoreFlags(redirect_functions_no_flags,
-                             arraysize(redirect_functions_no_flags));
+  tester_.TestRedirectorValidAccess();
 }
 
-TEST_F(MemoryInterceptorsTest, TestRedirectors2G) {
+TYPED_TEST(MemoryInterceptorsTypedTest, TestRedirectors2G) {
   EXPECT_CALL(*this, OnRedirectorInvocation(_))
-      .Times(3 * arraysize(redirect_functions))
+      .Times(3 * static_cast<int>(tester_.RedirectorsCount()))
       .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
 
   // Test valid, underrun and overrun.
-  TestValidAccess(redirect_functions, arraysize(redirect_functions));
-  TestUnderrunAccess(redirect_functions, arraysize(redirect_functions));
-  TestOverrunAccess(redirect_functions, arraysize(redirect_functions));
-
-  EXPECT_CALL(*this, OnRedirectorInvocation(_))
-      .Times(3 * arraysize(redirect_functions_no_flags))
-      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
-
-  // Test valid, underrun and overrun.
-  TestValidAccessIgnoreFlags(redirect_functions_no_flags);
-  TestUnderrunAccessIgnoreFlags(redirect_functions_no_flags);
-  TestOverrunAccessIgnoreFlags(redirect_functions_no_flags);
+  tester_.TestRedirectorValidAccess();
+  tester_.TestRedirectorOverrunAccess();
+  tester_.TestRedirectorUnderrunAccess();
 }
 
 TEST_F(MemoryInterceptorsTest, TestStringValidAccess) {
