@@ -18,19 +18,18 @@ LIBRARY syzyasan_rtl.dll
 
 EXPORTS
   ; Access checking functions.
-  ; TODO(sebmarchand): Use the redirectors once they're available.
-  __asan_load1=asan_load1_128tb
-  __asan_load2=asan_load2_128tb
-  __asan_load4=asan_load4_128tb
-  __asan_load8=asan_load8_128tb
-  __asan_load16=asan_load16_128tb
-  __asan_load32=asan_load32_128tb
-  __asan_store1=asan_store1_128tb
-  __asan_store2=asan_store2_128tb
-  __asan_store4=asan_store4_128tb
-  __asan_store8=asan_store8_128tb
-  __asan_store16=asan_store16_128tb
-  __asan_store32=asan_store32_128tb
+  __asan_load1=asan_redirect_load1
+  __asan_load2=asan_redirect_load2
+  __asan_load4=asan_redirect_load4
+  __asan_load8=asan_redirect_load8
+  __asan_load16=asan_redirect_load16
+  __asan_load32=asan_redirect_load32
+  __asan_store1=asan_redirect_store1
+  __asan_store2=asan_redirect_store2
+  __asan_store4=asan_redirect_store4
+  __asan_store8=asan_redirect_store8
+  __asan_store16=asan_redirect_store16
+  __asan_store32=asan_redirect_store32
 
   ; Heap-replacement functions.
   asan_GetProcessHeap

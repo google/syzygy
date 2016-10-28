@@ -29,6 +29,7 @@ using testing::MemoryAccessorTester;
 using testing::Return;
 using testing::TestMemoryInterceptors;
 
+#ifndef _WIN64
 static const TestMemoryInterceptors::InterceptFunction intercept_functions[] = {
 #define DEFINE_INTERCEPT_FUNCTION_TABLE(access_size, access_mode_str,      \
                                         access_mode)                       \
@@ -38,18 +39,6 @@ static const TestMemoryInterceptors::InterceptFunction intercept_functions[] = {
     ASAN_MEM_INTERCEPT_FUNCTIONS(DEFINE_INTERCEPT_FUNCTION_TABLE)
 
 #undef DEFINE_INTERCEPT_FUNCTION_TABLE
-};
-
-static const TestMemoryInterceptors::ClangInterceptFunction
-    clang_intercept_functions[] = {
-#define DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE(access_size, access_mode_str, \
-                                              access_mode)                  \
-  { asan_##access_mode_str##access_size##_2gb, access_size }                \
-  , {asan_##access_mode_str##access_size##_4gb, access_size},
-        CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(
-            DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE)
-
-#undef DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE
 };
 
 static const TestMemoryInterceptors::InterceptFunction
@@ -117,6 +106,26 @@ static const TestMemoryInterceptors::StringInterceptFunction
 ASAN_STRING_INTERCEPT_FUNCTIONS(DEFINE_STRING_REDIRECT_FUNCTION_TABLE)
 
 #undef DEFINE_STRING_REDIRECT_FUNCTION_TABLE
+};
+#endif
+
+static const TestMemoryInterceptors::ClangInterceptFunction
+    clang_intercept_functions[] = {
+#ifndef _WIN64
+#define DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE(access_size, access_mode_str, \
+                                              access_mode)                  \
+  { asan_##access_mode_str##access_size##_2gb, access_size }                \
+  , {asan_##access_mode_str##access_size##_4gb, access_size},
+#else
+#define DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE(access_size, access_mode_str, \
+                                              access_mode)                  \
+  { asan_##access_mode_str##access_size##_8tb, access_size }                \
+  , {asan_##access_mode_str##access_size##_128tb, access_size},
+#endif
+        CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(
+            DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE)
+
+#undef DEFINE_CLANG_INTERCEPT_FUNCTION_TABLE
 };
 
 static const TestMemoryInterceptors::ClangInterceptFunction
@@ -301,10 +310,14 @@ TYPED_TEST(MemoryInterceptorsTypedTest, TestRedirectorsNoop) {
   tester_.TestRedirectorValidAccess();
 }
 
-TYPED_TEST(MemoryInterceptorsTypedTest, TestRedirectors2G) {
+TYPED_TEST(MemoryInterceptorsTypedTest, TestRedirectorsSmallMemory) {
   EXPECT_CALL(*this, OnRedirectorInvocation(_))
       .Times(3 * static_cast<int>(tester_.RedirectorsCount()))
+#ifndef _WIN64
       .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
+#else
+      .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_8TB));
+#endif
 
   // Test valid, underrun and overrun.
   tester_.TestRedirectorValidAccess();
@@ -312,6 +325,7 @@ TYPED_TEST(MemoryInterceptorsTypedTest, TestRedirectors2G) {
   tester_.TestRedirectorUnderrunAccess();
 }
 
+#ifndef _WIN64
 TEST_F(MemoryInterceptorsTest, TestStringValidAccess) {
   TestStringValidAccess(string_intercept_functions);
 }
@@ -347,6 +361,7 @@ TEST_F(MemoryInterceptorsTest, TestStringRedirectors2G) {
       .WillRepeatedly(Return(MEMORY_ACCESSOR_MODE_2G));
   TestStringOverrunAccess(string_redirect_functions);
 }
+#endif
 
 }  // namespace asan
 }  // namespace agent

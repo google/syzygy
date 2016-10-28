@@ -112,7 +112,10 @@ const MemoryAccessorVariants kMemoryAccessorVariants[] = {
 
 const size_t kNumMemoryAccessorVariants = arraysize(kMemoryAccessorVariants);
 
+#endif
+
 const ClangMemoryAccessorVariants kClangMemoryAccessorVariants[] = {
+#ifndef _WIN64
 #define ENUM_MEM_INTERCEPT_CLANG_FUNCTION_VARIANTS(                          \
     access_size, access_mode_str, access_mode_value)                         \
   {                                                                          \
@@ -122,6 +125,17 @@ const ClangMemoryAccessorVariants kClangMemoryAccessorVariants[] = {
         asan_##access_mode_str##access_size##_4gb,                           \
   }                                                                          \
   ,
+#else
+#define ENUM_MEM_INTERCEPT_CLANG_FUNCTION_VARIANTS(                          \
+    access_size, access_mode_str, access_mode_value)                         \
+  {                                                                          \
+    "__asan_" #access_mode_str #access_size,                                 \
+        asan_redirect_##access_mode_str##access_size##, asan_clang_no_check, \
+        asan_##access_mode_str##access_size##_8tb,                           \
+        asan_##access_mode_str##access_size##_128tb,                         \
+  }                                                                          \
+  ,
+#endif
 
     CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(
         ENUM_MEM_INTERCEPT_CLANG_FUNCTION_VARIANTS)
@@ -131,7 +145,6 @@ const ClangMemoryAccessorVariants kClangMemoryAccessorVariants[] = {
 
 const size_t kNumClangMemoryAccessorVariants =
     arraysize(kClangMemoryAccessorVariants);
-#endif
 
 void SetRedirectEntryCallback(const RedirectEntryCallback& callback) {
   redirect_entry_callback = callback;
@@ -230,6 +243,7 @@ MemoryAccessorFunction asan_redirect_stub_entry(
   return FindMemoryRedirectorVariant(kMemoryAccessorVariants, caller_address,
                                      called_redirect);
 }
+#endif
 
 // Redirect stub for the Clang-Asan probes.
 ClangMemoryAccessorFunction asan_redirect_clang_stub_entry(
@@ -238,7 +252,6 @@ ClangMemoryAccessorFunction asan_redirect_clang_stub_entry(
   return FindMemoryRedirectorVariant(kClangMemoryAccessorVariants,
                                      caller_address, called_redirect);
 }
-#endif
 
 // A simple wrapper to agent::asan::ReportBadMemoryAccess that has C linkage
 // so it can be referred to in memory_interceptors.asm.

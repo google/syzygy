@@ -35,9 +35,14 @@ Shadow* SetMemoryInterceptorShadow(Shadow* shadow);
 // Memory accessor mode select.
 enum MemoryAccessorMode {
   MEMORY_ACCESSOR_MODE_NOOP,  // Noop mode - no checking performed.
-  MEMORY_ACCESSOR_MODE_2G,    // 2G address space mode
-  MEMORY_ACCESSOR_MODE_4G,    // 4G address space mode
-  MEMORY_ACCESSOR_MODE_MAX,   // This must be last.
+#ifndef _WIN64
+  MEMORY_ACCESSOR_MODE_2G,  // 2G address space mode
+  MEMORY_ACCESSOR_MODE_4G,  // 4G address space mode
+#else
+  MEMORY_ACCESSOR_MODE_8TB,    // 8TB address space mode
+  MEMORY_ACCESSOR_MODE_128TB,  // 128TB address space mode
+#endif
+  MEMORY_ACCESSOR_MODE_MAX,  // This must be last.
 };
 
 // Type of the callback invoked on entry to the redirector stub. This is
@@ -56,7 +61,6 @@ using RedirectEntryCallback =
 // Sets the callback invoked on entry to a redirect stub.
 void SetRedirectEntryCallback(const RedirectEntryCallback& callback);
 
-#ifndef _WIN64
 // This type is not accurate, as the memory accessors have a custom calling
 // convention, but it's nice to have a type for them.
 typedef void (*MemoryAccessorFunction)();
@@ -92,8 +96,13 @@ struct ClangMemoryAccessorVariants {
       // The MemoryAccessorMode enumeration and the following list must remain
       // in sync.
       ClangMemoryAccessorFunction accessor_noop;
+#ifndef _WIN64
       ClangMemoryAccessorFunction accessor_2G;
       ClangMemoryAccessorFunction accessor_4G;
+#else
+      ClangMemoryAccessorFunction accessor_8TB;
+      ClangMemoryAccessorFunction accessor_128TB;
+#endif
     };
     ClangMemoryAccessorFunction accessors[MEMORY_ACCESSOR_MODE_MAX];
   };
@@ -101,11 +110,14 @@ struct ClangMemoryAccessorVariants {
 static_assert(sizeof(ClangMemoryAccessorVariants) == 5 * sizeof(uintptr_t),
               "ClangMemoryAccessorFunction definition is out of sync");
 
+#ifndef _WIN64
 extern const MemoryAccessorVariants kMemoryAccessorVariants[];
 extern const size_t kNumMemoryAccessorVariants;
+#endif
 extern const ClangMemoryAccessorVariants kClangMemoryAccessorVariants[];
 extern const size_t kNumClangMemoryAccessorVariants;
 
+#ifndef _WIN64
 // List of the memory accessor function variants this file implements.
 #define ASAN_MEM_INTERCEPT_FUNCTIONS(F) \
     F(1, read_access, AsanReadAccess) \
@@ -149,6 +161,8 @@ extern const size_t kNumClangMemoryAccessorVariants;
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 2, 0)        \
   F(stos, _, 1, AsanWriteAccess, AsanUnknownAccess, 1, 0)
 
+#endif  // !defined(_WIN64)
+
 // List of the Asan-Clang memory accessor functions.
 #define CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(F) \
   F(1, load, AsanReadAccess)                  \
@@ -165,7 +179,6 @@ extern const size_t kNumClangMemoryAccessorVariants;
   F(10, store, AsanWriteAccess)               \
   F(16, store, AsanWriteAccess)               \
   F(32, store, AsanWriteAccess)
-#endif
 
 }  // namespace asan
 }  // namespace agent
@@ -214,19 +227,26 @@ ASAN_MEM_INTERCEPT_FUNCTIONS(DECLARE_MEM_INTERCEPT_FUNCTIONS)
 ASAN_STRING_INTERCEPT_FUNCTIONS(DECLARE_STRING_INTERCEPT_FUNCTIONS)
 
 #undef DECLARE_STRING_INTERCEPT_FUNCTIONS
+#endif  // !defined(_WIN64)
 
+#ifndef _WIN64
 #define DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS(access_size, access_mode_str, \
                                               access_mode_value)            \
   void asan_redirect_##access_mode_str##access_size##(const void*);         \
   void asan_##access_mode_str##access_size##_2gb(const void*);              \
   void asan_##access_mode_str##access_size##_4gb(const void*);
+#else
+#define DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS(access_size, access_mode_str, \
+                                              access_mode_value)            \
+  void asan_redirect_##access_mode_str##access_size##(const void*);         \
+  void asan_##access_mode_str##access_size##_8tb(const void*);              \
+  void asan_##access_mode_str##access_size##_128tb(const void*);
+#endif
 
 // Declare all the Clang-Asan memory interceptor functions.
 CLANG_ASAN_MEM_INTERCEPT_FUNCTIONS(DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS)
 
 #undef DECLARE_MEM_CLANG_INTERCEPT_FUNCTIONS
-
-#endif  // !defined(_WIN64)
 
 }  // extern "C"
 

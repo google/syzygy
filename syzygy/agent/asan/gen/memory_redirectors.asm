@@ -24,8 +24,8 @@
 OPTION DOTNAME
 
 ; Declare the tail function all the stubs direct to.
+EXTERN asan_redirect_tail_clang:PROC
 EXTERN C asan_redirect_tail:PROC
-EXTERN C asan_redirect_tail_clang:PROC
 
 PUBLIC asan_redirect_1_byte_read_access
 PUBLIC asan_redirect_1_byte_write_access
@@ -55,20 +55,6 @@ PUBLIC asan_redirect_16_byte_read_access_no_flags
 PUBLIC asan_redirect_16_byte_write_access_no_flags
 PUBLIC asan_redirect_32_byte_read_access_no_flags
 PUBLIC asan_redirect_32_byte_write_access_no_flags
-PUBLIC asan_redirect_load1
-PUBLIC asan_redirect_store1
-PUBLIC asan_redirect_load2
-PUBLIC asan_redirect_store2
-PUBLIC asan_redirect_load4
-PUBLIC asan_redirect_store4
-PUBLIC asan_redirect_load8
-PUBLIC asan_redirect_store8
-PUBLIC asan_redirect_load10
-PUBLIC asan_redirect_store10
-PUBLIC asan_redirect_load16
-PUBLIC asan_redirect_store16
-PUBLIC asan_redirect_load32
-PUBLIC asan_redirect_store32
 PUBLIC asan_redirect_repz_4_byte_cmps_access
 PUBLIC asan_redirect_repz_2_byte_cmps_access
 PUBLIC asan_redirect_repz_1_byte_cmps_access
@@ -93,6 +79,20 @@ PUBLIC asan_redirect_repz_1_byte_stos_access
 PUBLIC asan_redirect_4_byte_stos_access
 PUBLIC asan_redirect_2_byte_stos_access
 PUBLIC asan_redirect_1_byte_stos_access
+PUBLIC asan_redirect_load1
+PUBLIC asan_redirect_store1
+PUBLIC asan_redirect_load2
+PUBLIC asan_redirect_store2
+PUBLIC asan_redirect_load4
+PUBLIC asan_redirect_store4
+PUBLIC asan_redirect_load8
+PUBLIC asan_redirect_store8
+PUBLIC asan_redirect_load10
+PUBLIC asan_redirect_store10
+PUBLIC asan_redirect_load16
+PUBLIC asan_redirect_store16
+PUBLIC asan_redirect_load32
+PUBLIC asan_redirect_store32
 
 ; Declare a single top-level function to prevent identical code folding from
 ; folding the redirectors into one. Each redirector simply calls through to
@@ -161,34 +161,6 @@ asan_redirect_32_byte_read_access_no_flags LABEL PROC
   call asan_redirect_tail
 asan_redirect_32_byte_write_access_no_flags LABEL PROC
   call asan_redirect_tail
-asan_redirect_load1 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_store1 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_load2 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_store2 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_load4 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_store4 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_load8 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_store8 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_load10 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_store10 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_load16 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_store16 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_load32 LABEL PROC
-  call asan_redirect_tail_clang
-asan_redirect_store32 LABEL PROC
-  call asan_redirect_tail_clang
 asan_redirect_repz_4_byte_cmps_access LABEL PROC
   call asan_redirect_tail
 asan_redirect_repz_2_byte_cmps_access LABEL PROC
@@ -237,6 +209,34 @@ asan_redirect_2_byte_stos_access LABEL PROC
   call asan_redirect_tail
 asan_redirect_1_byte_stos_access LABEL PROC
   call asan_redirect_tail
+asan_redirect_load1 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_store1 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_load2 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_store2 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_load4 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_store4 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_load8 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_store8 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_load10 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_store10 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_load16 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_store16 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_load32 LABEL PROC
+  call asan_redirect_tail_clang
+asan_redirect_store32 LABEL PROC
+  call asan_redirect_tail_clang
 asan_redirectors ENDP
 
 END

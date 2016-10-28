@@ -85,10 +85,17 @@ MemoryAccessorMode SelectMemoryAccessorMode() {
   gb /= kOneGB;
 
   switch (gb) {
+#ifndef _WIN64
     case 2:
       return MEMORY_ACCESSOR_MODE_2G;
     case 4:
       return MEMORY_ACCESSOR_MODE_4G;
+#else
+    case 0x2000:
+      return MEMORY_ACCESSOR_MODE_8TB;
+    case 0x20000:
+      return MEMORY_ACCESSOR_MODE_128TB;
+#endif
     // 1GB should never happen, and 3GB simply isn't properly supported.
     default:
       return MEMORY_ACCESSOR_MODE_NOOP;
@@ -120,14 +127,15 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
   if (mode == MEMORY_ACCESSOR_MODE_NOOP && asan_runtime != nullptr)
     TearDownAsanRuntime(&asan_runtime);
 
-#ifndef _WIN64
   // Build the IAT patch map.
   IATPatchMap patch_map;
+#ifndef _WIN64
   for (size_t i = 0; i < kNumMemoryAccessorVariants; ++i) {
     patch_map.insert(
         std::make_pair(kMemoryAccessorVariants[i].name,
                        kMemoryAccessorVariants[i].accessors[mode]));
   }
+#endif
   for (size_t i = 0; i < kNumClangMemoryAccessorVariants; ++i) {
     patch_map.insert(
         std::make_pair(kClangMemoryAccessorVariants[i].name,
@@ -153,7 +161,6 @@ MemoryAccessorMode OnRedirectStubEntry(const void* caller_address) {
       patch_complete = true;
     }
   }
-#endif
 
   return mode;
 }

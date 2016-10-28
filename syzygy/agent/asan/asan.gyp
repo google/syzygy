@@ -129,6 +129,11 @@
             'gen/memory_interceptors_impl.asm',
             'gen/memory_redirectors.asm',
           ],
+        }, {
+          'sources': [
+            'memory_interceptors_x64_impl.asm',
+            'gen/memory_redirectors_x64.asm',
+          ],
         }],
       ],
       'export_dependent_settings': [
@@ -218,14 +223,14 @@
           ],
         }, {
           'sources!': [
+            # Uses 32-bit assembler.
+            'heap_managers/block_heap_manager_unittest.cc',
+            # There's no need to patch the memory probes in a 64-bit build, this
+            # is only required for the SyzyAsan-instrumented binaries (32-bit
+            # only).
+            'memory_interceptors_patcher_unittest.cc',
             # Static shadow doesn't work for large address spaces.
             'static_shadow.cc',
-            # Redirectors are not currently implemented for win64.
-            'memory_interceptors_patcher_unittest.cc',
-            # Relies on full set of probes.
-            'memory_interceptors_unittest.cc',
-            # Uses 32bit assembler.
-            'heap_managers/block_heap_manager_unittest.cc',
           ],
           'sources': ['dummy_shadow.cc'],
           'dependencies': [
