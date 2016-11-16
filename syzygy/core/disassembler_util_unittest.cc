@@ -124,6 +124,7 @@ const uint8_t kVpermd[] = {0xC4, 0xE2, 0x4D, 0x36, 0xC0};
 const uint8_t kVbroadcasti128[] = {0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0};
 const uint8_t kVinserti128[] = {0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01};
 const uint8_t kVpbroadcastb[] = {0xC4, 0xE2, 0x79, 0x78, 0xC0};
+const uint8_t kVbroadcastss[] = {0xC4, 0xE2, 0x7d, 0x18, 0xC0};
 const uint8_t kVextracti128[] = {0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01};
 const uint8_t kVcvtps2ph[] = {0xC4, 0xE3, 0x79, 0x1D, 0xC8, 0x00};
 const uint8_t kVcvtps2ps[] = {0xC4, 0xE2, 0x79, 0x13, 0xE0};
@@ -384,6 +385,11 @@ TEST(DisassemblerUtilTest, TestBadlyDecodedVinserti128) {
 TEST(DisassemblerUtilTest, TestBadlyDecodedVpbroadcastb) {
   EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
       kVpbroadcastb, sizeof(kVpbroadcastb)));
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVbroadcastss) {
+  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
+      kVpbroadcastb, sizeof(kVbroadcastss)));
 }
 
 TEST(DisassemblerUtilTest, TestBadlyDecodedVextracti128) {

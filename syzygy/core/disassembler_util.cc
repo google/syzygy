@@ -59,6 +59,7 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
     case 0x02: {
       switch (ci->code[3]) {
         case 0x13: return 5;  // vcvtps2ps
+        case 0x18: return 5;  // vbroadcastss
         case 0x36: return 5;  // vpermd
         case 0x5A: return 6;  // vbroadcasti128
         case 0x78: return 5;  // vpbroadcastb
