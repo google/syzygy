@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.23.0
+[379045f2fe] SyzyAsan - Remove the Kasko integration.
+[38646919c4] Add support for the vbroadcastss instruction.
+
 Version 0.8.22.0
 [2662b3a8a2] SyzyAsan - More careful handling when freeing corrupt blocks.
 [745955797d] SyzyAsan - Fix potential race when shutting down the deferred
