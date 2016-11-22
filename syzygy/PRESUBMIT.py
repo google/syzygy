@@ -237,7 +237,6 @@ def CheckChange(input_api, output_api, committing):
     input_api.canned_checks.CheckChangeHasNoCrAndHasOnlyOneEol,
     input_api.canned_checks.CheckChangeHasNoTabs,
     input_api.canned_checks.CheckChangeHasNoStrayWhitespace,
-    input_api.canned_checks.CheckChangeSvnEolStyle,
     input_api.canned_checks.CheckDoNotSubmit,
     input_api.canned_checks.CheckGenderNeutral,
   ]
