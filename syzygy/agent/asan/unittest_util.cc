@@ -321,7 +321,7 @@ bool FakeAsanBlock::InitializeBlock(uint32_t alloc_size) {
                               &layout));
 
   // Initialize the Asan block.
-  BlockInitialize(layout, buffer_align_begin, false, &block_info);
+  BlockInitialize(layout, buffer_align_begin, &block_info);
   EXPECT_NE(reinterpret_cast<void*>(NULL), block_info.body);
 
   StackCapture stack;

@@ -56,14 +56,14 @@ TEST(SimpleBlockHeapTest, EndToEnd) {
   // Allocate and free a zero-sized allocation. This should succeed
   // by definition.
   void* alloc = h.AllocateBlock(0, 0, 0, &layout);
-  BlockInitialize(layout, alloc, false, &block);
+  BlockInitialize(layout, alloc, &block);
   EXPECT_TRUE(h.FreeBlock(block));
 
   // Make a bunch of different sized allocations.
   BlockInfoSet blocks;
   for (uint32_t i = 1; i < 1024 * 1024; i <<= 1) {
     void* alloc = h.AllocateBlock(i, 0, 0, &layout);
-    BlockInitialize(layout, alloc, false, &block);
+    BlockInitialize(layout, alloc, &block);
     blocks.insert(block);
   }
 

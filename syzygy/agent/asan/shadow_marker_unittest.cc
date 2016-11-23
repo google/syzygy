@@ -38,16 +38,7 @@ static const ShadowMarker kRedzoneShadowMarkers[] = {
     kHeapHistoricBlockStartMarker5,
     kHeapHistoricBlockStartMarker6,
     kHeapHistoricBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
     kHeapHistoricBlockEndMarker,
-    kHeapHistoricNestedBlockEndMarker,
     kHeapHistoricLeftPaddingMarker,
     kHeapHistoricRightPaddingMarker,
     kHeapHistoricFreedMarker,
@@ -59,19 +50,10 @@ static const ShadowMarker kRedzoneShadowMarkers[] = {
     kHeapBlockStartMarker5,
     kHeapBlockStartMarker6,
     kHeapBlockStartMarker7,
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
     kAsanMemoryMarker,
     kInvalidAddressMarker,
     kUserRedzoneMarker,
     kHeapBlockEndMarker,
-    kHeapNestedBlockEndMarker,
     kHeapLeftPaddingMarker,
     kHeapRightPaddingMarker,
     kAsanReservedMarker,
@@ -87,16 +69,7 @@ static const ShadowMarker kActiveBlockShadowMarkers[] = {
     kHeapBlockStartMarker5,
     kHeapBlockStartMarker6,
     kHeapBlockStartMarker7,
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
     kHeapBlockEndMarker,
-    kHeapNestedBlockEndMarker,
     kHeapLeftPaddingMarker,
     kHeapRightPaddingMarker,
     kHeapFreedMarker,
@@ -111,16 +84,7 @@ static const ShadowMarker kHistoricBlockShadowMarkers[] = {
     kHeapHistoricBlockStartMarker5,
     kHeapHistoricBlockStartMarker6,
     kHeapHistoricBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
     kHeapHistoricBlockEndMarker,
-    kHeapHistoricNestedBlockEndMarker,
     kHeapHistoricLeftPaddingMarker,
     kHeapHistoricRightPaddingMarker,
     kHeapHistoricFreedMarker,
@@ -135,16 +99,7 @@ static const ShadowMarker kBlockShadowMarkers[] = {
     kHeapHistoricBlockStartMarker5,
     kHeapHistoricBlockStartMarker6,
     kHeapHistoricBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
     kHeapHistoricBlockEndMarker,
-    kHeapHistoricNestedBlockEndMarker,
     kHeapHistoricLeftPaddingMarker,
     kHeapHistoricRightPaddingMarker,
     kHeapHistoricFreedMarker,
@@ -156,16 +111,7 @@ static const ShadowMarker kBlockShadowMarkers[] = {
     kHeapBlockStartMarker5,
     kHeapBlockStartMarker6,
     kHeapBlockStartMarker7,
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
     kHeapBlockEndMarker,
-    kHeapNestedBlockEndMarker,
     kHeapLeftPaddingMarker,
     kHeapRightPaddingMarker,
     kHeapFreedMarker,
@@ -180,14 +126,6 @@ static const ShadowMarker kActiveBlockStartShadowMarkers[] = {
     kHeapBlockStartMarker5,
     kHeapBlockStartMarker6,
     kHeapBlockStartMarker7,
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
 };
 
 static const ShadowMarker kHistoricBlockStartShadowMarkers[] = {
@@ -199,14 +137,6 @@ static const ShadowMarker kHistoricBlockStartShadowMarkers[] = {
     kHeapHistoricBlockStartMarker5,
     kHeapHistoricBlockStartMarker6,
     kHeapHistoricBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
 };
 
 static const ShadowMarker kBlockStartShadowMarkers[] = {
@@ -218,14 +148,6 @@ static const ShadowMarker kBlockStartShadowMarkers[] = {
     kHeapBlockStartMarker5,
     kHeapBlockStartMarker6,
     kHeapBlockStartMarker7,
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
     kHeapHistoricBlockStartMarker0,
     kHeapHistoricBlockStartMarker1,
     kHeapHistoricBlockStartMarker2,
@@ -234,55 +156,19 @@ static const ShadowMarker kBlockStartShadowMarkers[] = {
     kHeapHistoricBlockStartMarker5,
     kHeapHistoricBlockStartMarker6,
     kHeapHistoricBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
-};
-
-static const ShadowMarker kNestedBlockStartShadowMarkers[] = {
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
 };
 
 static const ShadowMarker kActiveBlockEndShadowMarkers[] = {
   kHeapBlockEndMarker,
-  kHeapNestedBlockEndMarker,
 };
 
 static const ShadowMarker kHistoricBlockEndShadowMarkers[] = {
   kHeapHistoricBlockEndMarker,
-  kHeapHistoricNestedBlockEndMarker,
 };
 
 static const ShadowMarker kBlockEndShadowMarkers[] = {
   kHeapHistoricBlockEndMarker,
-  kHeapHistoricNestedBlockEndMarker,
   kHeapBlockEndMarker,
-  kHeapNestedBlockEndMarker,
-};
-
-static const ShadowMarker kNestedBlockEndShadowMarkers[] = {
-  kHeapHistoricNestedBlockEndMarker,
-  kHeapNestedBlockEndMarker,
 };
 
 static const ShadowMarker kHistoricLeftRedzoneShadowMarkers[] = {
@@ -294,14 +180,6 @@ static const ShadowMarker kHistoricLeftRedzoneShadowMarkers[] = {
     kHeapHistoricBlockStartMarker5,
     kHeapHistoricBlockStartMarker6,
     kHeapHistoricBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
     kHeapHistoricLeftPaddingMarker,
 };
 
@@ -314,14 +192,6 @@ static const ShadowMarker kActiveLeftRedzoneShadowMarkers[] = {
     kHeapBlockStartMarker5,
     kHeapBlockStartMarker6,
     kHeapBlockStartMarker7,
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
     kHeapLeftPaddingMarker,
 };
 
@@ -334,14 +204,6 @@ static const ShadowMarker kLeftRedzoneShadowMarkers[] = {
     kHeapHistoricBlockStartMarker5,
     kHeapHistoricBlockStartMarker6,
     kHeapHistoricBlockStartMarker7,
-    kHeapHistoricNestedBlockStartMarker0,
-    kHeapHistoricNestedBlockStartMarker1,
-    kHeapHistoricNestedBlockStartMarker2,
-    kHeapHistoricNestedBlockStartMarker3,
-    kHeapHistoricNestedBlockStartMarker4,
-    kHeapHistoricNestedBlockStartMarker5,
-    kHeapHistoricNestedBlockStartMarker6,
-    kHeapHistoricNestedBlockStartMarker7,
     kHeapHistoricLeftPaddingMarker,
     kHeapBlockStartMarker0,
     kHeapBlockStartMarker1,
@@ -351,35 +213,23 @@ static const ShadowMarker kLeftRedzoneShadowMarkers[] = {
     kHeapBlockStartMarker5,
     kHeapBlockStartMarker6,
     kHeapBlockStartMarker7,
-    kHeapNestedBlockStartMarker0,
-    kHeapNestedBlockStartMarker1,
-    kHeapNestedBlockStartMarker2,
-    kHeapNestedBlockStartMarker3,
-    kHeapNestedBlockStartMarker4,
-    kHeapNestedBlockStartMarker5,
-    kHeapNestedBlockStartMarker6,
-    kHeapNestedBlockStartMarker7,
     kHeapLeftPaddingMarker,
 };
 
 static const ShadowMarker kHistoricRightRedzoneShadowMarkers[] = {
   kHeapHistoricBlockEndMarker,
-  kHeapHistoricNestedBlockEndMarker,
   kHeapHistoricRightPaddingMarker,
 };
 
 static const ShadowMarker kActiveRightRedzoneShadowMarkers[] = {
   kHeapBlockEndMarker,
-  kHeapNestedBlockEndMarker,
   kHeapRightPaddingMarker,
 };
 
 static const ShadowMarker kRightRedzoneShadowMarkers[] = {
   kHeapHistoricBlockEndMarker,
-  kHeapHistoricNestedBlockEndMarker,
   kHeapHistoricRightPaddingMarker,
   kHeapBlockEndMarker,
-  kHeapNestedBlockEndMarker,
   kHeapRightPaddingMarker,
 };
 
@@ -457,11 +307,9 @@ TEST_SHADOW_MARKER_FUNCTION_COMPLETE(Block);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(ActiveBlockStart);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(HistoricBlockStart);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(BlockStart);
-TEST_SHADOW_MARKER_FUNCTION_COMPLETE(NestedBlockStart);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(ActiveBlockEnd);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(HistoricBlockEnd);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(BlockEnd);
-TEST_SHADOW_MARKER_FUNCTION_COMPLETE(NestedBlockEnd);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(HistoricLeftRedzone);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(ActiveLeftRedzone);
 TEST_SHADOW_MARKER_FUNCTION_COMPLETE(LeftRedzone);
@@ -488,22 +336,6 @@ TEST(ShadowMarkerHelperTest, GetBlockStartData) {
   EXPECT_EQ(7u, ShadowMarkerHelper::GetBlockStartData(
       kHeapHistoricBlockStartMarker7));
   EXPECT_EQ(0u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker0));
-  EXPECT_EQ(1u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker1));
-  EXPECT_EQ(2u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker2));
-  EXPECT_EQ(3u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker3));
-  EXPECT_EQ(4u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker4));
-  EXPECT_EQ(5u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker5));
-  EXPECT_EQ(6u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker6));
-  EXPECT_EQ(7u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapHistoricNestedBlockStartMarker7));
-  EXPECT_EQ(0u, ShadowMarkerHelper::GetBlockStartData(
       kHeapBlockStartMarker0));
   EXPECT_EQ(1u, ShadowMarkerHelper::GetBlockStartData(
       kHeapBlockStartMarker1));
@@ -519,22 +351,6 @@ TEST(ShadowMarkerHelperTest, GetBlockStartData) {
       kHeapBlockStartMarker6));
   EXPECT_EQ(7u, ShadowMarkerHelper::GetBlockStartData(
       kHeapBlockStartMarker7));
-  EXPECT_EQ(0u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker0));
-  EXPECT_EQ(1u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker1));
-  EXPECT_EQ(2u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker2));
-  EXPECT_EQ(3u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker3));
-  EXPECT_EQ(4u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker4));
-  EXPECT_EQ(5u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker5));
-  EXPECT_EQ(6u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker6));
-  EXPECT_EQ(7u, ShadowMarkerHelper::GetBlockStartData(
-      kHeapNestedBlockStartMarker7));
 }
 
 TEST(ShadowMarkerHelper, ToHistoric) {
@@ -554,26 +370,8 @@ TEST(ShadowMarkerHelper, ToHistoric) {
             ShadowMarkerHelper::ToHistoric(kHeapBlockStartMarker6));
   EXPECT_EQ(kHeapHistoricBlockStartMarker7,
             ShadowMarkerHelper::ToHistoric(kHeapBlockStartMarker7));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker0,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker0));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker1,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker1));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker2,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker2));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker3,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker3));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker4,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker4));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker5,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker5));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker6,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker6));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker7,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockStartMarker7));
   EXPECT_EQ(kHeapHistoricBlockEndMarker,
             ShadowMarkerHelper::ToHistoric(kHeapBlockEndMarker));
-  EXPECT_EQ(kHeapHistoricNestedBlockEndMarker,
-            ShadowMarkerHelper::ToHistoric(kHeapNestedBlockEndMarker));
   EXPECT_EQ(kHeapHistoricLeftPaddingMarker,
             ShadowMarkerHelper::ToHistoric(kHeapLeftPaddingMarker));
   EXPECT_EQ(kHeapHistoricRightPaddingMarker,
@@ -584,83 +382,44 @@ TEST(ShadowMarkerHelper, ToHistoric) {
 
 TEST(ShadowMarkerHelper, BuildBlockStart) {
   EXPECT_EQ(kHeapHistoricBlockStartMarker0,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 0));
+            ShadowMarkerHelper::BuildBlockStart(false, 0));
   EXPECT_EQ(kHeapHistoricBlockStartMarker1,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 1));
+            ShadowMarkerHelper::BuildBlockStart(false, 1));
   EXPECT_EQ(kHeapHistoricBlockStartMarker2,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 2));
+            ShadowMarkerHelper::BuildBlockStart(false, 2));
   EXPECT_EQ(kHeapHistoricBlockStartMarker3,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 3));
+            ShadowMarkerHelper::BuildBlockStart(false, 3));
   EXPECT_EQ(kHeapHistoricBlockStartMarker4,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 4));
+            ShadowMarkerHelper::BuildBlockStart(false, 4));
   EXPECT_EQ(kHeapHistoricBlockStartMarker5,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 5));
+            ShadowMarkerHelper::BuildBlockStart(false, 5));
   EXPECT_EQ(kHeapHistoricBlockStartMarker6,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 6));
+            ShadowMarkerHelper::BuildBlockStart(false, 6));
   EXPECT_EQ(kHeapHistoricBlockStartMarker7,
-            ShadowMarkerHelper::BuildBlockStart(false, false, 7));
-
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker0,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 0));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker1,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 1));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker2,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 2));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker3,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 3));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker4,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 4));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker5,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 5));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker6,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 6));
-  EXPECT_EQ(kHeapHistoricNestedBlockStartMarker7,
-            ShadowMarkerHelper::BuildBlockStart(false, true, 7));
+            ShadowMarkerHelper::BuildBlockStart(false, 7));
 
   EXPECT_EQ(kHeapBlockStartMarker0,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 0));
+            ShadowMarkerHelper::BuildBlockStart(true, 0));
   EXPECT_EQ(kHeapBlockStartMarker1,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 1));
+            ShadowMarkerHelper::BuildBlockStart(true, 1));
   EXPECT_EQ(kHeapBlockStartMarker2,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 2));
+            ShadowMarkerHelper::BuildBlockStart(true, 2));
   EXPECT_EQ(kHeapBlockStartMarker3,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 3));
+            ShadowMarkerHelper::BuildBlockStart(true, 3));
   EXPECT_EQ(kHeapBlockStartMarker4,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 4));
+            ShadowMarkerHelper::BuildBlockStart(true, 4));
   EXPECT_EQ(kHeapBlockStartMarker5,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 5));
+            ShadowMarkerHelper::BuildBlockStart(true, 5));
   EXPECT_EQ(kHeapBlockStartMarker6,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 6));
+            ShadowMarkerHelper::BuildBlockStart(true, 6));
   EXPECT_EQ(kHeapBlockStartMarker7,
-            ShadowMarkerHelper::BuildBlockStart(true, false, 7));
-
-  EXPECT_EQ(kHeapNestedBlockStartMarker0,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 0));
-  EXPECT_EQ(kHeapNestedBlockStartMarker1,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 1));
-  EXPECT_EQ(kHeapNestedBlockStartMarker2,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 2));
-  EXPECT_EQ(kHeapNestedBlockStartMarker3,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 3));
-  EXPECT_EQ(kHeapNestedBlockStartMarker4,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 4));
-  EXPECT_EQ(kHeapNestedBlockStartMarker5,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 5));
-  EXPECT_EQ(kHeapNestedBlockStartMarker6,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 6));
-  EXPECT_EQ(kHeapNestedBlockStartMarker7,
-            ShadowMarkerHelper::BuildBlockStart(true, true, 7));
+            ShadowMarkerHelper::BuildBlockStart(true, 7));
 }
 
 TEST(ShadowMarkerHelper, BuildBlockEnd) {
   EXPECT_EQ(kHeapHistoricBlockEndMarker,
-            ShadowMarkerHelper::BuildBlockEnd(false, false));
-  EXPECT_EQ(kHeapHistoricNestedBlockEndMarker,
-            ShadowMarkerHelper::BuildBlockEnd(false, true));
-  EXPECT_EQ(kHeapBlockEndMarker,
-            ShadowMarkerHelper::BuildBlockEnd(true, false));
-  EXPECT_EQ(kHeapNestedBlockEndMarker,
-            ShadowMarkerHelper::BuildBlockEnd(true, true));
+            ShadowMarkerHelper::BuildBlockEnd(false));
+  EXPECT_EQ(kHeapBlockEndMarker, ShadowMarkerHelper::BuildBlockEnd(true));
 }
 
 }  // namespace asan

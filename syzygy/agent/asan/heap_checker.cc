@@ -56,8 +56,7 @@ void HeapChecker::GetCorruptRangesInSlab(const uint8_t* lower_bound,
   DCHECK_NE(static_cast<CorruptRangesVector*>(nullptr), corrupt_ranges);
 
   // An overflowed |upper_bound| is handled correctly by the ShadowWalker.
-  ShadowWalker shadow_walker(
-      shadow_, false, lower_bound, upper_bound);
+  ShadowWalker shadow_walker(shadow_, lower_bound, upper_bound);
 
   AsanCorruptBlockRange* current_corrupt_range = nullptr;
 

@@ -96,7 +96,7 @@ TEST(ZebraBlockHeapTest, AllocateEmptyBlock) {
   void* alloc = h.AllocateBlock(0, 0, 0, &layout);
   EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
   EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
-  BlockInitialize(layout, alloc, false, &block);
+  BlockInitialize(layout, alloc, &block);
   EXPECT_TRUE(h.FreeBlock(block));
 }
 
@@ -111,7 +111,7 @@ TEST(ZebraBlockHeapTest, EndToEnd) {
     void* alloc = h.AllocateBlock(i, 0, 0, &layout);
     EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
-    BlockInitialize(layout, alloc, false, &block);
+    BlockInitialize(layout, alloc, &block);
     blocks.push_back(block);
   }
 
@@ -135,7 +135,7 @@ TEST(ZebraBlockHeapTest, BlocksHaveCorrectAlignment) {
         EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
         EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
 
-        BlockInitialize(layout, alloc, false, &block);
+        BlockInitialize(layout, alloc, &block);
 
         // The header (== block), body and the end of the trailer must be
         // kShadowRatio aligned.
@@ -194,7 +194,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockSizeLimits) {
         h.AllocateBlock(i, sizeof(BlockHeader), sizeof(BlockTrailer), &layout));
 
     EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
-    BlockInitialize(layout, alloc, false, &block);
+    BlockInitialize(layout, alloc, &block);
     EXPECT_TRUE(h.FreeBlock(block));
   }
 
@@ -225,8 +225,8 @@ TEST(ZebraBlockHeapTest, AllocateTwoEmptyBlocks) {
   // Empty blocks cannot have the same address.
   EXPECT_NE(mem1, mem2);
 
-  BlockInitialize(layout1, mem1, false, &block1);
-  BlockInitialize(layout2, mem2, false, &block2);
+  BlockInitialize(layout1, mem1, &block1);
+  BlockInitialize(layout2, mem2, &block2);
 
   EXPECT_TRUE(h.FreeBlock(block1));
   EXPECT_TRUE(h.FreeBlock(block2));
@@ -365,7 +365,7 @@ TEST(ZebraBlockHeapTest, AllocateBlockCornerCases) {
 
           EXPECT_EQ(GetPageSize(),
                     ::common::AlignUp(body_end_offset, kShadowRatio));
-          BlockInitialize(layout, alloc, false, &block);
+          BlockInitialize(layout, alloc, &block);
           EXPECT_TRUE(h.FreeBlock(block));
         } else {
           size_t body_end_offset = layout.header_size +
@@ -419,7 +419,7 @@ TEST(ZebraBlockHeapTest, PushPopInvariant) {
     void* alloc = h.AllocateBlock(0xFF, 0, 0, &layout);
     EXPECT_NE(reinterpret_cast<void*>(NULL), alloc);
     EXPECT_TRUE(IsAligned(alloc, kShadowRatio));
-    BlockInitialize(layout, alloc, false, &block);
+    BlockInitialize(layout, alloc, &block);
     blocks.push_back(block);
     CompactBlockInfo compact = {};
     ConvertBlockInfo(block, &compact);

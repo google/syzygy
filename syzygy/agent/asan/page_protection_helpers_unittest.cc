@@ -176,7 +176,7 @@ class PageProtectionHelpersTest : public testing::OnExceptionCallbackTest {
         ::VirtualAlloc(NULL, layout.block_size, MEM_COMMIT, PAGE_READWRITE);
     ASSERT_TRUE(alloc != NULL);
     BlockInfo block_info = {};
-    BlockInitialize(layout, alloc, false, &block_info);
+    BlockInitialize(layout, alloc, &block_info);
 
     // By default the protections should be disabled for a fresh allocation.
     EXPECT_NO_FATAL_FAILURE(
@@ -217,7 +217,7 @@ TEST_F(PageProtectionHelpersTest, GetBlockInfo) {
 
   // Initialize the block in both memory and the shadow memory.
   BlockInfo info = {};
-  BlockInitialize(layout, alloc, false, &info);
+  BlockInitialize(layout, alloc, &info);
   shadow_.PoisonAllocatedBlock(info);
 
   // Try recovering in the usual case.
@@ -279,7 +279,7 @@ TEST_F(PageProtectionHelpersTest, BlockProtectAuto) {
   ASSERT_TRUE(alloc != NULL);
 
   BlockInfo block_info = {};
-  BlockInitialize(layout, alloc, false, &block_info);
+  BlockInitialize(layout, alloc, &block_info);
   TestAccessUnderProtection(block_info, kProtectNone);
 
   block_info.header->state = ALLOCATED_BLOCK;

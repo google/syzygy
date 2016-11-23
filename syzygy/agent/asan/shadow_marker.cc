@@ -23,9 +23,7 @@ namespace {
 
 // Some constants related to the structure of shadow marker values.
 static const uint8_t kActiveBit = 0x20;
-static const uint8_t kBlockEndNestedBit = 0x01;
 static const uint8_t kBlockStartDataMask = 0x7;
-static const uint8_t kBlockStartNestedBit = 0x08;
 static const uint8_t kFirstNibble = 0xF0;
 static const uint8_t kRedzoneBit = 0x80;
 
@@ -108,38 +106,22 @@ bool ShadowMarkerHelper::IsBlockStart(ShadowMarkerValue marker) {
   return (marker.value & kMask) == kHeapHistoricBlockStartMarker0;
 }
 
-bool ShadowMarkerHelper::IsNestedBlockStart(ShadowMarkerValue marker) {
-  if (!IsBlockStart(marker))
-    return false;
-  return (marker.value & kBlockStartNestedBit) == kBlockStartNestedBit;
-}
-
 uint8_t ShadowMarkerHelper::GetBlockStartData(ShadowMarkerValue marker) {
   return marker.value & kBlockStartDataMask;
 }
 
 bool ShadowMarkerHelper::IsActiveBlockEnd(ShadowMarkerValue marker) {
-  return (marker.value & ~kBlockEndNestedBit) ==
-      kHeapBlockEndMarker;
+  return marker.value == kHeapBlockEndMarker;
 }
 
 bool ShadowMarkerHelper::IsHistoricBlockEnd(ShadowMarkerValue marker) {
-  return (marker.value & ~kBlockEndNestedBit) ==
-      kHeapHistoricBlockEndMarker;
+  return marker.value == kHeapHistoricBlockEndMarker;
 }
 
 bool ShadowMarkerHelper::IsBlockEnd(ShadowMarkerValue marker) {
-  // Block end markers have arbitrary values for the active bit
-  // and the block end nested bit.
-  static const uint8_t kMask =
-      static_cast<uint8_t>(~(kActiveBit | kBlockEndNestedBit));
+  // Block end markers have an arbitrary value for the active bit.
+  static const uint8_t kMask = static_cast<uint8_t>(~kActiveBit);
   return (marker.value & kMask) == kHeapHistoricBlockEndMarker;
-}
-
-bool ShadowMarkerHelper::IsNestedBlockEnd(ShadowMarkerValue marker) {
-  if (!IsBlockEnd(marker))
-    return false;
-  return (marker.value & kBlockEndNestedBit) == kBlockEndNestedBit;
 }
 
 bool ShadowMarkerHelper::IsHistoricLeftRedzone(ShadowMarkerValue marker) {
@@ -178,24 +160,19 @@ ShadowMarker ShadowMarkerHelper::ToHistoric(ShadowMarkerValue marker) {
 }
 
 ShadowMarker ShadowMarkerHelper::BuildBlockStart(bool active,
-                                                 bool nested,
                                                  uint8_t data) {
   DCHECK_EQ(0, data & ~kBlockStartDataMask);
   uint8_t marker = kHeapHistoricBlockStartMarker0;
   if (active)
     marker |= kActiveBit;
-  if (nested)
-    marker |= kBlockStartNestedBit;
   marker |= data;
   return static_cast<ShadowMarker>(marker);
 }
 
-ShadowMarker ShadowMarkerHelper::BuildBlockEnd(bool active, bool nested) {
+ShadowMarker ShadowMarkerHelper::BuildBlockEnd(bool active) {
   uint8_t marker = kHeapHistoricBlockEndMarker;
   if (active)
     marker |= kActiveBit;
-  if (nested)
-    marker |= kBlockEndNestedBit;
   return static_cast<ShadowMarker>(marker);
 }
 

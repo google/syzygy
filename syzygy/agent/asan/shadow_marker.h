@@ -78,20 +78,10 @@ namespace asan {
     F(kHeapHistoricBlockStartMarker5, 0xC5)  \
     F(kHeapHistoricBlockStartMarker6, 0xC6)  \
     F(kHeapHistoricBlockStartMarker7, 0xC7)  \
-    /* Nested block start bytes have the bit 0x80 set. */  \
-    F(kHeapHistoricNestedBlockStartMarker0, 0xC8)  \
-    F(kHeapHistoricNestedBlockStartMarker1, 0xC9)  \
-    F(kHeapHistoricNestedBlockStartMarker2, 0xCA)  \
-    F(kHeapHistoricNestedBlockStartMarker3, 0xCB)  \
-    F(kHeapHistoricNestedBlockStartMarker4, 0xCC)  \
-    F(kHeapHistoricNestedBlockStartMarker5, 0xCD)  \
-    F(kHeapHistoricNestedBlockStartMarker6, 0xCE)  \
-    F(kHeapHistoricNestedBlockStartMarker7, 0xCF)  \
     /* These are 'historic' markers associated with block left/right */  \
     /* redzones and freed data. They consist of the same values as the */  \
     /* active markers, minus the active block bit. */  \
     F(kHeapHistoricBlockEndMarker, 0xD4)  \
-    F(kHeapHistoricNestedBlockEndMarker, 0xD5)  \
     F(kHeapHistoricLeftPaddingMarker, 0xDA)  \
     F(kHeapHistoricRightPaddingMarker, 0xDB)  \
     F(kHeapHistoricFreedMarker, 0xDD)  \
@@ -108,15 +98,6 @@ namespace asan {
     F(kHeapBlockStartMarker5, 0xE5)  \
     F(kHeapBlockStartMarker6, 0xE6)  \
     F(kHeapBlockStartMarker7, 0xE7)  \
-    /* Nested block start bytes have the bit 0x80 set. */  \
-    F(kHeapNestedBlockStartMarker0, 0xE8)  \
-    F(kHeapNestedBlockStartMarker1, 0xE9)  \
-    F(kHeapNestedBlockStartMarker2, 0xEA)  \
-    F(kHeapNestedBlockStartMarker3, 0xEB)  \
-    F(kHeapNestedBlockStartMarker4, 0xEC)  \
-    F(kHeapNestedBlockStartMarker5, 0xED)  \
-    F(kHeapNestedBlockStartMarker6, 0xEE)  \
-    F(kHeapNestedBlockStartMarker7, 0xEF)  \
     /* The data in this block maps to internal memory structures. */  \
     F(kAsanMemoryMarker, 0xF1)  \
     /* The address covered by this byte are simply invalid and unable to */  \
@@ -128,7 +109,6 @@ namespace asan {
     /* This marker marks the end of a block in memory, and is part of a */  \
     /* right redzone. */  \
     F(kHeapBlockEndMarker, 0xF4)  \
-    F(kHeapNestedBlockEndMarker, 0xF5)  \
     /* The bytes are part of a left redzone (block header padding). */  \
     /* This is the same value as used by Asan itself. */  \
     F(kHeapLeftPaddingMarker, 0xFA)  \
@@ -210,11 +190,6 @@ struct ShadowMarkerHelper {
   static bool IsBlockStart(ShadowMarkerValue marker);
 
   // @param marker The shadow marker to query.
-  // @returns true if the markers describes a nested block start marker,
-  //     historic or active.
-  static bool IsNestedBlockStart(ShadowMarkerValue marker);
-
-  // @param marker The shadow marker to query.
   // @returns the extra data encoded in a block start marker.
   // @note This should only be called for block start markers.
   static uint8_t GetBlockStartData(ShadowMarkerValue marker);
@@ -231,11 +206,6 @@ struct ShadowMarkerHelper {
   // @returns true if the marker describes a block header marker, historic or
   //     active.
   static bool IsBlockEnd(ShadowMarkerValue marker);
-
-  // @param marker The shadow marker to query.
-  // @returns true if the markers describes a nested block end marker,
-  //     historic or active.
-  static bool IsNestedBlockEnd(ShadowMarkerValue marker);
 
   // @param marker The shadow marker to query.
   // @returns true if the marker describes a historic left redzone.
@@ -285,17 +255,15 @@ struct ShadowMarkerHelper {
 
   // Builds a block start marker.
   // @param active True if the block is active, false if its historic.
-  // @param nested True if the block is nested, false otherwise.
   // @param data The data to be appended to the marker. This can only consist
   //     of 3 bits of data.
   // @returns the generated block start marker.
-   static ShadowMarker BuildBlockStart(bool active, bool nested, uint8_t data);
+  static ShadowMarker BuildBlockStart(bool active, uint8_t data);
 
   // Builds a block end marker.
   // @param active True if the block is active, false if its historic.
-  // @param nested True if the block is nested, false otherwise.
   // @returns the generated block end marker.
-  static ShadowMarker BuildBlockEnd(bool active, bool nested);
+  static ShadowMarker BuildBlockEnd(bool active);
 
   // @}
 };

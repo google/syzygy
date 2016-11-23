@@ -112,7 +112,7 @@ static const uint8_t kBlockFloodFillByte = 0xFD;
 
 // The number of bits in the checksum field. This is parameterized so that
 // it can be referred to by the checksumming code.
-static const size_t kBlockHeaderChecksumBits = 13;
+static const size_t kBlockHeaderChecksumBits = 14;
 
 // The state of an Asan block. These are in the order that reflects the typical
 // lifespan of an allocation.
@@ -146,8 +146,8 @@ struct BlockHeader {
     // The checksum of the entire block. The semantics of this vary with the
     // block state.
     unsigned checksum : kBlockHeaderChecksumBits;
-    // If this bit is set then the block is a nested block.
-    unsigned is_nested : 1;
+    // This is implicitly a BlockState value.
+    unsigned state : 2;
     // If this bit is positive then header padding is present. The size of the
     // header padding is encoded in the padding itself.
     unsigned has_header_padding : 1;
@@ -156,8 +156,6 @@ struct BlockHeader {
     // will be encoded in these bytes. Otherwise it is implicit as
     // (kShadowRatio / 2) - (body_size % (kShadowRatio / 2)).
     unsigned has_excess_trailer_padding : 1;
-    // This is implicitly a BlockState value.
-    unsigned state : 2;
     // The size of the body of the allocation, in bytes.
     unsigned body_size : 30;
   };
@@ -287,9 +285,6 @@ struct BlockInfo {
   uint8_t* right_redzone_pages;
   uint32_t right_redzone_pages_size;
 
-  // Indicates if the block is nested.
-  bool is_nested;
-
   // Convenience accessors to various parts of the block. All access should be
   // gated through these as they provide strong bounds checking in debug
   // builds.
@@ -375,13 +370,11 @@ bool BlockPlanLayout(uint32_t chunk_size,
 // @param allocation The allocation to be filled in. This must be of
 //     |layout.block_size| in size, and be aligned with
 //     |layout.block_alignment|.
-// @param is_nested Indicates if the block is nested.
 // @param block_info Will be filled in with pointers to the various portions
 //     of the block. May be NULL.
 // @note The pages containing the block must be writable and readable.
 void BlockInitialize(const BlockLayout& layout,
                      void* allocation,
-                     bool is_nested,
                      BlockInfo* block_info);
 
 // Converts between the two BlockInfo formats. This will work as long as the

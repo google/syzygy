@@ -33,9 +33,6 @@
 // - The right redzone implies the length of the body of the allocation and
 //   the trailer padding modulo kShadowRatio. The remaining bits are encoded
 //   directly in the block start marker.
-// - Nested blocks and regular blocks use differing block start/end markers.
-//   This allows navigation through allocation hierarchies to terminate
-//   without necessitating a scan through the entire shadow memory.
 //
 // A typical block will look something like the following in shadow memory:
 //
@@ -48,9 +45,6 @@
 //   |     +- - - - - - - - - - - - - - - - - - - - - Left redzone.
 //   +----------------------------------------------- Block start.
 //
-// - Both the end marker and the start marker indicate the block
-//   is not nested. Together they indicate the total length of the
-//   block is 128 bytes.
 // - The start marker indicates that the body length is 7 % 8.
 // - The header padding indicates that the 16 byte header is followed
 //   by a further 16 bytes of padding.
@@ -140,10 +134,7 @@ class Shadow {
   // @param size The size of the memory to unpoison.
   void Unpoison(const void* addr, size_t size);
 
-  // Mark @p size bytes starting at @p addr as freed. This will preserve
-  // nested block headers/trailers/redzones, but mark all contents as freed.
-  // It is expected that the states of all nested blocks have already been
-  // marked as freed prior to possibly freeing the parent block.
+  // Mark @p size bytes starting at @p addr as freed.
   // @param addr The starting address.
   // @param size The size of the memory to mark as freed.
   void MarkAsFreed(const void* addr, size_t size);
@@ -228,8 +219,6 @@ class Shadow {
   //     the underlying allocation size.
   // @returns The underlying allocation size or 0 if it can't find a valid block
   //     at this address.
-  // @note This function doesn't work for nested blocks.
-  // TODO(sebmarchand): Add support for nested blocks.
   size_t GetAllocSize(const uint8_t* mem) const;
 
   // Poisons memory for an freshly allocated block.
@@ -237,25 +226,14 @@ class Shadow {
   // @note The block must be readable.
   void PoisonAllocatedBlock(const BlockInfo& info);
 
-  // Determines if the block is nested simply by inspecting shadow memory.
-  bool BlockIsNested(const BlockInfo& info) const;
-
   // Inspects shadow memory to determine the layout of a block in memory.
   // Does not rely on any block content itself, strictly reading from the
-  // shadow memory. In the case of nested blocks this will always return
-  // the innermost containing block.
+  // shadow memory.
   // @param addr An address in the block to be inspected.
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
   bool BlockInfoFromShadow(const void* addr, CompactBlockInfo* info) const;
   bool BlockInfoFromShadow(const void* addr, BlockInfo* info) const;
-
-  // Inspects shadow memory to find the block containing a nested block.
-  // @param nested Information about the nested block.
-  // @param info The block information to be populated.
-  // @returns true on success, false otherwise.
-  bool ParentBlockInfoFromShadow(
-      const BlockInfo& nested, BlockInfo* info) const;
 
   // Checks if the address @p addr corresponds to the beginning of a block's
   // body, i.e. if it's preceded by a left redzone.
@@ -352,35 +330,23 @@ class Shadow {
 
   // Scans to the left of the provided cursor, looking for the presence of a
   // block start marker that brackets the cursor.
-  // @param initial_nesting_depth If zero then this will return the inner
-  //     most block containing the cursor. If 1 then this will find the start of
-  //     the block containing that block, and so on.
   // @param cursor The position in shadow memory from which to start the scan.
   // @param location Will be set to the location of the start marker, if found.
   // @returns true on success, false otherwise.
-  bool ScanLeftForBracketingBlockStart(
-      size_t initial_nesting_depth, size_t cursor, size_t* location) const;
+  bool ScanLeftForBracketingBlockStart(size_t cursor, size_t* location) const;
 
   // Scans to the right of the provided cursor, looking for the presence of a
   // block end marker that brackets the cursor.
-  // @param initial_nesting_depth If zero then this will return the inner
-  //     most block containing the cursor. If 1 then this will find the end of
-  //     the block containing that block, and so on.
   // @param cursor The position in shadow memory from which to start the scan.
   // @param location Will be set to the location of the end marker, if found.
   // @returns true on success, false otherwise.
-  bool ScanRightForBracketingBlockEnd(
-      size_t initial_nesting_depth, size_t cursor, size_t* location) const;
+  bool ScanRightForBracketingBlockEnd(size_t cursor, size_t* location) const;
 
   // Inspects shadow memory to determine the layout of a block in memory.
-  // @param initial_nesting_depth If zero then this will return the inner
-  //     most block containing the cursor. If 1 then this will find the end of
-  //     the block containing that block, and so on.
   // @param addr An address in the block to be inspected.
   // @param info The block information to be populated.
   // @returns true on success, false otherwise.
   bool BlockInfoFromShadowImpl(
-      size_t initial_nesting_depth,
       const void* addr,
       CompactBlockInfo* info) const;
 
@@ -419,16 +385,12 @@ class ShadowWalker {
  public:
   // Constructor.
   // @param shadow The shadow memory object to walk.
-  // @param recursive If true then this will recursively descend into nested
-  //     blocks. Otherwise it will only return the outermost blocks in the
-  //     provided region.
   // @param lower_bound The lower bound of the region that this walker should
   //     cover in the actual memory.
   // @param upper_bound The upper bound of the region that this walker should
   //     cover in the actual memory. This can overflow to 0 to indicate walking
   //     all of memory.
   ShadowWalker(const Shadow* shadow,
-               bool recursive,
                const void* lower_bound,
                const void* upper_bound);
 
@@ -440,17 +402,9 @@ class ShadowWalker {
   // Reset the walker to its initial state.
   void Reset();
 
-  // @returns the nesting depth of the last returned block. If no blocks have
-  //     been walked then this returns -1.
-  int nesting_depth() const { return nesting_depth_; }
-
  private:
   // The shadow memory being walked.
   const Shadow* shadow_;
-
-  // Indicates whether or not the walker will descend recursively into nested
-  // blocks.
-  bool recursive_;
 
   // The bounds of the memory region for this walker, expressed as pointers in
   // the shadow memory. This allows walking to occur without worrying about
@@ -460,9 +414,6 @@ class ShadowWalker {
 
   // The shadow cursor.
   const uint8_t* shadow_cursor_;
-
-  // The current nesting depth. Starts at -1.
-  int nesting_depth_;
 
   DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
 };

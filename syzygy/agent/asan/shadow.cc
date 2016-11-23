@@ -658,12 +658,11 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
   // body of the allocation modulo the shadow ratio, so that the exact length
   // can be inferred from inspecting the shadow memory.
   uint8_t body_size_mod = info.body_size % kShadowRatio;
-  ShadowMarker header_marker = ShadowMarkerHelper::BuildBlockStart(
-      true, info.header->is_nested, body_size_mod);
+  ShadowMarker header_marker =
+      ShadowMarkerHelper::BuildBlockStart(true, body_size_mod);
 
   // Determine the marker byte for the trailer.
-  ShadowMarker trailer_marker =
-      ShadowMarkerHelper::BuildBlockEnd(true, info.header->is_nested);
+  ShadowMarker trailer_marker = ShadowMarkerHelper::BuildBlockEnd(true);
 
   // Poison the header and left padding.
   uint8_t* cursor = shadow_ + index;
@@ -688,17 +687,11 @@ void Shadow::PoisonAllocatedBlock(const BlockInfo& info) {
                   kHeapRightPaddingMarker);
 }
 
-bool Shadow::BlockIsNested(const BlockInfo& info) const {
-  uint8_t marker = GetShadowMarkerForAddress(info.header);
-  DCHECK(ShadowMarkerHelper::IsActiveBlockStart(marker));
-  return ShadowMarkerHelper::IsNestedBlockStart(marker);
-}
-
 bool Shadow::BlockInfoFromShadow(
     const void* addr, CompactBlockInfo* info) const {
   DCHECK_NE(static_cast<void*>(NULL), addr);
   DCHECK_NE(static_cast<CompactBlockInfo*>(NULL), info);
-  if (!BlockInfoFromShadowImpl(0, addr, info))
+  if (!BlockInfoFromShadowImpl(addr, info))
     return false;
   return true;
 }
@@ -708,18 +701,6 @@ bool Shadow::BlockInfoFromShadow(const void* addr, BlockInfo* info) const {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
   CompactBlockInfo compact = {};
   if (!BlockInfoFromShadow(addr, &compact))
-    return false;
-  ConvertBlockInfo(compact, info);
-  return true;
-}
-
-bool Shadow::ParentBlockInfoFromShadow(const BlockInfo& nested,
-                                       BlockInfo* info) const {
-  DCHECK_NE(static_cast<BlockInfo*>(NULL), info);
-  if (!BlockIsNested(nested))
-    return false;
-  CompactBlockInfo compact = {};
-  if (!BlockInfoFromShadowImpl(1, nested.header, &compact))
     return false;
   ConvertBlockInfo(compact, info);
   return true;
@@ -847,9 +828,6 @@ void Shadow::AppendShadowMemoryText(
   base::StringAppendF(output, "  Partially addressable: 01 - 07\n");
   base::StringAppendF(output, "  Block start redzone:   %02x - %02x\n",
                       kHeapBlockStartMarker0, kHeapBlockStartMarker7);
-  base::StringAppendF(output, "  Nested block start:    %02x - %02x\n",
-                      kHeapNestedBlockStartMarker0,
-                      kHeapNestedBlockStartMarker7);
   base::StringAppendF(output, "  Asan memory byte:      %02x\n",
                       kAsanMemoryMarker);
   base::StringAppendF(output, "  Invalid address:       %02x\n",
@@ -858,8 +836,6 @@ void Shadow::AppendShadowMemoryText(
                       kUserRedzoneMarker);
   base::StringAppendF(output, "  Block end redzone:     %02x\n",
                       kHeapBlockEndMarker);
-  base::StringAppendF(output, "  Nested block end:      %02x\n",
-                      kHeapNestedBlockEndMarker);
   base::StringAppendF(output, "  Heap left redzone:     %02x\n",
                       kHeapLeftPaddingMarker);
   base::StringAppendF(output, "  Heap right redzone:    %02x\n",
@@ -877,14 +853,13 @@ size_t Shadow::GetAllocSize(const uint8_t* mem) const {
   return block_info.block_size;
 }
 
-bool Shadow::ScanLeftForBracketingBlockStart(
-    size_t initial_nesting_depth, size_t cursor, size_t* location) const {
+bool Shadow::ScanLeftForBracketingBlockStart(size_t cursor,
+                                             size_t* location) const {
   DCHECK_NE(static_cast<size_t*>(NULL), location);
 
   static const size_t kLowerBound = kAddressLowerBound / kShadowRatio;
 
   size_t left = cursor;
-  int nesting_depth = static_cast<int>(initial_nesting_depth);
 
   MEMORY_BASIC_INFORMATION memory_info = {};
   SIZE_T ret =
@@ -893,8 +868,6 @@ bool Shadow::ScanLeftForBracketingBlockStart(
   if (memory_info.State != MEM_COMMIT)
     return false;
 
-  if (ShadowMarkerHelper::IsBlockEnd(shadow_[left]))
-    --nesting_depth;
   while (true) {
     if (&shadow_[left] < static_cast<const uint8_t*>(memory_info.BaseAddress)) {
       ret = ::VirtualQuery(&shadow_[left], &memory_info, sizeof(memory_info));
@@ -903,24 +876,8 @@ bool Shadow::ScanLeftForBracketingBlockStart(
         return false;
     }
     if (ShadowMarkerHelper::IsBlockStart(shadow_[left])) {
-      if (nesting_depth == 0) {
-        *location = left;
-        return true;
-      }
-      // If this is not a nested block then there's no hope of finding a
-      // block containing the original cursor.
-      if (!ShadowMarkerHelper::IsNestedBlockStart(shadow_[left]))
-        return false;
-      --nesting_depth;
-    } else if (ShadowMarkerHelper::IsBlockEnd(shadow_[left])) {
-      ++nesting_depth;
-
-      // If we encounter the end of a non-nested block there's no way for
-      // a block to bracket us.
-      if (nesting_depth > 0 &&
-          !ShadowMarkerHelper::IsNestedBlockEnd(shadow_[left])) {
-        return false;
-      }
+      *location = left;
+      return true;
     }
     if (left <= kLowerBound)
       return false;
@@ -1011,15 +968,12 @@ inline const uint8_t* ScanRightForPotentialHeaderBytes(const uint8_t* pos,
 
 }  // namespace
 
-bool Shadow::ScanRightForBracketingBlockEnd(
-    size_t initial_nesting_depth, size_t cursor, size_t* location) const {
+bool Shadow::ScanRightForBracketingBlockEnd(size_t cursor,
+                                            size_t* location) const {
   DCHECK_NE(static_cast<size_t*>(NULL), location);
 
   const uint8_t* shadow_end = shadow_ + length_;
   const uint8_t* pos = shadow_ + cursor;
-  int nesting_depth = static_cast<int>(initial_nesting_depth);
-  if (ShadowMarkerHelper::IsBlockStart(*pos))
-    --nesting_depth;
   while (pos < shadow_end) {
     // Skips past as many addressable and freed bytes as possible.
     pos = ScanRightForPotentialHeaderBytes(pos, shadow_end);
@@ -1031,22 +985,8 @@ bool Shadow::ScanRightForBracketingBlockEnd(
     // see what's up.
 
     if (ShadowMarkerHelper::IsBlockEnd(*pos)) {
-      if (nesting_depth == 0) {
-        *location = pos - shadow_;
-        return true;
-      }
-      if (!ShadowMarkerHelper::IsNestedBlockEnd(*pos))
-        return false;
-      --nesting_depth;
-    } else if (ShadowMarkerHelper::IsBlockStart(*pos)) {
-      ++nesting_depth;
-
-      // If we encounter the beginning of a non-nested block then there's
-      // clearly no way for any block to bracket us.
-      if (nesting_depth > 0 &&
-          !ShadowMarkerHelper::IsNestedBlockStart(*pos)) {
-        return false;
-      }
+      *location = pos - shadow_;
+      return true;
     }
     ++pos;
   }
@@ -1054,7 +994,6 @@ bool Shadow::ScanRightForBracketingBlockEnd(
 }
 
 bool Shadow::BlockInfoFromShadowImpl(
-    size_t initial_nesting_depth,
     const void* addr,
     CompactBlockInfo* info) const {
   DCHECK_NE(static_cast<void*>(NULL), addr);
@@ -1064,9 +1003,9 @@ bool Shadow::BlockInfoFromShadowImpl(
   size_t left = reinterpret_cast<uintptr_t>(addr) / kShadowRatio;
   size_t right = left;
 
-  if (!ScanLeftForBracketingBlockStart(initial_nesting_depth, left, &left))
+  if (!ScanLeftForBracketingBlockStart(left, &left))
     return false;
-  if (!ScanRightForBracketingBlockEnd(initial_nesting_depth, right, &right))
+  if (!ScanRightForBracketingBlockEnd(right, &right))
     return false;
   ++right;
 
@@ -1076,7 +1015,6 @@ bool Shadow::BlockInfoFromShadowImpl(
 
   // Get the length of the body modulo the shadow ratio.
   size_t body_size_mod = ShadowMarkerHelper::GetBlockStartData(shadow_[left]);
-  info->is_nested = ShadowMarkerHelper::IsNestedBlockStart(shadow_[left]);
 
   // Find the beginning of the body (end of the left redzone).
   ++left;
@@ -1104,11 +1042,12 @@ bool Shadow::BlockInfoFromShadowImpl(
 }
 
 ShadowWalker::ShadowWalker(const Shadow* shadow,
-                           bool recursive,
                            const void* lower_bound,
                            const void* upper_bound)
-    : shadow_(shadow), recursive_(recursive), lower_index_(0), upper_index_(0),
-      shadow_cursor_(nullptr), nesting_depth_(0) {
+    : shadow_(shadow),
+      lower_index_(0),
+      upper_index_(0),
+      shadow_cursor_(nullptr) {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_LE(Shadow::kAddressLowerBound, reinterpret_cast<size_t>(lower_bound));
 
@@ -1128,7 +1067,6 @@ ShadowWalker::ShadowWalker(const Shadow* shadow,
 }
 
 void ShadowWalker::Reset() {
-  nesting_depth_ = -1;
   shadow_cursor_ = shadow_->shadow() + lower_index_;
 }
 
@@ -1175,47 +1113,26 @@ bool ShadowWalker::Next(BlockInfo* info) {
 
       // Update the nesting depth when block end markers are encountered.
       if (ShadowMarkerHelper::IsBlockEnd(marker)) {
-        DCHECK_LE(0, nesting_depth_);
-        --nesting_depth_;
         ++shadow_cursor_;
         continue;
       }
 
       // Look for a block start marker.
       if (ShadowMarkerHelper::IsBlockStart(marker)) {
-        // Update the nesting depth when block start bytes are encountered.
-        ++nesting_depth_;
+        // This can only fail if the shadow memory is malformed.
+        size_t block_index = shadow_cursor_ - shadow_->shadow();
+        void* block_address =
+            reinterpret_cast<void*>(block_index << kShadowRatioLog);
+        CHECK(shadow_->BlockInfoFromShadow(block_address, info));
 
-        // Non-nested blocks should only be encountered at depth 0.
-        bool is_nested = ShadowMarkerHelper::IsNestedBlockStart(marker);
-        DCHECK(is_nested || nesting_depth_ == 0);
+        // We skip directly to the end marker.
+        auto block_end =
+            reinterpret_cast<const uint8_t*>(info->header) + info->block_size;
+        shadow_cursor_ = shadow_->GetShadowMemoryForAddress(block_end) - 1;
 
-        // Determine if the block is to be reported.
-        if (!is_nested || recursive_) {
-          // This can only fail if the shadow memory is malformed.
-          size_t block_index = shadow_cursor_ - shadow_->shadow();
-          void* block_address = reinterpret_cast<void*>(
-              block_index << kShadowRatioLog);
-          CHECK(shadow_->BlockInfoFromShadow(block_address, info));
-
-          // In a recursive descent we have to process body contents.
-          if (recursive_) {
-            // Jump straight to the body of the nested block.
-            shadow_cursor_ = shadow_->GetShadowMemoryForAddress(
-                info->body);
-          } else {
-            // Otherwise we can skip the body of the block we just reported.
-            // We skip directly to the end marker (but not past it so that depth
-            // bookkeeping works properly).
-            auto block_end = reinterpret_cast<const uint8_t*>(info->header) +
-                info->block_size;
-            shadow_cursor_ = shadow_->GetShadowMemoryForAddress(block_end) - 1;
-          }
-
-          // A block has been found and its |info| is parsed. Return to the
-          // caller.
-          return true;
-        }
+        // A block has been found and its |info| is parsed. Return to the
+        // caller.
+        return true;
       }
 
       // Advance the shadow cursor.

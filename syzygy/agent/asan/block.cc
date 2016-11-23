@@ -50,7 +50,6 @@ void InitializeBlockHeader(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockHeader*>(NULL), block_info->header);
   ::memset(block_info->header, 0, sizeof(BlockHeader));
   block_info->header->magic = kBlockHeaderMagic;
-  block_info->header->is_nested = block_info->is_nested;
   block_info->header->has_header_padding = block_info->header_padding_size > 0;
   block_info->header->has_excess_trailer_padding =
       block_info->trailer_padding_size > sizeof(uint32_t);
@@ -187,7 +186,6 @@ bool BlockInfoFromMemoryImpl(const BlockHeader* const_header,
                            reinterpret_cast<uint8_t*>(header);
   block_info->header_size = sizeof(BlockHeader) + header_padding_size;
   block_info->trailer_size = trailer_padding_size + sizeof(BlockTrailer);
-  block_info->is_nested = header->is_nested;
 
   return true;
 }
@@ -288,7 +286,6 @@ bool BlockPlanLayout(uint32_t chunk_size,
 
 void BlockInitialize(const BlockLayout& layout,
                      void* allocation,
-                     bool is_nested,
                      BlockInfo* block_info) {
   DCHECK_NE(static_cast<void*>(NULL), allocation);
   DCHECK(IsAligned(reinterpret_cast<uintptr_t>(allocation),
@@ -306,7 +303,6 @@ void BlockInitialize(const BlockLayout& layout,
   // Get pointers to the various components of the block.
   uint8_t* cursor = reinterpret_cast<uint8_t*>(allocation);
   block_info->block_size = layout.block_size;
-  block_info->is_nested = is_nested;
   block_info->header = reinterpret_cast<BlockHeader*>(cursor);
   cursor += sizeof(BlockHeader);
   block_info->header_padding = reinterpret_cast<BlockHeaderPadding*>(cursor);
@@ -319,9 +315,6 @@ void BlockInitialize(const BlockLayout& layout,
   cursor += layout.trailer_padding_size;
   block_info->trailer_padding_size = layout.trailer_padding_size;
   block_info->trailer = reinterpret_cast<BlockTrailer*>(cursor);
-
-  // Indicates if the block is nested.
-  block_info->is_nested = is_nested;
 
   // If the block information is being returned to the user then determine
   // the extents of whole pages within it.
@@ -370,7 +363,6 @@ void ConvertBlockInfo(const CompactBlockInfo& compact, BlockInfo* expanded) {
       block + compact.header_size + expanded->body_size);
   expanded->trailer = reinterpret_cast<BlockTrailer*>(
       expanded->RawTrailerPadding() + expanded->trailer_padding_size);
-  expanded->is_nested = compact.is_nested;
   BlockIdentifyWholePages(expanded);
 }
 
@@ -382,7 +374,6 @@ void ConvertBlockInfo(const BlockInfo& expanded, CompactBlockInfo* compact) {
                                                expanded.header_padding_size);
   compact->trailer_size = static_cast<uint32_t>(sizeof(BlockTrailer) +
                                                 expanded.trailer_padding_size);
-  compact->is_nested = expanded.is_nested;
 }
 
 bool BlockInfoFromMemory(const BlockHeader* header, BlockInfo* block_info) {
@@ -473,7 +464,8 @@ bool BlockBodyIsFloodFilled(const BlockInfo& block_info) {
 void BlockIdentifyWholePages(BlockInfo* block_info) {
   DCHECK_NE(static_cast<BlockInfo*>(NULL), block_info);
   static const size_t kPageInfoSize =
-      FIELD_OFFSET(BlockInfo, is_nested) -
+      FIELD_OFFSET(BlockInfo, right_redzone_pages_size) +
+      sizeof(BlockInfo::right_redzone_pages_size) -
       FIELD_OFFSET(BlockInfo, block_pages);
 
   if (block_info->block_size < GetPageSize()) {
@@ -745,8 +737,6 @@ bool BlockHeaderIsConsistent(BlockState block_state,
                              const BlockInfo& block_info) {
   const BlockHeader* h = block_info.header;
   if (h->magic != kBlockHeaderMagic)
-    return false;
-  if (static_cast<bool>(h->is_nested) != block_info.is_nested)
     return false;
 
   bool expect_header_padding = block_info.header_padding_size > 0;

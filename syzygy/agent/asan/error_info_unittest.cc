@@ -53,7 +53,7 @@ class AsanErrorInfoTest : public testing::TestWithAsanRuntime {
       BlockPlanLayout(kShadowRatio, kShadowRatio, 8, 0, 0, &layout);
       dummy_block_data_.resize(layout.block_size);
       BlockInfo info = {};
-      BlockInitialize(layout, &dummy_block_data_.at(0), false, &info);
+      BlockInitialize(layout, &dummy_block_data_.at(0), &info);
       runtime_->shadow()->PoisonAllocatedBlock(info);
 
       // Normalize a handful of fields to make the comparison simpler.
@@ -156,8 +156,8 @@ TEST_F(AsanErrorInfoTest, GetBadAccessInformationNestedBlock) {
                               0,
                               &inner_block_layout));
   BlockInfo inner_block_info = {};
-  BlockInitialize(inner_block_layout, fake_block.block_info.body, true,
-      &inner_block_info);
+  BlockInitialize(inner_block_layout, fake_block.block_info.body,
+                  &inner_block_info);
   ASSERT_NE(reinterpret_cast<void*>(NULL), inner_block_info.body);
   runtime_->shadow()->PoisonAllocatedBlock(inner_block_info);
   inner_block_info.header->alloc_stack =

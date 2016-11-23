@@ -70,7 +70,7 @@ TEST(LargeBlockHeapTest, EndToEnd) {
   // definition.
   void* alloc = h.AllocateBlock(0, 0, 0, &layout);
   EXPECT_EQ(1u, h.size());
-  BlockInitialize(layout, alloc, false, &block);
+  BlockInitialize(layout, alloc, &block);
   EXPECT_TRUE(h.FreeBlock(block));
   EXPECT_EQ(0u, h.size());
 
@@ -84,7 +84,7 @@ TEST(LargeBlockHeapTest, EndToEnd) {
     EXPECT_LE(GetPageSize(), layout.header_size + layout.header_padding_size);
     EXPECT_EQ(i, layout.body_size);
     EXPECT_LE(GetPageSize(), layout.trailer_padding_size + layout.trailer_size);
-    BlockInitialize(layout, alloc, false, &block);
+    BlockInitialize(layout, alloc, &block);
     blocks.insert(block);
   }
 
@@ -111,12 +111,12 @@ TEST(LargeBlockHeapTest, ZeroSizedAllocationsHaveDistinctAddresses) {
   BlockInfo b1 = {};
   a1 = h.AllocateBlock(0, 0, 0, &layout);
   EXPECT_TRUE(a1 != NULL);
-  BlockInitialize(layout, a1, false, &b1);
+  BlockInitialize(layout, a1, &b1);
 
   BlockInfo b2 = {};
   a2 = h.AllocateBlock(0, 0, 0, &layout);
   EXPECT_TRUE(a2 != NULL);
-  BlockInitialize(layout, a2, false, &b2);
+  BlockInitialize(layout, a2, &b2);
 
   EXPECT_NE(a1, a2);
   EXPECT_NE(b1.header, b2.header);

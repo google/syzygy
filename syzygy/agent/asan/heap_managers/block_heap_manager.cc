@@ -233,7 +233,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, uint32_t bytes) {
   DCHECK_NE(static_cast<void*>(nullptr), alloc);
   DCHECK_EQ(0u, reinterpret_cast<size_t>(alloc) % kShadowRatio);
   BlockInfo block = {};
-  BlockInitialize(block_layout, alloc, false, &block);
+  BlockInitialize(block_layout, alloc, &block);
 
   // Poison the redzones in the shadow memory as early as possible.
   shadow_->PoisonAllocatedBlock(block);

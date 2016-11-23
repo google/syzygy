@@ -86,8 +86,7 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidChecksum) {
 
   EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
-      runtime_->shadow(), false,
-      reinterpret_cast<const uint8_t*>(range_info.address),
+      runtime_->shadow(), reinterpret_cast<const uint8_t*>(range_info.address),
       reinterpret_cast<const uint8_t*>(range_info.address) + range_info.length);
   BlockInfo block_info = {};
   EXPECT_TRUE(shadow_walker.Next(&block_info));
@@ -120,8 +119,7 @@ TEST_F(HeapCheckerTest, IsHeapCorruptInvalidMagicNumber) {
 
   EXPECT_EQ(1, range_info.block_count);
   ShadowWalker shadow_walker(
-      runtime_->shadow(), false,
-      reinterpret_cast<const uint8_t*>(range_info.address),
+      runtime_->shadow(), reinterpret_cast<const uint8_t*>(range_info.address),
       reinterpret_cast<const uint8_t*>(range_info.address) + range_info.length);
   BlockInfo block_info = {};
   EXPECT_TRUE(shadow_walker.Next(&block_info));
@@ -150,7 +148,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   for (size_t i = 0; i < kNumberOfBlocks; ++i) {
     blocks[i] = global_alloc + i * block_layout.block_size;
     BlockInfo block_info = {};
-    BlockInitialize(block_layout, blocks[i], false, &block_info);
+    BlockInitialize(block_layout, blocks[i], &block_info);
     runtime_->shadow()->PoisonAllocatedBlock(block_info);
     BlockSetChecksum(block_info);
     block_headers[i] = block_info.header;
@@ -175,7 +173,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
 
   BlockInfo block_info = {};
   ShadowWalker shadow_walker_1(
-      runtime_->shadow(), false,
+      runtime_->shadow(),
       reinterpret_cast<const uint8_t*>(corrupt_ranges[0].address),
       reinterpret_cast<const uint8_t*>(corrupt_ranges[0].address) +
           corrupt_ranges[0].length);
@@ -188,7 +186,7 @@ TEST_F(HeapCheckerTest, IsHeapCorrupt) {
   EXPECT_FALSE(shadow_walker_1.Next(&block_info));
 
   ShadowWalker shadow_walker_2(
-      runtime_->shadow(), false,
+      runtime_->shadow(),
       reinterpret_cast<const uint8_t*>(corrupt_ranges[1].address),
       reinterpret_cast<const uint8_t*>(corrupt_ranges[1].address) +
           corrupt_ranges[1].length);
