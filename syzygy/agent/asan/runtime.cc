@@ -630,36 +630,19 @@ void AsanRuntime::SetErrorCallBack(const AsanOnErrorCallBack& callback) {
 }
 
 bool AsanRuntime::SetUpShadow() {
-  // If a non-trivial static shadow is provided, but it's the wrong size, then
-  // this runtime is unable to support hotpatching and its being run in the
-  // wrong memory model.
-  if (asan_memory_interceptors_shadow_memory_size > 1 &&
-      asan_memory_interceptors_shadow_memory_size != Shadow::RequiredLength()) {
-    static const char kMessage[] =
-        "Runtime can't support the current memory model. LAA?";
-    LaunchMessageBox(kMessage);
-    NOTREACHED() << kMessage;
-  }
+  // Dynamically allocate the shadow memory.
+  shadow_.reset(new Shadow());
 
-  // Use the static shadow memory if possible.
-  if (asan_memory_interceptors_shadow_memory_size == Shadow::RequiredLength()) {
-    shadow_.reset(new Shadow(asan_memory_interceptors_shadow_memory,
-                             asan_memory_interceptors_shadow_memory_size));
-  } else {
-    // Otherwise dynamically allocate the shadow memory.
-    shadow_.reset(new Shadow());
-
-    // If the allocation fails, then return false.
-    if (shadow_->shadow() == nullptr)
-      return false;
+  // If the allocation fails, then return false.
+  if (shadow_->shadow() == nullptr)
+    return false;
 
 #ifndef _WIN64
-    // Patch the memory interceptors to refer to the newly allocated shadow.
-    // If this fails simply explode because it is unsafe to continue.
-    CHECK(PatchMemoryInterceptorShadowReferences(
-        asan_memory_interceptors_shadow_memory, shadow_->shadow()));
+  // Patch the memory interceptors to refer to the newly allocated shadow.
+  // If this fails simply explode because it is unsafe to continue.
+  CHECK(PatchMemoryInterceptorShadowReferences(
+      asan_memory_interceptors_shadow_memory, shadow_->shadow()));
 #endif
-  }
 
   // Setup the shadow and configure the various interceptors to use it.
   shadow_->SetUp();

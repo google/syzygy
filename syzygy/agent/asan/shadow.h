@@ -419,9 +419,7 @@ class ShadowWalker {
 };
 
 // The static shadow memory that is referred to by the memory interceptors.
-// These are provided by one of 'dummy_shadow.cc' or 'static_shadow.cc'.
 extern "C" {
-extern const size_t asan_memory_interceptors_shadow_memory_size;
 extern uint8_t asan_memory_interceptors_shadow_memory[];
 }
 

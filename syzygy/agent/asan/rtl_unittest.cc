@@ -19,6 +19,7 @@
 #include "syzygy/agent/asan/rtl_impl.h"
 #include "syzygy/agent/asan/runtime.h"
 #include "syzygy/agent/asan/unittest_util.h"
+#include "syzygy/testing/laa.h"
 
 namespace agent {
 namespace asan {
@@ -270,6 +271,8 @@ TYPED_TEST(AsanRtlTypedTest, AsanCheckDoubleFree) {
 }
 
 TYPED_TEST(AsanRtlTypedTest, AsanCheckWildAccess) {
+  TEST_ONLY_SUPPORTS_2G();
+
   FARPROC check_access_fn =
       ::GetProcAddress(asan_rtl_, tester_.function_name());
   ASSERT_TRUE(check_access_fn != NULL);

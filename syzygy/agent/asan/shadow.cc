@@ -95,6 +95,14 @@ inline void AddressToPageMask(const void* address,
 
 }  // namespace
 
+extern "C" {
+// Provides a dummy static shadow memory array. This is simply to be used as
+// a pointer for the probes to be anchored to. If any of the probes referring
+// to this dummy shadow memory are run they will behave badly until they have
+// been patched using 'PatchMemoryInterceptorShadowReferences'.
+uint8_t asan_memory_interceptors_shadow_memory[1] = {};
+}
+
 Shadow::Shadow() : own_memory_(false), shadow_(nullptr), length_(0) {
   Init(RequiredLength());
 }

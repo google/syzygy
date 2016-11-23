@@ -191,7 +191,6 @@
         'shadow_marker_unittest.cc',
         'shadow_unittest.cc',
         'stack_capture_cache_unittest.cc',
-        'static_shadow.cc',
         'system_interceptors_unittest.cc',
         'timed_try_unittest.cc',
         'windows_heap_adapter_unittest.cc',
@@ -229,10 +228,7 @@
             # is only required for the SyzyAsan-instrumented binaries (32-bit
             # only).
             'memory_interceptors_patcher_unittest.cc',
-            # Static shadow doesn't work for large address spaces.
-            'static_shadow.cc',
           ],
-          'sources': ['dummy_shadow.cc'],
           'dependencies': [
             '<(src)/syzygy/pe/pe.gyp:test_dll_x64',
           ],
@@ -257,6 +253,29 @@
        ],
       'defines': [
         'SYZYGY_UNITTESTS_USE_LONG_TIMEOUT=1',
+      ],
+    },
+    {
+      'target_name': 'syzyasan_rtl_unittests_4g',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+      'dependencies': ['syzyasan_rtl_unittests'],
+      'actions': [
+        {
+          'action_name': 'make_syzyasan_rtl_unittests_4g',
+          'inputs': [
+            '<(src)/syzygy/build/copy_laa.py',
+            '<(PRODUCT_DIR)/syzyasan_rtl_unittests.exe',
+          ],
+          'outputs': ['<(PRODUCT_DIR)/syzyasan_rtl_unittests_4g.exe'],
+          'action': [
+            '<(python_exe)',
+            '<(src)/syzygy/build/copy_laa.py',
+            '--input=$(OutDir)\\syzyasan_rtl_unittests.exe',
+            '--output=$(OutDir)\\syzyasan_rtl_unittests_4g.exe',
+            '--overwrite',
+          ],
+        },
       ],
     },
     {
@@ -308,7 +327,6 @@
       'type': 'executable',
       'sources': [
         'hot_patching_asan_runtime_unittest.cc',
-        'static_shadow.cc',
         '<(src)/syzygy/testing/run_all_unittests.cc',
       ],
       'dependencies': [
@@ -342,7 +360,6 @@
         'agent_link_settings.gypi',
       ],
       'sources': [
-        'dummy_shadow.cc',
         'syzyasan_rtl.cc',
         'syzyasan_rtl.rc',
       ],

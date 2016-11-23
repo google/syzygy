@@ -38,6 +38,7 @@
       # Agent tests.
       '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_hp_unittests',
       '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_unittests',
+      '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_unittests_4g',
       '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
           'basic_block_entry_unittests',
       '<(src)/syzygy/agent/common/common.gyp:agent_common_unittests',
