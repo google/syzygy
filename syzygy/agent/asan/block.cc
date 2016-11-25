@@ -239,6 +239,11 @@ bool BlockPlanLayout(uint32_t chunk_size,
   DCHECK_GE(chunk_size, alignment);
   DCHECK(::common::IsPowerOfTwo(alignment));
 
+  // Prevent from trying to allocate a memory block bigger than what we can
+  // represent in the block header.
+  if (size > kMaxBlockHeaderBodySize)
+    return false;
+
   // Calculate minimum redzone sizes that respect the parameters.
   uint32_t left_redzone_size = static_cast<uint32_t>(::common::AlignUp(
       std::max<uint32_t>(min_left_redzone_size, sizeof(BlockHeader)),

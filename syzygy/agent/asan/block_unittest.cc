@@ -192,7 +192,12 @@ TEST_F(BlockTest, BlockPlanLayout) {
   EXPECT_EQ(BuildBlockLayout(4096, 3 * 4096, 24, 8064, 100, 4072, 28), layout);
 #endif
 
-  // Plan a layout with an invalid size, this should fail.
+  EXPECT_TRUE(BlockPlanLayout(
+      8, 8, static_cast<uint32_t>(1 << kBlockBodySizeBits) - 1, 0, 0, &layout));
+
+  // Plan some layouts with an invalid size, this should fail.
+  EXPECT_FALSE(BlockPlanLayout(
+      8, 8, static_cast<uint32_t>(1 << kBlockBodySizeBits), 0, 0, &layout));
   EXPECT_FALSE(BlockPlanLayout(8, 8, 0xffffffff, 0, 0, &layout));
 }
 

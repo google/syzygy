@@ -112,7 +112,10 @@ static const uint8_t kBlockFloodFillByte = 0xFD;
 
 // The number of bits in the checksum field. This is parameterized so that
 // it can be referred to by the checksumming code.
-static const size_t kBlockHeaderChecksumBits = 14;
+static constexpr size_t kBlockHeaderChecksumBits = 13;
+
+// The number of bits used to store the size of an allocation.
+static constexpr size_t kBlockBodySizeBits = 31;
 
 // The state of an Asan block. These are in the order that reflects the typical
 // lifespan of an allocation.
@@ -157,7 +160,7 @@ struct BlockHeader {
     // (kShadowRatio / 2) - (body_size % (kShadowRatio / 2)).
     unsigned has_excess_trailer_padding : 1;
     // The size of the body of the allocation, in bytes.
-    unsigned body_size : 30;
+    unsigned body_size : kBlockBodySizeBits;
   };
   // TODO(loskutov): replace pointers with something more compact.
   // The allocation stack of this block.

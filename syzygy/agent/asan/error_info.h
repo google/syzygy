@@ -114,9 +114,9 @@ struct AsanBlockInfo {
   // The address of the header for this block.
   const void* header;
   // The user size of the block.
-  size_t user_size : 30;
+  size_t user_size;
   // This is implicitly a BlockState value.
-  size_t state : 2;
+  uint8_t state;
   // The ID of the allocation thread.
   DWORD alloc_tid;
   // The ID of the free thread.

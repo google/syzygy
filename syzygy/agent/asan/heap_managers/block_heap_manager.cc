@@ -66,6 +66,22 @@ size_t GetMSBIndex(size_t n) {
   return r;
 }
 
+// Try to do an unguarded allocation.
+// @param heap_interface The heap that should serve the allocation.
+// @param shadow The shadow memory.
+// @param bytes The size of the allocation.
+// @returns a pointer to the allocation on success, nullptr otherwise.
+void* DoUnguardedAllocation(BlockHeapInterface* heap_interface,
+                            Shadow* shadow,
+                            uint32_t bytes) {
+  void* alloc = heap_interface->Allocate(bytes);
+  if ((heap_interface->GetHeapFeatures() &
+       HeapInterface::kHeapReportsReservations) != 0) {
+    shadow->Unpoison(alloc, bytes);
+  }
+  return alloc;
+}
+
 }  // namespace
 
 BlockHeapManager::BlockHeapManager(Shadow* shadow,
@@ -179,13 +195,7 @@ void* BlockHeapManager::Allocate(HeapId heap_id, uint32_t bytes) {
   // Some allocations can pass through without instrumentation.
   if (parameters_.allocation_guard_rate < 1.0 &&
       base::RandDouble() >= parameters_.allocation_guard_rate) {
-    BlockHeapInterface* heap = GetHeapFromId(heap_id);
-    void* alloc = heap->Allocate(bytes);
-    if ((heap->GetHeapFeatures() &
-        HeapInterface::kHeapReportsReservations) != 0) {
-      shadow_->Unpoison(alloc, bytes);
-    }
-    return alloc;
+    return DoUnguardedAllocation(GetHeapFromId(heap_id), shadow_, bytes);
   }
 
   // Capture the current stack. InitFromStack is inlined to preserve the
@@ -226,9 +236,11 @@ void* BlockHeapManager::Allocate(HeapId heap_id, uint32_t bytes) {
     }
   }
 
-  // The allocation can fail if we're out of memory.
+  // The allocation might fail because its size exceed the maximum size that
+  // we can represent in the BlockHeader structure, try to do an unguarded
+  // allocation.
   if (alloc == nullptr)
-    return nullptr;
+    return DoUnguardedAllocation(GetHeapFromId(heap_id), shadow_, bytes);
 
   DCHECK_NE(static_cast<void*>(nullptr), alloc);
   DCHECK_EQ(0u, reinterpret_cast<size_t>(alloc) % kShadowRatio);

@@ -44,6 +44,7 @@
 #include "syzygy/assm/assembler.h"
 #include "syzygy/assm/buffer_serializer.h"
 #include "syzygy/common/asan_parameters.h"
+#include "syzygy/testing/laa.h"
 
 namespace agent {
 namespace asan {
@@ -609,6 +610,28 @@ TEST_F(BlockHeapManagerTest, AllocAndFree) {
   EXPECT_NE(static_cast<void*>(nullptr), alloc);
   EXPECT_LE(kAllocSize, heap_manager_->Size(heap_id, alloc));
   EXPECT_TRUE(heap_manager_->Free(heap_id, alloc));
+  EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
+}
+
+TEST_F(BlockHeapManagerTest, AllocAndFreeLargeBlock) {
+  TEST_ONLY_SUPPORTS_4G();
+
+  const size_t kAllocSize = 0x7000001c;
+  HeapId heap_id = heap_manager_->CreateHeap();
+  EXPECT_NE(0u, heap_id);
+  void* alloc = heap_manager_->Allocate(heap_id, kAllocSize);
+  EXPECT_NE(static_cast<void*>(nullptr), alloc);
+  EXPECT_LE(kAllocSize, heap_manager_->Size(heap_id, alloc));
+  EXPECT_TRUE(heap_manager_->Free(heap_id, alloc));
+  EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
+}
+
+TEST_F(BlockHeapManagerTest, AllocLargeBlockFail) {
+  const size_t kAllocSize = 0x80000000;
+  HeapId heap_id = heap_manager_->CreateHeap();
+  EXPECT_NE(0u, heap_id);
+  void* alloc = heap_manager_->Allocate(heap_id, kAllocSize);
+  EXPECT_EQ(static_cast<void*>(nullptr), alloc);
   EXPECT_TRUE(heap_manager_->DestroyHeap(heap_id));
 }
 
