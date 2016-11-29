@@ -236,11 +236,10 @@ void* BlockHeapManager::Allocate(HeapId heap_id, uint32_t bytes) {
     }
   }
 
-  // The allocation might fail because its size exceed the maximum size that
-  // we can represent in the BlockHeader structure, try to do an unguarded
-  // allocation.
+  // The allocation can fail if we're out of memory or if the size exceed the
+  // maximum allocation size.
   if (alloc == nullptr)
-    return DoUnguardedAllocation(GetHeapFromId(heap_id), shadow_, bytes);
+    return nullptr;
 
   DCHECK_NE(static_cast<void*>(nullptr), alloc);
   DCHECK_EQ(0u, reinterpret_cast<size_t>(alloc) % kShadowRatio);
