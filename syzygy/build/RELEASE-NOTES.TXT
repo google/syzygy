@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.24.0
+[ea4e050ecd] SyzyAsan - Support the allocations with a size > 1GB.
+[a1f6aa6249] SyzyAsan - Remove support for the nested allocations.
+
 Version 0.8.23.0
 [379045f2fe] SyzyAsan - Remove the Kasko integration.
 [38646919c4] Add support for the vbroadcastss instruction.
