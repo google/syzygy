@@ -118,16 +118,25 @@ const uint8_t kSysExit[] = {0x0F, 0x35};
 const uint8_t kInt2[] = {0xCD, 0x02};
 const uint8_t kInt3[] = {0xCC};
 
-// Improperly handled VEX encoded instructions.
-const uint8_t kVpermq[] = {0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44};
-const uint8_t kVpermd[] = {0xC4, 0xE2, 0x4D, 0x36, 0xC0};
-const uint8_t kVbroadcasti128[] = {0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0};
-const uint8_t kVinserti128[] = {0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01};
-const uint8_t kVpbroadcastb[] = {0xC4, 0xE2, 0x79, 0x78, 0xC0};
-const uint8_t kVbroadcastss[] = {0xC4, 0xE2, 0x7d, 0x18, 0xC0};
-const uint8_t kVextracti128[] = {0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01};
-const uint8_t kVcvtps2ph[] = {0xC4, 0xE3, 0x79, 0x1D, 0xC8, 0x00};
-const uint8_t kVcvtps2ps[] = {0xC4, 0xE2, 0x79, 0x13, 0xE0};
+// VEX encoded instructions that Distorm doesn't handle properly.
+const std::vector<std::vector<uint8_t>> kVexInstructions = {
+    // AVX instructions.
+    {0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44},        // vpermq
+    {0xC4, 0xE2, 0x4D, 0x36, 0xC0},              // vpermd
+    {0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0},        // vbroadcasti128
+    {0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01},  // vinserti128
+    {0xC4, 0xE2, 0x79, 0x78, 0xC0},              // vpbroadcastb
+    {0xC4, 0xE2, 0x7D, 0x58, 0x40, 0x04},        // vpbroadcastd
+    {0xC4, 0xE2, 0x7D, 0x18, 0xC0},              // vbroadcastss
+    {0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01},        // vextracti128
+    {0xC4, 0xE2, 0x7D, 0x90, 0x1C, 0x88},        // vpgatherdd
+    {0xC4, 0xE2, 0x7D, 0x8C, 0x00},              // vpmaskmovd
+    {0xC4, 0xE2, 0x7D, 0x8E, 0x90},              // vpmaskmovd
+
+    // F16C instructions.
+    {0xC4, 0xE3, 0x79, 0x1D, 0xC8, 0x00},  // vcvtps2ph
+    {0xC4, 0xE2, 0x79, 0x13, 0xE0},        // vcvtps2ps
+};
 
 void TestBadlyDecodedInstruction(const uint8_t* code, size_t code_length) {
   _DInst inst[1] = {};
@@ -359,52 +368,13 @@ TEST(DisassemblerUtilTest, DistormDecomposeFxrstor) {
   EXPECT_EQ(64, results[0].ops[0].size);
 }
 
-// If one of these test starts failing then Distorm now properly handles the
-// AVX2 instructions. Please remove the workaround in disassembler_util.cc.
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVpermq) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVpermq, sizeof(kVpermq)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVpermd) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVpermd, sizeof(kVpermd)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVbroadcasti128) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVbroadcasti128, sizeof(kVbroadcasti128)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVinserti128) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVinserti128, sizeof(kVinserti128)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVpbroadcastb) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVpbroadcastb, sizeof(kVpbroadcastb)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVbroadcastss) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVpbroadcastb, sizeof(kVbroadcastss)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVextracti128) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVextracti128, sizeof(kVextracti128)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVcvtps2ph) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVcvtps2ph, sizeof(kVcvtps2ph)));
-}
-
-TEST(DisassemblerUtilTest, TestBadlyDecodedVcvtps2ps) {
-  EXPECT_NO_FATAL_FAILURE(TestBadlyDecodedInstruction(
-      kVcvtps2ps, sizeof(kVcvtps2ps)));
+// If this test starts failing then Distorm now properly handles the AVX2
+// instructions. Please remove the workaround in disassembler_util.cc.
+TEST(DisassemblerUtilTest, TestBadlyDecodedVexInstructions) {
+  for (const auto iter : kVexInstructions) {
+    EXPECT_NO_FATAL_FAILURE(
+        TestBadlyDecodedInstruction(iter.data(), iter.size()));
+  }
 }
 
 TEST(DisassemblerUtilTest, TestBadlyDecodedCRC32) {

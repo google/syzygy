@@ -14,6 +14,8 @@
 
 #include "syzygy/core/disassembler_util.h"
 
+#include <algorithm>
+
 #include "base/logging.h"
 #include "base/strings/stringprintf.h"
 #include "mnemonics.h"  // NOLINT
@@ -49,21 +51,19 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
   DCHECK_EQ(0xC4, ci->code[0]);
   // Switch case based on the opcode map used by this instruction.
   switch (ci->code[1] & 0x1F) {
-    case 0x01: {
-      switch (ci->code[3]) {
-        case 0x1D: return 5;  // vpermd
-        default: break;
-      }
-      break;
-    }
     case 0x02: {
       switch (ci->code[3]) {
         case 0x13: return 5;  // vcvtps2ps
         case 0x18: return 5;  // vbroadcastss
         case 0x36: return 5;  // vpermd
+        case 0x58: return 6;  // vpbroadcastd
         case 0x5A: return 6;  // vbroadcasti128
         case 0x78: return 5;  // vpbroadcastb
-        default: break;
+        case 0x8C: return 5;  // vpmaskmovd
+        case 0x8E: return 5;  // vpmaskmovd
+        case 0x90: return 6;  // vpgatherdd
+        default:
+          break;
       }
       break;
     }
@@ -80,6 +80,21 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
     default:
       break;
   }
+
+  // Print the instructions that we haven't been able to decompose in a format
+  // that can easily be pasted into ODA (https://onlinedisassembler.com/).
+  const int kMaxBytes = 10;
+  size_t byte_count = std::min(ci->codeLen, kMaxBytes);
+  std::string instruction_bytes;
+  for (size_t i = 0; i < byte_count; ++i) {
+    base::StringAppendF(&instruction_bytes, "%02X", ci->code[i]);
+    if (i != byte_count - 1)
+      instruction_bytes += " ";
+  }
+  if (ci->codeLen > kMaxBytes)
+    instruction_bytes += "...";
+  LOG(WARNING) << "Failed to decompose a VEX encoded instructions with the "
+               << "following bytes: " << instruction_bytes;
   return 0;
 }
 
