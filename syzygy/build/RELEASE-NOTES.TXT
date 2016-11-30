@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.25.0
+[226ab514b7] Add support for more AVX2 instructions.
+
 Version 0.8.24.0
 [ea4e050ecd] SyzyAsan - Support the allocations with a size > 1GB.
 [a1f6aa6249] SyzyAsan - Remove support for the nested allocations.
