@@ -70,6 +70,10 @@ deps = {
   # Brings in the open-source Microsoft cvinfo.h file.
   "src/third_party/microsoft-pdb":
     "https://github.com/Microsoft/microsoft-pdb.git@082c529",
+
+  # Capstone is the ultimate disassembler library.
+  "src/third_party/capstone/files":
+    "https://github.com/aquynh/capstone.git@1b585c1",
 }
 
 
