@@ -19,6 +19,8 @@
 #include <winnt.h>
 
 #include "syzygy/block_graph/block_graph.h"
+#include "syzygy/core/address.h"
+#include "syzygy/pe/pe_file_writer.h"
 
 namespace pe {
 
@@ -30,6 +32,19 @@ enum SectionType {
   kSectionData,
   kSectionUnknown
 };
+
+// The file ranges of each section. This is populated by
+// CalculateSectionRanges and is a map from section index (as ordered in
+// the image layout) to section ranges on disk.
+typedef core::AddressRange<core::FileOffsetAddress, size_t> FileRange;
+typedef std::map<size_t, FileRange> SectionIndexFileRangeMap;
+
+// This stores an address-space from RVAs to section indices and is populated
+// by CalculateSectionRanges. This can be used to map from a block's
+// address to the index of its section. This is needed for finalizing
+// references.
+typedef core::AddressSpace<core::RelativeAddress, size_t, size_t>
+SectionIndexSpace;
 
 // Typical section names.
 extern const char kCodeSectionName[];
@@ -190,6 +205,19 @@ typedef std::map<ReferenceDest, ReferenceDest> ReferenceMap;
 // @param dst The redirected destination to be referred to.
 // @param redirects A map of original to redirected destinations.
 void RedirectReferences(const ReferenceMap& redirects);
+
+template <class Type>
+bool UpdateReference(size_t start, Type new_value, std::vector<uint8_t>* data);
+
+bool ResolveReferences(core::AbsoluteAddress image_base,
+                       const block_graph::BlockGraph::Block* block,
+                       core::RelativeAddress addr,
+                       const core::FileOffsetAddress file_offs,
+                       SectionIndexFileRangeMap section_file_range_map,
+                       SectionIndexSpace section_index_space,
+                       bool write_references_in_place,
+                       std::vector<uint8_t>* buffer,
+                       const ImageLayout& image_layout);
 
 }  // namespace pe
 

@@ -26,6 +26,7 @@
         '<(src)/syzygy/experimental/heap_enumerate/heap_enumerate.gyp:*',
         '<(src)/syzygy/experimental/pdb_dumper/pdb_dumper.gyp:*',
         '<(src)/syzygy/experimental/pdb_writer/pdb_writer.gyp:*',
+        '<(src)/syzygy/experimental/protect/protect.gyp:*',
         '<(src)/syzygy/experimental/timed_decomposer/timed_decomposer.gyp:*',
       ],
     },

@@ -21,7 +21,6 @@
 #include "base/logging.h"
 #include "base/files/file_util.h"
 #include "base/win/scoped_handle.h"
-#include "syzygy/common/buffer_parser.h"
 #include "syzygy/common/com_utils.h"
 #include "syzygy/pe/pe_utils.h"
 
@@ -35,21 +34,6 @@ using core::RelativeAddress;
 using pe::ImageLayout;
 
 namespace {
-
-template <class Type>
-bool UpdateReference(size_t start, Type new_value, std::vector<uint8_t>* data) {
-  BinaryBufferParser parser(&data->at(0), data->size());
-
-  Type* ref_ptr = NULL;
-  if (!parser.GetAtIgnoreAlignment(start,
-                                   const_cast<const Type**>(&ref_ptr))) {
-    LOG(ERROR) << "Reference data not in block";
-    return false;
-  }
-  *ref_ptr = new_value;
-
-  return true;
-}
 
 // Returns the type of padding byte to use for a given section. Int3s will be
 // used for executable sections, nulls for everything else.
@@ -325,6 +309,19 @@ bool PEFileWriter::CalculateSectionRanges() {
   return true;
 }
 
+AbsoluteAddress* PEFileWriter::GetImageBase() {
+  DCHECK(nt_headers_ != nullptr);
+  AbsoluteAddress *addr =
+    new AbsoluteAddress(nt_headers_->OptionalHeader.ImageBase);
+  return addr;
+}
+
+const size_t PEFileWriter::GetImageSize() {
+  uint32_t last_section_addr = image_layout_.sections.back().addr.value();
+  size_t last_section_size = image_layout_.sections.back().size;
+  return last_section_addr + last_section_size;
+}
+
 bool PEFileWriter::WriteBlocks(FILE* file) {
   DCHECK(file != NULL);
 
@@ -361,7 +358,7 @@ bool PEFileWriter::WriteBlocks(FILE* file) {
       DCHECK_GT(image_layout_.sections.size(), section_index);
     }
 
-    if (!WriteOneBlock(image_base, section_index, block, &buffer)) {
+    if (!WriteOneBlock(image_base, section_index, block, &buffer, nullptr)) {
       LOG(ERROR) << "Failed to write block \"" << block->name() << "\".";
       return false;
     }
@@ -402,7 +399,8 @@ void PEFileWriter::FlushSection(size_t section_index,
 bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
                                  size_t section_index,
                                  const BlockGraph::Block* block,
-                                 std::vector<uint8_t>* buffer) {
+                                 std::vector<uint8_t>* buffer,
+                                 FileOffsetAddress* offset_block) {
   // This function walks through the data referred by the input block, and
   // patches it to reflect the addresses and offsets of the blocks
   // referenced before writing the block's data to the file.
@@ -469,6 +467,9 @@ bool PEFileWriter::WriteOneBlock(AbsoluteAddress image_base,
   // Add any necessary padding to get us to the block offset.
   if (buffer->size() < file_offs.value())
     buffer->resize(file_offs.value(), padding_byte);
+
+  if (offset_block != nullptr)
+    offset_block->set_value(buffer->size());
 
   // Copy the block data into the buffer.
   buffer->insert(buffer->end(),

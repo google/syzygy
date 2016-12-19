@@ -242,6 +242,10 @@ void BasicBlockAssembler::jmp(const Operand& dst) {
   Super::jmp(dst);
 }
 
+void BasicBlockAssembler::jmp(const Register32& dst) {
+  Super::jmp(dst);
+}
+
 void BasicBlockAssembler::j(ConditionCode code, const Immediate& dst) {
   DCHECK(dst.reference().IsValid());
   Super::j(code, dst);

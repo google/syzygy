@@ -547,4 +547,169 @@ void RedirectReferences(const ReferenceMap& redirects) {
   }
 }
 
+size_t GetSectionOffset(const ImageLayout& image_layout,
+                        const RelativeAddress rel_addr,
+                        size_t section_index) {
+  if (section_index == BlockGraph::kInvalidSectionId)
+    return rel_addr.value();
+
+  DCHECK_GT(image_layout.sections.size(), section_index);
+  const ImageLayout::SectionInfo& section_info =
+      image_layout.sections[section_index];
+
+  DCHECK_GE(rel_addr, section_info.addr);
+  return rel_addr - section_info.addr;
+}
+
+template <class Type>
+bool UpdateReference(size_t start, Type new_value, std::vector<uint8_t>* data) {
+  common::BinaryBufferParser parser(&data->at(0), data->size());
+
+  Type* ref_ptr = NULL;
+  if (!parser.GetAtIgnoreAlignment(start,
+                                   const_cast<const Type**>(&ref_ptr))) {
+    LOG(ERROR) << "Reference data not in block";
+    return false;
+  }
+  * ref_ptr = new_value;
+
+  return true;
+}
+
+bool ResolveReferences2(core::AbsoluteAddress image_base,
+                        core::RelativeAddress addr,
+                        BlockGraph::Block::ReferenceMap::const_iterator ref_it,
+                        const ImageLayout& image_layout) {
+  BlockGraph::Offset start = ref_it->first;
+  const BlockGraph::Reference& ref = ref_it->second;
+  BlockGraph::Block* dst = ref.referenced();
+
+  RelativeAddress src_addr(addr + start);
+  RelativeAddress dst_addr;
+  if (!image_layout.blocks.GetAddressOf(dst, &dst_addr)) {
+    LOG(ERROR) << "All blocks must have an address.";
+    return false;
+  }
+  dst_addr += ref.offset();
+
+  // Compute the new value of the reference.
+  uint32_t value = 0;
+  switch (ref.type()) {
+  case BlockGraph::ABSOLUTE_REF:
+  value = image_base.value() + dst_addr.value();
+  break;
+
+  case BlockGraph::PC_RELATIVE_REF:
+  value = dst_addr - (src_addr + ref.size());
+  break;
+
+  case BlockGraph::RELATIVE_REF:
+  value = dst_addr.value();
+  break;
+  }
+
+  return true;
+}
+
+bool ResolveReferences(core::AbsoluteAddress image_base,
+                       const block_graph::BlockGraph::Block* block,
+                       core::RelativeAddress addr,
+                       const core::FileOffsetAddress file_offs,
+                       SectionIndexFileRangeMap section_file_range_map,
+                       SectionIndexSpace section_index_space,
+                       bool write_references_in_place,
+                       std::vector<uint8_t>* buffer,
+                       const ImageLayout& image_layout) {
+  BlockGraph::Block::ReferenceMap::const_iterator ref_it(
+    block->references().begin());
+  BlockGraph::Block::ReferenceMap::const_iterator ref_end(
+    block->references().end());
+  for (; ref_it != ref_end; ++ref_it) {
+    BlockGraph::Offset start = ref_it->first;
+    const BlockGraph::Reference& ref = ref_it->second;
+    BlockGraph::Block* dst = ref.referenced();
+
+    RelativeAddress src_addr(addr + start);
+    RelativeAddress dst_addr;
+    if (!image_layout.blocks.GetAddressOf(dst, &dst_addr)) {
+      LOG(ERROR) << "All blocks must have an address.";
+      return false;
+    }
+    dst_addr += ref.offset();
+
+    // Compute the new value of the reference.
+    uint32_t value = 0;
+    switch (ref.type()) {
+    case BlockGraph::ABSOLUTE_REF:
+    value = image_base.value() + dst_addr.value();
+    break;
+
+    case BlockGraph::PC_RELATIVE_REF:
+    value = dst_addr - (src_addr + ref.size());
+    break;
+
+    case BlockGraph::RELATIVE_REF:
+    value = dst_addr.value();
+    break;
+
+    case BlockGraph::FILE_OFFSET_REF: {
+      // Get the index of the section containing the destination block.
+      SectionIndexSpace::const_iterator section_index_space_it =
+        section_index_space.FindContaining(
+        SectionIndexSpace::Range(dst_addr, 1));
+      DCHECK(section_index_space_it != section_index_space.end());
+      size_t dst_section_index = section_index_space_it->second;
+
+      // Get the offset of the block in its section, as well as the range of
+      // the section on disk. Validate that the referred location is
+      // actually directly represented on disk (not in implicit virtual data).
+      const FileRange& file_range =
+        section_file_range_map[dst_section_index];
+      size_t section_offset = GetSectionOffset(image_layout,
+                                               dst_addr,
+                                               dst_section_index);
+      if (section_offset >= file_range.size()) {
+        LOG(ERROR) << "Encountered file offset reference that refers to "
+          << "a location outside of the explicit section data.";
+        return false;
+      }
+
+      // Finally, calculate the value of the file offset.
+      value = file_range.start().value() + section_offset;
+      break;
+    }
+
+    default:
+    LOG(ERROR) << "Impossible reference type";
+    return false;
+    }
+
+    if (!write_references_in_place)
+      return true;
+
+    // Now store the new value.
+    BlockGraph::Offset ref_offset = file_offs.value() + start;
+    switch (ref.size()) {
+    case sizeof(uint8_t) :
+      if (!UpdateReference(ref_offset, static_cast<uint8_t>(value), buffer))
+        return false;
+      break;
+
+    case sizeof(uint16_t) :
+      if (!UpdateReference(ref_offset, static_cast<uint16_t>(value), buffer))
+        return false;
+      break;
+
+    case sizeof(uint32_t) :
+      if (!UpdateReference(ref_offset, static_cast<uint32_t>(value), buffer))
+        return false;
+      break;
+
+    default:
+    LOG(ERROR) << "Unsupported reference size.";
+    return false;
+    }
+  }
+  return true;
+}
 }  // namespace pe

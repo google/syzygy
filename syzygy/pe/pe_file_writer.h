@@ -42,7 +42,28 @@ class PEFileWriter {
   // Updates the checksum for the image @p path.
   static bool UpdateFileChecksum(const base::FilePath& path);
 
- protected:
+  // Retrieves the base address of the image.
+  // @return the base address of the image output by this function.
+  AbsoluteAddress* PEFileWriter::GetImageBase();
+
+  // Returns the size of the image.
+  const size_t GetImageSize();
+
+  // Closes off the writing of a section by adding any necessary padding to the
+  // output buffer.
+  void FlushSection(size_t section_index,
+                    std::vector<uint8_t>* buffer);
+
+  // Writes a single block to the buffer, first writing any necessary padding
+  // (the content of which depends on the section type), followed by the
+  // block data (containing finalized references). It outputs the offset of
+  // the block in the actual file on disk.
+  bool WriteOneBlock(AbsoluteAddress image_base,
+                     size_t section_index,
+                     const BlockGraph::Block* block,
+                     std::vector<uint8_t>* buffer,
+                     FileOffsetAddress* block_offset);
+
   // Validates the DOS header and the NT headers in the image.
   // On success, sets the nt_headers_ pointer.
   bool ValidateHeaders();
@@ -51,21 +72,10 @@ class PEFileWriter {
   // section_file_range_map_ and section_index_space_.
   bool CalculateSectionRanges();
 
+ protected:
   // Writes the entire image to the given file. Delegates to FlushSection and
   // WriteOneBlock.
   bool WriteBlocks(FILE* file);
-
-  // Closes off the writing of a section by adding any necessary padding to the
-  // output buffer.
-  void FlushSection(size_t section_index, std::vector<uint8_t>* buffer);
-
-  // Writes a single block to the buffer, first writing any necessary padding
-  // (the content of which depends on the section type), followed by the
-  // block data (containing finalized references).
-  bool WriteOneBlock(AbsoluteAddress image_base,
-                     size_t section_index,
-                     const BlockGraph::Block* block,
-                     std::vector<uint8_t>* buffer);
 
   // The file ranges of each section. This is populated by
   // CalculateSectionRanges and is a map from section index (as ordered in
