@@ -415,6 +415,9 @@ class ShadowWalker {
   // The shadow cursor.
   const uint8_t* shadow_cursor_;
 
+  // The information about the memory range that we're currently scanning.
+  MEMORY_BASIC_INFORMATION memory_info_;
+
   DISALLOW_COPY_AND_ASSIGN(ShadowWalker);
 };
 

@@ -715,9 +715,16 @@ TEST_F(ShadowWalkerTest, WalkShadowWithUncommittedRanges) {
   uint8_t memory_block[kMemorySize];
   const size_t shadow_size = Shadow::RequiredLength();
 
+#ifndef _WIN64
+  DWORD shadow_allocation_type = MEM_COMMIT;
+#else
+  DWORD shadow_allocation_type = MEM_RESERVE;
+#endif
+
   // Allocate the shadow memory, only reserve the memory.
   uint8_t* shadow_memory = static_cast<uint8_t*>(
-      ::VirtualAlloc(nullptr, shadow_size, MEM_RESERVE, PAGE_READWRITE));
+      ::VirtualAlloc(nullptr, shadow_size, shadow_allocation_type,
+                     PAGE_READWRITE));
   EXPECT_NE(nullptr, shadow_memory);
 
   uint8_t* memory_block_shadow_start =

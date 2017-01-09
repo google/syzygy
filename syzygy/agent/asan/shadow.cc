@@ -869,20 +869,26 @@ bool Shadow::ScanLeftForBracketingBlockStart(size_t cursor,
 
   size_t left = cursor;
 
+#ifdef _WIN64
+  // In 64-bit we don't commit the full shadow address space, so we need to
+  // skip over the uncommitted ranges.
   MEMORY_BASIC_INFORMATION memory_info = {};
   SIZE_T ret =
       ::VirtualQuery(&shadow_[left], &memory_info, sizeof(memory_info));
   DCHECK_GT(ret, 0u);
   if (memory_info.State != MEM_COMMIT)
     return false;
+#endif
 
   while (true) {
+#ifdef _WIN64
     if (&shadow_[left] < static_cast<const uint8_t*>(memory_info.BaseAddress)) {
       ret = ::VirtualQuery(&shadow_[left], &memory_info, sizeof(memory_info));
       DCHECK_GT(ret, 0u);
       if (memory_info.State != MEM_COMMIT)
         return false;
     }
+#endif
     if (ShadowMarkerHelper::IsBlockStart(shadow_[left])) {
       *location = left;
       return true;
@@ -1055,7 +1061,8 @@ ShadowWalker::ShadowWalker(const Shadow* shadow,
     : shadow_(shadow),
       lower_index_(0),
       upper_index_(0),
-      shadow_cursor_(nullptr) {
+      shadow_cursor_(nullptr),
+      memory_info_() {
   DCHECK_NE(static_cast<Shadow*>(nullptr), shadow);
   DCHECK_LE(Shadow::kAddressLowerBound, reinterpret_cast<size_t>(lower_bound));
 
@@ -1084,26 +1091,32 @@ bool ShadowWalker::Next(BlockInfo* info) {
   auto shadow_upper_bound = shadow_->shadow() + upper_index_;
 
   while (shadow_cursor_ < shadow_upper_bound) {
-    // Skip uncommitted ranges of memory. This is possible when using a sparse
-    // shadow that maps its pages in on demand.
-    MEMORY_BASIC_INFORMATION memory_info = {};
-    size_t ret = ::VirtualQuery(shadow_cursor_, &memory_info,
-                                sizeof(memory_info));
-    DCHECK_GT(ret, 0u);
+    // On 32-bit the shadow is always fully committed so there's no need to
+    // check the status of the memory regions in the shadow.
+#ifdef _WIN64
     auto start_of_region =
-        static_cast<const uint8_t*>(memory_info.BaseAddress);
-    auto end_of_region = start_of_region + memory_info.RegionSize;
+        static_cast<const uint8_t*>(memory_info_.BaseAddress);
+    auto end_of_region = start_of_region + memory_info_.RegionSize;
+    if (shadow_cursor_ >= end_of_region) {
+      // Skip uncommitted ranges of memory. This is possible when using a sparse
+      // shadow that maps its pages in on demand.
+      size_t ret = ::VirtualQuery(shadow_cursor_, &memory_info_,
+                                  sizeof(memory_info_));
+      DCHECK_GT(ret, 0u);
+      start_of_region = static_cast<const uint8_t*>(memory_info_.BaseAddress);
+      end_of_region = start_of_region + memory_info_.RegionSize;
 
-    // If the region isn't committed and readable memory then skip it.
-    if (memory_info.State != MEM_COMMIT) {
-      // If the next region is beyond the part of the shadow being scanned
-      // then bail early (be careful to handle overflow here).
-      if (end_of_region > shadow_upper_bound || end_of_region == nullptr)
-        return false;
+      // If the region isn't committed and readable memory then skip it.
+      if (memory_info_.State != MEM_COMMIT) {
+        // If the next region is beyond the part of the shadow being scanned
+        // then bail early (be careful to handle overflow here).
+        if (end_of_region > shadow_upper_bound || end_of_region == nullptr)
+          return false;
 
-      // Step to the beginning of the next region and try again.
-      shadow_cursor_ = end_of_region;
-      continue;
+        // Step to the beginning of the next region and try again.
+        shadow_cursor_ = end_of_region;
+        continue;
+      }
     }
 
     // Getting here then |start_of_region| and |end_of_region| are a part of
@@ -1114,6 +1127,9 @@ bool ShadowWalker::Next(BlockInfo* info) {
     } else {
       end_of_region = std::min(shadow_upper_bound, end_of_region);
     }
+#else
+    auto end_of_region = shadow_upper_bound;
+#endif
 
     // Scan this committed portion of the shadow.
     while (shadow_cursor_ < end_of_region) {
