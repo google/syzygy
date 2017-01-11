@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.26.0
+[78fa5bc24d] SyzyAsan - Improve the performance of the heap corruption detector.
+
 Version 0.8.25.0
 [226ab514b7] Add support for more AVX2 instructions.
 
