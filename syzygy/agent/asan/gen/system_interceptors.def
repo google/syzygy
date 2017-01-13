@@ -139,6 +139,9 @@ EXPORTS
   ; Exposed to allow the user to enumerate runtime experiments.
   asan_EnumExperiments
 
+  ; Initialize the SyzyAsan crash reporter.
+  asan_InitializeCrashReporter
+
   ; Clang-Asan access checking functions.
   __asan_load1=asan_redirect_load1
   __asan_load2=asan_redirect_load2

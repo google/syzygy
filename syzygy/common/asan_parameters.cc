@@ -153,6 +153,7 @@ const bool kDefaultCheckHeapOnFailure = true;
 const bool kDefaultDisableBreakpadReporting = false;
 const bool kDefaultFeatureRandomization = false;
 const bool kDefaultReportInvalidAccesses = false;
+const bool kDefaultDeferCrashReporterInitialization = false;
 
 // Default values of AsanLogger parameters.
 const bool kDefaultMiniDumpOnFailure = false;
@@ -198,6 +199,8 @@ const char kParamNoCheckHeapOnFailure[] = "no_check_heap_on_failure";
 const char kParamDisableBreakpadReporting[]  = "disable_breakpad";
 const char kParamFeatureRandomization[] = "feature_randomization";
 const char kParamReportInvalidAccesses[] = "report_invalid_accesses";
+const char kParamDeferCrashReporterInitialization[] =
+    "defer_crash_reporter_initialization";
 
 // String names of AsanLogger parameters.
 const char kParamMiniDumpOnFailure[] = "minidump_on_failure";
@@ -302,13 +305,15 @@ void SetDefaultAsanParameters(AsanParameters* asan_parameters) {
   asan_parameters->prevent_duplicate_corruption_crashes =
       kDefaultPreventDuplicateCorruptionCrashes;
   asan_parameters->report_invalid_accesses = kDefaultReportInvalidAccesses;
+  asan_parameters->defer_crash_reporter_initialization =
+      kDefaultDeferCrashReporterInitialization;
 }
 
 bool InflateAsanParameters(const AsanParameters* pod_params,
                            InflatedAsanParameters* inflated_params) {
   // This must be kept up to date with AsanParameters as it evolves.
   static const size_t kSizeOfAsanParametersByVersion[] = {
-      40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60, 60, 60, 60};
+      40, 44, 48, 52, 52, 52, 56, 56, 56, 56, 60, 60, 60, 60, 60, 60};
   static_assert(
       arraysize(kSizeOfAsanParametersByVersion) == kAsanParametersVersion + 1,
       "Size of parameters version out of date.");
@@ -512,6 +517,8 @@ bool ParseAsanParameters(const base::StringPiece16& param_string,
     asan_parameters->prevent_duplicate_corruption_crashes = true;
   if (cmd_line.HasSwitch(kParamReportInvalidAccesses))
     asan_parameters->report_invalid_accesses = true;
+  if (cmd_line.HasSwitch(kParamDeferCrashReporterInitialization))
+    asan_parameters->defer_crash_reporter_initialization = true;
 
   // New style boolean flags with both positive and negative setters. This
   // allows them to be set one way in the baked in configuration, and set

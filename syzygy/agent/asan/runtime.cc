@@ -460,7 +460,8 @@ AsanRuntime::AsanRuntime()
       stack_cache_(),
       asan_error_callback_(),
       heap_manager_(),
-      random_key_(::__rdtsc()) {
+      random_key_(::__rdtsc()),
+      crash_reporter_initialized_(false) {
   ::common::SetDefaultAsanParameters(&params_);
   starting_ticks_ = ::GetTickCount();
 }
@@ -501,13 +502,6 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
     return false;
   WindowsHeapAdapter::SetUp(heap_manager_.get());
 
-  // Determine the preferred crash reporter type, as specified in the
-  // environment. If this isn't present it defaults to
-  // kDefaultCrashReporterType, in which case experiments or command-line flags
-  // may specify the crash reporter to use.
-  CrashReporterType crash_reporter_type =
-      GetCrashReporterTypeFromEnvironment(logger());
-
   if (params_.feature_randomization) {
     AsanFeatureSet feature_set = GenerateRandomFeatureSet();
     PropagateFeatureSet(feature_set);
@@ -516,27 +510,8 @@ bool AsanRuntime::SetUp(const std::wstring& flags_command_line) {
   // Propagates the flags values to the different modules.
   PropagateParams();
 
-  // The name 'disable_breakpad_reporting' is legacy; this actually means to
-  // disable all external crash reporting integration.
-  if (!params_.disable_breakpad_reporting) {
-    // This will create the crash reporter with a preference for creating a
-    // reporter of the hinted type. If such a reporter isn't available, it will
-    // fall back to trying to create the most 'modern' reporter available.
-    crash_reporter_.reset(CreateCrashReporterWithTypeHint(
-        logger(), crash_reporter_type).release());
-  }
-
-  // Set up the appropriate error handler depending on whether or not
-  // we successfully initialized a crash reporter.
-  if (crash_reporter_.get() != nullptr) {
-    logger_->Write(base::StringPrintf(
-        "SyzyASAN: Using %s for error reporting.",
-        crash_reporter_->GetName()));
-    SetErrorCallBack(base::Bind(&CrashReporterErrorHandler));
-  } else {
-    logger_->Write("SyzyASAN: Using default error reporting handler.");
-    SetErrorCallBack(base::Bind(&DefaultErrorHandler));
-  }
+  if (!params_.defer_crash_reporter_initialization)
+    InitializeCrashReporter();
 
   // Install the unhandled exception handler. This is only installed once
   // across all runtime instances in a process so we check that it hasn't
@@ -823,7 +798,7 @@ void AsanRuntime::PropagateParams() {
   static_assert(sizeof(::common::AsanParameters) == 60,
                 "Must propagate parameters.");
 #endif
-  static_assert(::common::kAsanParametersVersion == 14,
+  static_assert(::common::kAsanParametersVersion == 15,
                 "Must update parameters version.");
 
   // Push the configured parameter values to the appropriate endpoints.
@@ -1225,6 +1200,43 @@ AsanFeatureSet AsanRuntime::GetEnabledFeatureSet() {
     enabled_features |= ASAN_FEATURE_ENABLE_LARGE_BLOCK_HEAP;
 
   return enabled_features;
+}
+
+void AsanRuntime::InitializeCrashReporter() {
+  DCHECK_EQ(nullptr, crash_reporter_.get());
+  // Make sure that the crash reporter hasn't already been initialized.
+  CHECK(!crash_reporter_initialized_) << "The crash reporter can only "
+      "be initialized once.";
+
+  crash_reporter_initialized_ = true;
+
+  // Determine the preferred crash reporter type, as specified in the
+  // environment. If this isn't present it defaults to
+  // kDefaultCrashReporterType, in which case experiments or command-line flags
+  // may specify the crash reporter to use.
+  CrashReporterType crash_reporter_type =
+      GetCrashReporterTypeFromEnvironment(logger());
+
+  // The name 'disable_breakpad_reporting' is legacy; this actually means to
+  // disable all external crash reporting integration.
+  if (!params_.disable_breakpad_reporting) {
+    // This will create the crash reporter with a preference for creating a
+    // reporter of the hinted type. If such a reporter isn't available, it will
+    // fall back to trying to create the most 'modern' reporter available.
+    crash_reporter_.reset(CreateCrashReporterWithTypeHint(
+                              logger(), crash_reporter_type).release());
+  }
+
+  // Set up the appropriate error handler depending on whether or not
+  // we successfully initialized a crash reporter.
+  if (crash_reporter_.get() != nullptr) {
+    logger_->Write(base::StringPrintf("SyzyASAN: Using %s for error reporting.",
+                                      crash_reporter_->GetName()));
+    SetErrorCallBack(base::Bind(&CrashReporterErrorHandler));
+  } else {
+    logger_->Write("SyzyASAN: Using default error reporting handler.");
+    SetErrorCallBack(base::Bind(&DefaultErrorHandler));
+  }
 }
 
 }  // namespace asan

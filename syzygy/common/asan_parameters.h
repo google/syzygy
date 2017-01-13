@@ -36,7 +36,7 @@ namespace common {
 // the StackCaptureCache.
 typedef uint32_t AsanStackId;
 
-static const size_t kAsanParametersReserved1Bits = 20;
+static const size_t kAsanParametersReserved1Bits = 19;
 
 // This data structure is injected into an instrumented image in a read-only
 // section. It is initialized by the instrumenter, and will be looked up at
@@ -116,6 +116,9 @@ struct AsanParameters {
       unsigned prevent_duplicate_corruption_crashes : 1;
       // Runtime: Indicates if the invalid accesses should be reported.
       unsigned report_invalid_accesses : 1;
+      // Runtime: Defer the crash reporter initialization, the client has to
+      // manually call the crash reporter initialization function.
+      unsigned defer_crash_reporter_initialization : 1;
 
       // Add new flags here!
 
@@ -159,13 +162,13 @@ COMPILE_ASSERT_IS_POD_OF_SIZE(AsanParameters, 64);
 // The current version of the Asan parameters structure. This must be updated
 // if any changes are made to the above structure! This is defined in the header
 // file to allow compile time assertions against this version number.
-const uint32_t kAsanParametersVersion = 14;
+const uint32_t kAsanParametersVersion = 15;
 
 // If the number of free bits in the parameters struct changes, then the
 // version has to change as well. This is simply here to make sure that
 // everything changes in lockstep.
-static_assert(kAsanParametersReserved1Bits == 20 &&
-                  kAsanParametersVersion == 14,
+static_assert(kAsanParametersReserved1Bits == 19 &&
+                  kAsanParametersVersion == 15,
               "Version must change if reserved bits changes.");
 
 // The name of the section that will be injected into an instrumented image,
@@ -237,6 +240,7 @@ extern const bool kDefaultCheckHeapOnFailure;
 extern const bool kDefaultDisableBreakpadReporting;
 extern const bool kDefaultFeatureRandomization;
 extern const bool kDefaultReportInvalidAccesses;
+extern const bool kDefaultDeferCrashReporterInitialization;
 // Default values of AsanLogger parameters.
 extern const bool kDefaultMiniDumpOnFailure;
 extern const bool kDefaultLogAsText;
@@ -272,6 +276,7 @@ extern const char kParamExitOnFailure[];
 extern const char kParamDisableBreakpadReporting[];
 extern const char kParamFeatureRandomization[];
 extern const char kParamReportInvalidAccesses[];
+extern const char kParamDeferCrashReporterInitialization[];
 // String names of AsanLogger parameters.
 extern const char kParamMiniDumpOnFailure[];
 extern const char kParamLogAsText[];

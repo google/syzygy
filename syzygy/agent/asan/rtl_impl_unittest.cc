@@ -23,6 +23,9 @@
 #include "syzygy/agent/asan/unittest_util.h"
 #include "syzygy/core/unittest_util.h"
 
+namespace agent {
+namespace asan {
+
 namespace {
 
 class AsanRtlImplTest : public testing::TestWithAsanLogger {
@@ -32,7 +35,7 @@ class AsanRtlImplTest : public testing::TestWithAsanLogger {
 
   void SetUp() override {
     testing::TestWithAsanLogger::SetUp();
-    asan_runtime_.SetUp(std::wstring());
+    asan_runtime_.SetUp(runtime_command_line_);
     agent::asan::SetUpRtl(&asan_runtime_);
     heap_ = asan_HeapCreate(0, 0, 0);
     ASSERT_TRUE(heap_ != NULL);
@@ -56,6 +59,11 @@ class AsanRtlImplTest : public testing::TestWithAsanLogger {
 
   // Scratch heap handle valid from SetUp to TearDown.
   HANDLE heap_;
+
+  // The command line used to initialize the runtime. Empty by default but
+  // can be override by the derived classes to enable some runtime flags
+  // during setup.
+  std::wstring runtime_command_line_;
 };
 
 }  // namespace
@@ -151,3 +159,24 @@ TEST_F(AsanRtlImplTest, SetInformationWithNullHeapPtr) {
       asan_HeapSetInformation(NULL, HeapEnableTerminationOnCorruption,
                               NULL, 0));
 }
+
+namespace {
+
+// Derived class that defers the crash reporter initialization.
+class AsanRtlImplTestCrashReporterInitialization : public AsanRtlImplTest {
+ public:
+  AsanRtlImplTestCrashReporterInitialization() {
+    runtime_command_line_ = L"--defer_crash_reporter_initialization";
+  }
+};
+
+}  // namespace
+
+TEST_F(AsanRtlImplTestCrashReporterInitialization, InitializeCrashReporter) {
+  EXPECT_FALSE(asan_runtime_.crash_reporter_initialized());
+  asan_InitializeCrashReporter();
+  EXPECT_TRUE(asan_runtime_.crash_reporter_initialized());
+}
+
+}  // namespace asan
+}  // namespace agent

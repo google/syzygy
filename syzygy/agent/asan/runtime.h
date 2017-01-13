@@ -149,6 +149,9 @@ class AsanRuntime {
   // @names Accessors.
   // {
   uint64_t random_key() const { return random_key_; }
+  bool crash_reporter_initialized() const {
+    return crash_reporter_initialized_;
+  }
   // @}
 
   // Observes a given thread ID, adding it to thread ID set.
@@ -193,6 +196,17 @@ class AsanRuntime {
 
   // @returns the list of enabled features.
   AsanFeatureSet GetEnabledFeatureSet();
+
+  // Initialize the crash reporter used by the runtime.
+  //
+  // This function should only be called once during the runtime's lifetime,
+  // it could either be called at setup time if the deferred initialization
+  // flag hasn't been set on the command line or later by the instrumented
+  // image.
+  //
+  // Calling this when the crash reporter has already been initialized will
+  // terminate the process.
+  void InitializeCrashReporter();
 
  protected:
   // Propagate the values of the flags to the target modules.
@@ -326,6 +340,9 @@ class AsanRuntime {
   // The crash reporter in use. This will be left null if no crash reporter
   // is available.
   std::unique_ptr<ReporterInterface> crash_reporter_;
+
+  // Indicates if the crash reporter has been initialized.
+  bool crash_reporter_initialized_;
 
   DISALLOW_COPY_AND_ASSIGN(AsanRuntime);
 };

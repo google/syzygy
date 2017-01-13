@@ -105,13 +105,36 @@ void WINAPI asan_SetOnExceptionCallback(OnExceptionCallback callback);
 //    experiement.
 typedef void(WINAPI* AsanExperimentCallback)(const char* experiment_name,
                                              const char* experiment_group);
-// Calls @p callback once for each experiement this runtime is performing.
+// Calls @p callback once for each experiment this runtime is performing.
 // @param callback a function that will be invoked recursively zero or more
 //     times to enumerate the experiments and their state.
 void WINAPI asan_EnumExperiments(AsanExperimentCallback callback);
 // @}
 
 int asan_CrashForException(EXCEPTION_POINTERS* exception);
+
+// This functions allows manually initializing the crash reporter used by the
+// runtime.
+//
+// It should only be used if the deferred initialization flag has been used by
+// the instrumented image (via the corresponding environment variable or at
+// instrumentation time) and should only be called once. Trying to initialize
+// the crash reporter a second time will result in undefined behavior.
+//
+// Manually controlling the initialization of the crash reporter is useful when
+// there's no crash reporter available at initialization time (i.e. the
+// instrumented process hasn't been initialized it yet). In addition to
+// instrumenting with the deferred initialization flag, the instrumented image
+// should do something like the following:
+//
+//   InitializeCrashReporter();
+//   typedef VOID(WINAPI* SyzyAsanInitializeCrashReporterFn)();
+//   HMODULE handle = ::GetModuleHandle(L"syzyasan_rtl.dll");
+//   SyzyAsanInitializeCrashReporterFn syzyasan_init_crash_reporter =
+//       reinterpret_cast<SyzyAsanInitializeCrashReporterFn>(
+//             ::GetProcAddress(handle, "asan_InitializeCrashReporter"));
+//   syzyasan_init_crash_reporter();
+void WINAPI asan_InitializeCrashReporter();
 
 }  // extern "C"
 

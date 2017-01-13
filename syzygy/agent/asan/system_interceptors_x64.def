@@ -83,6 +83,9 @@ EXPORTS
   ; Exposed to allow the user to enumerate runtime experiments.
   asan_EnumExperiments
 
+  ; Initialize the SyzyAsan crash reporter.
+  asan_InitializeCrashReporter
+
   ; Generated system intercepts
   asan_ReadFile
   asan_ReadFileEx

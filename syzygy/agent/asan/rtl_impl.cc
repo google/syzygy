@@ -259,4 +259,8 @@ int asan_CrashForException(EXCEPTION_POINTERS* exception) {
   return agent::asan::AsanRuntime::CrashForException(exception);
 }
 
+void WINAPI asan_InitializeCrashReporter() {
+  asan_runtime->InitializeCrashReporter();
+}
+
 }  // extern "C"
