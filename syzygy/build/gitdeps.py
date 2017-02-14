@@ -529,8 +529,8 @@ def _InstallRepository(options, repo):
         _RemoveOrphanedJunction(options, j)
 
       newpath = _RenameCheckout(repo.checkout_dir, options.dry_run)
-      body = lambda: _DeleteCheckout(newpath, options.dry_run)
-      thread = threading.Thread(target=body)
+      thread = threading.Thread(target=_DeleteCheckout,
+                                args=(newpath, options.dry_run))
       threads.append(thread)
       thread.start()
 
@@ -902,8 +902,8 @@ def main():
   for path in glob.glob(os.path.join(options.cache_dir, '*')):
     if os.path.join(path, 'src') not in checkout_dirs:
       _LOGGER.debug('Erasing orphaned checkout directory: %s', path)
-      body = lambda: _DeleteCheckout(path, options.dry_run)
-      thread = threading.Thread(target=body)
+      thread = threading.Thread(target=_DeleteCheckout,
+                                args=(path, options.dry_run))
       threads.append(thread)
       thread.start()
   for thread in threads:
