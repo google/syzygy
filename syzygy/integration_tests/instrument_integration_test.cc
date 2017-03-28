@@ -1219,6 +1219,9 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     // Run the symbolizer tester script to make sure that the minidump gets
     // symbolized correctly.
 
+    // The build scripts may set the wrong python path, so clear it here.
+    env->UnSetVar("PYTHONPATH");
+
     base::CommandLine cmd_line(
         ::testing::GetSrcRelativePath(L"third_party/python_26/python.exe"));
     cmd_line.AppendArgPath(::testing::GetSrcRelativePath(

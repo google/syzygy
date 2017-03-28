@@ -111,6 +111,53 @@ std::string JoinAnalyzerSet(const AnalyzerSet& analyzer_set) {
   return ret;
 }
 
+const char* kLayerNames[] = {
+#define LAYER_NAME(layer_name) #layer_name "Layer",
+    PROCESS_STATE_LAYERS(LAYER_NAME)
+#undef LAYER_NAME
+};
+
+bool IsValidLayerName(const std::string& candidate) {
+  for (const auto name : kLayerNames) {
+    if (candidate == name)
+      return true;
+  }
+
+  return false;
+}
+
+std::string GetValidLayerNames() {
+  std::string ret;
+  for (const auto name : kLayerNames) {
+    if (!ret.empty())
+      ret.append(", ");
+    ret.append(name);
+  }
+
+  return ret;
+}
+
+bool IsValidAnalyzerName(const std::string& candidate) {
+  refinery::AnalyzerFactory::AnalyzerNames names;
+  refinery::StaticAnalyzerFactory factory;
+  factory.GetAnalyzerNames(&names);
+
+  for (const auto name : names) {
+    if (candidate == name)
+      return true;
+  }
+
+  return false;
+}
+
+std::string GetValidAnalyzerNames() {
+  refinery::AnalyzerFactory::AnalyzerNames names;
+  refinery::StaticAnalyzerFactory factory;
+  factory.GetAnalyzerNames(&names);
+
+  return base::JoinString(names, ", ");
+}
+
 const char kUsageFormatStr[] =
     "Usage: %ls [options] <dump files or patterns>\n"
     "\n"
@@ -254,6 +301,15 @@ bool RunAnalyzerApplication::ParseCommandLine(
                  "Must provide a non-empty analyzer list with this flag.");
       return false;
     }
+    for (const auto& analyzer_name : SplitStringList(analyzer_names_)) {
+      if (!IsValidAnalyzerName(analyzer_name)) {
+        PrintUsage(cmd_line->GetProgram(),
+                   base::StringPrintf(
+                       "Analyzer \"%s\" doesn't exist, must be one of \"%s\"",
+                       analyzer_name.c_str(), GetValidAnalyzerNames().c_str()));
+        return false;
+      }
+    }
   }
 
   static const char kOutputLayers[] = "output-layers";
@@ -264,6 +320,15 @@ bool RunAnalyzerApplication::ParseCommandLine(
       PrintUsage(cmd_line->GetProgram(),
                  "Must provide a non-empty output layer list with this flag.");
       return false;
+    }
+    for (const auto& layer_name : SplitStringList(output_layers_)) {
+      if (!IsValidLayerName(layer_name)) {
+        PrintUsage(cmd_line->GetProgram(),
+                   base::StringPrintf(
+                       "Layer \"%s\" doesn't exist, must be one of \"%s\"",
+                       layer_name.c_str(), GetValidLayerNames().c_str()));
+        return false;
+      }
     }
   }
 
