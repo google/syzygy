@@ -22,8 +22,10 @@
 
 #include "base/at_exit.h"
 #include "base/command_line.h"
+#include "base/logging.h"
 #include "base/macros.h"
 #include "base/files/file_path.h"
+#include "base/json/string_escape.h"
 #include "base/strings/string16.h"
 #include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
@@ -56,10 +58,18 @@ class RunAnalyzerApplication : public application::AppImplBase {
   bool AddLayerPrerequisiteAnalyzers(const refinery::AnalyzerFactory& factory);
   bool OrderAnalyzers(const refinery::AnalyzerFactory& factory);
 
+  void PrintFieldAsJson(const char* name, uint64_t value);
+  void PrintFieldAsJson(const char* name, uint32_t value);
+  void PrintFieldAsJson(const char* name, base::StringPiece value);
+
+  template <typename RecordType>
+  void PrintRecordAsJson(scoped_refptr<RecordType> record);
+  void PrintRecordAsJson(refinery::TypedBlockRecordPtr typed_block);
+
   template <typename LayerPtrType>
-  void PrintLayer(const char* layer_name,
-                  refinery::ProcessState* process_state);
-  void PrintProcessState(refinery::ProcessState* process_state);
+  void PrintLayerAsJson(const char* layer_name,
+                        refinery::ProcessState* process_state);
+  void PrintProcessStateAsJson(refinery::ProcessState* process_state);
   void PrintUsage(const base::FilePath& program,
                   const base::StringPiece& message);
   bool AddAnalyzers(const refinery::AnalyzerFactory& factory,
@@ -232,9 +242,46 @@ bool RunAnalyzerApplication::OrderAnalyzers(
   return true;
 }
 
+void RunAnalyzerApplication::PrintFieldAsJson(const char* name,
+                                              uint64_t value) {
+  ::fprintf(out(), "      \"%s\": %llu,\n", name, value);
+}
+
+void RunAnalyzerApplication::PrintFieldAsJson(const char* name,
+                                              uint32_t value) {
+  ::fprintf(out(), "      \"%s\": %u,\n", name, value);
+}
+
+void RunAnalyzerApplication::PrintFieldAsJson(const char* name,
+                                              base::StringPiece value) {
+  std::string escaped_value;
+  CHECK(base::EscapeJSONString(value, true, &escaped_value));
+
+  ::fprintf(out(), "      \"%s\": %s,\n", name, escaped_value.c_str());
+}
+
+template <typename RecordType>
+void RunAnalyzerApplication::PrintRecordAsJson(
+    scoped_refptr<RecordType> record) {
+  std::string str = record->data().DebugString();
+
+  ::fprintf(out(), "0x%08llX(0x%04X){\n%s}\n", record->range().start(),
+            record->range().size(), str.c_str());
+}
+
+void RunAnalyzerApplication::PrintRecordAsJson(
+    refinery::TypedBlockRecordPtr typed_block) {
+  auto data = typed_block->data();
+
+  PrintFieldAsJson("module_id", data.module_id());
+  PrintFieldAsJson("type_id", data.type_id());
+  PrintFieldAsJson("data_name", data.data_name());
+}
+
 template <typename LayerPtrType>
-void RunAnalyzerApplication::PrintLayer(const char* layer_name,
-                                        refinery::ProcessState* process_state) {
+void RunAnalyzerApplication::PrintLayerAsJson(
+    const char* layer_name,
+    refinery::ProcessState* process_state) {
   DCHECK(process_state);
 
   LayerPtrType layer;
@@ -243,28 +290,38 @@ void RunAnalyzerApplication::PrintLayer(const char* layer_name,
     return;
   }
 
-  for (const auto& record : *layer) {
-    std::string str = record->data().DebugString();
+  ::fprintf(out(), "  \"%s\": [\n", layer_name);
 
-    ::fprintf(out(), "0x%08llX(0x%04X){\n%s}\n", record->range().start(),
-              record->range().size(), str.c_str());
+  for (const auto& record : *layer) {
+    ::fprintf(out(), "    {\n");
+    PrintFieldAsJson("address", record->range().start());
+    PrintFieldAsJson("size", record->range().size());
+    PrintRecordAsJson(record);
+    ::fprintf(out(), "    },\n");
   }
+
+  ::fprintf(out(), "  ],\n");
 }
 
-void RunAnalyzerApplication::PrintProcessState(
+void RunAnalyzerApplication::PrintProcessStateAsJson(
     refinery::ProcessState* process_state) {
   DCHECK(process_state);
 
   LayerNames layer_names = SplitStringList(output_layers_);
 
-#define PRINT_LAYER(layer_name)                            \
-  if (std::find(layer_names.begin(), layer_names.end(),    \
-                #layer_name "Layer") != layer_names.end()) \
-    PrintLayer<refinery::layer_name##LayerPtr>(#layer_name, process_state);
+  ::fprintf(out(), "{\n");
+
+#define PRINT_LAYER(layer_name)                                   \
+  if (std::find(layer_names.begin(), layer_names.end(),           \
+                #layer_name "Layer") != layer_names.end())        \
+    PrintLayerAsJson<refinery::layer_name##LayerPtr>(#layer_name, \
+                                                     process_state);
 
   PROCESS_STATE_LAYERS(PRINT_LAYER)
 
 #undef PRINT_LAYER
+
+  ::fprintf(out(), "}\n");
 }
 
 void RunAnalyzerApplication::PrintUsage(const base::FilePath& program,
@@ -410,7 +467,7 @@ int RunAnalyzerApplication::Run() {
     refinery::SimpleProcessAnalysis analysis(
         &process_state, dia_symbol_provider, symbol_provider);
     if (Analyze(minidump, analyzer_factory, analysis)) {
-      PrintProcessState(&process_state);
+      PrintProcessStateAsJson(&process_state);
     } else {
       LOG(ERROR) << "Failure processing minidump " << minidump_path.value();
     }
