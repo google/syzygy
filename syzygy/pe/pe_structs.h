@@ -21,8 +21,18 @@
 
 namespace pe {
 
+// Redefinition of the IMAGE_LOAD_CONFIG_CODE_INTEGRITY structure. This
+// corresponds to the structure as encountered in the version 10.0+ of the
+// Windows SDK.
+struct IMAGE_LOAD_CONFIG_CODE_INTEGRITY {
+  WORD Flags;
+  WORD Catalog;
+  DWORD CatalogOffset;
+  DWORD Reserved;
+};
+
 // Redefinition of the IMAGE_LOAD_CONFIG_DIRECTORY structure. This corresponds
-// to the structure as encountered in the version 8.1 of the Windows SDK.
+// to the structure as encountered in the version 10.0.14393 of the Windows SDK.
 struct LoadConfigDirectory {
   // Fields available in v8.0+ of the Windows SDK.
   DWORD   Size;
@@ -52,15 +62,36 @@ struct LoadConfigDirectory {
   DWORD   GuardCFFunctionTable;           // VA
   DWORD   GuardCFFunctionCount;
   DWORD   GuardFlags;
+
+  // Fields available in v10.0+ of the Windows SDK.
+  IMAGE_LOAD_CONFIG_CODE_INTEGRITY CodeIntegrity;
+  DWORD GuardAddressTakenIatEntryTable;  // VA
+  DWORD GuardAddressTakenIatEntryCount;
+  DWORD GuardLongJumpTargetTable;  // VA
+  DWORD GuardLongJumpTargetCount;
+  DWORD DynamicValueRelocTable;  // VA
+  DWORD HybridMetadataPointer;
 };
 
-// An enum mapping the size of a given IMAGE_LOAD_CONFIG_DIRECTORY structure to
-// the corresponding version of the Windows SDK.
+// An enum mapping the size of a given IMAGE_LOAD_CONFIG_DIRECTORY structure
+// to the corresponding version of the Windows SDK.
 enum LoadConfigDirectoryVersion {
   kLoadConfigDirectorySizeUnknown = 0,
+  // Corresponds to the version 8.0 of the Windows SDK.
   kLoadConfigDirectorySize80 =
       offsetof(LoadConfigDirectory, GuardCFCheckFunctionPointer),
-  kLoadConfigDirectorySize81 = sizeof(LoadConfigDirectory),
+  // Corresponds to the version 8.1+ of the Windows SDK.
+  kLoadConfigDirectorySize81 = offsetof(LoadConfigDirectory, CodeIntegrity),
+  // Corresponds to the version 10.0+ of the Windows SDK with the code integrity
+  // feature disabled.
+  kLoadConfigDirectorySize100NoCodeIntegrity =
+      offsetof(LoadConfigDirectory, CodeIntegrity),
+  // Corresponds to the version 10.0+ of the Windows SDK with the CFG feature
+  // disabled.
+  kLoadConfigDirectorySize100NoCFG =
+      offsetof(LoadConfigDirectory, GuardAddressTakenIatEntryTable),
+  // Corresponds to the full version 10.0 of the Windows SDK.
+  kLoadConfigDirectorySize100 = sizeof(LoadConfigDirectory),
 };
 
 };  // namespace pe

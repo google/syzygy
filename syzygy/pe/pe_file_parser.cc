@@ -1164,6 +1164,9 @@ BlockGraph::Block* PEFileParser::ParseLoadConfigDir(
   switch (*load_config_len.ptr()) {
     case kLoadConfigDirectorySize80:
     case kLoadConfigDirectorySize81:
+    // case kLoadConfigDirectorySize100NoCodeIntegrity:
+    case kLoadConfigDirectorySize100NoCFG:
+    case kLoadConfigDirectorySize100:
       load_config_version =
           static_cast<LoadConfigDirectoryVersion>(*load_config_len.ptr());
       break;
