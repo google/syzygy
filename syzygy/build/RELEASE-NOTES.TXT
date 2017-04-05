@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.28.0
+[7677dfdf22] Add support for the Win10 SDK to the PE reader.
+
 Version 0.8.27.0
 [666a753011] SyzyAsan - Add a flag to defer the initialization of the SyzyAsan
              crash reporter.
