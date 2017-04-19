@@ -116,17 +116,8 @@ bool HeatMapSimulation::SerializeToJSON(FILE* output, bool pretty_print) {
           return false;
       }
 
-      if (!json_file.CloseDict())
-        return false;
-    }
-
-    if (!json_file.CloseList() ||
-        !json_file.CloseDict())
-      return false;
-  }
-
-  if (!json_file.CloseList() ||
-      !json_file.CloseDict())
+  if (!json_file.CloseDict() ||
+      !json_file.CloseList())
     return false;
 
   return json_file.Finished();
