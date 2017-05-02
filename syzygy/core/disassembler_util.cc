@@ -24,55 +24,311 @@ namespace core {
 
 namespace {
 
-// Return the size of a 3-byte VEX encoded instruction.
+// Opcode of the 3-byte VEX instructions.
+const uint8_t kThreeByteVexOpcode = 0xC4;
+
+// Structure representing a Mod R/M byte, it has the following format:
+//         +---+---+---+---+---+---+---+---+
+//         |  mod  |reg/opcode |    r/m    |
+//         +---+---+---+---+---+---+---+---+
+//
+// Here's a description of the different fields (from
+// https://en.wikipedia.org/wiki/VEX_prefix):
+//   - mod: combined with the r/m field, encodes either 8 registers or 24
+//     addressing modes. Also encodes opcode information for some
+//     instructions.
+//   - reg/opcode: specifies either a register or three more bits of
+//     opcode information, as specified in the primary opcode byte.
+//   - r/m: can specify a register as an operand, or combine with the mod
+//     field to encode an addressing mode.
+//
+// The |mod| field can have the following values:
+//   - 0b00: Register indirect addressing mode or SIB with no displacement
+//     (if r/m = 0b100) or displacement only addressing mode (if r/m = 0b101).
+//   - 0b01: One-byte signed displacement follows addressing mode byte(s).
+//   - 0b10: Four-byte signed displacement follows addressing mode byte(s).
+//   - 0b11: Register addressing mode.
+struct ModRMByte {
+  // Constructor.
+  // @param value The Value used to initialize this Mod R/M byte.
+  explicit ModRMByte(uint8_t value) : raw_value(value) {}
+
+  union {
+    uint8_t raw_value;
+    struct {
+      uint8_t r_m : 3;
+      uint8_t reg_or_opcode : 3;
+      uint8_t mod : 2;
+    };
+  };
+};
+
+// Calculates the number of bytes used to encode a Mod R/M operand.
+// @param ci The code information for this instruction.
+// @param has_register_addressing_mode Indicates if the instruction supports
+//     the register addressing mode (value of |mod| of 0b11).
+// @returns the total size of this Mod R/M operand (in bytes), 0 on failure.
+size_t GetModRMOperandBytesSize(const _CodeInfo* ci,
+                                bool has_register_addressing_mode) {
+  DCHECK_GE(ci->codeLen, 5);
+
+  // If SIB (Scale*Index+Base) is specified then the operand uses an
+  // additional SIB byte.
+  const uint8_t kSIBValue = 0b100;
+  ModRMByte modRM_byte(ci->code[4]);
+
+  switch (modRM_byte.mod) {
+    case 0b00: {
+      if (modRM_byte.r_m == kSIBValue) {
+        CHECK_GE(ci->codeLen, 6);
+        // The SIB byte has the following layout:
+        //     +---+---+---+---+---+---+---+---+
+        //     | scale |   index   |    base   |
+        //     +---+---+---+---+---+---+---+---+
+        //
+        // If |base| = 5 then there's an additional 4 bytes used to encode the
+        // displacement, e.g.:
+        // vpbroadcastd ymm0, DWORD PTR [ebp+eax*8+0x76543210]
+        const uint8_t kSIBBaseMask = 0b111;
+        if ((ci->code[5] & kSIBBaseMask) == 5)
+          return 6;
+        // If |base| != 5 then there's just the SIB byte, e.g.:
+        // vpbroadcastd ymm0, DWORD PTR [ecx+edx*1]
+        return 2;
+      }
+      if (modRM_byte.r_m == 0b101) {
+        // Displacement only addressing mode, e.g.:
+        // vpbroadcastb xmm2, BYTE PTR ds:0x12345678
+        return 5;
+      }
+      // Register indirect addressing mode, e.g.:
+      // vpbroadcastb xmm2, BYTE PTR [eax]
+      return 1;
+    }
+    case 0b01: {
+      // One-byte displacement.
+      if (modRM_byte.r_m == kSIBValue) {
+        // Additional SIB byte, e.g.:
+        // vpbroadcastb xmm2, BYTE PTR [eax+edx*1+0x42]
+        return 3;
+      }
+      // No SIB byte, e.g.:
+      // vpbroadcastb xmm2, BYTE PTR [eax+0x42]
+      return 2;
+    }
+    case 0b10: {
+      // One-byte displacement.
+      if (modRM_byte.r_m == kSIBValue) {
+        // Additional SIB byte, e.g.:
+        // vpbroadcastb xmm0, BYTE PTR [edx+edx*1+0x12345678]
+        return 6;
+      }
+      // No SIB byte, e.g.:
+      // vpbroadcastb xmm0, BYTE PTR [eax+0x34567812]
+      return 5;
+    }
+    case 0b11:
+      // Register addressing mode, e.g.:
+      // vpbroadcastb xmm2, BYTE PTR [eax]
+      if (has_register_addressing_mode)
+        return 1;
+      LOG(ERROR) << "Unexpected |mod| value of 0b11 for an instruction that "
+                 << "doesn't support it.";
+      return 0;
+    default:
+      NOTREACHED();
+  }
+
+  return 0;
+}
+
+// Structure representing a 3-byte VEX encoded instruction.
 //
 // The layout of these instructions is as follows, starting with a byte with
 // value 0xC4:
-//     - First byte:
+//     - Opcode indicating that this is a 3-byte VEX instruction:
 //         +---+---+---+---+---+---+---+---+
 //         | 1   1   0   0   0   1   0   0 |
 //         +---+---+---+---+---+---+---+---+
-//     - Second byte:
+//     - First byte:
 //         +---+---+---+---+---+---+---+---+
 //         |~R |~X |~B |     map_select    |
 //         +---+---+---+---+---+---+---+---+
-//     - Third byte:
+//     - Second byte:
 //         +---+---+---+---+---+---+---+---+
 //         |W/E|     ~vvvv     | L |   pp  |
 //         +---+---+---+---+---+---+---+---+
-//     - Fourth byte: The opcode for this instruction.
+//     - Third byte: The opcode for this instruction.
 //
-// |map_select| Indicates the opcode map that should be used for this
-// instruction.
+// If this instructions takes some operands then it's followed by a ModR/M byte
+// and some optional bytes to represent the operand. We don't represent these
+// optional bytes here.
 //
-// See http://wiki.osdev.org/X86-64_Instruction_Encoding#Three_byte_VEX_escape_prefix
+// See
+// http://wiki.osdev.org/X86-64_Instruction_Encoding#Three_byte_VEX_escape_prefix
 // for more details.
+struct ThreeBytesVexInstruction {
+  explicit ThreeBytesVexInstruction(const uint8_t* data) {
+    DCHECK_NE(nullptr, data);
+    CHECK_EQ(kThreeByteVexOpcode, data[0]);
+    first_byte = data[1];
+    second_byte = data[2];
+    opcode = data[3];
+  }
+
+  // Checks if this instruction match the expectations that we have for it.
+  //
+  // It compares the value of several fields that can have an impact on the
+  // instruction size and make sure that they have the expected value.
+  //
+  // @param expected_inv_rxb The expected value for |inv_rxb|.
+  // @param expected_we The expected value for |we|.
+  // @param expected_l The expected value for |l|.
+  // @param expected_pp The expected value for |pp|.
+  // @returns true if all the expectations are met, false otherwise.
+  bool MatchExpectations(uint8_t expected_inv_rxb,
+                         uint8_t expected_we,
+                         uint8_t expected_l,
+                         uint8_t expected_pp,
+                         const char* instruction);
+
+  // First byte, contains the RXB value and map_select.
+  union {
+    uint8_t first_byte;
+    struct {
+      uint8_t map_select : 5;
+      uint8_t inv_rxb : 3;
+    };
+  };
+  // Second byte, contains the W/E, ~vvvv, L and pp values.
+  union {
+    uint8_t second_byte;
+    struct {
+      uint8_t pp : 2;
+      uint8_t l : 1;
+      uint8_t inv_vvvv : 4;
+      uint8_t w_e : 1;
+    };
+  };
+
+  // Opcode of this instruction.
+  uint8_t opcode;
+};
+
+// Checks if |value| is equal to |expected| value and log verbosely if it's not
+// the case.
+bool CheckField(uint8_t expected_value,
+                uint8_t value,
+                const char* field_name,
+                const char* instruction) {
+  if (expected_value != value) {
+    LOG(ERROR) << "Unexpected " << field_name << " value for the "
+               << instruction << " instruction, expecting 0x" << std::hex
+               << static_cast<size_t>(expected_value) << " but got 0x"
+               << static_cast<size_t>(value) << "." << std::dec;
+    return false;
+  }
+  return true;
+}
+
+bool ThreeBytesVexInstruction::MatchExpectations(uint8_t expected_inv_rxb,
+                                                 uint8_t expected_we,
+                                                 uint8_t expected_l,
+                                                 uint8_t expected_pp,
+                                                 const char* instruction) {
+  if (!CheckField(expected_inv_rxb, inv_rxb, "inv_rxb", instruction))
+    return false;
+  if (!CheckField(expected_we, w_e, "we", instruction))
+    return false;
+  if (!CheckField(expected_l, l, "l", instruction))
+    return false;
+  if (!CheckField(expected_pp, pp, "pp", instruction))
+    return false;
+  return true;
+}
+
+// Returns the size of a 3-byte VEX encoded instruction.
+//
+// NOTE: We only support the instructions that have been encountered in Chrome
+// and there's some restrictions on which variants of these instructions are
+// supported.
 size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
-  DCHECK_EQ(0xC4, ci->code[0]);
-  // Switch case based on the opcode map used by this instruction.
-  switch (ci->code[1] & 0x1F) {
+  // A 3-byte VEX instructions has always a size of 5 bytes or more (the C4
+  // constant, the 3 VEX bytes and the mod R/M byte).
+  DCHECK_GE(ci->codeLen, 5);
+
+  ThreeBytesVexInstruction instruction(ci->code);
+
+  const size_t kBaseSize = 4;
+  size_t operand_size = 0;
+  size_t constants_size = 0;
+
+  // Switch case based on the opcode used by this instruction.
+  switch (instruction.map_select) {
     case 0x02: {
-      switch (ci->code[3]) {
-        case 0x13: return 5;  // vcvtps2ps
-        case 0x18: return 5;  // vbroadcastss
-        case 0x36: return 5;  // vpermd
-        case 0x58: return 6;  // vpbroadcastd
-        case 0x5A: return 6;  // vbroadcasti128
-        case 0x78: return 5;  // vpbroadcastb
-        case 0x8C: return 5;  // vpmaskmovd
-        case 0x8E: return 5;  // vpmaskmovd
-        case 0x90: return 6;  // vpgatherdd
+      switch (instruction.opcode) {
+        case 0x13:  // vcvtph2ps
+          if (instruction.MatchExpectations(0b111, 0, 0, 1, "vcvtph2ps"))
+            operand_size = GetModRMOperandBytesSize(ci, true);
+          break;
+        case 0x18:  // vbroadcastss
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vbroadcastss"))
+            operand_size = GetModRMOperandBytesSize(ci, true);
+          break;
+        case 0x36:  // vpermd
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpermd"))
+            operand_size = GetModRMOperandBytesSize(ci, true);
+          break;
+        case 0x58:  // vpbroadcastd
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpbroadcastd"))
+            operand_size = GetModRMOperandBytesSize(ci, true);
+          break;
+        case 0x5A:  // vbroadcasti128
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vbroadcasti128"))
+            operand_size = GetModRMOperandBytesSize(ci, false);
+          break;
+        case 0x78:  // vpbroadcastb
+          if (instruction.MatchExpectations(0b111, 0, 0, 1, "vpbroadcastb"))
+            operand_size = GetModRMOperandBytesSize(ci, true);
+          break;
+        case 0x8C:  // vpmaskmovd
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpmaskmovd"))
+            operand_size = GetModRMOperandBytesSize(ci, false);
+          break;
+        case 0x90:  // vpgatherdd
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpgatherdd"))
+            operand_size = GetModRMOperandBytesSize(ci, false);
+          break;
         default:
           break;
       }
       break;
     }
     case 0x03: {
-      switch (ci->code[3]) {
-        case 0x00: return 6;  // vpermq
-        case 0x1D: return 6;  // vcvtps2ph
-        case 0x38: return 7;  // vinserti128
-        case 0x39: return 6;  // vextracti128
+      switch (instruction.opcode) {
+        case 0x00:  // vpermq
+          if (instruction.MatchExpectations(0b111, 1, 1, 1, "vpermq")) {
+            operand_size = GetModRMOperandBytesSize(ci, true);
+            constants_size = 1;
+          }
+          break;
+        case 0x1D:  // vcvtps2ph
+          if (instruction.MatchExpectations(0b111, 0, 0, 1, "vcvtps2ph")) {
+            operand_size = GetModRMOperandBytesSize(ci, true);
+            constants_size = 1;
+          }
+          break;
+        case 0x38:  // vinserti128
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vinserti128")) {
+            operand_size = GetModRMOperandBytesSize(ci, true);
+            constants_size = 1;
+          }
+          break;
+        case 0x39:  // vextracti128
+          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vextracti128")) {
+            operand_size = GetModRMOperandBytesSize(ci, true);
+            constants_size = 1;
+          }
         default: break;
       }
       break;
@@ -80,6 +336,9 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
     default:
       break;
   }
+
+  if (operand_size != 0)
+    return kBaseSize + operand_size + constants_size;
 
   // Print the instructions that we haven't been able to decompose in a format
   // that can easily be pasted into ODA (https://onlinedisassembler.com/).
@@ -150,10 +409,9 @@ bool HandleBadDecode(_CodeInfo* ci,
 
       return true;
     }
-  }
-
-  if (ci->code[0] == 0xC4)
+  } else if (ci->code[0] == kThreeByteVexOpcode) {
     size = Get3ByteVexEncodedInstructionSize(ci);
+  }
 
   if (size == 0)
     return false;

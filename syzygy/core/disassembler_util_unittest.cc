@@ -14,10 +14,13 @@
 
 #include "syzygy/core/disassembler_util.h"
 
+#include <vector>
+
 #include "base/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "syzygy/assm/unittest_util.h"
+#include "syzygy/core/disassembler_util_unittest_vex_utils.h"
 
 namespace core {
 
@@ -118,25 +121,6 @@ const uint8_t kSysExit[] = {0x0F, 0x35};
 const uint8_t kInt2[] = {0xCD, 0x02};
 const uint8_t kInt3[] = {0xCC};
 
-// VEX encoded instructions that Distorm doesn't handle properly.
-const std::vector<std::vector<uint8_t>> kVexInstructions = {
-    // AVX instructions.
-    {0xC4, 0xE3, 0xFD, 0x00, 0xED, 0x44},        // vpermq
-    {0xC4, 0xE2, 0x4D, 0x36, 0xC0},              // vpermd
-    {0xC4, 0xE2, 0x7D, 0x5A, 0x45, 0xD0},        // vbroadcasti128
-    {0xC4, 0xE3, 0x7D, 0x38, 0x2C, 0x0F, 0x01},  // vinserti128
-    {0xC4, 0xE2, 0x79, 0x78, 0xC0},              // vpbroadcastb
-    {0xC4, 0xE2, 0x7D, 0x58, 0x40, 0x04},        // vpbroadcastd
-    {0xC4, 0xE2, 0x7D, 0x18, 0xC0},              // vbroadcastss
-    {0xC4, 0xE3, 0x7D, 0x39, 0xC8, 0x01},        // vextracti128
-    {0xC4, 0xE2, 0x7D, 0x90, 0x1C, 0x88},        // vpgatherdd
-    {0xC4, 0xE2, 0x7D, 0x8C, 0x00},              // vpmaskmovd
-    {0xC4, 0xE2, 0x7D, 0x8E, 0x90},              // vpmaskmovd
-
-    // F16C instructions.
-    {0xC4, 0xE3, 0x79, 0x1D, 0xC8, 0x00},  // vcvtps2ph
-    {0xC4, 0xE2, 0x79, 0x13, 0xE0},        // vcvtps2ps
-};
 
 void TestBadlyDecodedInstruction(const uint8_t* code, size_t code_length) {
   _DInst inst[1] = {};
@@ -371,9 +355,22 @@ TEST(DisassemblerUtilTest, DistormDecomposeFxrstor) {
 // If this test starts failing then Distorm now properly handles the AVX2
 // instructions. Please remove the workaround in disassembler_util.cc.
 TEST(DisassemblerUtilTest, TestBadlyDecodedVexInstructions) {
-  for (const auto iter : kVexInstructions) {
+  for (const auto iter : unittests::kVexInstructions) {
     EXPECT_NO_FATAL_FAILURE(
         TestBadlyDecodedInstruction(iter.data(), iter.size()));
+  }
+}
+
+TEST(DisassemblerUtilTest, TestBadlyDecodedVexInstructionsModRMVariants) {
+  for (const auto& iter : unittests::kVexInstructionsModRMVariants) {
+    _DInst inst[1] = {};
+    unsigned int inst_count = 0;
+
+    _DecodeResult result = DecomposeCode(iter.data(), iter.size(), inst,
+                                         arraysize(inst), &inst_count);
+    EXPECT_EQ(DECRES_SUCCESS, result);
+    EXPECT_EQ(1u, inst_count);
+    EXPECT_EQ(iter.size(), inst[0].size);
   }
 }
 

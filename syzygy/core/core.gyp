@@ -83,6 +83,8 @@
         'disassembler_test_code.asm',
         'disassembler_unittest.cc',
         'disassembler_util_unittest.cc',
+        'disassembler_util_unittest_vex_utils.cc',
+        'disassembler_util_unittest_vex_utils.h',
         'file_util_unittest.cc',
         'json_file_writer_unittest.cc',
         'section_offset_address_unittest.cc',
