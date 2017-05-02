@@ -30,8 +30,7 @@ bool PdbFixup::ValidHeader() const {
 
     case TYPE_OFFSET_32BIT:
     case TYPE_OFFSET_8BIT: {
-      // We've only ever seen offset fixups without flags.
-      return flags == 0;
+      return (flags & ~FLAG_OFFSET_32BIT_VS2017) == 0;
     }
 
     default: {

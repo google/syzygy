@@ -1792,6 +1792,7 @@ DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
 
   // Verify that the data symbol does not exceed the size of the block.
   if (addr + length > block_addr + block->size()) {
+    base::StringPiece spname(name);
     // The data symbol can exceed the size of the block in the case of data
     // imports. For some reason the toolchain emits a global data symbol with
     // type information equal to the type of the data *pointed* to by the import
@@ -1802,9 +1803,23 @@ DiaBrowser::BrowserDirective Decomposer::OnDataSymbol(
     // generated. This won't be part of the IAT, so we can't even filter based
     // on that. Instead, we simply ignore global data symbols that exceed the
     // block size.
-    base::StringPiece spname(name);
-    if (sym_tags.size() == 1 && spname.starts_with("_imp_")) {
+    bool is_imported_data_symbol = (sym_tags.size() == 1 &&
+                                    spname.starts_with("_imp_"));
+    // In VS2017 we've noticed that the size returned by IDiaSymbol::get_length
+    // function is invalid for the objects using RTTI in VS2017. This has been
+    // reported here:
+    // https://developercommunity.visualstudio.com/content/problem/47386/invalid-symbols-when-using-rtti.html
+    //
+    // In this situation the data symbol that we get always starts 4 bytes after
+    // the beginning of its parent block and has an identical size.
+    bool is_vtable_symbol = spname.ends_with("::`vftable'") &&
+                            (addr - block_addr == 4) &&
+                            length == block->size();
+    if (is_imported_data_symbol) {
       VLOG(1) << "Encountered an imported data symbol \"" << name << "\" that "
+              << "extends past its parent block \"" << block->name() << "\".";
+    } else if (is_vtable_symbol) {
+      VLOG(1) << "Encountered a vtable data symbol \"" << name << "\" that "
               << "extends past its parent block \"" << block->name() << "\".";
     } else {
       LOG(ERROR) << "Received data symbol \"" << name << "\" that extends past "

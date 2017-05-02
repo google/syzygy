@@ -289,6 +289,9 @@ struct PdbFixup {
   };
 
   enum Flags {
+    // Flag value that we observe for the TYPE_OFFSET_32BIT fixups produced by
+    // VS2017.
+    FLAG_OFFSET_32BIT_VS2017 = 0x2000,
     FLAG_IS_DATA = 0x4000,
     FLAG_REFERS_TO_CODE = 0x8000,
     FLAG_UNKNOWN = 0x3fff,
