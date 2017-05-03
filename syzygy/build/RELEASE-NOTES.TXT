@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.29.0
+[ab9b65e1fd] Add support for the VS2017 built binaries.
+[5970d392db] Improve the decoding of the VEX encoded instructions.
+
 Version 0.8.28.0
 [7677dfdf22] Add support for the Win10 SDK to the PE reader.
 
