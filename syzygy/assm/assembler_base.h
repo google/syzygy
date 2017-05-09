@@ -137,6 +137,7 @@ class AssemblerBase {
   void mov(const Register32& dst, const Immediate& src);
   void mov(const Operand& dst, const Immediate& src);
   void mov_fs(const Register32& dst, const Operand& src);
+  void mov_fs(const Register32& dst, const Immediate& src);
   void mov_fs(const Operand& dst, const Register32& src);
   // @}
 
@@ -191,6 +192,8 @@ class AssemblerBase {
   void add(const Operand& dst, const Register32& src);
   void add(const Register32& dst, const Immediate& src);
   void add(const Operand& dst, const Immediate& src);
+
+  void inc(const Operand& dst);
 
   void sub(const Register8& dst, const Register8& src);
   void sub(const Register8& dst, const Immediate& src);

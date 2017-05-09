@@ -639,6 +639,12 @@ TEST_F(AssemblerTest, MovWithSegmentPrefix) {
   EXPECT_BYTES(0x64, 0x8B, 0x13);
   asm_.mov_fs(ecx, Operand(edx));
   EXPECT_BYTES(0x64, 0x8B, 0x0A);
+
+  // Immediate source modes.
+  asm_.mov_fs(eax, Immediate(0xCAFEBABE, kSize32Bit));
+  EXPECT_BYTES(0x64, 0xA1, 0xBE, 0xBA, 0xFE, 0xCA);
+  asm_.mov_fs(ebx, Immediate(0x2C, kSize8Bit));
+  EXPECT_BYTES(0x64, 0x8B, 0x1D, 0x2C, 0x00, 0x00, 0x00);
 }
 
 TEST_F(AssemblerTest, LeaRegisterIndirect) {
@@ -941,6 +947,25 @@ TEST_F(AssemblerTest, Cmp) {
   // Special EAX mode + immediate.
   asm_.cmp(eax, Immediate(0xDEADBEEF, kSize32Bit));
   EXPECT_BYTES(0x3D, 0xEF, 0xBE, 0xAD, 0xDE);
+}
+
+TEST_F(AssemblerTest, IncByte) {
+  asm_.inc(Operand(eax));
+  EXPECT_BYTES(0xFE, 0x00);
+  asm_.inc(Operand(ecx));
+  EXPECT_BYTES(0xFE, 0x01);
+  asm_.inc(Operand(edx));
+  EXPECT_BYTES(0xFE, 0x02);
+  asm_.inc(Operand(ebx));
+  EXPECT_BYTES(0xFE, 0x03);
+  asm_.inc(Operand(esi));
+  EXPECT_BYTES(0xFE, 0x06);
+  asm_.inc(Operand(edi));
+  EXPECT_BYTES(0xFE, 0x07);
+  asm_.inc(Operand(ebp));
+  EXPECT_BYTES(0xFE, 0x45, 0x00);
+  asm_.inc(Operand(esp));
+  EXPECT_BYTES(0xFE, 0x04, 0x24);
 }
 
 TEST_F(AssemblerTest, AddByte) {

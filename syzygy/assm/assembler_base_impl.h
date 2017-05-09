@@ -905,6 +905,22 @@ void AssemblerBase<ReferenceType>::mov_fs(const Register32& dst,
 }
 
 template <class ReferenceType>
+void AssemblerBase<ReferenceType>::mov_fs(const Register32& dst,
+                                          const Immediate& src) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(kFsSegmentPrefix);
+
+  if (dst.id() == kRegisterEax) {
+    // Special encoding for indirect displacement only to EAX.
+    instr.EmitOpCodeByte(0xA1);
+  } else {
+    instr.EmitOpCodeByte(0x8B);
+    instr.EmitOpCodeByte(0x1D);
+  }
+  instr.Emit32BitImmediate(src);
+}
+
+template <class ReferenceType>
 void AssemblerBase<ReferenceType>::mov_fs(const Operand& dst,
                                           const Register32& src) {
   InstructionBuffer instr(this);
@@ -1161,6 +1177,13 @@ void AssemblerBase<ReferenceType>::add(const Operand& dst,
                                        const Immediate& src) {
   InstructionBuffer instr(this);
   instr.EmitArithmeticInstructionToOperand(0x83, 0x81, 0, dst, src);
+}
+
+template <class ReferenceType>
+void AssemblerBase<ReferenceType>::inc(const Operand& dst) {
+  InstructionBuffer instr(this);
+  instr.EmitOpCodeByte(0xFE);
+  instr.EmitOperand(0, dst);
 }
 
 template <class ReferenceType>
