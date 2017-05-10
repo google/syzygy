@@ -1,6 +1,9 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.30.0
+[8e43875330] Add support for the vperm2i128 and vpbroadcastw VEX instructions.
+
 Version 0.8.29.0
 [ab9b65e1fd] Add support for the VS2017 built binaries.
 [5970d392db] Improve the decoding of the VEX encoded instructions.
