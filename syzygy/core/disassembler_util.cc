@@ -183,13 +183,9 @@ struct ThreeBytesVexInstruction {
   //
   // @param expected_inv_rxb The expected value for |inv_rxb|.
   // @param expected_we The expected value for |we|.
-  // @param expected_l The expected value for |l|.
-  // @param expected_pp The expected value for |pp|.
   // @returns true if all the expectations are met, false otherwise.
   bool MatchExpectations(uint8_t expected_inv_rxb,
                          uint8_t expected_we,
-                         uint8_t expected_l,
-                         uint8_t expected_pp,
                          const char* instruction);
 
   // First byte, contains the RXB value and map_select.
@@ -233,16 +229,10 @@ bool CheckField(uint8_t expected_value,
 
 bool ThreeBytesVexInstruction::MatchExpectations(uint8_t expected_inv_rxb,
                                                  uint8_t expected_we,
-                                                 uint8_t expected_l,
-                                                 uint8_t expected_pp,
                                                  const char* instruction) {
   if (!CheckField(expected_inv_rxb, inv_rxb, "inv_rxb", instruction))
     return false;
   if (!CheckField(expected_we, w_e, "we", instruction))
-    return false;
-  if (!CheckField(expected_l, l, "l", instruction))
-    return false;
-  if (!CheckField(expected_pp, pp, "pp", instruction))
     return false;
   return true;
 }
@@ -268,35 +258,39 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
     case 0x02: {
       switch (instruction.opcode) {
         case 0x13:  // vcvtph2ps
-          if (instruction.MatchExpectations(0b111, 0, 0, 1, "vcvtph2ps"))
+          if (instruction.MatchExpectations(0b111, 0, "vcvtph2ps"))
             operand_size = GetModRMOperandBytesSize(ci, true);
           break;
         case 0x18:  // vbroadcastss
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vbroadcastss"))
+          if (instruction.MatchExpectations(0b111, 0, "vbroadcastss"))
             operand_size = GetModRMOperandBytesSize(ci, true);
           break;
         case 0x36:  // vpermd
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpermd"))
+          if (instruction.MatchExpectations(0b111, 0, "vpermd"))
             operand_size = GetModRMOperandBytesSize(ci, true);
           break;
         case 0x58:  // vpbroadcastd
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpbroadcastd"))
+          if (instruction.MatchExpectations(0b111, 0, "vpbroadcastd"))
             operand_size = GetModRMOperandBytesSize(ci, true);
           break;
         case 0x5A:  // vbroadcasti128
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vbroadcasti128"))
+          if (instruction.MatchExpectations(0b111, 0, "vbroadcasti128"))
             operand_size = GetModRMOperandBytesSize(ci, false);
           break;
         case 0x78:  // vpbroadcastb
-          if (instruction.MatchExpectations(0b111, 0, 0, 1, "vpbroadcastb"))
+          if (instruction.MatchExpectations(0b111, 0, "vpbroadcastb"))
+            operand_size = GetModRMOperandBytesSize(ci, true);
+          break;
+        case 0x79:  // vpbroadcastw
+          if (instruction.MatchExpectations(0b111, 0, "vpbroadcastw"))
             operand_size = GetModRMOperandBytesSize(ci, true);
           break;
         case 0x8C:  // vpmaskmovd
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpmaskmovd"))
+          if (instruction.MatchExpectations(0b111, 0, "vpmaskmovd"))
             operand_size = GetModRMOperandBytesSize(ci, false);
           break;
         case 0x90:  // vpgatherdd
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vpgatherdd"))
+          if (instruction.MatchExpectations(0b111, 0, "vpgatherdd"))
             operand_size = GetModRMOperandBytesSize(ci, false);
           break;
         default:
@@ -307,25 +301,30 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
     case 0x03: {
       switch (instruction.opcode) {
         case 0x00:  // vpermq
-          if (instruction.MatchExpectations(0b111, 1, 1, 1, "vpermq")) {
+          if (instruction.MatchExpectations(0b111, 1, "vpermq")) {
             operand_size = GetModRMOperandBytesSize(ci, true);
             constants_size = 1;
           }
           break;
         case 0x1D:  // vcvtps2ph
-          if (instruction.MatchExpectations(0b111, 0, 0, 1, "vcvtps2ph")) {
+          if (instruction.MatchExpectations(0b111, 0, "vcvtps2ph")) {
             operand_size = GetModRMOperandBytesSize(ci, true);
             constants_size = 1;
           }
           break;
         case 0x38:  // vinserti128
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vinserti128")) {
+          if (instruction.MatchExpectations(0b111, 0, "vinserti128")) {
             operand_size = GetModRMOperandBytesSize(ci, true);
             constants_size = 1;
           }
           break;
         case 0x39:  // vextracti128
-          if (instruction.MatchExpectations(0b111, 0, 1, 1, "vextracti128")) {
+          if (instruction.MatchExpectations(0b111, 0, "vextracti128")) {
+            operand_size = GetModRMOperandBytesSize(ci, true);
+            constants_size = 1;
+          }
+        case 0x46:  // vperm2i128
+          if (instruction.MatchExpectations(0b111, 0, "vperm2i128")) {
             operand_size = GetModRMOperandBytesSize(ci, true);
             constants_size = 1;
           }
