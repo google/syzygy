@@ -137,7 +137,7 @@ EXPORTS
   asan_EnumExperiments
 
   ; Initialize the SyzyAsan crash reporter.
-  asan_InitializeCrashHandler
+  asan_InitializeCrashReporter
 
   ; Clang-Asan access checking functions.
   __asan_load1=asan_redirect_load1
