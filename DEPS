@@ -61,7 +61,7 @@ deps = {
 
   # This brings in Clang. This is required to generate the project files.
   "src/tools/clang":
-    Var("chromium_git") + "chromium/src/tools/clang@33c2e41",
+    Var("chromium_git") + "chromium/src/tools/clang@7474c16",
 
   # This brings in Crashpad, used by SyzyASan for crash reporting.
   "src/third_party/crashpad/files":
@@ -154,7 +154,7 @@ hooks = [
                "-s", "src/buildtools/win/clang-format.exe.sha1",
     ],
   },
-  # Pull the Syzygy binaries, used for ASAN self-testing.
+  # Pull the Syzygy binaries, used for Asan self-testing.
   {
     "name": "syzygy-binaries",
     "pattern": ".",
@@ -164,5 +164,12 @@ hooks = [
                "--revision=0645c685e783c6787acb8f6e1dade4f916605fc1",
                "--overwrite",
     ],
+  },
+  {
+    # Pull Clang binaries,
+    # used for compiling and instrumenting with Clang and Asan.
+    "name": "clang",
+    "pattern": ".",
+    "action": ["python", "src/tools/clang/scripts/update.py", "--if-needed"],
   },
 ]
