@@ -190,6 +190,14 @@ extern "C" {
 void asan_no_check();
 #endif
 
+// The following functions are added for compatibility but are not implemented
+// yet.
+void asan_init();
+int asan_set_seh_filter();
+int asan_should_detect_stack_use_after_return();
+void asan_version_mismatch_check_v8();
+void asan_handle_no_return();
+
 // The Clang no-op memory access checker.
 void asan_clang_no_check(const void*);
 

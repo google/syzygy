@@ -80,9 +80,43 @@ const size_t ONE_TB = static_cast<size_t>(1) << 40;
 #endif
 
 extern "C" {
+void asan_init() {
+  return;
+}
+
+void* asan_get_shadow_memory_dynamic_address() {
+  return nullptr;
+  NOTREACHED();
+}
+
+// Currently this is a dummy function.
+// Returning zero means do not detect stack use after return.
+// TODO (njanevsk): Implement this function.
+int asan_should_detect_stack_use_after_return() {
+  return 0;
+}
+
+// Currently this is a dummy function.
+// This one always returns 0.
+// TODO (njanevsk): Implement this function.
+int asan_set_seh_filter() {
+  return 0;
+}
+
+// TODO (njanevsk): Implement this function.
+void asan_version_mismatch_check_v8() {
+  return;
+}
+
+// TODO (njanevsk): Implement this function.
 void asan_clang_no_check(const void*) {
   return;
 }
+
+// TODO (njanevsk): Implement this function.
+void asan_handle_no_return() {
+}
+
 #ifdef _WIN64
 void asan_string_no_check() {
   return;
