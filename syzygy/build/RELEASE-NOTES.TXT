@@ -1,6 +1,10 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.31.0
+[e2fe0d0e41] Fail if we can't intercept a CRT function and add support for
+             Win10 SDK versions 10.0.10586.0 and 10.0.15063.0.
+
 Version 0.8.30.0
 [8e43875330] Add support for the vperm2i128 and vpbroadcastw VEX instructions.
 
