@@ -46,31 +46,32 @@ void AsanInterceptorFilter::InitializeContentHashes(
   }
 }
 
-bool AsanInterceptorFilter::ShouldIntercept(const BlockGraph::Block* block) {
+AsanInterceptorFilter::ShouldInterceptResult
+AsanInterceptorFilter::ShouldIntercept(const BlockGraph::Block* block) {
   DCHECK_NE(reinterpret_cast<BlockGraph::Block*>(NULL), block);
 
   if (block->type() != BlockGraph::CODE_BLOCK)
-    return false;
+    return NOT_INTERCEPTED;
 
   FunctionHashMap::iterator func_iter = function_hash_map_.find(block->name());
 
   if (func_iter == function_hash_map_.end())
-    return false;
+    return NOT_INTERCEPTED;
 
   block_graph::BlockHash block_hash(block);
   std::string hash_val = base::MD5DigestToBase16(block_hash.md5_digest);
 
   HashSet::iterator hash_iter = func_iter->second.find(hash_val);
   if (hash_iter == func_iter->second.end()) {
-    LOG(WARNING) << "Not intercepting " << func_iter->first << " with hash "
-                 << hash_val;
-    return false;
+    LOG(ERROR) << "Not intercepting " << func_iter->first << " with hash "
+               << hash_val;
+    return INVALID_HASH;
   }
 
   LOG(INFO) << "Intercepting " << func_iter->first << " with hash "
             << hash_val;
 
-  return true;
+  return INTERCEPTED;
 }
 
 void AsanInterceptorFilter::AddBlockToHashMap(BlockGraph::Block* block) {

@@ -54,11 +54,12 @@ TEST(InterceptorFilterTest, IsFiltered) {
   // intercepted.
   EXPECT_FALSE(filter.function_hash_map_.empty());
 
-  EXPECT_FALSE(filter.ShouldIntercept(block));
+  EXPECT_EQ(AsanInterceptorFilter::NOT_INTERCEPTED,
+            filter.ShouldIntercept(block));
   filter.AddBlockToHashMap(block);
-  EXPECT_TRUE(filter.ShouldIntercept(block));
+  EXPECT_EQ(AsanInterceptorFilter::INTERCEPTED, filter.ShouldIntercept(block));
   block->GetMutableData()[0] = ~block->data()[0];
-  EXPECT_FALSE(filter.ShouldIntercept(block));
+  EXPECT_EQ(AsanInterceptorFilter::INVALID_HASH, filter.ShouldIntercept(block));
 }
 
 }  // namespace transforms

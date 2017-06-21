@@ -1352,8 +1352,11 @@ bool AsanTransform::PreBlockGraphIteration(
 
   // Find static intercepts in PE images before the transform so that OnBlock
   // can skip them.
-  if (block_graph->image_format() == BlockGraph::PE_IMAGE)
-    PeFindStaticallyLinkedFunctionsToIntercept(kAsanIntercepts, block_graph);
+  if (block_graph->image_format() == BlockGraph::PE_IMAGE) {
+    if (!PeFindStaticallyLinkedFunctionsToIntercept(kAsanIntercepts,
+                                                    block_graph))
+      return false;
+  }
 
   // We don't need to import any hooks in hot patching mode.
   if (!hot_patching_) {
@@ -1538,7 +1541,7 @@ bool AsanTransform::ShouldSkipBlock(const TransformPolicyInterface* policy,
   return false;
 }
 
-void AsanTransform::PeFindStaticallyLinkedFunctionsToIntercept(
+bool AsanTransform::PeFindStaticallyLinkedFunctionsToIntercept(
     const AsanIntercept* intercepts,
     BlockGraph* block_graph) {
   DCHECK_NE(static_cast<AsanIntercept*>(nullptr), intercepts);
@@ -1549,17 +1552,23 @@ void AsanTransform::PeFindStaticallyLinkedFunctionsToIntercept(
   AsanInterceptorFilter filter;
   filter.InitializeContentHashes(intercepts, use_interceptors_);
   if (filter.empty())
-    return;
+    return true;
 
   // Discover statically linked functions that need to be intercepted.
   BlockGraph::BlockMap::iterator block_it =
       block_graph->blocks_mutable().begin();
   for (; block_it != block_graph->blocks_mutable().end(); ++block_it) {
     BlockGraph::Block* block = &block_it->second;
-    if (!filter.ShouldIntercept(block))
+    AsanInterceptorFilter::ShouldInterceptResult should_intercept_result =
+        filter.ShouldIntercept(block);
+    if (should_intercept_result == AsanInterceptorFilter::NOT_INTERCEPTED) {
       continue;
+    } else if (should_intercept_result == AsanInterceptorFilter::INVALID_HASH) {
+      return false;
+    }
     static_intercepted_blocks_.insert(block);
   }
+  return true;
 }
 
 bool AsanTransform::PeInterceptFunctions(

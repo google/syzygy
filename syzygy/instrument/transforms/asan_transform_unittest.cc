@@ -1572,10 +1572,18 @@ TEST_F(AsanTransformTest, PeInterceptFunctions) {
     { NULL },
   };
 
+  // Intercept definition for b2, this is using b1's hash as an invalid one for
+  // itself.
+  AsanIntercept b2_intercepts_invalid_hash[] = {
+      {"testAsan_b2", "_testAsan_b2", "foo.dll", b1_hashes, true}, {NULL},
+  };
+
   // Find statically linked functions.
   asan_transform_.use_interceptors_ = true;
-  asan_transform_.PeFindStaticallyLinkedFunctionsToIntercept(b1_intercepts,
-                                                             &block_graph_);
+  EXPECT_FALSE(asan_transform_.PeFindStaticallyLinkedFunctionsToIntercept(
+      b2_intercepts_invalid_hash, &block_graph_));
+  EXPECT_TRUE(asan_transform_.PeFindStaticallyLinkedFunctionsToIntercept(
+      b1_intercepts, &block_graph_));
 
   ASSERT_EQ(1U, asan_transform_.static_intercepted_blocks_.size());
   EXPECT_EQ(b1, *(asan_transform_.static_intercepted_blocks_.begin()));

@@ -354,7 +354,8 @@ class AsanTransform
   // PeInterceptFunctions.
   // @param intercepts The Asan intercepts.
   // @param block_graph The block graph to search in.
-  void PeFindStaticallyLinkedFunctionsToIntercept(
+  // @returns false if interception failed for any blocks.
+  bool PeFindStaticallyLinkedFunctionsToIntercept(
       const AsanIntercept* intercepts,
       BlockGraph* block_graph);
 

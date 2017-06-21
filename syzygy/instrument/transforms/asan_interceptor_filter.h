@@ -36,6 +36,13 @@ namespace transforms {
 // the same name but with a different calling convention.
 class AsanInterceptorFilter {
  public:
+  // Different values that could be returned by the ShouldIntercept function.
+  enum ShouldInterceptResult {
+    NOT_INTERCEPTED,
+    INTERCEPTED,
+    INVALID_HASH,
+  };
+
   virtual ~AsanInterceptorFilter() { }
 
   // Loads the hashes of the intercepted functions into the map.
@@ -50,8 +57,10 @@ class AsanInterceptorFilter {
   // Indicates if a block should be intercepted.
   // @param block The block for which we want to know if it should be
   //     intercepted.
-  // @returns true if the block should be intercepted, false otherwise.
-  bool ShouldIntercept(const block_graph::BlockGraph::Block* block);
+  // @returns a ShouldInterceptResult value indicating if the function should be
+  //     intercepted or if there's an issue.
+  ShouldInterceptResult ShouldIntercept(
+      const block_graph::BlockGraph::Block* block);
 
   bool empty() const { return function_hash_map_.empty(); }
 
