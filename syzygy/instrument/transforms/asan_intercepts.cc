@@ -34,6 +34,7 @@ const MD5Hash kHashes_strlen[] = {
     {"20e07f6e772c47e6cbfc13db5eafa757"},  // VS2010 and VS2013.
     {""} };
 const MD5Hash kHashes_strnlen[] = {
+    {"a5aa1178af3204566fff52ef2e16c2f8"},  // VS2010.
     {"09d4062ec47f5e7fd25a19bc60c4bd8e"},  // VS2013.
     {"7f4492174275ca903993fef8d7f8ef77"},  // Win SDK 10.0.14393.0.
     {"96bece78e0fcd82e400ad92889100e0e"},  // Win SDK 10.0.15063.0.
@@ -82,17 +83,20 @@ const MD5Hash kHashes_strstr[] = {
     {"1926bd8c94118f97819d604ec5afee30"},  // Win SDK 10.0.14393.0+.
     {""}};
 const MD5Hash kHashes_wcsnlen[] = {
+    {"323b81d8dc2fc06dabf80980fdab19bd"},  // VS2010.
     {"3764327beb7392f3b841b72b89f94af5"},  // VS2013.
     {"2059f3897a59cf8a0fe6d1803c90af77"},  // Win SDK 10.0.14393.0.
     {"d39e85f57e04069cff34624893a84e4a"},  // Win SDK 10.0.15063.0.
     {""}};
 const MD5Hash kHashes_wcsrchr[] = {
+    {"219c163637579985193d2c37e82a4430"},  // VS2010.
     {"dc474260def9e341659230dc2edd13e6"},  // VS2013.
     {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // Win SDK 10.0.10586.0.
     {"f1f7d1a3c28ea37e4d297bce5bc095bd"},  // Win SDK 10.0.10586.0 debug.
     {"bfb15ac56c29c1dd8c68e9ba25d264a8"},  // Win SDK 10.0.14393.0+.
     {""}};
 const MD5Hash kHashes_wcschr[] = {
+    {"8206e006eac1d4e9ef3dd85c70563af3"},  // VS2010.
     {"3fae79785ec4de9951eac512bc62a27e"},  // VS2013.
     {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // Win SDK 10.0.10586.0.
     {"f1f7d1a3c28ea37e4d297bce5bc095bd"},  // Win SDK 10.0.10586.0 debug.
@@ -100,6 +104,7 @@ const MD5Hash kHashes_wcschr[] = {
     {"574d84de4f9718ae0d1e149aea4bef43"},  // Win SDK 10.0.15063.0.
     {""}};
 const MD5Hash kHashes_wcsstr[] = {
+    {"f51dfbb81b8cc02d0a9d9f4d10a92ea8"},  // VS2010.
     {"2301f403b55567eae76f3dc58dd777f4"},  // VS2013.
     {"39ce73539b6f20c6690ae870093dd3fb"},  // Win SDK 10.0.10586.0 debug.
     {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // Win SDK 10.0.10586.0.
