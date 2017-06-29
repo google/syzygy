@@ -1,0 +1,7 @@
+{
+    "whitelist" : [
+        "fuzzme", "pattern1", /* "foo", */ "_pattern2"
+    ],
+
+    "blacklist" : [ "foo" ]
+}

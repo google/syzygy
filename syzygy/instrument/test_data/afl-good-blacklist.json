@@ -1,0 +1,8 @@
+{
+    "blacklist" : [
+        // Functions that don't exist
+        "fuzzme", "pattern1", /* "foo", */ "_pattern2",
+        // Function that exists
+        "Unused::M"
+    ]
+}

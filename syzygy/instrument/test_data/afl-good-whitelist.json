@@ -1,0 +1,8 @@
+{
+    "whitelist" : [
+        // Functions that don't exist in test_dll.dll
+        "fuzzme", "pattern1", /* "foo", */ "_pattern2",
+        // Function that exists in test_dll.dll
+        "Unused::M"
+    ]
+}

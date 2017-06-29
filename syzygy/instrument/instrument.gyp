@@ -24,6 +24,8 @@
         'instrument_app.cc',
         'instrument_app.h',
         'instrumenter.h',
+        'instrumenters/afl_instrumenter.cc',
+        'instrumenters/afl_instrumenter.h',
         'instrumenters/archive_instrumenter.cc',
         'instrumenters/archive_instrumenter.h',
         'instrumenters/asan_instrumenter.cc',
@@ -119,6 +121,7 @@
       'type': 'executable',
       'sources': [
         'instrument_app_unittest.cc',
+        'instrumenters/afl_instrumenter_unittest.cc',
         'instrumenters/archive_instrumenter_unittest.cc',
         'instrumenters/asan_instrumenter_unittest.cc',
         'instrumenters/bbentry_instrumenter_unittest.cc',
