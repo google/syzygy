@@ -21,11 +21,9 @@
 
 namespace testing {
 
-// This macro declares the tests ids and the function that they're associated
-// with.
-#define END_TO_END_TEST_ID_TABLE(decl) \
-    decl(kArrayComputation1, testing::ArrayComputation1)  \
-    decl(kArrayComputation2, testing::ArrayComputation2)  \
+// This macro declares the SyzyAsan tests ids and the function that they're
+// associated with.
+#define END_TO_END_ASAN_TESTS(decl)  \
     decl(kAsanRead8BufferOverflow, testing::AsanReadBufferOverflow<int8_t>)  \
     decl(kAsanRead16BufferOverflow, testing::AsanReadBufferOverflow<int16_t>)  \
     decl(kAsanRead32BufferOverflow, testing::AsanReadBufferOverflow<int32_t>)  \
@@ -150,14 +148,6 @@ namespace testing {
     decl(kAsanCorruptBlock, testing::AsanCorruptBlock)  \
     decl(kAsanCorruptBlockInQuarantine,  \
          testing::AsanCorruptBlockInQuarantine)  \
-    decl(kBBEntryCallOnce, BBEntryCallOnce)  \
-    decl(kBBEntryCallTree, BBEntryCallTree)  \
-    decl(kBBEntryCallRecursive, BBEntryCallRecursive)  \
-    decl(kCoverage1, testing::coverage_func1)  \
-    decl(kCoverage2, testing::coverage_func2)  \
-    decl(kCoverage3, testing::coverage_func3)  \
-    decl(kProfileCallExport, testing::CallExportedFunction)  \
-    decl(kProfileGetMyRVA, testing::GetMyRVA)  \
     decl(kAsanInvalidAccessWithCorruptAllocatedBlockHeader,  \
          testing::AsanInvalidAccessWithCorruptAllocatedBlockHeader)  \
     decl(kAsanInvalidAccessWithCorruptAllocatedBlockTrailer,  \
@@ -186,6 +176,28 @@ namespace testing {
     decl(kAsanNullptrAccessNoHeapCorruptionUninstrumented, \
          testing::AsanNullptrAccessNoHeapCorruptionUninstrumented) \
     decl(kAsanDeferredFreeTLS, testing::AsanDeferredFreeTLS)
+
+// This macro declares the non SyzyAsan tests ids and the function that they're
+// associated with.
+#define END_TO_END_NON_ASAN_TESTS(decl)  \
+    decl(kArrayComputation1, testing::ArrayComputation1)  \
+    decl(kArrayComputation2, testing::ArrayComputation2)  \
+    decl(kBBEntryCallOnce, BBEntryCallOnce)  \
+    decl(kBBEntryCallTree, BBEntryCallTree)  \
+    decl(kBBEntryCallRecursive, BBEntryCallRecursive)  \
+    decl(kCoverage1, testing::coverage_func1)  \
+    decl(kCoverage2, testing::coverage_func2)  \
+    decl(kCoverage3, testing::coverage_func3)  \
+    decl(kProfileCallExport, testing::CallExportedFunction)  \
+    decl(kProfileGetMyRVA, testing::GetMyRVA)
+
+// Only run the Asan tests for the Clang builds.
+#ifdef __clang__
+#define END_TO_END_TEST_ID_TABLE(decl) END_TO_END_ASAN_TESTS(decl)
+#else
+#define END_TO_END_TEST_ID_TABLE(decl)  \
+    END_TO_END_NON_ASAN_TESTS(decl) END_TO_END_ASAN_TESTS(decl)
+#endif // __clang__
 
 // This enumeration contains an unique id for each end to end test. It is used
 // to perform an indirect call through the DLL entry point 'EndToEndTest'.
