@@ -56,8 +56,9 @@ def compile_with_asan(clang_path, source_files, src_dir, object_files,
   compile_command_base.extend(compiler_flags)
 
   for source_file, object_file in zip(source_files, object_files):
-    compile_command = [compile_command_base, source_file, '-o', object_files]
-
+    compile_command = compile_command_base
+    compile_command.extend([source_file, '-o', object_file])
+    print compile_command
     ret = subprocess.call(compile_command)
     if ret != 0:
       print 'ERROR: Failed compiling %s using clang-cl.' % target_name
@@ -120,7 +121,7 @@ def main():
                         os.path.split(os.path.relpath(source_file,
                                                       _SRC_DIR))[0],
                         '%s.%s.obj' % (target_name,
-                        os.path.splitext(os.path.basename(source_file))[0])
+                        os.path.splitext(os.path.basename(source_file))[0]))
 
   source_files = options.input_files.split()
   object_files = []
