@@ -23,6 +23,7 @@
 
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
+#include "syzygy/instrument/instrumenters/afl_instrumenter.h"
 #include "syzygy/instrument/instrumenters/archive_instrumenter.h"
 #include "syzygy/instrument/instrumenters/asan_instrumenter.h"
 #include "syzygy/instrument/instrumenters/bbentry_instrumenter.h"
@@ -40,7 +41,7 @@ static const char kUsageFormatStr[] =
     "Usage: %ls [options]\n"
     "  Required arguments:\n"
     "    --input-image=<path> The input image to instrument.\n"
-    "    --mode=asan|bbentry|branch|calltrace|coverage|flummox|profile\n"
+    "    --mode=afl|asan|bbentry|branch|calltrace|coverage|flummox|profile\n"
     "                            Specifies which instrumentation mode is to\n"
     "                            be used. If this is not specified it is\n"
     "                            equivalent to specifying --mode=calltrace\n"
@@ -83,6 +84,13 @@ static const char kUsageFormatStr[] =
     "    --output-pdb=<path>     The PDB for the instrumented DLL. If not\n"
     "                            provided will attempt to generate one.\n"
     "    --overwrite             Allow output files to be overwritten.\n"
+    "  afl options:\n"
+    "    --config=<path>         Specifies a JSON file describing, either\n"
+    "    --cookie-check-hook     Hooks __security_cookie_check.\n"
+    "    --force-decompose       Forces block decomposition.\n"
+    "    --multithread           Uses a thread-safe instrumentation.\n"
+    "                            a whitelist of functions to instrument or\n"
+    "                            a blacklist of functions to not instrument.\n"
     "  asan mode options:\n"
     "    --asan-rtl-options=OPTIONS\n"
     "                            Allows specification of options that will\n"
@@ -168,7 +176,9 @@ bool InstrumentApp::ParseCommandLine(const base::CommandLine* cmd_line) {
     ParseDeprecatedMode(cmd_line);
   } else {
     std::string mode = cmd_line->GetSwitchValueASCII("mode");
-    if (base::LowerCaseEqualsASCII(mode, "asan")) {
+    if (base::LowerCaseEqualsASCII(mode, "afl")) {
+      instrumenter_.reset(new instrumenters::AFLInstrumenter());
+    } else if (base::LowerCaseEqualsASCII(mode, "asan")) {
       // We wrap the Asan instrumenter in an ArchiveInstrumenter adapter so
       // that it can transparently handle .lib files.
       instrumenter_.reset(new instrumenters::ArchiveInstrumenter(
