@@ -56,8 +56,9 @@ def compile_with_asan(clang_path, source_files, src_dir, object_files,
   compile_command_base.extend(compiler_flags)
 
   for source_file, object_file in zip(source_files, object_files):
-    compile_command = list(compile_command_base)
+    compile_command = compile_command_base
     compile_command.extend([source_file, '-o', object_file])
+    print compile_command
     ret = subprocess.call(compile_command)
     if ret != 0:
       print 'ERROR: Failed compiling %s using clang-cl.' % target_name
@@ -83,8 +84,8 @@ def link(clang_path, object_files, build_dir, target_name):
       os.path.join(build_dir, target_name + '.dll'),
       '/link',
       '/dll',
-      os.path.join(build_dir, 'export_dll.dll.lib'),
-      os.path.join(build_dir, 'syzyasan_rtl.dll.lib'),
+      build_dir + '\export_dll.dll.lib',
+      build_dir + '\syzyasan_rtl.dll.lib',
       '-defaultlib:libcmt'
   ]
 
@@ -117,8 +118,8 @@ def main():
   def get_object_file_location(source_file,
                                output_dir, target_name):
     return os.path.join(output_dir, 'obj',
-                        os.path.dirname(os.path.relpath(source_file,
-                                                        _SRC_DIR)),
+                        os.path.split(os.path.relpath(source_file,
+                                                      _SRC_DIR))[0],
                         '%s.%s.obj' % (target_name,
                         os.path.splitext(os.path.basename(source_file))[0]))
 
