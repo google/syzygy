@@ -13,6 +13,34 @@
 # limitations under the License.
 
 {
+  'variables': {
+    # These are source files that are used for generating both:
+    # the integration_tests_dll and integration_tests_clang_dll.
+    # They contain the Asan test cases.
+    'integration_tests_common_source_files': [
+        'asan_interceptors_tests.cc',
+        'asan_page_protection_tests.cc',
+        'deferred_free_tests.cc',
+        'integration_tests_dll.cc',
+    ],
+    # These files are used for generating the integration_tests_dll.
+    'integration_tests_other_files': [
+        'asan_interceptors_tests.h',
+        'asan_page_protection_tests.h',
+        'bb_entry_tests.h',
+        'bb_entry_tests.cc',
+        'behavior_tests.h',
+        'behavior_tests.cc',
+        'coverage_tests.h',
+        'coverage_tests.cc',
+        'deferred_free_tests.h',
+        'integration_tests_dll.def',
+        'integration_tests_dll.h',
+        'integration_tests_dll.rc',
+        'profile_tests.h',
+        'profile_tests.cc',
+    ]
+  },
   'targets': [
     {
       'target_name': 'integration_tests',
@@ -83,28 +111,34 @@
       ],
     },
     {
+      'target_name': 'integration_tests_clang_dll',
+      'type': 'none',
+      'msvs_cygwin_shell': 0,
+	  'dependencies': [
+        '<(src)/syzygy/pe/pe.gyp:export_dll',
+        '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl'
+	  ],
+      'actions': [
+        {
+          'action_name': 'make_integration_tests_clang',
+          'inputs': ['<@(integration_tests_common_source_files)'],
+          'outputs': ['<(PRODUCT_DIR)/integration_tests_clang_dll.dll'],
+          'action': [
+              '<(python_exe)',
+              'make_integration_tests_clang.py',
+              '--output-dir=<(PRODUCT_DIR)',
+              '--input-files=<(_inputs)',
+              '--target-name=integration_tests_clang_dll',
+          ],
+        },
+      ],
+    },
+    {
       'target_name': 'integration_tests_dll',
       'type': 'loadable_module',
       'sources': [
-        'asan_check_tests.h',
-        'asan_interceptors_tests.cc',
-        'asan_interceptors_tests.h',
-        'asan_page_protection_tests.cc',
-        'asan_page_protection_tests.h',
-        'bb_entry_tests.cc',
-        'bb_entry_tests.h',
-        'behavior_tests.cc',
-        'behavior_tests.h',
-        'coverage_tests.cc',
-        'coverage_tests.h',
-        'deferred_free_tests.cc',
-        'deferred_free_tests.h',
-        'integration_tests_dll.cc',
-        'integration_tests_dll.def',
-        'integration_tests_dll.h',
-        'integration_tests_dll.rc',
-        'profile_tests.cc',
-        'profile_tests.h',
+        '<@(integration_tests_common_source_files)',
+        '<@(integration_tests_other_files)'
       ],
       'dependencies': [
         '<(src)/syzygy/pe/pe.gyp:export_dll',
