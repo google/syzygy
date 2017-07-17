@@ -114,10 +114,10 @@
       'target_name': 'integration_tests_clang_dll',
       'type': 'none',
       'msvs_cygwin_shell': 0,
-	  'dependencies': [
+      'dependencies': [
         '<(src)/syzygy/pe/pe.gyp:export_dll',
         '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl'
-	  ],
+      ],
       'actions': [
         {
           'action_name': 'make_integration_tests_clang',
