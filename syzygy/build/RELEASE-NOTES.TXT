@@ -1,6 +1,11 @@
 Syzygy Release Notes
 ====================
 
+Version 0.8.32.0
+[0cc169a1af] Fix some VS2017 issues, adds support for the 10.0.15063.468 Windows
+             SDK.
+[e94470d3ee] Adds the afl instrumenter.
+
 Version 0.8.31.1
 [bb44adc69b] Add the hashes for the VS2010 version of the CRT.
 
