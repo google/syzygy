@@ -32,45 +32,55 @@ struct IMAGE_LOAD_CONFIG_CODE_INTEGRITY {
 };
 
 // Redefinition of the IMAGE_LOAD_CONFIG_DIRECTORY structure. This corresponds
-// to the structure as encountered in the version 10.0.14393 of the Windows SDK.
+// to the structure as encountered in the version 10.0.15063.468 of the Windows
+// SDK.
 struct LoadConfigDirectory {
   // Fields available in v8.0+ of the Windows SDK.
-  DWORD   Size;
-  DWORD   TimeDateStamp;
-  WORD    MajorVersion;
-  WORD    MinorVersion;
-  DWORD   GlobalFlagsClear;
-  DWORD   GlobalFlagsSet;
-  DWORD   CriticalSectionDefaultTimeout;
-  DWORD   DeCommitFreeBlockThreshold;
-  DWORD   DeCommitTotalFreeThreshold;
-  DWORD   LockPrefixTable;                // VA
-  DWORD   MaximumAllocationSize;
-  DWORD   VirtualMemoryThreshold;
-  DWORD   ProcessHeapFlags;
-  DWORD   ProcessAffinityMask;
-  WORD    CSDVersion;
-  WORD    Reserved1;
-  DWORD   EditList;                       // VA
-  DWORD   SecurityCookie;                 // VA
-  DWORD   SEHandlerTable;                 // VA
-  DWORD   SEHandlerCount;
+  DWORD Size;
+  DWORD TimeDateStamp;
+  WORD MajorVersion;
+  WORD MinorVersion;
+  DWORD GlobalFlagsClear;
+  DWORD GlobalFlagsSet;
+  DWORD CriticalSectionDefaultTimeout;
+  DWORD DeCommitFreeBlockThreshold;
+  DWORD DeCommitTotalFreeThreshold;
+  DWORD LockPrefixTable;
+  DWORD MaximumAllocationSize;
+  DWORD VirtualMemoryThreshold;
+  DWORD ProcessHeapFlags;
+  DWORD ProcessAffinityMask;
+  WORD CSDVersion;
+  WORD Reserved1;
+  DWORD EditList;
+  DWORD SecurityCookie;
+  DWORD SEHandlerTable;
+  DWORD SEHandlerCount;
 
   // Fields available in v8.1+ of the Windows SDK.
-  DWORD   GuardCFCheckFunctionPointer;    // VA
-  DWORD   Reserved2;
-  DWORD   GuardCFFunctionTable;           // VA
-  DWORD   GuardCFFunctionCount;
-  DWORD   GuardFlags;
+  DWORD GuardCFCheckFunctionPointer;
+  DWORD GuardCFDispatchFunctionPointer;
+  DWORD GuardCFFunctionTable;
+  DWORD GuardCFFunctionCount;
+  DWORD GuardFlags;
 
-  // Fields available in v10.0+ of the Windows SDK.
+  // Fields available in v10.0.10586.0+ of the Windows SDK.
   IMAGE_LOAD_CONFIG_CODE_INTEGRITY CodeIntegrity;
-  DWORD GuardAddressTakenIatEntryTable;  // VA
+  DWORD GuardAddressTakenIatEntryTable;
   DWORD GuardAddressTakenIatEntryCount;
-  DWORD GuardLongJumpTargetTable;  // VA
+  DWORD GuardLongJumpTargetTable;
   DWORD GuardLongJumpTargetCount;
-  DWORD DynamicValueRelocTable;  // VA
-  DWORD HybridMetadataPointer;
+  DWORD DynamicValueRelocTable;
+  DWORD CHPEMetadataPointer;
+
+  // Fields available in the v10.0.15063.468+ of the SDK.
+  DWORD GuardRFFailureRoutine;
+  DWORD GuardRFFailureRoutineFunctionPointer;
+  DWORD DynamicValueRelocTableOffset;
+  WORD DynamicValueRelocTableSection;
+  WORD Reserved2;
+  DWORD GuardRFVerifyStackPointerFunctionPointer;
+  DWORD HotPatchTableOffset;
 };
 
 // An enum mapping the size of a given IMAGE_LOAD_CONFIG_DIRECTORY structure
@@ -91,7 +101,10 @@ enum LoadConfigDirectoryVersion {
   kLoadConfigDirectorySize100NoCFG =
       offsetof(LoadConfigDirectory, GuardAddressTakenIatEntryTable),
   // Corresponds to the full version 10.0 of the Windows SDK.
-  kLoadConfigDirectorySize100 = sizeof(LoadConfigDirectory),
+  kLoadConfigDirectorySize10010586 =
+      offsetof(LoadConfigDirectory, GuardRFFailureRoutine),
+  // Corresponds to the full version 10.0.10586 of the Windows SDK.
+  kLoadConfigDirectorySize10015063 = sizeof(LoadConfigDirectory),
 };
 
 };  // namespace pe

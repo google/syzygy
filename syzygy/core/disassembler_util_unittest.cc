@@ -71,6 +71,7 @@ const uint8_t kVxorps[] = {0xC5, 0xFC, 0x57, 0xC0};
 // operand size.
 const uint8_t kFxsave[] = {0x0F, 0xAE, 0x00};
 const uint8_t kFxrstor[] = {0x0F, 0xAE, 0x08};
+const uint8_t kStmxcsr[] = {0x0F, 0xAE, 0x5D, 0xEC};
 
 // FPU instructions for which distorm had some decoding issues in the past.
 // fnstcw m16
@@ -350,6 +351,27 @@ TEST(DisassemblerUtilTest, DistormDecomposeFxrstor) {
                           &result_count));
   EXPECT_EQ(1, result_count);
   EXPECT_EQ(64, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, WrongAccessSizeOnRawDistormDecomposeStmxcsr) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS,
+            RawDecomposeCode(kStmxcsr, sizeof(kStmxcsr), results, kMaxResults,
+                             &result_count));
+  EXPECT_EQ(1U, result_count);
+  EXPECT_EQ(0U, results[0].ops[0].size);
+}
+
+TEST(DisassemblerUtilTest, DistormDecomposeStmxcsr) {
+  const unsigned int kMaxResults = 16;
+  unsigned int result_count = 0;
+  _DInst results[kMaxResults];
+  EXPECT_EQ(DECRES_SUCCESS, DecomposeCode(kStmxcsr, sizeof(kStmxcsr), results,
+                                          kMaxResults, &result_count));
+  EXPECT_EQ(1, result_count);
+  EXPECT_EQ(32, results[0].ops[0].size);
 }
 
 // If this test starts failing then Distorm now properly handles the AVX2

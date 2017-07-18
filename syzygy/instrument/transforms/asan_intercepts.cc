@@ -94,6 +94,7 @@ const MD5Hash kHashes_wcsrchr[] = {
     {"e1d33ebe81f646a5b6941fbc3bad43b1"},  // Win SDK 10.0.10586.0.
     {"f1f7d1a3c28ea37e4d297bce5bc095bd"},  // Win SDK 10.0.10586.0 debug.
     {"bfb15ac56c29c1dd8c68e9ba25d264a8"},  // Win SDK 10.0.14393.0+.
+    {"b674a88ebfec05ac1525819eae9ef09f"},  // Win SDK 10.0.15063.468.
     {""}};
 const MD5Hash kHashes_wcschr[] = {
     {"8206e006eac1d4e9ef3dd85c70563af3"},  // VS2010.

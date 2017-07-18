@@ -469,6 +469,12 @@ _DecodeResult DistormDecompose(_CodeInfo* ci,
         DCHECK_EQ(0U, result[i].ops[0].size);
         result[i].ops[0].size = 64;
         break;
+      // There's a similar issue with I_STMXCSR which has a size of 0 instead
+      // of 32, reported in https://github.com/gdabah/distorm/issues/120.
+      case I_STMXCSR:
+        DCHECK_EQ(0U, result[i].ops[0].size);
+        result[i].ops[0].size = 32;
+        break;
       default:
         break;
     }
