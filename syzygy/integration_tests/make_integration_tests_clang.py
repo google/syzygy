@@ -48,6 +48,7 @@ def compile_with_asan(clang_path, source_files, src_dir, object_files,
       '-D_UNICODE',
       '-DNOMINMAX',
       '-D_CRT_SECURE_NO_WARNINGS',
+      '/Zi',
       '-I',
       src_dir,
   ]
@@ -65,7 +66,7 @@ def compile_with_asan(clang_path, source_files, src_dir, object_files,
   return ret
 
 
-def link(clang_path, object_files, build_dir, target_name):
+def link(clang_path, object_files, build_dir, target_name, def_file):
   """ Links the object files and produces the integration_tests_clang_dll.dll.
 
   Links the object files and produces the dll. The object files have to be
@@ -85,12 +86,15 @@ def link(clang_path, object_files, build_dir, target_name):
       '/dll',
       os.path.join(build_dir, 'export_dll.dll.lib'),
       os.path.join(build_dir, 'syzyasan_rtl.dll.lib'),
-      '-defaultlib:libcmt'
+      '-defaultlib:libcmt',
+      '/debug',
+      '/def:' + def_file,
   ]
 
   linker_command = [clang_path, '-m32']
   linker_command.extend(object_files)
   linker_command.extend(linker_flags)
+
   ret = subprocess.call(linker_command)
 
   if ret != 0:
@@ -104,6 +108,7 @@ def main():
       help='Path to the Syzygy Release directory.')
   parser.add_option('--input-files', help='Files to be compiled and linked.')
   parser.add_option('--target-name', help='Name of the target to be compiled.')
+  parser.add_option('--def-file', help='Definition file for the dll.')
 
   options, _ = parser.parse_args()
 
@@ -113,6 +118,8 @@ def main():
     parser.error('--input-files is required.')
   if not options.target_name:
     parser.error('--target-name is required.')
+  if not options.def_file:
+    parser.error('--def-file is required.')
 
   def get_object_file_location(source_file,
                                output_dir, target_name):
@@ -134,7 +141,7 @@ def main():
 
   if ret == 0:
     ret = link(_CLANG_CL_PATH, object_files, options.output_dir,
-               options.target_name)
+               options.target_name, options.def_file)
   else:
     print ('ERROR: Compilation of %s failed, skipping link step.'
            % options.target_name)

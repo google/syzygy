@@ -52,6 +52,7 @@
       ],
       'dependencies': [
         'crash_for_exception_harness',
+        'integration_tests_clang_dll',
         'integration_tests_dll',
         'integration_tests_harness',
         '<(src)/base/base.gyp:test_support_base',
@@ -122,13 +123,17 @@
         {
           'action_name': 'make_integration_tests_clang',
           'inputs': ['<@(integration_tests_common_source_files)'],
-          'outputs': ['<(PRODUCT_DIR)/integration_tests_clang_dll.dll'],
+          'outputs': [
+            '<(PRODUCT_DIR)/integration_tests_clang_dll.dll',
+            '<(PRODUCT_DIR)/integration_tests_clang_dll.pdb'
+          ],
           'action': [
               '<(python_exe)',
               'make_integration_tests_clang.py',
               '--output-dir=<(PRODUCT_DIR)',
               '--input-files=<(_inputs)',
               '--target-name=integration_tests_clang_dll',
+              '--def-file=integration_tests_clang_dll.def'
           ],
         },
       ],
