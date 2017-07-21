@@ -192,11 +192,13 @@ namespace testing {
     decl(kProfileGetMyRVA, testing::GetMyRVA)
 
 // Only run the Asan tests for the Clang builds.
+// The order of inclusion matters because it affects the IDs assigned to
+// test cases. First include Asan tests then non Asan tests.
 #ifdef __clang__
 #define END_TO_END_TEST_ID_TABLE(decl) END_TO_END_ASAN_TESTS(decl)
 #else
 #define END_TO_END_TEST_ID_TABLE(decl)  \
-    END_TO_END_NON_ASAN_TESTS(decl) END_TO_END_ASAN_TESTS(decl)
+    END_TO_END_ASAN_TESTS(decl) END_TO_END_NON_ASAN_TESTS(decl)
 #endif // __clang__
 
 // This enumeration contains an unique id for each end to end test. It is used
