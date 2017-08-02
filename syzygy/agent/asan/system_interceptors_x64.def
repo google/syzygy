@@ -30,6 +30,12 @@ EXPORTS
   __asan_store8=asan_redirect_store8
   __asan_store16=asan_redirect_store16
   __asan_store32=asan_redirect_store32
+  __asan_init=asan_init
+  __asan_version_mismatch_check_v8=asan_version_mismatch_check_v8
+  __asan_handle_no_return=asan_handle_no_return
+  __asan_memcpy=asan_memcpy
+  __asan_memmove=asan_memmove
+  __asan_memset=asan_memset
 
   ; Heap-replacement functions.
   asan_GetProcessHeap
