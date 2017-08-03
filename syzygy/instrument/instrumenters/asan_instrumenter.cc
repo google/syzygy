@@ -127,10 +127,10 @@ bool AsanInstrumenter::DoCommandLineParse(
   }
 
   // Parse Asan RTL options if present.
-  static const char kAsanRtlOptions[] = "asan-rtl-options";
-  asan_rtl_options_ = command_line->HasSwitch(kAsanRtlOptions);
+  asan_rtl_options_ = command_line->HasSwitch(common::kAsanRtlOptions);
   if (asan_rtl_options_) {
-    std::wstring options = command_line->GetSwitchValueNative(kAsanRtlOptions);
+    std::wstring options =
+        command_line->GetSwitchValueNative(common::kAsanRtlOptions);
     // The Asan RTL options string might be encapsulated in quotes, remove them
     // if it's the case.
     if (!options.empty() && options[0] == L'\"') {

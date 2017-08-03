@@ -177,7 +177,8 @@ TEST_F(AsanInstrumenterTest, ParseFullAsan) {
   cmd_line_.AppendSwitch("no-liveness-analysis");
   cmd_line_.AppendSwitch("no-redundancy-analysis");
   cmd_line_.AppendSwitchASCII("instrumentation-rate", "0.5");
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+  cmd_line_.AppendSwitchASCII(
+      common::kAsanRtlOptions,
       "\"--quarantine_size=1024 --quarantine_block_size=512 --ignored\"");
 
   EXPECT_TRUE(instrumenter_.ParseCommandLine(&cmd_line_));
@@ -255,7 +256,8 @@ TEST_F(AsanInstrumenterTest, FailsWithInvalidInstrumentationRate) {
 TEST_F(AsanInstrumenterTest, FailsWithInvalidAsanRtlOptions) {
   cmd_line_.AppendSwitchPath("input-image", input_image_path_);
   cmd_line_.AppendSwitchPath("output-image", output_image_path_);
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--quarantine_size=foobar");
+  cmd_line_.AppendSwitchASCII(common::kAsanRtlOptions,
+                              "--quarantine_size=foobar");
 
   EXPECT_FALSE(instrumenter_.ParseCommandLine(&cmd_line_));
 }

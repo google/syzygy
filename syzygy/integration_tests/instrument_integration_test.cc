@@ -15,6 +15,7 @@
 #include "base/environment.h"
 #include "base/files/file_enumerator.h"
 #include "base/files/file_path.h"
+#include "base/memory/ptr_util.h"
 #include "base/process/kill.h"
 #include "base/strings/string_util.h"
 #include "base/strings/stringprintf.h"
@@ -394,6 +395,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     // We need to release the module handle before Super::TearDown, otherwise
     // the library file cannot be deleted.
     module_.Release();
+    ResetEnvironment();
     Super::TearDown();
   }
 
@@ -404,6 +406,20 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     test_app->set_in(in());
     test_app->set_out(out());
     test_app->set_err(err());
+  }
+
+  // Restore the environment as it was before altering it.
+  void ResetEnvironment() {
+    // Remove the alterations in reverse order of creation.
+    while (env_alterations_.size())
+      env_alterations_.pop_back();
+  }
+
+  // Alter the environment by setting the environment variable |name| to
+  // |value|.
+  void AddEnvironmentChange(const char* name, const char* value) {
+    env_alterations_.push_back(
+        base::WrapUnique(new testing::ScopedEnvironmentVariable(name, value)));
   }
 
   void StartService() {
@@ -499,19 +515,12 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
       instance_id.append(";");
       instance_id.append(orig_instance_id);
     }
-    env->SetVar(kSyzygyRpcInstanceIdEnvVar, instance_id);
+    AddEnvironmentChange(kSyzygyRpcInstanceIdEnvVar, instance_id.c_str());
 
     int exit_code = RunOutOfProcessFunction(L"integration_tests_harness.exe",
                                             test, expect_exception);
     EXPECT_EQ(0, exit_code);
     logger.Stop();
-
-    // Restore the instance ID variable to its original state.
-    if (had_instance_id) {
-      env->SetVar(kSyzygyRpcInstanceIdEnvVar, orig_instance_id);
-    } else {
-      env->UnSetVar(kSyzygyRpcInstanceIdEnvVar);
-    }
 
     logger.GetLog(log);
   }
@@ -1201,10 +1210,11 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     std::unique_ptr<base::Environment> env(base::Environment::Create());
     ASSERT_NE(env.get(), nullptr);
     if (expect_corrupt_heap) {
-      env->SetVar(::common::kSyzyAsanOptionsEnvVar, "--minidump_on_failure");
+      AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                           "--minidump_on_failure");
     } else {
-      env->SetVar(::common::kSyzyAsanOptionsEnvVar,
-                  "--minidump_on_failure --no_check_heap_on_failure");
+      AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                           "--minidump_on_failure --no_check_heap_on_failure");
     }
     std::string log;
 
@@ -1247,8 +1257,6 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     poirot::MinidumpProcessor poirot_processor(
         base::FilePath::FromUTF8Unsafe(minidump_path));
     EXPECT_TRUE(poirot_processor.ProcessDump());
-
-    env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
   }
 
   // Stashes the current log-level before each test instance and restores it
@@ -1284,6 +1292,11 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
   pe::ImageLayout image_layout_;
   block_graph::BlockGraph block_graph_;
   uint32_t get_my_rva_;
+
+  // The alterations made to the environment, must be destructed from end to
+  // beginning.
+  std::vector<std::unique_ptr<testing::ScopedEnvironmentVariable>>
+      env_alterations_;
 };
 typedef testing::StrictMock<LenientInstrumentAppIntegrationTest>
     InstrumentAppIntegrationTest;
@@ -1392,7 +1405,7 @@ void LenientInstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
   std::string rtl_options = "--no_check_heap_on_failure";
   if (enabled)
     rtl_options += " --enable_zebra_block_heap --enable_allocation_filter";
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", rtl_options);
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar, rtl_options.c_str());
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
 
@@ -1410,7 +1423,8 @@ void LenientInstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
@@ -1420,7 +1434,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
   cmd_line_.AppendSwitch("no-liveness-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1430,7 +1445,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
   cmd_line_.AppendSwitch("no-redundancy-analysis");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1440,7 +1456,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
   cmd_line_.AppendSwitch("no-interceptors");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1449,7 +1466,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
 
 TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
   cmd_line_.AppendSwitchASCII(
-      "asan-rtl-options",
+      common::kAsanRtlOptions,
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
       "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1471,7 +1488,7 @@ TEST_F(InstrumentAppIntegrationTest,
               "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "
               "--no_check_heap_on_failure");
   cmd_line_.AppendSwitchASCII(
-      "asan-rtl-options",
+      common::kAsanRtlOptions,
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
       "--ignored_stack_ids=0x2");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1492,7 +1509,8 @@ TEST_F(InstrumentAppIntegrationTest,
 TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   // Disable the heap checking as this implies touching all the shadow bytes
   // and this make these tests really slow.
-  cmd_line_.AppendSwitchASCII("asan-rtl-options", "--no_check_heap_on_failure");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
@@ -1527,8 +1545,7 @@ TEST_F(InstrumentAppIntegrationTest,
       kAsanCorruptHeap, NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
-       AsanInvalidAccessWithCorruptFreedBlock) {
+TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1545,28 +1562,28 @@ TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
 }
 
 TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--allocation_guard_rate=0.5 "
-                              "--no_check_heap_on_failure");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--allocation_guard_rate=0.5 "
+                       "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckSampledAllocations());
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapEnabledTest) {
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--no_check_heap_on_failure "
-                              "--quarantine_size=4000000 "
-                              "--quarantine_block_size=2000000");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure "
+                       "--quarantine_size=4000000 "
+                       "--quarantine_block_size=2000000");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(true));
 }
 
 TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--no_check_heap_on_failure "
-                              "--disable_large_block_heap");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure "
+                       "--disable_large_block_heap");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));

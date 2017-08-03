@@ -260,6 +260,9 @@ extern const bool kDefaultEnableRateTargetedHeaps;
 // The name of the environment variable containing the SyzyAsan command-line.
 extern const char kSyzyAsanOptionsEnvVar[];
 
+// The name of the command line variable containing the SyzyAsan RTL options.
+extern const char kAsanRtlOptions[];
+
 // String names of HeapProxy parameters.
 extern const char kParamQuarantineSize[];
 extern const char kParamQuarantineBlockSize[];

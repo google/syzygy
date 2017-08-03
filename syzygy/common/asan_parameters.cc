@@ -178,6 +178,7 @@ extern const bool kDefaultEnableLargeBlockHeap = true;
 extern const size_t kDefaultLargeAllocationThreshold = 5 * 4096;
 
 const char kSyzyAsanOptionsEnvVar[] = "SYZYGY_ASAN_OPTIONS";
+const char kAsanRtlOptions[] = "asan-rtl-options";
 
 // String names of HeapProxy parameters.
 const char kParamQuarantineSize[] = "quarantine_size";
