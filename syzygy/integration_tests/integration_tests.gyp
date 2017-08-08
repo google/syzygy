@@ -122,7 +122,10 @@
       'actions': [
         {
           'action_name': 'make_integration_tests_clang',
-          'inputs': ['<@(integration_tests_common_source_files)'],
+          'inputs': [
+            '<@(integration_tests_common_source_files)',
+            'allocator_shim.cc'
+          ],
           'outputs': [
             '<(PRODUCT_DIR)/integration_tests_clang_dll.dll',
             '<(PRODUCT_DIR)/integration_tests_clang_dll.pdb'
