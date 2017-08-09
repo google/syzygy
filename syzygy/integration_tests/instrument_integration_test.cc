@@ -348,6 +348,11 @@ class TestingProfileGrinder : public grinder::grinders::ProfileGrinder {
   using grinder::grinders::ProfileGrinder::parts_;
 };
 
+enum InstrumentationMode {
+  SYZYGY,
+  CLANG,
+};
+
 class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
  public:
   typedef testing::PELibUnitTest Super;
@@ -380,7 +385,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     base::FilePath abs_input_dll_path_ =
         testing::GetExeRelativePath(testing::kIntegrationTestsDllName);
     input_dll_path_ = testing::GetRelativePath(abs_input_dll_path_);
-    output_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
+    test_dll_path_ = temp_dir_.Append(input_dll_path_.BaseName());
 
     // Initialize call_service output directory for produced trace files.
     traces_dir_ = temp_dir_.Append(L"traces");
@@ -436,9 +441,9 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
 
   // Runs an instrumentation pass in the given mode and validates that the
   // resulting output DLL loads.
-  void EndToEndTest(const std::string& mode) {
+  virtual void EndToEndTest(const std::string& mode) {
     cmd_line_.AppendSwitchPath("input-image", input_dll_path_);
-    cmd_line_.AppendSwitchPath("output-image", output_dll_path_);
+    cmd_line_.AppendSwitchPath("output-image", test_dll_path_);
     cmd_line_.AppendSwitchASCII("mode", mode);
 
     // Create the instrumented DLL.
@@ -447,7 +452,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     ASSERT_EQ(0, app.Run());
 
     // Validate that the test dll loads post instrumentation.
-    ASSERT_NO_FATAL_FAILURE(LoadTestDll(output_dll_path_, &module_));
+    ASSERT_NO_FATAL_FAILURE(LoadTestDll(test_dll_path_, &module_));
   }
 
   // Invoke a test function inside test_dll by addressing it with a test id.
@@ -469,7 +474,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     base::FilePath harness = testing::GetExeRelativePath(harness_name.c_str());
     base::CommandLine cmd_line(harness);
     cmd_line.AppendSwitchASCII("test", base::StringPrintf("%d", test));
-    cmd_line.AppendSwitchPath("dll", output_dll_path_);
+    cmd_line.AppendSwitchPath("dll", test_dll_path_);
     if (expect_exception)
       cmd_line.AppendSwitch("expect-exception");
 
@@ -584,7 +589,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
     }
   }
 
-  void EndToEndCheckTestDll() {
+  virtual void EndToEndCheckTestDll() {
     // Validate that behavior is unchanged after instrumentation.
     EXPECT_EQ(0xfff80200, InvokeTestDllFunction(testing::kArrayComputation1));
     EXPECT_EQ(0x00000200, InvokeTestDllFunction(testing::kArrayComputation2));
@@ -626,7 +631,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
       if (asan_error_count == 0 && i + 1 < max_tries) {
         // If the module was unloaded and the test is retrying, then reload it.
         if (unload)
-          EXPECT_NO_FATAL_FAILURE(LoadTestDll(output_dll_path_, &module_));
+          EXPECT_NO_FATAL_FAILURE(LoadTestDll(test_dll_path_, &module_));
         continue;
       }
 
@@ -1277,7 +1282,7 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
   // @{
   base::CommandLine cmd_line_;
   base::FilePath input_dll_path_;
-  base::FilePath output_dll_path_;
+  base::FilePath test_dll_path_;
   base::FilePath traces_dir_;
   // @}
 
@@ -1298,6 +1303,30 @@ class LenientInstrumentAppIntegrationTest : public testing::PELibUnitTest {
   std::vector<std::unique_ptr<testing::ScopedEnvironmentVariable>>
       env_alterations_;
 };
+
+// Class created to enable parametrization of the tests with Clang.
+// Currently only Syzygy is supported but will be extended to work with CLANG.
+// Right now it just forwards the calls to the parent class.
+class ParametrizedLenientInstrumentAppIntegrationTest
+    : public LenientInstrumentAppIntegrationTest,
+      public ::testing::WithParamInterface<InstrumentationMode> {
+ public:
+  void EndToEndTest(const std::string& mode) override {
+    if (GetParam() == SYZYGY) {
+      LenientInstrumentAppIntegrationTest::EndToEndTest(mode);
+    }
+  }
+
+  void EndToEndCheckTestDll() override {
+    if (GetParam() == SYZYGY) {
+      LenientInstrumentAppIntegrationTest::EndToEndCheckTestDll();
+    }
+  }
+};
+
+typedef testing::StrictMock<ParametrizedLenientInstrumentAppIntegrationTest>
+    ParametrizedInstrumentAppIntegrationTest;
+
 typedef testing::StrictMock<LenientInstrumentAppIntegrationTest>
     InstrumentAppIntegrationTest;
 
@@ -1420,7 +1449,7 @@ void LenientInstrumentAppIntegrationTest::AsanZebraHeapTest(bool enabled) {
 
 }  // namespace
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanEndToEnd) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
@@ -1431,7 +1460,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(CheckTestDllImportsRedirected());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
@@ -1442,7 +1471,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanEndToEndNoRedundancyAnalysis) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
@@ -1453,7 +1483,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanEndToEndNoFunctionInterceptors) {
   // Disable the heap checking as this is implies touching all the shadow bytes
   // and this make those tests really slow.
   AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
@@ -1464,7 +1495,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
   cmd_line_.AppendSwitchASCII(
       common::kAsanRtlOptions,
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
@@ -1480,7 +1511,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
   ASSERT_EQ(1000000u, runtime->params().quarantine_block_size);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
        AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
   std::unique_ptr<base::Environment> env(base::Environment::Create());
   ASSERT_NE(env.get(), nullptr);
@@ -1506,7 +1537,7 @@ TEST_F(InstrumentAppIntegrationTest,
   env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
 }
 
-TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   // Disable the heap checking as this implies touching all the shadow bytes
   // and this make these tests really slow.
   AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
@@ -1517,7 +1548,7 @@ TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
 }
 
-TEST_F(InstrumentAppIntegrationTest,
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
        AsanInvalidAccessWithCorruptAllocatedBlockHeader) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1526,7 +1557,8 @@ TEST_F(InstrumentAppIntegrationTest,
       kAsanCorruptHeap, NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanOverflowCallsCrashForException) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanOverflowCallsCrashForException) {
   // Asan-detected violations go through CrashForException if it is available.
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1536,7 +1568,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanOverflowCallsCrashForException) {
   EXPECT_EQ(kExeCrashForExceptionExitCode, exit_code);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
        AsanInvalidAccessWithCorruptAllocatedBlockTrailer) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
@@ -1545,7 +1577,8 @@ TEST_F(InstrumentAppIntegrationTest,
       kAsanCorruptHeap, NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanInvalidAccessWithCorruptFreedBlock) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1553,7 +1586,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanInvalidAccessWithCorruptFreedBlock) {
       NULL);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanCorruptBlockWithPageProtections) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1561,43 +1595,47 @@ TEST_F(InstrumentAppIntegrationTest, AsanCorruptBlockWithPageProtections) {
       kAsanHeapUseAfterFree, kAsanCorruptHeap);
 }
 
-TEST_F(InstrumentAppIntegrationTest, SampledAllocationsAsanEndToEnd) {
-  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
-                       "--allocation_guard_rate=0.5 "
-                       "--no_check_heap_on_failure");
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       SampledAllocationsAsanEndToEnd) {
+  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+                              "--allocation_guard_rate=0.5 "
+                              "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckSampledAllocations());
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapEnabledTest) {
-  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
-                       "--no_check_heap_on_failure "
-                       "--quarantine_size=4000000 "
-                       "--quarantine_block_size=2000000");
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanLargeBlockHeapEnabledTest) {
+  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+                              "--no_check_heap_on_failure "
+                              "--quarantine_size=4000000 "
+                              "--quarantine_block_size=2000000");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(true));
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanLargeBlockHeapDisabledTest) {
-  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
-                       "--no_check_heap_on_failure "
-                       "--disable_large_block_heap");
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanLargeBlockHeapDisabledTest) {
+  cmd_line_.AppendSwitchASCII("asan-rtl-options",
+                              "--no_check_heap_on_failure "
+                              "--disable_large_block_heap");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
   AsanZebraHeapTest(false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
   AsanZebraHeapTest(true);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferOverflow) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanSymbolizerTestAsanBufferOverflow) {
   AsanSymbolizerTest(testing::kAsanRead8BufferOverflow,
                      STRINGIFY(HEAP_BUFFER_OVERFLOW),
                      STRINGIFY(ASAN_READ_ACCESS),
@@ -1605,7 +1643,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferOverflow) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferUnderflow) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanSymbolizerTestAsanBufferUnderflow) {
   AsanSymbolizerTest(testing::kAsanWrite32BufferUnderflow,
                      STRINGIFY(HEAP_BUFFER_UNDERFLOW),
                      STRINGIFY(ASAN_WRITE_ACCESS),
@@ -1613,7 +1652,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanBufferUnderflow) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanUseAfterFree) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanSymbolizerTestAsanUseAfterFree) {
   AsanSymbolizerTest(testing::kAsanRead64UseAfterFree,
                      STRINGIFY(USE_AFTER_FREE),
                      STRINGIFY(ASAN_READ_ACCESS),
@@ -1621,7 +1661,8 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanUseAfterFree) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanCorruptBlock) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
+       AsanSymbolizerTestAsanCorruptBlock) {
   AsanSymbolizerTest(testing::kAsanCorruptBlock,
                      STRINGIFY(CORRUPT_BLOCK),
                      STRINGIFY(ASAN_UNKNOWN_ACCESS),
@@ -1629,7 +1670,7 @@ TEST_F(InstrumentAppIntegrationTest, AsanSymbolizerTestAsanCorruptBlock) {
                      false);
 }
 
-TEST_F(InstrumentAppIntegrationTest,
+TEST_P(ParametrizedInstrumentAppIntegrationTest,
        AsanSymbolizerTestAsanCorruptBlockInQuarantine) {
   AsanSymbolizerTest(testing::kAsanCorruptBlockInQuarantine,
                      STRINGIFY(CORRUPT_BLOCK),
@@ -1639,7 +1680,7 @@ TEST_F(InstrumentAppIntegrationTest,
 }
 
 // These tests require corrupt heap checking to be enabled.
-TEST_F(InstrumentAppIntegrationTest, AsanNearNullptrAccess) {
+TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanNearNullptrAccess) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
 
   OutOfProcessAsanErrorCheckAndValidateLog(
@@ -1658,6 +1699,11 @@ TEST_F(InstrumentAppIntegrationTest, AsanNearNullptrAccess) {
       testing::kAsanNullptrAccessNoHeapCorruptionUninstrumented, true,
       kAsanHandlingException, kAsanNearNullptrAccessNoHeapCorruption);
 }
+
+// Instantiate the test cases only with SYZYGY until some problems are fixed.
+INSTANTIATE_TEST_CASE_P(InstantiationName,
+                        ParametrizedInstrumentAppIntegrationTest,
+                        testing::Values(SYZYGY));
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(StartService());
