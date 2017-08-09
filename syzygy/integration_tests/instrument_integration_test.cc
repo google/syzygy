@@ -96,10 +96,6 @@ struct ScopedAgentLogger {
   }
 
   ~ScopedAgentLogger() {
-    // Clean up the temp directory if we created one.
-    if (!temp_dir_.empty())
-      base::DeleteFile(temp_dir_, true);
-
     if (nul_) {
       ::CloseHandle(nul_);
       nul_ = NULL;
@@ -168,8 +164,11 @@ struct ScopedAgentLogger {
   base::FilePath agent_logger_;
   std::string instance_id_;
 
-  // Modified by Start and Stop.
+  // The temp directory used by this logger. This is owned by the object that
+  // owns this logger.
   base::FilePath temp_dir_;
+
+  // Modified by Start and Stop.
   base::FilePath log_file_;
   base::Process process_;
   HANDLE nul_;
