@@ -39,7 +39,7 @@
         'integration_tests_dll.rc',
         'profile_tests.h',
         'profile_tests.cc',
-    ]
+    ],
   },
   'targets': [
     {
@@ -53,27 +53,34 @@
       'dependencies': [
         'crash_for_exception_harness',
         'integration_tests_clang_dll',
-        'integration_tests_dll',
         'integration_tests_harness',
         '<(src)/base/base.gyp:test_support_base',
         '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl',
-        '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
-            'basic_block_entry_client',
-        '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
-        '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_client',
-        '<(src)/syzygy/agent/profiler/profiler.gyp:profile_client',
         '<(src)/syzygy/core/core.gyp:core_unittest_utils',
-        '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',
-        '<(src)/syzygy/instrument/instrument.gyp:instrument_lib',
-        '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
         '<(src)/syzygy/poirot/poirot.gyp:poirot_lib',
         '<(src)/syzygy/testing/testing.gyp:testing_lib',
+        '<(src)/syzygy/trace/parse/parse.gyp:parse_lib',
         '<(src)/syzygy/trace/agent_logger/agent_logger.gyp:agent_logger',
-        '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
-        '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
         '<(src)/testing/gmock.gyp:gmock',
         '<(src)/third_party/pcre/pcre.gyp:pcre_lib',
         '<(src)/third_party/protobuf/protobuf.gyp:protobuf_lite_lib',
+      ],
+      'conditions': [
+        ['target_arch == "ia32"', {
+          'dependencies': [
+            'integration_tests_dll',
+            '<(src)/syzygy/agent/basic_block_entry/basic_block_entry.gyp:'
+                'basic_block_entry_client',
+            '<(src)/syzygy/agent/call_trace/call_trace.gyp:call_trace_client',
+            '<(src)/syzygy/agent/coverage/coverage.gyp:coverage_client',
+            '<(src)/syzygy/agent/profiler/profiler.gyp:profile_client',
+            '<(src)/syzygy/grinder/grinder.gyp:grinder_lib',
+            '<(src)/syzygy/instrument/instrument.gyp:instrument_lib',
+            '<(src)/syzygy/pe/pe.gyp:pe_unittest_utils',
+            '<(src)/syzygy/trace/common/common.gyp:trace_unittest_utils',
+            '<(src)/syzygy/trace/service/service.gyp:call_trace_service_exe',
+          ],
+        }],
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -221,9 +228,16 @@
         'integration_tests_harness.cc',
       ],
       'dependencies': [
-        'integration_tests_dll',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/common/common.gyp:common_lib',
+      ],
+      'conditions': [
+        ['target_arch == "ia32"', {
+          'dependencies': [
+            'integration_tests_dll',
+          ],
+        },
+        ],
       ],
       'msvs_settings': {
         'VCLinkerTool': {
@@ -243,10 +257,17 @@
         'integration_tests_harness.cc',
       ],
       'dependencies': [
-        'integration_tests_dll',
         '<(src)/base/base.gyp:base',
         '<(src)/syzygy/agent/asan/asan.gyp:syzyasan_rtl_lib',
         '<(src)/syzygy/common/common.gyp:common_lib',
+      ],
+      'conditions': [
+        ['target_arch == "ia32"', {
+          'dependencies': [
+            'integration_tests_dll',
+          ],
+        },
+        ],
       ],
       'msvs_settings': {
         'VCLinkerTool': {
