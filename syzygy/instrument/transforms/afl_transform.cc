@@ -201,6 +201,14 @@ bool AFLTransform::OnBlock(const TransformPolicyInterface* policy,
   if (block->type() != BlockGraph::CODE_BLOCK)
     return true;
 
+  // We exclude gap blocks early to not bias the percentage of instrumentation.
+  // Some binaries have a lot of them and give the impression of a poor
+  // instrumentation ratio when it is actually not the case.
+  // It also avoids to have stdout flooded when using the verbose mode and
+  // not forcing decomposition (as the PE policy rejects gap blocks).
+  if (block->attributes() & BlockGraph::GAP_BLOCK)
+    return true;
+
   total_code_blocks_++;
 
   // Use the policy to skip blocks that aren't eligible for basic block
