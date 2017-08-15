@@ -8,7 +8,7 @@
 
 # Individual contributors.
 
-# As of yet, there are no individual contributors.
+Axel "0vercl0k" Souchet <0vercl0k@tuxfamily.org>
 
 # Institutional contributors.
 
