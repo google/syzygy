@@ -41,6 +41,7 @@ extern const wchar_t kTestDllPdbName64[];
 // Name of the integrations tests DLLs and PDBs.
 extern const wchar_t kIntegrationTestsDllName[];
 extern const wchar_t kIntegrationTestsDllPdbName[];
+extern const wchar_t kIntegrationTestsClangDllName[];
 
 // Name of the DLL containing an empty exports directory.
 extern const wchar_t kNoExportsDllName[];

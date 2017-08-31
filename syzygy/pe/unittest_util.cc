@@ -159,6 +159,8 @@ const wchar_t testing::kIntegrationTestsDllName[] =
     L"integration_tests_dll.dll";
 const wchar_t testing::kIntegrationTestsDllPdbName[] =
     L"integration_tests_dll.dll.pdb";
+const wchar_t testing::kIntegrationTestsClangDllName[] =
+    L"integration_tests_clang_dll.dll";
 
 const wchar_t kNoExportsDllName[] = L"no_exports_dll.dll";
 const wchar_t kNoExportsDllPdbName[] = L"no_exports_dll.dll.pdb";

@@ -1313,6 +1313,11 @@ class ParametrizedLenientInstrumentAppIntegrationTest
   void EndToEndTest(const std::string& mode) override {
     if (GetParam() == SYZYGY) {
       LenientInstrumentAppIntegrationTest::EndToEndTest(mode);
+    } else if (GetParam() == CLANG) {
+      test_dll_path_ =
+          testing::GetExeRelativePath(testing::kIntegrationTestsClangDllName);
+      // Validates that the test dll loads post instrumentation.
+      ASSERT_NO_FATAL_FAILURE(LoadTestDll(test_dll_path_, &module_));
     }
   }
 
@@ -1459,44 +1464,9 @@ TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(CheckTestDllImportsRedirected());
 }
 
-TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
-  // Disable the heap checking as this is implies touching all the shadow bytes
-  // and this make those tests really slow.
-  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
-                       "--no_check_heap_on_failure");
-  cmd_line_.AppendSwitch("no-liveness-analysis");
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
-}
-
-TEST_P(ParametrizedInstrumentAppIntegrationTest,
-       AsanEndToEndNoRedundancyAnalysis) {
-  // Disable the heap checking as this is implies touching all the shadow bytes
-  // and this make those tests really slow.
-  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
-                       "--no_check_heap_on_failure");
-  cmd_line_.AppendSwitch("no-redundancy-analysis");
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
-}
-
-TEST_P(ParametrizedInstrumentAppIntegrationTest,
-       AsanEndToEndNoFunctionInterceptors) {
-  // Disable the heap checking as this is implies touching all the shadow bytes
-  // and this make those tests really slow.
-  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
-                       "--no_check_heap_on_failure");
-  cmd_line_.AppendSwitch("no-interceptors");
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
-}
-
 TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
-  cmd_line_.AppendSwitchASCII(
-      common::kAsanRtlOptions,
+  AddEnvironmentChange(
+      ::common::kSyzyAsanOptionsEnvVar,
       "--quarantine_size=20000000 --quarantine_block_size=1000000 "
       "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1511,46 +1481,10 @@ TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanEndToEndWithRtlOptions) {
 }
 
 TEST_P(ParametrizedInstrumentAppIntegrationTest,
-       AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
-  std::unique_ptr<base::Environment> env(base::Environment::Create());
-  ASSERT_NE(env.get(), nullptr);
-  env->SetVar(::common::kSyzyAsanOptionsEnvVar,
-              "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "
-              "--no_check_heap_on_failure");
-  cmd_line_.AppendSwitchASCII(
-      common::kAsanRtlOptions,
-      "--quarantine_size=20000000 --quarantine_block_size=1000000 "
-      "--ignored_stack_ids=0x2");
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
-
-  // Get the active runtime and validate its parameters.
-  agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
-  ASSERT_TRUE(runtime != NULL);
-  ASSERT_EQ(20000000u, runtime->params().quarantine_size);
-  ASSERT_EQ(800000u, runtime->params().quarantine_block_size);
-  ASSERT_THAT(runtime->params().ignored_stack_ids_set,
-              testing::ElementsAre(0x1, 0x2));
-
-  env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
-}
-
-TEST_P(ParametrizedInstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
-  // Disable the heap checking as this implies touching all the shadow bytes
-  // and this make these tests really slow.
-  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
-                       "--no_check_heap_on_failure");
-  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
-  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
-  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
-}
-
-TEST_P(ParametrizedInstrumentAppIntegrationTest,
        AsanInvalidAccessWithCorruptAllocatedBlockHeader) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
   OutOfProcessAsanErrorCheckAndValidateLog(
       testing::kAsanInvalidAccessWithCorruptAllocatedBlockHeader, true,
       kAsanCorruptHeap, NULL);
@@ -1596,9 +1530,9 @@ TEST_P(ParametrizedInstrumentAppIntegrationTest,
 
 TEST_P(ParametrizedInstrumentAppIntegrationTest,
        SampledAllocationsAsanEndToEnd) {
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--allocation_guard_rate=0.5 "
-                              "--no_check_heap_on_failure");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--allocation_guard_rate=0.5 "
+                       "--no_check_heap_on_failure");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanErrorCheckSampledAllocations());
@@ -1606,10 +1540,10 @@ TEST_P(ParametrizedInstrumentAppIntegrationTest,
 
 TEST_P(ParametrizedInstrumentAppIntegrationTest,
        AsanLargeBlockHeapEnabledTest) {
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--no_check_heap_on_failure "
-                              "--quarantine_size=4000000 "
-                              "--quarantine_block_size=2000000");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure "
+                       "--quarantine_size=4000000 "
+                       "--quarantine_block_size=2000000");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(true));
@@ -1617,20 +1551,12 @@ TEST_P(ParametrizedInstrumentAppIntegrationTest,
 
 TEST_P(ParametrizedInstrumentAppIntegrationTest,
        AsanLargeBlockHeapDisabledTest) {
-  cmd_line_.AppendSwitchASCII("asan-rtl-options",
-                              "--no_check_heap_on_failure "
-                              "--disable_large_block_heap");
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure "
+                       "--disable_large_block_heap");
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
   ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
   ASSERT_NO_FATAL_FAILURE(AsanLargeBlockHeapTests(false));
-}
-
-TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
-  AsanZebraHeapTest(false);
-}
-
-TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
-  AsanZebraHeapTest(true);
 }
 
 TEST_P(ParametrizedInstrumentAppIntegrationTest,
@@ -1669,15 +1595,6 @@ TEST_P(ParametrizedInstrumentAppIntegrationTest,
                      false);
 }
 
-TEST_P(ParametrizedInstrumentAppIntegrationTest,
-       AsanSymbolizerTestAsanCorruptBlockInQuarantine) {
-  AsanSymbolizerTest(testing::kAsanCorruptBlockInQuarantine,
-                     STRINGIFY(CORRUPT_BLOCK),
-                     STRINGIFY(ASAN_UNKNOWN_ACCESS),
-                     0,
-                     true);
-}
-
 // These tests require corrupt heap checking to be enabled.
 TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanNearNullptrAccess) {
   ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
@@ -1699,10 +1616,96 @@ TEST_P(ParametrizedInstrumentAppIntegrationTest, AsanNearNullptrAccess) {
       kAsanHandlingException, kAsanNearNullptrAccessNoHeapCorruption);
 }
 
-// Instantiate the test cases only with SYZYGY until some problems are fixed.
 INSTANTIATE_TEST_CASE_P(InstantiationName,
                         ParametrizedInstrumentAppIntegrationTest,
-                        testing::Values(SYZYGY));
+                        testing::Values(SYZYGY, CLANG));
+
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoLiveness) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
+  cmd_line_.AppendSwitch("no-liveness-analysis");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoRedundancyAnalysis) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
+  cmd_line_.AppendSwitch("no-redundancy-analysis");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanEndToEndNoFunctionInterceptors) {
+  // Disable the heap checking as this is implies touching all the shadow bytes
+  // and this make those tests really slow.
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
+  cmd_line_.AppendSwitch("no-interceptors");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+}
+
+TEST_F(InstrumentAppIntegrationTest,
+       AsanEndToEndWithRtlOptionsOverrideWithEnvironment) {
+  std::unique_ptr<base::Environment> env(base::Environment::Create());
+  ASSERT_NE(env.get(), nullptr);
+  env->SetVar(::common::kSyzyAsanOptionsEnvVar,
+              "--quarantine_block_size=800000 --ignored_stack_ids=0x1 "
+              "--no_check_heap_on_failure");
+  cmd_line_.AppendSwitchASCII(
+      common::kAsanRtlOptions,
+      "--quarantine_size=20000000 --quarantine_block_size=1000000 "
+      "--ignored_stack_ids=0x2");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+
+  // Get the active runtime and validate its parameters.
+  agent::asan::AsanRuntime* runtime = GetActiveAsanRuntime();
+  ASSERT_TRUE(runtime != NULL);
+  ASSERT_EQ(20000000u, runtime->params().quarantine_size);
+  ASSERT_EQ(800000u, runtime->params().quarantine_block_size);
+  ASSERT_THAT(runtime->params().ignored_stack_ids_set,
+              testing::ElementsAre(0x1, 0x2));
+
+  env->UnSetVar(::common::kSyzyAsanOptionsEnvVar);
+}
+
+TEST_F(InstrumentAppIntegrationTest, FullOptimizedAsanEndToEnd) {
+  // Disable the heap checking as this implies touching all the shadow bytes
+  // and this make these tests really slow.
+  AddEnvironmentChange(::common::kSyzyAsanOptionsEnvVar,
+                       "--no_check_heap_on_failure");
+  ASSERT_NO_FATAL_FAILURE(EndToEndTest("asan"));
+  ASSERT_NO_FATAL_FAILURE(EndToEndCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckTestDll());
+  ASSERT_NO_FATAL_FAILURE(AsanErrorCheckInterceptedFunctions());
+}
+
+TEST_F(InstrumentAppIntegrationTest,
+       AsanSymbolizerTestAsanCorruptBlockInQuarantine) {
+  // This test requires the HeapCreate/HeapDestroy functions to be intercepted
+  // and thus doesn't work on a Clang instrumented binary.
+  AsanSymbolizerTest(testing::kAsanCorruptBlockInQuarantine,
+                     STRINGIFY(CORRUPT_BLOCK), STRINGIFY(ASAN_UNKNOWN_ACCESS),
+                     0, true);
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapDisabledTest) {
+  AsanZebraHeapTest(false);
+}
+
+TEST_F(InstrumentAppIntegrationTest, AsanZebraHeapEnabledTest) {
+  AsanZebraHeapTest(true);
+}
 
 TEST_F(InstrumentAppIntegrationTest, BBEntryEndToEnd) {
   ASSERT_NO_FATAL_FAILURE(StartService());

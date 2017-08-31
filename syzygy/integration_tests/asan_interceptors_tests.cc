@@ -1145,6 +1145,9 @@ size_t AsanCorruptBlock() {
 }
 
 size_t AsanCorruptBlockInQuarantine() {
+  // This test requires the HeapCreate/HeapDestroy functions to be intercepted
+  // and so doesn't work with a Clang-instrumented binary.
+  // TODO(sebmarchand): Find another way to flush the quarantine.
   HANDLE heap = ::HeapCreate(NULL, 0, 0);
   size_t* mem =
       static_cast<size_t*>(::HeapAlloc(heap, NULL, 10 * sizeof(size_t)));

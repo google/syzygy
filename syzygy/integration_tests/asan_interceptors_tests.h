@@ -31,7 +31,12 @@ namespace testing {
 // @tparam type The type of the value to be read.
 // @param location The location where to read from.
 // @returns the value at |location|
-template<typename type>
+template <typename type>
+#if defined(__clang__)
+type __attribute__((no_sanitize_address)) NonInterceptedRead(type* location) {
+  return *location;
+}
+#else
 type NonInterceptedRead(type* location) {
   // The try-except statement prevents the function from being instrumented.
   __try {
@@ -41,6 +46,7 @@ type NonInterceptedRead(type* location) {
   }
   return static_cast<type>(0);
 }
+#endif
 
 // Helper function to do non instrumented reads from an array.
 // @tparam type The type of the values to be read.
@@ -58,7 +64,13 @@ void NonInterceptedReads(type* src, size_t size, type* dst) {
 // @tparam type The type of the value to be written.
 // @param location The location where to write to.
 // @param val The value to write.
-template<typename type>
+template <typename type>
+#if defined(__clang__)
+void __attribute__((no_sanitize_address))
+NonInterceptedWrite(type* location, type val) {
+  *location = val;
+}
+#else
 void NonInterceptedWrite(type* location, type val) {
   // The try-except statement prevents the function from being instrumented.
   __try {
@@ -67,6 +79,7 @@ void NonInterceptedWrite(type* location, type val) {
     // Nothing to do here.
   }
 }
+#endif
 
 // Helper function to do non instrumented writes from an array.
 // @tparam type The type of the values to be written.
