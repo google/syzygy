@@ -1,6 +1,5 @@
 # This file is used by "git cl" to get repository specific information.
-CODE_REVIEW_SERVER: codereview.chromium.org
-VIEW_VC: https://github.com/google/syzygy/commit/
 CC_LIST: syzygy-changes@googlegroups.com
-TRY_ON_UPLOAD: False
+GERRIT_HOST: True
 PROJECT: syzygy
+VIEW_VC: https://chromium.googlesource.com/syzygy/+/
