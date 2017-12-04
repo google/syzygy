@@ -200,9 +200,21 @@ struct ThreeBytesVexInstruction {
   union {
     uint8_t second_byte;
     struct {
+      // Implied mandatory prefix:
+      //   +-------+--------------------------+
+      //   | value | Implied mandatory prefix |
+      //   +-------+--------------------------+
+      //   | 0b00  | none                     |
+      //   | 0b01  | 0x66                     |
+      //   | 0b10  | 0xF3                     |
+      //   | 0b11  | 0xF2                     |
+      //   +-------+--------------------------+
       uint8_t pp : 2;
+      // Vector length.
       uint8_t l : 1;
+      // Additional operand.
       uint8_t inv_vvvv : 4;
+      // 64-bit operand size / general opcode extension bit.
       uint8_t w_e : 1;
     };
   };
@@ -254,6 +266,9 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
   size_t constants_size = 0;
 
   // Switch case based on the opcode used by this instruction.
+  //
+  // The different opcodes and their encoding is described in the "Intel
+  // Architecture Instruction Set Extensions Programming Reference" document.
   switch (instruction.map_select) {
     case 0x02: {
       switch (instruction.opcode) {
@@ -292,6 +307,13 @@ size_t Get3ByteVexEncodedInstructionSize(_CodeInfo* ci) {
         case 0x90:  // vpgatherdd
           if (instruction.MatchExpectations(0b111, 0, "vpgatherdd"))
             operand_size = GetModRMOperandBytesSize(ci, false);
+          break;
+        case 0xF7:  // bextr/shlx/sarx/shrx
+          // The bextr/shlx/sarx/shrx instructions share the same opcode, the
+          // distinction is made via the |pp| (mandatory prefix) field. They
+          // all have the same operand encoding.
+          if (instruction.MatchExpectations(0b111, 0, "bextr/shlx/sarx/shrx"))
+            operand_size = GetModRMOperandBytesSize(ci, true);
           break;
         default:
           break;
