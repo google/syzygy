@@ -27,7 +27,33 @@ vars = {
 }
 
 deps = {
-  # Dependency required to build base.
+  # Chrome base and other top-level dependencies:
+  "src/base":
+    Var("chromium_git") + "chromium/src/base@8d8b1b54e",
+  "src/build":
+    Var("chromium_git") + "chromium/src/build@8158e0740",
+
+  # Build tools:
+  "src/buildtools":
+    Var("chromium_git") + "chromium/buildtools@ecc8e25",
+
+  # Testing dependencies:
+  "src/testing":
+    Var("chromium_git") + "chromium/src/testing@e09b76f3",
+  "src/testing/gmock":
+    Var("chromium_git") + "external/gmock@0421b6f",
+  "src/testing/gtest":
+    Var("chromium_git") + "external/gtest@86dec5c",
+
+  # Chromium third_party dependencies:
+  "src/third_party/modp_b64":
+    Var("chromium_git") + "chromium/src/third_party/modp_b64@781604df",
+  "src/third_party/zlib":
+    Var("chromium_git") + "chromium/src/third_party/zlib@4576304",
+  "src/third_party/protobuf/src":
+    Var("chromium_git") + "external/github.com/google/protobuf@786379a",
+
+  # ICU:
   "src/third_party/icu":
     Var("chromium_git") + "chromium/deps/icu.git@54f86bb",
 
@@ -84,15 +110,6 @@ include_rules = [
 ]
 
 hooks = [
-  {
-    "name": "run_gitdeps",
-    "pattern": ".",
-    "action": [Var("python_path"),
-               "src\\syzygy\\build\\gitdeps.py",
-               "src\\GITDEPS",
-               "--output-dir=src",
-               "--cache-dir", "src/.gitdeps-cache"],
-  },
   {
     # This clobbers when necessary (based on get_landmines.py). It must be
     # called before any other hook that get/generate into the output directory.
