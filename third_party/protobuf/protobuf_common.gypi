@@ -19,7 +19,7 @@
   # These settings are passed on to users of protobuf libraries, ensuring that
   # they compile cleanly.
   'direct_dependent_settings': {
-    'include_dirs': [ '.', 'src', ],
+    'include_dirs': [ '.', 'src/src', ],
     'defines': [
       'GOOGLE_PROTOBUF_NO_RTTI',
       'GOOGLE_PROTOBUF_NO_STATIC_INITIALIZER',

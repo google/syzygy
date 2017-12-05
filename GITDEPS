@@ -63,7 +63,7 @@ deps = {
   ),
 
   # This brings in protobuf, used by SyzyASan metadata.
-  "third_party/protobuf": (
+  "third_party/protobuf/src": (
     Var("chrome_base_git") + "external/github.com/google/protobuf",
     [
       "src",
