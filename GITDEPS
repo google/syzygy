@@ -34,7 +34,6 @@ deps = {
       "build",
 
       # third_party dependencies.
-      "third_party/libxml",
       "third_party/modp_b64",
       "third_party/zlib",
 
