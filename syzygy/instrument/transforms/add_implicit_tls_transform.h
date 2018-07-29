@@ -70,7 +70,7 @@ class AddImplicitTlsTransform
 
   // Insert an implicit TLS slot. This function is called only if implicit
   // slots are already present. In this case, it extends the TLS storage
-  // (at the end of it) to accomodate an extra slot.
+  // (at the end of it) to accommodate an extra slot.
   bool InsertImplicitTlsSlot(BlockGraph* block_graph);
 
   // This is the data block we redirect TlsIndex into.

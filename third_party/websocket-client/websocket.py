@@ -347,7 +347,7 @@ class WebSocket(object):
       The WebSocket protocol draft-hixie-thewebsocketprotocol-76
       http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-76
 
-    We can connect to the websocket server and send/recieve data.
+    We can connect to the websocket server and send/receive data.
     The following example is a echo client.
 
     >>> import websocket
